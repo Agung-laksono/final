@@ -17,7 +17,8 @@
         "livewire/flux": "^2.13.1",
         "livewire/livewire": "^4.1",
         "livewire/volt": "^1.10",
-        "nwidart/laravel-modules": "^13.0"
+        "nwidart/laravel-modules": "^13.0",
+        "wikimedia/composer-merge-plugin": "^2.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
