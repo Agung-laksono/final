@@ -17,6 +17,13 @@
                     </flux:sidebar.item>
                 </flux:sidebar.group>
             </flux:sidebar.nav>
+            <flux:sidebar.nav>
+                <flux:sidebar.group class="grid">
+                    <flux:sidebar.item icon="cube" :href="route('inventory')" :current="request()->routeIs('inventory')" wire:navigate>
+                        {{ __('Inventory') }}
+                    </flux:sidebar.item>
+                </flux:sidebar.group>
+            </flux:sidebar.nav>
 
             <flux:spacer />
 
