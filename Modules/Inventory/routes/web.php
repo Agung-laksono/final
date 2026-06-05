@@ -7,5 +7,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     // URL-nya langsung '/inventory', namanya langsung 'inventory'
     Volt::route('/inventory', 'index')->name('inventory');
+    Volt::route('/agung', 'index')->name('agung');
     
 });

@@ -1,0 +1,1 @@
+<?php require 'vendor/autoload.php'; $app = require_once 'bootstrap/app.php'; $app->make('Illuminate\Contracts\Console\Kernel')->bootstrap(); echo Illuminate\Support\Facades\Blade::render('<x-image-cropper wire:model="image" />'); ?>
