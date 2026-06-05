@@ -22,6 +22,8 @@ return new class extends Migration
             $table->foreignId('sub_category_id')->nullable()->constrained('sub_categories')->onDelete('set null');
              $table->decimal('purchase_price', 15, 2)->default(0);
             $table->decimal('selling_price', 15, 2)->default(0);
+            $table->integer('min_stock')->default(0)->after('selling_price');
+            $table->integer('max_stock')->default(0)->after('min_stock');
             $table->boolean('is_active')->default(true);
             $table->boolean('requires_label')->default(false);
             //Mencatat siapa user yang mengubah harganya
