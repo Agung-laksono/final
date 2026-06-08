@@ -239,7 +239,9 @@ $delete = function (Item $item) {
 
     <div class="flex justify-between items-center mb-6">
         <flux:heading size="lg">Pengelolaan Barang</flux:heading>
-        <flux:button wire:click="openModal" variant="primary" icon="plus">Tambah Barang Baru</flux:button>
+        @can('inventory.item.create')
+            <flux:button wire:click="openModal" variant="primary" icon="plus">Tambah Barang Baru</flux:button>
+        @endcan
     </div>
 
     {{-- Tabel Daftar Barang --}}
@@ -322,8 +324,12 @@ $delete = function (Item $item) {
 
                         <flux:table.cell>
                             <div class="flex gap-1">
-                                <flux:button wire:click="openModal({{ $i->id }})" variant="ghost" size="sm" icon="pencil" class="text-blue-500 hover:text-blue-600" />
-                                <flux:button wire:click="delete({{ $i->id }})" wire:confirm="Yakin menghapus barang {{ $i->name }}?" variant="ghost" size="sm" icon="trash" class="text-red-500 hover:text-red-600" />
+                                @can('inventory.item.update')
+                                    <flux:button wire:click="openModal({{ $i->id }})" variant="ghost" size="sm" icon="pencil" class="text-blue-500 hover:text-blue-600" />
+                                @endcan
+                                @can('inventory.item.delete')
+                                    <flux:button wire:click="delete({{ $i->id }})" wire:confirm="Yakin menghapus barang {{ $i->name }}?" variant="ghost" size="sm" icon="trash" class="text-red-500 hover:text-red-600" />
+                                @endcan
                             </div>
                         </flux:table.cell>
                     </flux:table.row>

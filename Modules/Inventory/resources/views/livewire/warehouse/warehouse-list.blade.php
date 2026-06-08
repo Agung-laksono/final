@@ -67,11 +67,13 @@ $setViewMode = function ($mode) {
             {{-- Toggle View --}}
             <x-grid-or-table wire:model="viewMode" :mode="$viewMode" />
 
+            @can('inventory.warehouse.create')
             <flux:button x-on:click="$dispatch('open-warehouse-form')" variant="primary" icon="plus">
                 <span class="hidden md:inline">
                     Gudang
                 </span>
             </flux:button>
+            @endcan
         </div>
     </x-sticky-header>
 
@@ -151,8 +153,12 @@ $setViewMode = function ($mode) {
                             </flux:table.cell>
 
                             <flux:table.cell>
+                                @can('inventory.warehouse.update')
                                 <flux:button size="sm" x-on:click="$dispatch('open-warehouse-form', { id: {{ $warehouse->id }} })" icon="pencil-square" variant="ghost" class="text-zinc-500 hover:text-blue-600"></flux:button>
+                                @endcan
+                                @can('inventory.warehouse.delete')
                                 <flux:button size="sm" x-on:click="$dispatch('delete-warehouse', { id: {{ $warehouse->id }} })" icon="trash" variant="ghost" class="text-zinc-500 hover:text-red-600"></flux:button>
+                                @endcan
                             </flux:table.cell>
                         </flux:table.row>
                     @empty
@@ -257,12 +263,16 @@ $setViewMode = function ($mode) {
                                 Aktif
                             </div>
                             <div class="flex gap-1 -mr-2 -mb-2">
+                                @can('inventory.warehouse.update')
                                 <button x-on:click="$dispatch('open-warehouse-form', { id: {{ $warehouse->id }} })" class="p-2 text-zinc-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20" title="Edit">
                                     <flux:icon.pencil-square class="w-4 h-4" />
                                 </button>
+                                @endcan
+                                @can('inventory.warehouse.delete')
                                 <button x-on:click="$dispatch('delete-warehouse', { id: {{ $warehouse->id }} })" class="p-2 text-zinc-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="Hapus">
                                     <flux:icon.trash class="w-4 h-4" />
                                 </button>
+                                @endcan
                             </div>
                         </div>
                     </div>

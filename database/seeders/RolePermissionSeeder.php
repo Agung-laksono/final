@@ -18,13 +18,57 @@ class RolePermissionSeeder extends Seeder
         // Reset cached roles and permissions
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Buat Permissions Dasar
+        // Bersihkan data lama (Karena kita transisi ke sistem BREAD)
+        \DB::table('role_has_permissions')->delete();
+        Permission::query()->delete();
+        Role::query()->delete();
+
+        // Buat Permissions Dasar (Hierarki 3-Bagian untuk Inventory)
         $permissions = [
-            'view inventory',
-            'manage inventory',
-            'manage users',
-            'view sales',
-            'manage sales',
+            // Kunci Utama Modul
+            'inventory.view',
+            'inventory.create', // Master data dasar (opsional)
+            'inventory.update',
+            'inventory.delete',
+
+            // Sub-Menu: Barang
+            'inventory.item.view',
+            'inventory.item.create',
+            'inventory.item.update',
+            'inventory.item.delete',
+
+            // Sub-Menu: Gudang
+            'inventory.warehouse.view',
+            'inventory.warehouse.create',
+            'inventory.warehouse.update',
+            'inventory.warehouse.delete',
+
+            // Sub-Menu: Transfer Barang
+            'inventory.transfer.view',
+            'inventory.transfer.create',
+            'inventory.transfer.update',
+            'inventory.transfer.delete',
+
+            // Sub-Menu: Riwayat Mutasi
+            'inventory.movement.view',
+
+            // Sub-Menu: Opname
+            'inventory.opname.view',
+            'inventory.opname.create',
+            'inventory.opname.update',
+            'inventory.opname.delete',
+            
+            // Modul Sales
+            'sales.view',
+            'sales.create',
+            'sales.update',
+            'sales.delete',
+
+            // Modul Pegawai / Settings
+            'users.view',
+            'users.create',
+            'users.update',
+            'users.delete',
         ];
 
         foreach ($permissions as $permission) {
@@ -33,19 +77,38 @@ class RolePermissionSeeder extends Seeder
 
         // Buat Roles dan berikan permissions
         $roleSuperAdmin = Role::create(['name' => 'Super Admin']);
-        // Super Admin mendapatkan semua permission via Gate::before di AuthServiceProvider / AppServiceProvider
+        // Super Admin mendapatkan semua permission via Gate::before di AppServiceProvider
 
         $roleManager = Role::create(['name' => 'Manager']);
-        $roleManager->givePermissionTo(['view inventory', 'manage inventory', 'view sales', 'manage sales', 'manage users']);
+        $roleManager->givePermissionTo(Permission::all()); // Manager dapat semua hak (tapi bisa disesuaikan nanti)
 
         $roleGudang = Role::create(['name' => 'Gudang']);
-        $roleGudang->givePermissionTo(['view inventory', 'manage inventory']);
+        $roleGudang->givePermissionTo([
+            'inventory.view', // Kunci masuk
+            'inventory.item.view', 'inventory.item.create', 'inventory.item.update',
+            'inventory.warehouse.view',
+            'inventory.transfer.view', 'inventory.transfer.create', 'inventory.transfer.update',
+            'inventory.movement.view',
+            'inventory.opname.view', 'inventory.opname.create', 'inventory.opname.update',
+            // Gudang tidak punya hak delete apapun
+        ]);
 
         $roleSales = Role::create(['name' => 'Sales']);
-        $roleSales->givePermissionTo(['view inventory', 'view sales', 'manage sales']);
+        $roleSales->givePermissionTo([
+            'sales.view',
+            'sales.create',
+            'sales.update',
+            // Sales hanya bisa lihat daftar barang dan stok
+            'inventory.view',
+            'inventory.item.view',
+            'inventory.warehouse.view'
+        ]);
 
         $roleMarketing = Role::create(['name' => 'Marketing']);
-        $roleMarketing->givePermissionTo(['view inventory', 'view sales']);
+        $roleMarketing->givePermissionTo([
+            'inventory.view', 
+            'sales.view'
+        ]);
 
         // Jadikan user pertama di sistem sebagai Super Admin
         $firstUser = User::first();

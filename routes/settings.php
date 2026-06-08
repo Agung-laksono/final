@@ -13,4 +13,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::livewire('settings/security', 'pages::settings.security')
         ->name('security.edit');
+
+    Route::middleware(['role:Super Admin'])->group(function () {
+        \Livewire\Volt\Volt::route('settings/users', 'settings.users')->name('settings.users');
+    });
 });

@@ -9,19 +9,18 @@ usesPagination(theme: 'tailwind');
 layout('layouts.app');
 title('Transfer Barang');
 
-state(['search' => '']);
+state([
+    'search' => '',
+    'perPage' => 3,
+]);
 
-$delete = function (StockTransfer $transfer) {
-    if ($transfer->status !== 'pending') {
-        Flux::toast('Hanya transfer berstatus pending yang bisa dibatalkan/dihapus.', variant: 'danger');
-        return;
-    }
-    $transfer->delete();
-    Flux::toast('Data transfer berhasil dihapus.');
+$loadMore = function () {
+    $this->perPage += 15;
 };
 
 on([
     'transfer-saved' => function () {},
+    'transfer-deleted' => function () {},
     'echo:inventory,InventoryUpdated' => function ($event) {
         // Triggered via WebSockets when another user (or tab) saves a transfer
         \Flux\Flux::toast('Riwayat transfer diperbarui dari server.', variant: 'success');
@@ -34,48 +33,61 @@ with(fn () => [
             $query->where('reference_number', 'like', '%' . $this->search . '%');
         })
         ->latest()
-        ->paginate(10)
+        ->paginate($this->perPage)
 ]);
 
 ?>
 
 <div>
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <flux:heading size="xl">{{ __('Transfer Antar Gudang') }}</flux:heading>
+    <x-sticky-header class="flex flex-col sm:flex-row justify-end items-start sm:items-center mb-6 gap-4">
+        <div class="hidden md:block w-max">
+            <flux:heading size="lg">{{ __('Transfer Antar Gudang') }}</flux:heading>
             <flux:subheading>{{ __('Kelola perpindahan stok antar gudang.') }}</flux:subheading>
         </div>
-        <flux:modal.trigger name="create-transfer-modal">
-            <flux:button variant="primary" icon="plus">
-                {{ __('Transfer Baru') }}
-            </flux:button>
-        </flux:modal.trigger>
-    </div>
+        
+        <div class="flex items-center gap-3 w-full sm:w-auto">
+            {{-- Search Bar --}}
+            <div class="flex-1 sm:flex-none sm:w-72 relative">
+                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari No. Referensi..." />
+            </div>
 
-    <div class="mb-4">
-        <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari No. Referensi..." class="max-w-md" />
-    </div>
+            @can('inventory.transfer.create')
+            <flux:modal.trigger name="create-transfer-modal">
+                <flux:button variant="primary" icon="plus" class="hidden sm:flex">
+                    {{ __('Transfer Baru') }}
+                </flux:button>
+                <flux:button variant="primary" icon="plus" class="sm:hidden px-2" />
+            </flux:modal.trigger>
+            @endcan
+        </div>
+    </x-sticky-header>
 
-    <div class="bg-white border dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+    <div class="pl-2 bg-white border dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
         <div class="overflow-x-auto">
             <flux:table>
                 <flux:table.columns>
-                    <flux:table.column>{{ __('Tanggal') }}</flux:table.column>
-                    <flux:table.column>{{ __('No. Ref') }}</flux:table.column>
-                    <flux:table.column>{{ __('Dari Gudang') }}</flux:table.column>
-                    <flux:table.column>{{ __('Ke Gudang') }}</flux:table.column>
+                    <flux:table.column>{{ __('Dokumen') }}</flux:table.column>
+                    <flux:table.column>{{ __('Rute Transfer') }}</flux:table.column>
                     <flux:table.column>{{ __('Total Barang') }}</flux:table.column>
                     <flux:table.column>{{ __('Status') }}</flux:table.column>
-                    <flux:table.column>{{ __('Aksi') }}</flux:table.column>
                 </flux:table.columns>
                 <flux:table.rows>
                     @forelse ($transfers as $transfer)
-                        <flux:table.row :key="$transfer->id">
-                            <flux:table.cell>{{ \Carbon\Carbon::parse($transfer->transfer_date)->format('d M Y') }}</flux:table.cell>
-                            <flux:table.cell class="font-medium">{{ $transfer->reference_number }}</flux:table.cell>
-                            <flux:table.cell>{{ $transfer->fromWarehouse->name ?? '-' }}</flux:table.cell>
-                            <flux:table.cell>{{ $transfer->toWarehouse->name ?? '-' }}</flux:table.cell>
-                            <flux:table.cell>{{ $transfer->items->count() }} Jenis</flux:table.cell>
+                        <flux:table.row :key="$transfer->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" wire:click="$dispatch('open-transfer-detail', { id: {{ $transfer->id }} })">
+                            <flux:table.cell>
+                                <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $transfer->reference_number }}</div>
+                                <div class="text-xs text-zinc-500">{{ \Carbon\Carbon::parse($transfer->transfer_date)->format('d M Y') }}</div>
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <div class="flex items-center gap-2 text-sm">
+                                    <span class="text-zinc-600 dark:text-zinc-400">{{ $transfer->fromWarehouse->name ?? '-' }}</span>
+                                    <flux:icon.arrow-right class="w-3 h-3 text-zinc-400" />
+                                    <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $transfer->toWarehouse->name ?? '-' }}</span>
+                                </div>
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <span class="text-sm">{{ $transfer->items->count() }} Jenis</span>
+                            </flux:table.cell>
                             <flux:table.cell>
                                 @if($transfer->status === 'completed')
                                     <flux:badge color="success" size="sm">{{ __('Selesai') }}</flux:badge>
@@ -85,24 +97,10 @@ with(fn () => [
                                     <flux:badge color="zinc" size="sm">{{ ucfirst($transfer->status) }}</flux:badge>
                                 @endif
                             </flux:table.cell>
-                            <flux:table.cell>
-                                <flux:dropdown>
-                                    <flux:button variant="ghost" size="sm" icon="ellipsis-horizontal" />
-                                    <flux:menu>
-                                        @if($transfer->status === 'pending')
-                                            <flux:menu.item wire:click="delete({{ $transfer->id }})" wire:confirm="Yakin ingin membatalkan transfer ini?" icon="trash" variant="danger">
-                                                {{ __('Batal & Hapus') }}
-                                            </flux:menu.item>
-                                        @else
-                                            <flux:menu.item disabled icon="eye">{{ __('Lihat Detail') }}</flux:menu.item>
-                                        @endif
-                                    </flux:menu>
-                                </flux:dropdown>
-                            </flux:table.cell>
                         </flux:table.row>
                     @empty
                         <flux:table.row>
-                            <flux:table.cell colspan="7" class="text-center text-zinc-500 py-8">
+                            <flux:table.cell colspan="4" class="text-center text-zinc-500 py-8">
                                 {{ __('Belum ada data transfer.') }}
                             </flux:table.cell>
                         </flux:table.row>
@@ -110,11 +108,11 @@ with(fn () => [
                 </flux:table.rows>
             </flux:table>
         </div>
-        @if ($transfers->hasPages())
-            <div class="px-4 py-3 border-t border-zinc-200 dark:border-zinc-700">
-                {{ $transfers->links() }}
-            </div>
-        @endif
+    </div>
+    
+    {{-- Progress Bar & Load More --}}
+    <div class="mt-4">
+        <x-load-more :paginator="$transfers" item-name="transfer" />
     </div>
 
     <!-- Modal Form Transfer -->
@@ -129,4 +127,7 @@ with(fn () => [
             
         </div>
     </flux:modal>
+
+    <!-- Modal Detail Transfer -->
+    <livewire:transfer.transfer-detail />
 </div>

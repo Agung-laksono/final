@@ -161,7 +161,7 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // Features::registration(), // Dimatikan agar tidak bisa mendaftar dari luar
         Features::resetPasswords(),
         Features::twoFactorAuthentication([
             'confirm' => true,

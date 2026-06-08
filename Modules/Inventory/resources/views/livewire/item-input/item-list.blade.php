@@ -91,7 +91,7 @@ $delete = function (Item $item) {
     }
 }">
     {{-- Smart Sticky Header --}}
-    <x-sticky-header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+    <x-sticky-header class="flex flex-col sm:flex-row justify-end items-start sm:items-center mb-6 gap-4">
         <div class="hidden md:block w-max">
             <flux:heading size="lg">Pengelolaan Barang</flux:heading>
             <flux:subheading>Daftar seluruh inventaris barang yang tersedia.</flux:subheading>
@@ -103,9 +103,11 @@ $delete = function (Item $item) {
             </div>
 
             <x-grid-or-table wire:model="viewMode" :mode="$viewMode" />
-            <flux:button wire:click="$dispatch('open-item-modal')" variant="primary" icon="plus">
-                <span class="hidden md:inline">Barang</span>
-            </flux:button>
+            @can('inventory.item.create')
+                <flux:button wire:click="$dispatch('open-item-modal')" variant="primary" icon="plus">
+                    <span class="hidden md:inline">Barang</span>
+                </flux:button>
+            @endcan
         </div>
     </x-sticky-header>
 

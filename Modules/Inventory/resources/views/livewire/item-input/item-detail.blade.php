@@ -38,11 +38,26 @@ on(['open-item-detail' => function ($id) {
 }]);
 
 $editItem = function () {
+    \Illuminate\Support\Facades\Gate::authorize('inventory.item.update');
     Flux::modal('item-detail-modal')->close();
     $this->dispatch('open-item-modal', id: $this->item->id);
 };
 
+$deleteItem = function () {
+    \Illuminate\Support\Facades\Gate::authorize('inventory.item.delete');
+    
+    if ($this->item->image) {
+        \Illuminate\Support\Facades\Storage::disk('public')->delete($this->item->image);
+    }
+    
+    $this->item->delete();
+    Flux::modal('item-detail-modal')->close();
+    $this->dispatch('item-deleted');
+    Flux::toast('Barang berhasil dihapus.', variant: 'success');
+};
+
 $toggleActive = function () {
+    \Illuminate\Support\Facades\Gate::authorize('inventory.item.update');
     $this->item->update([
         'is_active' => !$this->item->is_active
     ]);
@@ -151,7 +166,9 @@ $refreshItem = function () {
                                                     {{ $item->is_active ? 'Status Aktif' : 'Non-aktif' }}
                                                 </span>
                                             </div>
-                                            <flux:switch wire:key="switch-{{ $item->is_active ? 'on' : 'off' }}" wire:click="toggleActive" :checked="$item->is_active" />
+                                            @can('inventory.item.update')
+                                                <flux:switch wire:key="switch-{{ $item->is_active ? 'on' : 'off' }}" wire:click="toggleActive" :checked="$item->is_active" />
+                                            @endcan
                                         </div>
                                         @if($item->requires_label)
                                             <flux:badge color="blue" icon="qr-code" class="w-full justify-center">Berlabel SN</flux:badge>
@@ -414,16 +431,25 @@ $refreshItem = function () {
                 </div>
 
                 {{-- Footer Aksi --}}
-                <div class="flex justify-end items-center pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                <div class="flex justify-between items-center pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                    <div>
+                        @can('inventory.item.delete')
+                            <flux:button wire:click="deleteItem" wire:confirm="Yakin ingin menghapus barang ini secara permanen?" variant="danger" icon="trash">
+                                <span class="hidden md:inline">Hapus Data</span>
+                            </flux:button>
+                        @endcan
+                    </div>
                     <div class="flex gap-2">
                         <flux:modal.close>
                             <flux:button variant="ghost" icon="x-mark">
                                 <span class="hidden md:inline">Tutup</span>
                             </flux:button>
                         </flux:modal.close>
-                        <flux:button wire:click="editItem" variant="primary" icon="pencil-square">
-                            <span class="hidden md:inline">Edit Data</span>
-                        </flux:button>
+                        @can('inventory.item.update')
+                            <flux:button wire:click="editItem" variant="primary" icon="pencil-square">
+                                <span class="hidden md:inline">Edit Data</span>
+                            </flux:button>
+                        @endcan
                     </div>
                 </div>
 

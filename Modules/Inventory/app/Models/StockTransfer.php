@@ -28,4 +28,10 @@ class StockTransfer extends Model
     {
         return $this->hasMany(StockTransferItem::class, 'stock_transfer_id');
     }
+
+    /** User yang membuat transfer */
+    public function user()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'user_id');
+    }
 }

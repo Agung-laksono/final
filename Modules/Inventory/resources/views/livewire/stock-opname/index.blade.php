@@ -346,7 +346,9 @@ $save = function () {
             
             <div class="flex gap-2 w-full sm:w-auto">
                 <flux:button wire:click="loadHistory" variant="outline" icon="clock" class="flex-1 sm:flex-none">Riwayat</flux:button>
+                @can('inventory.opname.create')
                 <flux:button wire:click="save" variant="primary" icon="document-check" class="flex-1 sm:flex-none">Simpan</flux:button>
+                @endcan
             </div>
         </div>
     </x-sticky-header>
