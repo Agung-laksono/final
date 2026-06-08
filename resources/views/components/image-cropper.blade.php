@@ -176,7 +176,7 @@
         
         {{-- Info Ukuran Kompresi (Mini Text di bawah gambar) --}}
         <div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400 text-center truncate w-full" title="Ukuran Asli -> Kompresi">
-            <span x-text="formatBytes(originalSize)"></span> <flux:icon.arrow-right class="w-3 h-3 inline text-zinc-300 mx-1" /> <span x-text="formatBytes(croppedSize)" class="font-semibold text-green-600 dark:text-green-400"></span>
+            <span x-text="formatSize(originalSize)"></span> <flux:icon.arrow-right class="w-3 h-3 inline text-zinc-300 mx-1" /> <span x-text="formatSize(newSize)" class="font-semibold text-green-600 dark:text-green-400"></span>
         </div>
     </div>
     

@@ -36,9 +36,11 @@ $markAllAsRead = function () {
 
 // Polling interval (opsional, jika tidak pakai pusher)
 // Namun jika Pusher ada, kita bisa menggunakan Echo untuk mendengarkan event Notifikasi bawaan Laravel
-on(['echo-private:App.Models.User.{auth()->id()},.Illuminate\Notifications\Events\BroadcastNotificationCreated' => function () {
-    $this->unreadCount = auth()->user()->unreadNotifications()->count();
-}]);
+on([
+    'echo-private:App.Models.User.' . auth()->id() . ',.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function () {
+        $this->unreadCount = auth()->user()->unreadNotifications()->count();
+    }
+]);
 
 with(fn () => [
     'notifications' => $this->getNotifications()
