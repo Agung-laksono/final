@@ -10,14 +10,17 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "intervention/image": "^4.1",
         "laravel/chisel": "^0.1.0",
         "laravel/fortify": "^1.37.2",
         "laravel/framework": "^13.7",
+        "laravel/reverb": "^1.0",
         "laravel/tinker": "^3.0",
-        "livewire/flux": "^2.13.1",
+        "livewire/flux": "2.14",
         "livewire/livewire": "^4.1",
         "livewire/volt": "^1.10",
         "nwidart/laravel-modules": "^13.0",
+        "pusher/pusher-php-server": "^7.2",
         "wikimedia/composer-merge-plugin": "^2.1"
     },
     "require-dev": {

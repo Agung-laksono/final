@@ -10,12 +10,12 @@ state([
     'name' => '',
     'symbol' => '',
     'units' => fn () => Unit::latest()->get(),
-    'show' => fn () => request()->routeIs('inventory')
+    'show' => fn () => request()->routeIs('inventory-settings')
 ]);
 
 // Aturan validasi
-rules([
-    'name' => 'required|string|max:255',
+rules(fn () => [
+    'name' => 'required|string|max:255|unique:units,name,' . $this->unit_id,
     'symbol' => 'nullable|string|max:10',
 ]);
 
@@ -64,8 +64,8 @@ $save = function () {
     // Refresh data & tutup modal
     $this->units = Unit::latest()->get();
     
-    // Memberi tahu (dispatch) komponen induk beserta ID unit yang baru
-    $this->dispatch('unit-updated', id: $savedUnit->id);
+    // Memberi tahu (dispatch) komponen induk beserta ID unit yang baru dan daftar opsi
+    $this->dispatch('unit-updated', id: $savedUnit->id, options: Unit::orderBy('name')->get());
     
     Flux::modal('unit-modal')->close();
 };
@@ -81,17 +81,14 @@ $delete = function (Unit $unit) {
 
 ?>
 
-<div>
+<div x-on:open-unit-modal.window="$wire.openModal()">
+    @if ($show)
     {{-- Header & Tombol Tambah --}}
     <div class="flex justify-between items-center mb-6">
-        @if ($show)
         <flux:heading size="lg">Pengelolaan Satuan (Unit)</flux:heading>
-        @endif
         <flux:button wire:click="openModal" variant="primary" icon="plus">Tambah Satuan</flux:button>
     </div>
 
-    <!-- table hanya tampil bila di url tertentu (sesuai settingan) -->
-    @if ($show)
     {{-- Daftar Data yang sudah diinput --}}
     <div class="mt-4">
         <div class="space-y-2">

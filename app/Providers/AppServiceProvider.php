@@ -23,6 +23,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Paksa HTTPS jika diakses melalui proxy Ngrok atau protokol HTTPS
+        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        } elseif (app()->environment('production') || str_contains(request()->getHost(), 'ngrok')) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         $this->configureDefaults();
     }
 

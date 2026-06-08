@@ -7,12 +7,12 @@ use Flux\Flux;
 state([
     'category_id' => null,
     'name' => '',
-    'categories' => fn () => Category::latest()->get(),
-    'show' => fn () => request()->routeIs('inventory') || request()->is('inventory')
+    'categories' => fn () => Category::withCount('items')->latest()->get(),
+    'show' => fn () => request()->routeIs('inventory-settings') || request()->is('inventory-settings')
 ]);
 
-rules([
-    'name' => 'required|string|max:255',
+rules(fn () => [
+    'name' => 'required|string|max:255|unique:categories,name,' . $this->category_id,
 ]);
 
 $openModal = function ($id = null) {
@@ -40,33 +40,33 @@ $save = function () {
     } else {
         $savedCategory = Category::create(['name' => $this->name]);
     }
-    $this->categories = Category::latest()->get();
-    $this->dispatch('category-updated', id: $savedCategory->id);
+    $this->categories = Category::withCount('items')->latest()->get();
+    $this->dispatch('category-updated', id: $savedCategory->id, options: Category::orderBy('name')->get());
     Flux::modal('category-modal')->close();
 };
 
 $delete = function (Category $category) {
     $category->delete();
-    $this->categories = Category::latest()->get();
+    $this->categories = Category::withCount('items')->latest()->get();
     $this->dispatch('category-updated');
 };
 ?>
 
-<div>
+<div x-on:open-category-modal.window="$wire.openModal()" >
+    @if ($show)
     <div class="flex justify-between items-center mb-6">
-        @if ($show)
         <flux:heading size="lg">Pengelolaan Kategori</flux:heading>
-        @endif
         <flux:button wire:click="openModal" variant="primary" icon="plus">Tambah Kategori</flux:button>
     </div>
-
-    @if ($show)
     <div class="mt-4">
         <div class="space-y-2">
             @forelse($categories as $category)
-                <div class="flex items-center justify-between p-4 bg-white/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl backdrop-blur-sm">
-                    <span class="font-semibold text-zinc-900 dark:text-white">{{ $category->name }}</span>
-                    <div class="flex gap-2">
+                <div class="flex items-center justify-between p-4 bg-white/50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-xl backdrop-blur-sm group hover:border-blue-500/50 transition-colors">
+                    <div class="flex items-center gap-3">
+                        <span class="font-semibold text-zinc-900 dark:text-white">{{ $category->name }}</span>
+                        <flux:badge size="sm" variant="pill" color="blue" class="font-mono">{{ $category->items_count }} Barang</flux:badge>
+                    </div>
+                    <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <flux:button wire:click="openModal({{ $category->id }})" variant="ghost" size="sm" icon="pencil" class="text-blue-500 hover:text-blue-700" />
                         <flux:button wire:click="delete({{ $category->id }})" wire:confirm="Yakin menghapus kategori {{ $category->name }}?" variant="ghost" size="sm" icon="trash" class="text-red-500 hover:text-red-700" />
                     </div>

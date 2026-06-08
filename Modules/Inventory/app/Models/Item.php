@@ -11,6 +11,11 @@ class Item extends Model
 
     protected $guarded = ['id'];
 
+    protected static function newFactory()
+    {
+        return \Modules\Inventory\Database\Factories\ItemFactory::new();
+    }
+
     // --- RELASI KE MASTER DATA ---
 
     /** Barang ini menggunakan Satuan (Unit) apa? */

@@ -11,19 +11,29 @@ state([
     'name' => '',
     'subcategories' => fn () => SubCategory::with('category')->latest()->get(),
     'categories' => fn () => Category::orderBy('name')->get(),
-    'show' => fn () => request()->routeIs('inventory') || request()->is('inventory')
+    'show' => fn () => request()->routeIs('inventory-settings') || request()->is('inventory-settings')
 ]);
 
-rules([
+rules(fn () => [
     'category_id' => 'required|exists:categories,id',
-    'name' => 'required|string|max:255',
+    'name' => 'required|string|max:255|unique:sub_categories,name,' . $this->subcategory_id,
 ]);
 
-$openModal = function ($id = null) {
+$openModal = function ($params = null) {
     $this->resetValidation();
     // Refresh kategori tiap kali modal dibuka agar mendapat data terbaru dari tabel kategori
     $this->categories = Category::orderBy('name')->get();
     
+    $id = null;
+    $prefilledCategoryId = '';
+
+    // Deteksi jika parameter adalah ID (integer/string numerik) atau Array (dari Quick Add)
+    if (is_array($params)) {
+        $prefilledCategoryId = $params['category_id'] ?? '';
+    } elseif (is_numeric($params)) {
+        $id = $params;
+    }
+
     if ($id) {
         $sub = SubCategory::findOrFail($id);
         $this->subcategory_id = $sub->id;
@@ -31,14 +41,14 @@ $openModal = function ($id = null) {
         $this->name = $sub->name;
     } else {
         $this->subcategory_id = null;
-        $this->category_id = '';
+        $this->category_id = $prefilledCategoryId;
         $this->name = '';
     }
     Flux::modal('subcategory-modal')->show();
 };
 
-on(['open-subcategory-modal' => function ($id = null) {
-    $this->openModal($id);
+on(['open-subcategory-modal' => function ($params = null) {
+    $this->openModal($params);
 }]);
 
 // Dengarkan juga event update dari category agar list dropdown selalu terupdate otomatis
@@ -61,7 +71,7 @@ $save = function () {
         ]);
     }
     $this->subcategories = SubCategory::with('category')->latest()->get();
-    $this->dispatch('subcategory-updated', id: $savedSub->id);
+    $this->dispatch('subcategory-updated', id: $savedSub->id, options: SubCategory::where('category_id', $this->category_id)->orderBy('name')->get());
     Flux::modal('subcategory-modal')->close();
 };
 
@@ -72,15 +82,12 @@ $delete = function (SubCategory $subCategory) {
 };
 ?>
 
-<div>
+<div x-on:open-subcategory-modal.window="$wire.openModal()">
+    @if ($show)
     <div class="flex justify-between items-center mb-6">
-        @if ($show)
         <flux:heading size="lg">Pengelolaan Sub Kategori</flux:heading>
-        @endif
         <flux:button wire:click="openModal" variant="primary" icon="plus">Tambah Sub Kategori</flux:button>
     </div>
-
-    @if ($show)
     <div class="mt-4">
         <div class="space-y-2">
             @forelse($subcategories as $sub)

@@ -23,9 +23,9 @@ class StockTransfer extends Model
         return $this->belongsTo(Warehouse::class, 'to_warehouse_id');
     }
 
-    /** Barang yang ditransfer */
-    public function item()
+    /** Barang-barang yang ditransfer (Detail) */
+    public function items()
     {
-        return $this->belongsTo(Item::class);
+        return $this->hasMany(StockTransferItem::class, 'stock_transfer_id');
     }
 }

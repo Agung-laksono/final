@@ -17,9 +17,16 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        User::firstOrCreate(
+            ['email' => 'a@a.com'],
+            [
+                'name' => 'Test User',
+                'password' => bcrypt('semangat'), // berikan password default agar bisa login jika belum ada
+            ]
+        );
+
+        $this->call([
+            \Modules\Inventory\Database\Seeders\InventoryDatabaseSeeder::class,
         ]);
     }
 }

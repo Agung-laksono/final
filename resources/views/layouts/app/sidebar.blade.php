@@ -18,9 +18,24 @@
                 </flux:sidebar.group>
             </flux:sidebar.nav>
             <flux:sidebar.nav>
-                <flux:sidebar.group class="grid">
+                <flux:sidebar.group :heading="__('Barang')" collapsible="true" class="grid">
                     <flux:sidebar.item icon="cube" :href="route('inventory')" :current="request()->routeIs('inventory')" wire:navigate>
-                        {{ __('Inventory') }}
+                        {{ __('Barang') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="building-storefront" :href="route('inventory.warehouses')" :current="request()->routeIs('inventory.warehouses')" wire:navigate>
+                        {{ __('Gudang') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="arrows-right-left" :href="route('inventory.transfers')" :current="request()->routeIs('inventory.transfers*')" wire:navigate>
+                        {{ __('Transfer Barang') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="clock" :href="route('inventory.movements')" :current="request()->routeIs('inventory.movements*')" wire:navigate>
+                        {{ __('Riwayat Mutasi') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="adjustments-horizontal" :href="route('inventory.stock-opname')" :current="request()->routeIs('inventory.stock-opname')" wire:navigate>
+                        {{ __('Opname') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="cog-6-tooth" :href="route('inventory.settings')" :current="request()->routeIs('inventory.settings')" wire:navigate>
+                        {{ __('Uji') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
             </flux:sidebar.nav>

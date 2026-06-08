@@ -15,12 +15,13 @@ return new class extends Migration
             $table->id();
             $table->string('code')->unique();
             $table->string('name');
-            $table->string('image')->nullable(); 
+            $table->text('description')->nullable();
+            $table->string('image')->nullable();
             $table->foreignId('unit_id')->nullable()->constrained('units')->onDelete('set null');
             $table->foreignId('type_id')->nullable()->constrained('types')->onDelete('set null');
             $table->foreignId('category_id')->nullable()->constrained('categories')->onDelete('set null');
             $table->foreignId('sub_category_id')->nullable()->constrained('sub_categories')->onDelete('set null');
-             $table->decimal('purchase_price', 15, 2)->default(0);
+            $table->decimal('purchase_price', 15, 2)->default(0);
             $table->decimal('selling_price', 15, 2)->default(0);
             $table->integer('min_stock')->default(0)->after('selling_price');
             $table->integer('max_stock')->default(0)->after('min_stock');

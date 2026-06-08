@@ -22,4 +22,10 @@ class StockAdjustment extends Model
     {
         return $this->belongsTo(Item::class);
     }
+
+    /** User yang melakukan opname */
+    public function user()
+    {
+        return $this->belongsTo(\App\Models\User::class);
+    }
 }

@@ -1,6 +1,6 @@
 <?php
 
-use function Livewire\Volt\{state, rules, on, uses};
+use function Livewire\Volt\{state, rules, on, uses, updated};
 use Livewire\WithFileUploads;
 use Modules\Inventory\Models\Item;
 use Modules\Inventory\Models\Unit;
@@ -16,17 +16,19 @@ state([
     'item_id' => null,
     'code' => '',
     'name' => '',
+    'description' => '',
     'image' => null, // Tempat menampung Base64 dari Cropper
     'unit_id' => '',
     'type_id' => '',
     'category_id' => '',
     'sub_category_id' => '',
-    'purchase_price' => 0,
-    'selling_price' => 0,
-    'min_stock' => 0,
-    'max_stock' => 0,
+    'purchase_price' => null,
+    'selling_price' => null,
+    'min_stock' => null,
+    'max_stock' => null,
     'is_active' => true,
     'requires_label' => false,
+    'show' => fn () => request()->routeIs('inventory-settings'),
     
     // Lists for dropdowns
     'units' => fn () => Unit::orderBy('name')->get(),
@@ -38,28 +40,35 @@ state([
 ]);
 
 rules([
+    'image' => 'required',
     'name' => 'required|string|max:255',
+    'description' => 'nullable|string',
     'unit_id' => 'required|exists:units,id',
     'type_id' => 'required|exists:types,id',
     'category_id' => 'required|exists:categories,id',
-    'sub_category_id' => 'required|exists:sub_categories,id',
+    'sub_category_id' => 'nullable|exists:sub_categories,id',
     'purchase_price' => 'required|numeric|min:0',
-    'selling_price' => 'required|numeric|min:0',
+    'selling_price' => 'required|numeric|min:0|gte:purchase_price',
     'min_stock' => 'required|integer|min:0',
-    'max_stock' => 'required|integer|min:0',
+    'max_stock' => 'required|integer|min:0|gte:min_stock',
     'is_active' => 'boolean',
     'requires_label' => 'boolean',
 ]);
 
-// Hook untuk merespon ketika category_id diubah oleh user (Livewire hook)
-$updatedCategoryId = function ($value) {
-    if ($value) {
-        $this->subcategories = SubCategory::where('category_id', $value)->orderBy('name')->get();
-    } else {
-        $this->subcategories = [];
+// Hook untuk bereaksi saat kategori berubah
+updated([
+    'category_id' => function ($value) {
+        if ($value) {
+            $this->subcategories = SubCategory::where('category_id', $value)->orderBy('name')->get();
+        } else {
+            $this->subcategories = [];
+        }
+        $this->sub_category_id = ''; // Reset pilihan sub kategori
+        
+        // Beritahu frontend untuk mengupdate opsi subkategori
+        $this->dispatch('subcategory-updated', options: $this->subcategories);
     }
-    $this->sub_category_id = ''; // Reset pilihan sub kategori
-};
+]);
 
 $openModal = function ($id = null) {
     $this->resetValidation();
@@ -73,6 +82,7 @@ $openModal = function ($id = null) {
         $this->item_id = $item->id;
         $this->code = $item->code;
         $this->name = $item->name;
+        $this->description = $item->description;
         // Jika ada gambar, ambil path aslinya saja (tanpa full URL) karena view sudah menggunakan asset()
         $this->image = $item->image;
         $this->unit_id = $item->unit_id;
@@ -94,19 +104,28 @@ $openModal = function ($id = null) {
         $this->item_id = null;
         $this->code = ''; // Kode akan di-generate otomatis saat disave
         $this->name = '';
+        $this->description = '';
         $this->image = null;
         $this->unit_id = '';
         $this->type_id = '';
         $this->category_id = '';
         $this->subcategories = [];
         $this->sub_category_id = '';
-        $this->purchase_price = 0;
-        $this->selling_price = 0;
-        $this->min_stock = 0;
-        $this->max_stock = 0;
+        $this->purchase_price = null;
+        $this->selling_price = null;
+        $this->min_stock = null;
+        $this->max_stock = null;
         $this->is_active = true;
         $this->requires_label = false;
     }
+    
+    // Sinkronisasi data ke Alpine dropdown setelah data backend disiapkan
+    $this->dispatch('unit-updated', options: $this->units);
+    $this->dispatch('type-updated', options: $this->types);
+    $this->dispatch('category-updated', options: $this->categories);
+    $this->dispatch('subcategory-updated', options: $this->subcategories);
+
+    $this->dispatch('item-modal-loaded');
     Flux::modal('item-modal')->show();
 };
 
@@ -128,9 +147,9 @@ on([
         $this->categories = Category::orderBy('name')->get(); 
         if ($id) {
             $this->category_id = $id;
-            // Panggil logic update subcategory
             $this->subcategories = SubCategory::where('category_id', $id)->orderBy('name')->get();
             $this->sub_category_id = '';
+            $this->dispatch('subcategory-updated', options: $this->subcategories);
         }
     },
     'subcategory-updated' => function ($id = null) { 
@@ -185,13 +204,18 @@ $save = function () {
         }
         
         $item->update($validated);
+        $actionType = 'diperbarui';
     } else {
         Item::create($validated);
+        $actionType = 'ditambahkan';
     }
 
     $this->items = Item::with(['category', 'unit', 'type'])->latest()->get();
     Flux::modal('item-modal')->close();
     $this->dispatch('item-saved'); // Beritahu tabel utama agar me-refresh
+    
+    // Beritahu user lain secara realtime via Reverb
+    \App\Events\InventoryUpdated::safeDispatch("Data barang {$validated['code']} berhasil {$actionType}");
 };
 
 $delete = function (Item $item) {
@@ -203,11 +227,16 @@ $delete = function (Item $item) {
     $item->delete();
     $this->items = Item::with(['category', 'unit', 'type'])->latest()->get();
     $this->dispatch('item-deleted');
+    
+    // Beritahu user lain secara realtime via Reverb
+    \App\Events\InventoryUpdated::safeDispatch("Data barang {$item->code} berhasil dihapus");
 };
 
 ?>
 
-<div>
+<div> @if ($show)
+    <div x-on:trigger-add-subcategory.window="$wire.dispatch('open-subcategory-modal', { category_id: $wire.category_id })"></div>
+
     <div class="flex justify-between items-center mb-6">
         <flux:heading size="lg">Pengelolaan Barang</flux:heading>
         <flux:button wire:click="openModal" variant="primary" icon="plus">Tambah Barang Baru</flux:button>
@@ -231,7 +260,7 @@ $delete = function (Item $item) {
                         <flux:table.cell>
                             <div class="flex items-center gap-3">
                                 @if($i->image)
-                                    <img src="{{ asset('storage/' . $i->image) }}" class="w-10 h-10 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-700">
+                                    <img src="{{ asset('storage/' . $i->image) }}" class="w-auto h-10 rounded-lg  ring-1 ring-zinc-200 dark:ring-zinc-700">
                                 @else
                                     <div class="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-400">
                                         <flux:icon.photo class="w-5 h-5" />
@@ -311,249 +340,89 @@ $delete = function (Item $item) {
             </flux:table.rows>
         </flux:table>
     </div>
+    @endif
 
-    <flux:modal name="item-modal" class="md:w-[48rem] space-y-6">
+    <flux:modal name="item-modal" class="md:max-w-4xl space-y-6 px-3">
         <div>
             <flux:heading size="lg">{{ $item_id ? 'Edit Barang' : 'Tambah Barang Baru' }}</flux:heading>
-            <flux:subheading>Isi rincian informasi barang ke dalam database inventori.</flux:subheading>
         </div>
         
-        <form wire:submit="save" class="space-y-6">
-            {{-- Komponen Upload Gambar Interaktif dengan Kompresi (Alpine JS) --}}
-            <div x-data="{
-                isProcessing: false,
-                originalFile: null,
-                originalSize: 0,
-                newSize: 0,
-                maxSize: 800,
-                quality: 0.8,
+        <form wire:submit="save" class="flex flex-col h-full">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
                 
-                handleFile(event) {
-                    this.originalFile = event.target.files[0];
-                    if (this.originalFile) {
-                        this.originalSize = this.originalFile.size;
-                        this.processImage();
-                    }
-                },
-                
-                processImage() {
-                    if (!this.originalFile) return;
-                    this.isProcessing = true;
+                {{-- KOLOM KIRI: Foto & Nama Dasar --}}
+                <div class="space-y-6">
                     
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            const canvas = document.createElement('canvas');
-                            let width = img.width;
-                            let height = img.height;
-                            
-                            if (width > height && width > this.maxSize) {
-                                height *= this.maxSize / width;
-                                width = this.maxSize;
-                            } else if (height > this.maxSize) {
-                                width *= this.maxSize / height;
-                                height = this.maxSize;
-                            }
-                            
-                            canvas.width = width;
-                            canvas.height = height;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, width, height);
-                            
-                            // Konversi. Jika quality 1.0 (None), kita tetap pakai webp agar konsisten ringan, tapi kualitas penuh
-                            const dataUrl = canvas.toDataURL('image/webp', this.quality);
-                            
-                            // Hitung ukuran perkiraan base64 (rumusnya: panjang string * 0.75)
-                            const base64Length = dataUrl.length - (dataUrl.indexOf(',') + 1);
-                            this.newSize = Math.floor(base64Length * 0.75);
-                            
-                            $wire.set('image', dataUrl);
-                            this.isProcessing = false;
-                        };
-                        img.src = e.target.result;
-                    };
-                    reader.readAsDataURL(this.originalFile);
-                },
-                
-                formatSize(bytes) {
-                    if (bytes === 0) return '0 KB';
-                    return (bytes / 1024).toFixed(1) + ' KB';
-                }
-            }" class="space-y-4 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
-                
-                <div class="space-y-1">
-                    <flux:input type="file" x-on:change="handleFile" label="Foto Barang (Otomatis Kompres & WEBP)" accept="image/*" />
-                    <flux:error name="image" />
-                </div>
-                
-                <template x-if="originalFile">
-                    <div class="space-y-4 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-                        {{-- Info Ukuran --}}
-                        <div class="flex items-center gap-4 text-sm">
-                            <div class="flex flex-col">
-                                <span class="text-[10px] uppercase font-bold text-zinc-500">Asli</span>
-                                <span class="font-semibold text-zinc-700 dark:text-zinc-300" x-text="formatSize(originalSize)"></span>
-                            </div>
-                            <flux:icon.arrow-right class="w-4 h-4 text-zinc-300" />
-                            <div class="flex flex-col">
-                                <span class="text-[10px] uppercase font-bold text-emerald-600">Sesudah</span>
-                                <span class="font-semibold text-emerald-600" x-text="formatSize(newSize)"></span>
-                            </div>
-                            <span x-show="isProcessing" class="text-xs text-blue-500 font-medium flex items-center gap-1 ml-auto">
-                                <flux:icon.arrow-path class="w-3 h-3 animate-spin" /> Proses...
-                            </span>
+                    {{-- Area Foto (Dibatasi proporsional) --}}
+                    <div class="w-full flex flex-col items-center justify-center pt-2 pb-2">
+                        <div class="w-56"> {{-- Lebar fix 224px agar tinggi (aspect-square) tidak terlalu makan tempat --}}
+                            <x-image-cropper wire:model="image" :image="$image" accept="image/*" />
                         </div>
+                        <span class="text-xs text-zinc-500 mt-3 font-medium">Ganti Foto Utama</span>
+                    </div>
+
+                    {{-- Nama Barang --}}
+                    <div>
+                        <flux:input wire:model="name" label="Nama Barang" placeholder="Contoh: Kursi kamasutra" required />
+                    </div>
+
+                    {{-- Deskripsi --}}
+                    <div>
+                        <flux:textarea wire:model="description" label="Deskripsi" placeholder="Keterangan tambahan tentang barang ini (opsional)" rows="3" />
+                    </div>
+
+                    
+
+                </div>
+
+                {{-- KOLOM KANAN: Detail Teknis, Harga, & Stok --}}
+                <div class="space-y-5">
+                    
+                    {{-- Klasifikasi --}}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {{-- Satuan --}}
+                        <x-addable-select wire:model.live="unit_id" options-prop="units" label="Satuan" :options="$units" add-new-event="open-unit-modal" required />
                         
-                        <div class="grid grid-cols-2 gap-4">
-                            {{-- Resolusi --}}
-                            <div>
-                                <div class="text-xs font-semibold mb-2 text-zinc-600 dark:text-zinc-400">Maks Resolusi (px)</div>
-                                <div class="flex flex-wrap gap-1.5">
-                                    <template x-for="s in [1000, 800, 600, 400]">
-                                        <button type="button" 
-                                            @click="maxSize = s; processImage()" 
-                                            :class="maxSize === s ? 'bg-zinc-800 text-white dark:bg-white dark:text-zinc-900' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'"
-                                            class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors"
-                                            x-text="s">
-                                        </button>
-                                    </template>
-                                </div>
-                            </div>
-                            
-                            {{-- Kompresi --}}
-                            <div>
-                                <div class="text-xs font-semibold mb-2 text-zinc-600 dark:text-zinc-400">Tingkat Kompresi</div>
-                                <div class="flex flex-wrap gap-1.5">
-                                    <button type="button" @click="quality = 1.0; processImage()" :class="quality === 1.0 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors">None</button>
-                                    <button type="button" @click="quality = 0.8; processImage()" :class="quality === 0.8 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors">Medium</button>
-                                    <button type="button" @click="quality = 0.6; processImage()" :class="quality === 0.6 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100'" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors">Low</button>
-                                </div>
-                            </div>
-                        </div>
+                        {{-- Tipe Barang --}}
+                        <x-addable-select wire:model.live="type_id" options-prop="types" label="Tipe Barang" placeholder="-- Pilih Tipe --" :options="$types" add-new-event="open-type-modal" required />
+
+                        {{-- Kategori Utama --}}
+                        <x-addable-select wire:model.live="category_id" options-prop="categories" label="Kategori Utama" placeholder="-- Pilih Kategori --" :options="$categories" add-new-event="open-category-modal" required />
+
+                        {{-- Sub Kategori --}}
+                        <x-addable-select wire:model.live="sub_category_id" options-prop="subcategories" label="Sub Kategori" placeholder="-- Pilih Sub --" :options="$subcategories" add-new-event="trigger-add-subcategory" />
                     </div>
-                </template>
-            </div>
-            
-            {{-- Preview Gambar --}}
-            @if ($image && is_string($image) && str_starts_with($image, 'data:image'))
-                <div class="mt-2">
-                    <img src="{{ $image }}" class="w-32 h-32 object-cover rounded-xl border border-zinc-200">
-                </div>
-            @elseif ($image && !is_object($image))
-                <div class="mt-2">
-                    <img src="{{ asset('storage/' . $image) }}" class="w-32 h-32 object-cover rounded-xl border border-zinc-200 dark:border-zinc-700">
-                </div>
-            @endif
 
-            {{-- Informasi Dasar --}}
-            <div>
-                <flux:input wire:model="name" label="Nama Barang" placeholder="Contoh: Baterai ABC" required />
-            </div>
+                    <flux:separator text="Harga & Stok Dasar" />
 
-            <flux:separator text="Klasifikasi" />
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="flex items-end gap-2">
-                    <div class="flex-1">
-                        <flux:select wire:model="unit_id" label="Satuan (Unit)">
-                            <flux:select.option value="">-- Pilih Satuan --</flux:select.option>
-                            @foreach($units as $u)
-                                <flux:select.option value="{{ $u->id }}">{{ $u->name }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
+                    {{-- Harga --}}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <x-currency-input wire:model="purchase_price" label="Harga Beli" placeholder="0" required />
+                        <x-currency-input wire:model="selling_price" label="Harga Jual" placeholder="0" required />
                     </div>
-                    <flux:button wire:click="$dispatch('open-unit-modal')" icon="plus" class="shrink-0" title="Tambah Satuan Baru" />
-                </div>
 
-                <div class="flex items-end gap-2">
-                    <div class="flex-1">
-                        <flux:select wire:model="type_id" label="Tipe Barang">
-                            <flux:select.option value="">-- Pilih Tipe --</flux:select.option>
-                            @foreach($types as $t)
-                                <flux:select.option value="{{ $t->id }}">{{ $t->name }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
+                    {{-- Stok --}}
+                    <div class="grid grid-cols-2 gap-4">
+                        <flux:input type="number" wire:model.live="min_stock" label="Stok Min" placeholder="0" required min="0" />
+                        <flux:input type="number" wire:model.live="max_stock" label="Stok Max" placeholder="0" required x-bind:min="$wire.min_stock || 0" />
                     </div>
-                    <flux:button wire:click="$dispatch('open-type-modal')" icon="plus" class="shrink-0" title="Tambah Tipe Baru" />
-                </div>
 
-                <div class="flex items-end gap-2">
-                    <div class="flex-1">
-                        <flux:select wire:model.live="category_id" label="Kategori Utama">
-                            <flux:select.option value="">-- Pilih Kategori --</flux:select.option>
-                            @foreach($categories as $c)
-                                <flux:select.option value="{{ $c->id }}">{{ $c->name }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
-                    </div>
-                    <flux:button wire:click="$dispatch('open-category-modal')" icon="plus" class="shrink-0" title="Tambah Kategori Baru" />
-                </div>
-
-                <div class="flex items-end gap-2">
-                    <div class="flex-1">
-                        <flux:select wire:model="sub_category_id" label="Sub Kategori">
-                            <flux:select.option value="">-- Pilih Sub Kategori --</flux:select.option>
-                            @foreach($subcategories as $sc)
-                                <flux:select.option value="{{ $sc->id }}">{{ $sc->name }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
-                    </div>
-                    <flux:button wire:click="$dispatch('open-subcategory-modal')" icon="plus" class="shrink-0" title="Tambah Sub Kategori Baru" />
                 </div>
             </div>
 
-            <flux:separator text="Harga & Stok Dasar" />
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {{-- Harga Beli dengan AlpineJS Masking --}}
-                <div x-data="{ 
-                    val: @entangle('purchase_price').live,
-                    format(v) { 
-                        if (!v) return ''; 
-                        return v.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); 
-                    } 
-                }">
-                    <flux:input label="Harga Beli Dasar (HPP)" placeholder="0" required x-bind:value="format(val)" x-on:input="val = $event.target.value.replace(/\D/g, '')">
-                        <x-slot name="icon">
-                            <span class="text-zinc-500 font-medium pl-2">Rp</span>
-                        </x-slot>
-                    </flux:input>
+            {{-- FOOTER: Switch Kiri & Tombol Kanan --}}
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between mt-8 pt-4 border-t border-zinc-200 dark:border-zinc-800 gap-4">
+                <div class="flex items-center gap-6 mb-4 md:mb-0">
+                    <flux:switch wire:model="is_active" label="Status Aktif" />
+                    <flux:switch wire:model="requires_label" label="Cetak label/item" />
                 </div>
                 
-                {{-- Harga Jual dengan AlpineJS Masking --}}
-                <div x-data="{ 
-                    val: @entangle('selling_price').live,
-                    format(v) { 
-                        if (!v) return ''; 
-                        return v.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); 
-                    } 
-                }">
-                    <flux:input label="Harga Jual Dasar" placeholder="0" required x-bind:value="format(val)" x-on:input="val = $event.target.value.replace(/\D/g, '')">
-                        <x-slot name="icon">
-                            <span class="text-zinc-500 font-medium pl-2">Rp</span>
-                        </x-slot>
-                    </flux:input>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <flux:modal.close>
+                        <flux:button variant="ghost" class="w-full sm:w-auto">Batal</flux:button>
+                    </flux:modal.close>
+                    <flux:button type="submit" variant="primary" class="w-full sm:w-auto">{{ $item_id ? 'Simpan Perubahan' : 'Simpan Barang' }}</flux:button>
                 </div>
-            </div>
-
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 items-end bg-zinc-50 dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
-                <flux:input type="number" wire:model="min_stock" label="Stok Min" placeholder="0" min="0" required />
-                <flux:input type="number" wire:model="max_stock" label="Stok Max" placeholder="0" min="0" required />
-                
-                <div class="pb-2 pl-2">
-                    <flux:checkbox wire:model="is_active" label="Status Aktif" />
-                </div>
-                <div class="pb-2">
-                    <flux:checkbox wire:model="requires_label" label="Wajib Scan SN" />
-                </div>
-            </div>
-            
-            <div class="flex justify-end gap-2 mt-6">
-                <flux:modal.close>
-                    <flux:button variant="ghost">Batal</flux:button>
-                </flux:modal.close>
-                <flux:button type="submit" variant="primary">{{ $item_id ? 'Simpan Perubahan' : 'Tambahkan Barang' }}</flux:button>
             </div>
         </form>
     </flux:modal>

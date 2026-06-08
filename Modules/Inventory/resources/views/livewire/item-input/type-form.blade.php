@@ -9,11 +9,11 @@ state([
     'name' => '',
     'description' => '',
     'types' => fn () => Type::latest()->get(),
-    'show' => fn () => request()->routeIs('inventory') || request()->is('inventory')
+    'show' => fn () => request()->routeIs('inventory-settings') || request()->is('inventory-settings')
 ]);
 
-rules([
-    'name' => 'required|string|max:255',
+rules(fn () => [
+    'name' => 'required|string|max:255|unique:types,name,' . $this->type_id,
     'description' => 'nullable|string',
 ]);
 
@@ -51,7 +51,7 @@ $save = function () {
         ]);
     }
     $this->types = Type::latest()->get();
-    $this->dispatch('type-updated', id: $savedType->id);
+    $this->dispatch('type-updated', id: $savedType->id, options: Type::orderBy('name')->get());
     Flux::modal('type-modal')->close();
 };
 
@@ -62,15 +62,12 @@ $delete = function (Type $type) {
 };
 ?>
 
-<div>
+<div     x-on:open-type-modal.window="$wire.openModal()">
+    @if ($show)
     <div class="flex justify-between items-center mb-6">
-        @if ($show)
         <flux:heading size="lg">Pengelolaan Tipe Barang</flux:heading>
-        @endif
         <flux:button wire:click="openModal" variant="primary" icon="plus">Tambah Tipe</flux:button>
     </div>
-
-    @if ($show)
     <div class="mt-4">
         <div class="space-y-2">
             @forelse($types as $type)
