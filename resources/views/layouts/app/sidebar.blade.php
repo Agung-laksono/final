@@ -4,21 +4,25 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-800">
-        <flux:sidebar sticky collapsible="mobile" class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+        <flux:sidebar sticky collapsible class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 transition-all duration-300 ease-in-out">
             <flux:sidebar.header>
                 <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
-                <flux:sidebar.collapse class="lg:hidden" />
+                <flux:sidebar.collapse />
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
-                <flux:sidebar.group :heading="__('Platform')" class="grid">
-                    <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                        {{ __('Dashboard') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
+                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    {{ __('Platform') }}
+                </div>
+                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                    {{ __('Dashboard') }}
+                </flux:sidebar.item>
             </flux:sidebar.nav>
-            <flux:sidebar.nav>
-                <flux:sidebar.group :heading="__('Barang')" collapsible="true" class="grid">
+            
+            <flux:sidebar.nav class="mt-4">
+                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    {{ __('INVENTORY') }}
+                </div>
                     @can('inventory.item.view')
                     <flux:sidebar.item icon="cube" :href="route('inventory')" :current="request()->routeIs('inventory')" wire:navigate>
                         {{ __('Barang') }}
@@ -45,20 +49,48 @@
                     </flux:sidebar.item>
                     @endcan
                     <flux:sidebar.item icon="cog-6-tooth" :href="route('inventory.settings')" :current="request()->routeIs('inventory.settings')" wire:navigate>
-                        {{ __('Uji') }}
+                        {{ __('Pengaturan') }}
                     </flux:sidebar.item>
-                </flux:sidebar.group>
             </flux:sidebar.nav>
 
             <flux:spacer />
 
             <flux:sidebar.nav>
-                <flux:sidebar.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit" target="_blank">
-                    {{ __('Repository') }}
+                <flux:sidebar.item 
+                    icon="arrows-pointing-out" 
+                    class="cursor-pointer"
+                    x-data 
+                    x-on:click="
+                        if (!document.fullscreenElement) {
+                            document.documentElement.requestFullscreen();
+                        } else {
+                            if (document.exitFullscreen) {
+                                document.exitFullscreen();
+                            }
+                        }
+                    "
+                >
+                    {{ __('Layar Penuh') }}
                 </flux:sidebar.item>
 
-                <flux:sidebar.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire" target="_blank">
-                    {{ __('Documentation') }}
+                <flux:sidebar.item 
+                    icon="moon" 
+                    class="cursor-pointer"
+                    x-data 
+                    x-on:click="
+                        const toggleTheme = () => {
+                            document.documentElement.classList.toggle('dark');
+                            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+                        };
+                        
+                        if (!document.startViewTransition) {
+                            toggleTheme();
+                        } else {
+                            document.startViewTransition(() => toggleTheme());
+                        }
+                    "
+                >
+                    {{ __('Mode Gelap') }}
                 </flux:sidebar.item>
             </flux:sidebar.nav>
 
