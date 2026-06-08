@@ -17,7 +17,8 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::firstOrCreate(
+        // 1. Buat User utama (jika belum ada)
+        $user = User::firstOrCreate(
             ['email' => 'a@a.com'],
             [
                 'name' => 'Test User',
@@ -25,6 +26,12 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        // 2. Panggil Seeder Role & Permissions (ini akan otomatis membuat Role dan memberikan Super Admin ke user pertama)
+        $this->call([
+            RolePermissionSeeder::class,
+        ]);
+
+        // 3. Jalankan seeder modul inventaris
         $this->call([
             \Modules\Inventory\Database\Seeders\InventoryDatabaseSeeder::class,
         ]);
