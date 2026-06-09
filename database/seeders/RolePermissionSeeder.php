@@ -58,6 +58,16 @@ class RolePermissionSeeder extends Seeder
             'inventory.opname.update',
             'inventory.opname.delete',
             
+            // Sub-Menu: Notifikasi
+            'inventory.notifikasi.view',
+            'sales.notifikasi.view',
+            'users.notifikasi.view',
+            'production.notifikasi.view',
+            'finance.notifikasi.view',
+            'hr.notifikasi.view',
+            'marketing.notifikasi.view',
+            'admin.notifikasi.view',            
+            
             // Modul Sales
             'sales.view',
             'sales.create',

@@ -67,6 +67,12 @@ $toggleActive = function () {
     // Beritahu user lain secara realtime via Reverb
     \App\Events\InventoryUpdated::safeDispatch('Status barang ' . $this->item->code . ' diperbarui');
     
+    // Kirim notifikasi global bahwa status aktif diubah
+    $recipients = \App\Models\User::permission('inventory.notifikasi.view')
+        ->orWhereHas('roles', fn($q) => $q->where('name', 'Super Admin'))
+        ->get();
+    \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\ItemStatusChangedNotification($this->item, auth()->user()));
+    
     $status = $this->item->is_active ? 'diaktifkan' : 'dinonaktifkan';
     Flux::toast("Barang berhasil $status.", variant: 'success');
 };

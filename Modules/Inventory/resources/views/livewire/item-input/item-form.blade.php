@@ -198,6 +198,7 @@ $save = function () {
     if ($this->item_id) {
         $item = Item::find($this->item_id);
         $oldIsActive = $item->is_active;
+        $oldName = $item->name; // Simpan nama lama sebelum diupdate
         
         // Bersihkan gambar lama dari storage jika user mengupload gambar baru, atau jika gambar dihapus
         if ($item->image && (array_key_exists('image', $validated) || $this->image === null)) {
@@ -208,14 +209,24 @@ $save = function () {
         $actionType = 'diperbarui';
 
         if ($oldIsActive !== $item->is_active) {
-            $recipients = \App\Models\User::role(['Super Admin', 'Manager'])->get();
+            $recipients = \App\Models\User::permission('inventory.notifikasi.view')
+                ->orWhereHas('roles', fn($q) => $q->where('name', 'Super Admin'))
+                ->get();
             \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\ItemStatusChangedNotification($item, auth()->user()));
+        } else {
+            // Jika status aktif tidak diubah, maka kirim notifikasi update (edit) umum
+            $recipients = \App\Models\User::permission('inventory.notifikasi.view')
+                ->orWhereHas('roles', fn($q) => $q->where('name', 'Super Admin'))
+                ->get();
+            \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\ItemUpdatedNotification($item, auth()->user(), $oldName));
         }
     } else {
         $item = Item::create($validated);
         $actionType = 'ditambahkan';
 
-        $recipients = \App\Models\User::role(['Super Admin', 'Manager'])->get();
+        $recipients = \App\Models\User::permission('inventory.notifikasi.view')
+            ->orWhereHas('roles', fn($q) => $q->where('name', 'Super Admin'))
+            ->get();
         \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\ItemAddedNotification($item, auth()->user()));
     }
 

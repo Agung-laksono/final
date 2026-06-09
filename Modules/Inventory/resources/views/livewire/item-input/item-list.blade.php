@@ -81,6 +81,16 @@ $delete = function (Item $item) {
 
 <div x-data="{
     init() {
+        // Cek parameter URL untuk membuka detail otomatis
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('show_item')) {
+            setTimeout(() => {
+                $dispatch('open-item-detail', { id: urlParams.get('show_item') });
+            }, 300); // Sedikit jeda agar modal siap
+            // Bersihkan URL agar modal tidak terbuka ulang jika halaman direfresh
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         if (window.Echo) {
             window.Echo.channel('inventory')
                 .listen('InventoryUpdated', (event) => {

@@ -28,7 +28,7 @@ class ItemAddedNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast'];
     }
 
     /**
@@ -36,14 +36,14 @@ class ItemAddedNotification extends Notification
      *
      * @return array<string, mixed>
      */
-    public function toDatabase(object $notifiable): array
+    public function toArray(object $notifiable): array
     {
         return [
             'title' => 'Barang Baru Ditambahkan',
-            'message' => "Barang '{$this->item->name}' baru saja ditambahkan oleh {$this->creator->name}.",
+            'message' => "Barang <b>" . e($this->item->name) . "</b> baru saja ditambahkan oleh " . e($this->creator->name) . ".",
             'icon' => 'cube',
             'color' => 'text-green-500',
-            'url' => route('inventory'),
+            'url' => route('inventory') . '?show_item=' . $this->item->id,
         ];
     }
 }

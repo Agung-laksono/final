@@ -9,6 +9,7 @@
                 <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                 <flux:sidebar.collapse />
             </flux:sidebar.header>
+            <livewire:layout.notification-bell />
 
             <flux:sidebar.nav>
                 <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
@@ -92,8 +93,6 @@
                 >
                     {{ __('Mode Gelap') }}
                 </flux:sidebar.item>
-                
-                <livewire:layout.notification-bell />
             </flux:sidebar.nav>
 
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
