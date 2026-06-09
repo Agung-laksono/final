@@ -46,10 +46,9 @@ $markAllAsRead = function () {
     $this->unreadCount = 0;
 };
 
-// Polling interval (opsional, jika tidak pakai pusher)
 // Namun jika Pusher ada, kita bisa menggunakan Echo untuk mendengarkan event Notifikasi bawaan Laravel
 on([
-    'echo-private:App.Models.User.' . auth()->id() . ',.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function () {
+    'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function () {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
     }
 ]);
@@ -61,16 +60,16 @@ with(fn () => [
 ?>
 
 <flux:dropdown position="top" align="start">
-    <flux:sidebar.item icon="bell" class="relative cursor-pointer w-full text-start" data-flux-sidebar-action>
+    <flux:sidebar.item wire:poll.30s icon="bell" class="relative cursor-pointer w-full text-start {{ $unreadCount > 0 ? 'bell-has-unread' : '' }}" data-flux-sidebar-action>
         {{ __('Notifikasi') }}
         @if ($unreadCount > 0)
-            <span class="absolute right-3 top-1/2 -translate-y-1/2 flex h-2.5 w-2.5">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 border border-white dark:border-zinc-900"></span>
+            <span class="absolute left-[10px] top-[2px] flex h-4 w-4 items-center justify-center rounded-full bg-red-500 border border-white dark:border-zinc-900 text-[9px] font-bold text-white shadow pointer-events-none z-10">
+                {{ $unreadCount > 9 ? '9+' : $unreadCount }}
             </span>
         @endif
     </flux:sidebar.item>
 
+    <!-- pop up notifikasi -->
     <flux:menu class="w-80 sm:w-96 p-0 overflow-hidden">
         {{-- Header --}}
         <div class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/50">
