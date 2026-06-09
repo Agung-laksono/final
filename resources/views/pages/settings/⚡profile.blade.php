@@ -10,12 +10,16 @@ use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
+use Illuminate\Support\Facades\Storage;
 
 new #[Title('Profile settings')] class extends Component {
     use ProfileValidationRules;
+    use WithFileUploads;
 
     public string $name = '';
     public string $email = '';
+    public $photo;
 
     /**
      * Mount the component.
@@ -35,6 +39,35 @@ new #[Title('Profile settings')] class extends Component {
 
         $validated = $this->validate($this->profileRules($user->id));
 
+        if ($this->photo) {
+            if (is_string($this->photo) && str_starts_with($this->photo, 'data:image')) {
+                // Handle base64 from image-cropper
+                list($type, $data) = explode(';', $this->photo);
+                list(, $data)      = explode(',', $data);
+                $data = base64_decode($data);
+                
+                $filename = 'avatars/' . uniqid() . '.webp';
+                
+                if ($user->avatar) {
+                    Storage::disk('public')->delete($user->avatar);
+                }
+                
+                Storage::disk('public')->put($filename, $data);
+                $user->avatar = $filename;
+            } else {
+                $this->validate([
+                    'photo' => ['image', 'max:2048'],
+                ]);
+
+                if ($user->avatar) {
+                    Storage::disk('public')->delete($user->avatar);
+                }
+
+                $path = $this->photo->store('avatars', 'public');
+                $user->avatar = $path;
+            }
+        }
+
         $user->fill($validated);
 
         if ($user->isDirty('email')) {
@@ -42,6 +75,9 @@ new #[Title('Profile settings')] class extends Component {
         }
 
         $user->save();
+
+        // Reset the photo property to clear the file input
+        $this->photo = null;
 
         Flux::toast(variant: 'success', text: __('Profile updated.'));
     }
@@ -87,6 +123,12 @@ new #[Title('Profile settings')] class extends Component {
 
     <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
+            
+            <div class="mb-4 max-w-xs">
+                <flux:label class="mb-2">{{ __('Profile Photo') }}</flux:label>
+                <x-image-cropper wire:model="photo" :image="auth()->user()->avatarUrl()" label="Foto Profil" />
+            </div>
+
             <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
             <div>
