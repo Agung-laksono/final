@@ -103,7 +103,7 @@ on([
         </div>
     </div>
 
-    <div class="bg-white border dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+    <div class="bg-white border dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden pl-3">
         <div class="overflow-x-auto">
             <flux:table>
                 <flux:table.columns>

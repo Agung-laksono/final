@@ -123,11 +123,11 @@ with(fn () => [
                 <flux:subheading>{{ __('Pindahkan stok dari satu gudang ke gudang lain.') }}</flux:subheading>
             </div>
             
-            <livewire:transfer.transfer-form />
+            <livewire:item-transfer.transfer-form />
             
         </div>
     </flux:modal>
 
     <!-- Modal Detail Transfer -->
-    <livewire:transfer.transfer-detail />
+    <livewire:item-transfer.transfer-detail />
 </div>

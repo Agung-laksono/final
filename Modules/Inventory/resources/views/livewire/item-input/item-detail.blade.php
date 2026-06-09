@@ -173,7 +173,7 @@ $refreshItem = function () {
                                                 </span>
                                             </div>
                                             @can('inventory.item.update')
-                                                <flux:switch wire:key="switch-{{ $item->is_active ? 'on' : 'off' }}" wire:click="toggleActive" :checked="$item->is_active" />
+                                                <flux:switch wire:key="switch-{{ $item->is_active ? 'on' : 'off' }}" wire:click="toggleActive" :checked="$item->is_active" wire:loading.attr="disabled" wire:target="toggleActive" wire:loading.class="opacity-50 cursor-wait" />
                                             @endcan
                                         </div>
                                         @if($item->requires_label)

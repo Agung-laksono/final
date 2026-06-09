@@ -448,6 +448,7 @@ $delete = function (Item $item) {
                         <flux:button variant="ghost" class="w-full sm:w-auto">Batal</flux:button>
                     </flux:modal.close>
                     <flux:button type="submit" variant="primary" class="w-full sm:w-auto">{{ $item_id ? 'Simpan Perubahan' : 'Simpan Barang' }}</flux:button>
+
                 </div>
             </div>
         </form>

@@ -134,7 +134,7 @@ $delete = function (Item $item) {
 
                 <flux:table.rows>
                     @forelse ($this->getItems() as $item)
-                        <flux:table.row :key="$item->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:click="$dispatch('open-item-detail', { id: {{ $item->id }} })">
+                        <flux:table.row :key="$item->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:dblclick="$dispatch('open-item-detail', { id: {{ $item->id }} })">
                             <flux:table.cell>
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-md bg-zinc-100 overflow-hidden border border-zinc-200 shrink-0">
@@ -194,7 +194,7 @@ $delete = function (Item $item) {
         {{-- Tampilan Grid (Vertical Cards dengan Gambar Mencolok) --}}
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
             @forelse ($this->getItems() as $item)
-                <div x-on:click="$dispatch('open-item-detail', { id: {{ $item->id }} })" class="relative bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden hover:scale-102 hover:border-blue-500/50 hover:shadow-lg transition-all cursor-pointer group flex flex-col">
+                <div x-on:dblclick="$dispatch('open-item-detail', { id: {{ $item->id }} })" class="relative bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden hover:scale-102 hover:border-blue-500/50 hover:shadow-lg transition-all cursor-pointer group flex flex-col">
                 @if (!$item->is_active)
                 <div class="absolute z-2 top-0 w-full h-full bg-[#000000ba] flex items-center justify-center">
                     <span class="text-bold text-white">NON ACTIVE</span>
