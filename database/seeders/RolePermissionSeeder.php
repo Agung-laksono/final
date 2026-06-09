@@ -69,20 +69,25 @@ class RolePermissionSeeder extends Seeder
             'users.create',
             'users.update',
             'users.delete',
+
+            // Profil Pengguna
+            'profile.view',
+            'profile.update',
+            'profile.delete',
         ];
 
         foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission]);
+            Permission::firstOrCreate(['name' => $permission]);
         }
 
         // Buat Roles dan berikan permissions
-        $roleSuperAdmin = Role::create(['name' => 'Super Admin']);
+        $roleSuperAdmin = Role::firstOrCreate(['name' => 'Super Admin']);
         // Super Admin mendapatkan semua permission via Gate::before di AppServiceProvider
 
-        $roleManager = Role::create(['name' => 'Manager']);
+        $roleManager = Role::firstOrCreate(['name' => 'Manager']);
         $roleManager->givePermissionTo(Permission::all()); // Manager dapat semua hak (tapi bisa disesuaikan nanti)
 
-        $roleGudang = Role::create(['name' => 'Gudang']);
+        $roleGudang = Role::firstOrCreate(['name' => 'Gudang']);
         $roleGudang->givePermissionTo([
             'inventory.view', // Kunci masuk
             'inventory.item.view', 'inventory.item.create', 'inventory.item.update',
@@ -93,7 +98,7 @@ class RolePermissionSeeder extends Seeder
             // Gudang tidak punya hak delete apapun
         ]);
 
-        $roleSales = Role::create(['name' => 'Sales']);
+        $roleSales = Role::firstOrCreate(['name' => 'Sales']);
         $roleSales->givePermissionTo([
             'sales.view',
             'sales.create',
@@ -104,7 +109,7 @@ class RolePermissionSeeder extends Seeder
             'inventory.warehouse.view'
         ]);
 
-        $roleMarketing = Role::create(['name' => 'Marketing']);
+        $roleMarketing = Role::firstOrCreate(['name' => 'Marketing']);
         $roleMarketing->givePermissionTo([
             'inventory.view', 
             'sales.view'

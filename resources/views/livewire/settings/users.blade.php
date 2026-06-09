@@ -32,6 +32,8 @@ $loadMore = function () {
 };
 
 $createUser = function () {
+    abort_if(auth()->user()->cannot('users.create'), 403);
+
     $this->validate([
         'newUserName' => 'required|string|max:255',
         'newUserEmail' => 'required|string|email|max:255|unique:users,email',
@@ -65,8 +67,12 @@ on(['role-updated' => function () {
         </div>
         <div>
             <div class="flex gap-2">
+                @can('users.create')
                 <flux:button x-on:click="$flux.modal('create-user-modal').show()" variant="ghost" icon="user-plus">Tambah User</flux:button>
+                @endcan
+                @role('Super Admin')
                 <flux:button x-on:click="$flux.modal('roles-list-modal').show()" variant="primary" icon="shield-check">Kelola Jabatan</flux:button>
+                @endrole
             </div>
         </div>
     </div>
@@ -106,7 +112,9 @@ on(['role-updated' => function () {
 
                         <flux:table.cell>
                             @if($user->id !== auth()->id())
+                                @can('users.update')
                                 <flux:button size="sm" x-on:click="$dispatch('open-assign-role', { userId: {{ $user->id }} })" variant="ghost" class="text-blue-600 hover:text-blue-700">Ubah Role</flux:button>
+                                @endcan
                             @else
                                 <span class="text-xs text-zinc-400 italic">Akun Anda</span>
                             @endif
