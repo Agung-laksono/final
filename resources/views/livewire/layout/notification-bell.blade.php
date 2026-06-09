@@ -3,7 +3,14 @@
 use function Livewire\Volt\{state, on, mount, with};
 use Illuminate\Notifications\DatabaseNotification;
 
-state(['unreadCount' => 0]);
+state(['unreadCount' => 0, 'authId' => null]);
+
+mount(function() {
+    $this->authId = auth()->id();
+    if (auth()->check()) {
+        $this->unreadCount = auth()->user()->unreadNotifications()->count();
+    }
+});
 
 $getNotifications = function () {
     if (!auth()->check()) {
@@ -60,7 +67,7 @@ with(fn () => [
 ?>
 
 <flux:dropdown position="top" align="start">
-    <flux:sidebar.item wire:poll.30s icon="bell" class="relative cursor-pointer w-full text-start {{ $unreadCount > 0 ? 'bell-has-unread' : '' }}" data-flux-sidebar-action>
+    <flux:sidebar.item icon="bell" class="relative cursor-pointer w-full text-start {{ $unreadCount > 0 ? 'bell-has-unread' : '' }}" data-flux-sidebar-action>
         {{ __('Notifikasi') }}
         @if ($unreadCount > 0)
             <span class="absolute left-[10px] top-[2px] flex h-4 w-4 items-center justify-center rounded-full bg-red-500 border border-white dark:border-zinc-900 text-[9px] font-bold text-white shadow pointer-events-none z-10">
