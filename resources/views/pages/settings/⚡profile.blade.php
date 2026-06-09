@@ -10,12 +10,16 @@ use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
+use Illuminate\Support\Facades\Storage;
 
 new #[Title('Profile settings')] class extends Component {
     use ProfileValidationRules;
+    use WithFileUploads;
 
     public string $name = '';
     public string $email = '';
+    public $photo;
 
     /**
      * Mount the component.
@@ -41,6 +45,23 @@ new #[Title('Profile settings')] class extends Component {
 
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
+        }
+
+        if ($this->photo) {
+            if (str_starts_with($this->photo, 'data:image')) {
+                $imageParts = explode(';base64,', $this->photo);
+                $imageBase64 = base64_decode($imageParts[1]);
+                $fileName = 'avatars/' . uniqid() . '.webp';
+                
+                Storage::disk('public')->put($fileName, $imageBase64);
+                
+                if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
+                    Storage::disk('public')->delete($user->avatar);
+                }
+                
+                $user->avatar = $fileName;
+            }
+            $this->photo = null;
         }
 
         $user->save();
