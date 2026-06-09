@@ -6,23 +6,17 @@
     <body class="min-h-screen bg-white dark:bg-zinc-800">
         <flux:sidebar sticky collapsible class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 transition-all duration-300 ease-in-out">
             <flux:sidebar.header>
-                <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
+                <x-app-logo :sidebar="true" href="#" wire:navigate />
                 <flux:sidebar.collapse />
             </flux:sidebar.header>
             <livewire:layout.notification-bell class="hidden md:block" />
 
+            <!-- Inventory -->
+             @can('inventory.view')
             <flux:sidebar.nav>
                 <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                    {{ __('Platform') }}
-                </div>
-                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                    {{ __('Dashboard') }}
-                </flux:sidebar.item>
-            </flux:sidebar.nav>
-            
-            <flux:sidebar.nav class="mt-4">
-                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                     {{ __('INVENTORY') }}
+                </div>
                 </div>
                     @can('inventory.item.view')
                     <flux:sidebar.item icon="cube" :href="route('inventory')" :current="request()->routeIs('inventory')" wire:navigate>
@@ -53,7 +47,12 @@
                         {{ __('Pengaturan') }}
                     </flux:sidebar.item>
             </flux:sidebar.nav>
-
+            @endcan
+            <flux:sidebar.nav class="mt-4">
+                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                    {{ __('Dashboard') }}
+                </flux:sidebar.item>
+            </flux:sidebar.nav>
             <flux:spacer />
 
             <flux:sidebar.nav>
@@ -94,8 +93,9 @@
                     <span x-cloak x-show="$flux.dark">{{ __('Mode Terang') }}</span>
                 </flux:sidebar.item>
             </flux:sidebar.nav>
-
-            <x-desktop-user-menu class="hidden md:block" :name="auth()->user()->name" />
+            <div class="hidden md:block">
+                <x-desktop-user-menu :name="auth()->user()->name" />
+            </div>
         </flux:sidebar>
 
         <!-- Mobile User Menu -->

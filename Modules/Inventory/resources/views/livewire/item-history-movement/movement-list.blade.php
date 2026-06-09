@@ -77,29 +77,31 @@ on([
         <div class="lg:col-span-2">
             <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari barang atau no referensi..." />
         </div>
-        <div>
-            <flux:select wire:model.live="warehouse_id" placeholder="Semua Gudang">
-                <flux:select.option value="">Semua Gudang</flux:select.option>
-                @foreach($warehouses as $warehouse)
-                    <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
-        </div>
-        <div>
-            <flux:select wire:model.live="type" placeholder="Semua Tipe">
-                <flux:select.option value="">Semua Tipe</flux:select.option>
-                <flux:select.option value="in">Masuk (In)</flux:select.option>
-                <flux:select.option value="out">Keluar (Out)</flux:select.option>
-                <flux:select.option value="transfer_in">Transfer Masuk</flux:select.option>
-                <flux:select.option value="transfer_out">Transfer Keluar</flux:select.option>
-                <flux:select.option value="adjustment_plus">Penyesuaian (+)</flux:select.option>
-                <flux:select.option value="adjustment_minus">Penyesuaian (-)</flux:select.option>
-            </flux:select>
-        </div>
-        <div class="flex items-center gap-2">
-            <flux:input type="date" wire:model.live="date_start" class="w-full" aria-label="Mulai Tanggal" />
-            <span class="text-zinc-500">-</span>
-            <flux:input type="date" wire:model.live="date_end" class="w-full" aria-label="Sampai Tanggal" />
+        <div class="lg:col-span-3 grid grid-cols-1 sm:grid-cols-16 gap-4">
+            <div class="sm:col-span-4">
+                <flux:select wire:model.live="warehouse_id" placeholder="Semua Gudang">
+                    <flux:select.option value="">Semua Gudang</flux:select.option>
+                    @foreach($warehouses as $warehouse)
+                        <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+            <div class="sm:col-span-4">
+                <flux:select wire:model.live="type" placeholder="Semua Tipe">
+                    <flux:select.option value="">Semua Tipe</flux:select.option>
+                    <flux:select.option value="in">Masuk (In)</flux:select.option>
+                    <flux:select.option value="out">Keluar (Out)</flux:select.option>
+                    <flux:select.option value="transfer_in">Transfer Masuk</flux:select.option>
+                    <flux:select.option value="transfer_out">Transfer Keluar</flux:select.option>
+                    <flux:select.option value="adjustment_plus">Penyesuaian (+)</flux:select.option>
+                    <flux:select.option value="adjustment_minus">Penyesuaian (-)</flux:select.option>
+                </flux:select>
+            </div>
+            <div class="sm:col-span-6 flex items-center gap-2 xl:gap-1 ">
+                <flux:input type="date" wire:model.live="date_start" class="w-full" aria-label="Mulai Tanggal" />
+                <span class="text-zinc-500 inline xl:hidden">-</span>
+                <flux:input type="date" wire:model.live="date_end" class="w-full" aria-label="Sampai Tanggal" />
+            </div>
         </div>
     </div>
 
@@ -177,6 +179,5 @@ on([
             </flux:table>
         </div>
     </div>
-    
     <x-load-more :paginator="$movements" item-name="mutasi" />
 </div>
