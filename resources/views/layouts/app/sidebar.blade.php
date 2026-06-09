@@ -9,7 +9,7 @@
                 <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                 <flux:sidebar.collapse />
             </flux:sidebar.header>
-            <livewire:layout.notification-bell />
+            <livewire:layout.notification-bell class="hidden md:block" />
 
             <flux:sidebar.nav>
                 <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
@@ -103,6 +103,8 @@
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
             <flux:spacer />
+            <livewire:layout.notification-bell />
+            <flux:spacer />
 
             <flux:dropdown position="top" align="end">
                 <flux:profile
@@ -110,9 +112,8 @@
                     :avatar="auth()->user()->avatarUrl()"
                     icon-trailing="chevron-down"
                 />
-
                 <flux:menu>
-                    <flux:menu.radio.group>
+                  <flux:menu.radio.group>
                         <div class="p-0 text-sm font-normal">
                             <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
                                 <flux:avatar

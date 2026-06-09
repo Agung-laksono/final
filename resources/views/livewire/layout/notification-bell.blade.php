@@ -67,13 +67,18 @@ with(fn () => [
 ?>
 
 <flux:dropdown position="top" align="start">
-    <flux:sidebar.item icon="bell" class="relative cursor-pointer w-full text-start {{ $unreadCount > 0 ? 'bell-has-unread' : '' }}" data-flux-sidebar-action>
+    <flux:sidebar.item class="relative cursor-pointer w-full text-start {{ $unreadCount > 0 ? 'bell-has-unread' : '' }}" data-flux-sidebar-action>
+        <x-slot:icon>
+            <div class="relative">
+                <flux:icon.bell class="size-4 text-zinc-500 dark:text-white/80 group-hover:text-zinc-800 dark:group-hover:text-white" />
+                @if ($unreadCount > 0)
+                    <span class="absolute -left-1.5 -top-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 border border-white dark:border-zinc-900 text-[9px] font-bold text-white shadow pointer-events-none z-10">
+                        {{ $unreadCount > 9 ? '9+' : $unreadCount }}
+                    </span>
+                @endif
+            </div>
+        </x-slot:icon>
         {{ __('Notifikasi') }}
-        @if ($unreadCount > 0)
-            <span class="absolute left-[10px] top-[2px] flex h-4 w-4 items-center justify-center rounded-full bg-red-500 border border-white dark:border-zinc-900 text-[9px] font-bold text-white shadow pointer-events-none z-10">
-                {{ $unreadCount > 9 ? '9+' : $unreadCount }}
-            </span>
-        @endif
     </flux:sidebar.item>
 
     <!-- pop up notifikasi -->
