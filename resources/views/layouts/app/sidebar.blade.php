@@ -58,49 +58,49 @@
 
             <flux:sidebar.nav>
                 <flux:sidebar.item 
-                    icon="arrows-pointing-out" 
                     class="cursor-pointer"
-                    x-data 
-                    x-on:click="
-                        if (!document.fullscreenElement) {
-                            document.documentElement.requestFullscreen();
-                        } else {
-                            if (document.exitFullscreen) {
-                                document.exitFullscreen();
-                            }
-                        }
-                    "
+                    tooltip="Layar Penuh"
+                    x-data="{ isFullscreen: false }"
+                    x-on:fullscreenchange.document="isFullscreen = !!document.fullscreenElement"
+                    x-on:click="document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()"
                 >
-                    {{ __('Layar Penuh') }}
+                    <x-slot:icon>
+                        <flux:icon.arrows-pointing-out x-show="!isFullscreen" variant="outline" class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                        <flux:icon.arrows-pointing-in x-cloak x-show="isFullscreen" variant="outline" class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                    </x-slot:icon>
+
+                    <span x-show="!isFullscreen">{{ __('Layar Penuh') }}</span>
+                    <span x-cloak x-show="isFullscreen">{{ __('Keluar Layar Penuh') }}</span>
                 </flux:sidebar.item>
 
                 <flux:sidebar.item 
-                    icon="moon" 
                     class="cursor-pointer"
-                    x-data 
+                    tooltip="Ganti Tema"
                     x-on:click="
-                        const toggleTheme = () => {
-                            document.documentElement.classList.toggle('dark');
-                            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-                        };
-                        
-                        if (!document.startViewTransition) {
-                            toggleTheme();
+                        let newTheme = $flux.dark ? 'light' : 'dark';
+                        if (document.startViewTransition) {
+                            document.startViewTransition(() => $flux.appearance = newTheme);
                         } else {
-                            document.startViewTransition(() => toggleTheme());
+                            $flux.appearance = newTheme;
                         }
                     "
                 >
-                    {{ __('Mode Gelap') }}
+                    <x-slot:icon>
+                        <flux:icon.moon x-show="!$flux.dark" variant="outline" class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                        <flux:icon.sun x-cloak x-show="$flux.dark" variant="outline" class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                    </x-slot:icon>
+                    
+                    <span x-show="!$flux.dark">{{ __('Mode Gelap') }}</span>
+                    <span x-cloak x-show="$flux.dark">{{ __('Mode Terang') }}</span>
                 </flux:sidebar.item>
             </flux:sidebar.nav>
 
-            <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
+            <x-desktop-user-menu class="hidden md:block" :name="auth()->user()->name" />
         </flux:sidebar>
 
         <!-- Mobile User Menu -->
-        <flux:header class="lg:hidden">
-            <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+        <flux:header class="md:hidden">
+            <flux:sidebar.toggle class="md:hidden" icon="bars-2" inset="left" />
 
             <flux:spacer />
             <livewire:layout.notification-bell />

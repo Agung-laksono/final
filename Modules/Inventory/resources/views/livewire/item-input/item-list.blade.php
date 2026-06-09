@@ -101,12 +101,12 @@ $delete = function (Item $item) {
     }
 }">
     {{-- Smart Sticky Header --}}
-    <x-sticky-header class="flex flex-col sm:flex-row justify-end items-start sm:items-center mb-6 gap-4">
-        <div class="hidden md:block w-max">
+    <x-sticky-header class="flex flex-col sm:flex-row justify-end tab-y:justify-between items-start sm:items-center mb-6 gap-4">
+        <div class="hidden sm:block w-max">
             <flux:heading size="lg">Pengelolaan Barang</flux:heading>
             <flux:subheading>Daftar seluruh inventaris barang yang tersedia.</flux:subheading>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center tab-y:justify-between gap-3">
             {{-- Search Bar --}}
             <div class="w-full sm:w-64">
                 <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari barang..." />
