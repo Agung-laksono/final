@@ -26,6 +26,8 @@ on(['open-assign-role' => function (int $userId) {
 }]);
 
 $save = function () {
+    abort_if(auth()->user()->cannot('users.update'), 403);
+
     if (!$this->user) return;
     
     // Mencegah menghapus akses Super Admin jika itu akun terakhir, dll

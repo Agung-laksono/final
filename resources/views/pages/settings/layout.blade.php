@@ -1,12 +1,14 @@
 <div class="flex items-start max-md:flex-col">
     <div class="me-10 w-full pb-4 md:w-[220px]">
         <flux:navlist aria-label="{{ __('Settings') }}">
+            @can('profile.view')
             <flux:navlist.item :href="route('profile.edit')" wire:navigate>{{ __('Profile') }}</flux:navlist.item>
+            @endcan
             <flux:navlist.item :href="route('security.edit')" wire:navigate>{{ __('Security') }}</flux:navlist.item>
             <flux:navlist.item :href="route('appearance.edit')" wire:navigate>{{ __('Appearance') }}</flux:navlist.item>
-            @role('Super Admin')
+            @can('users.view')
                 <flux:navlist.item :href="route('settings.users')" wire:navigate>{{ __('Users & Roles') }}</flux:navlist.item>
-            @endrole
+            @endcan
         </flux:navlist>
     </div>
 

@@ -35,6 +35,8 @@ new #[Title('Profile settings')] class extends Component {
      */
     public function updateProfileInformation(): void
     {
+        abort_if(auth()->user()->cannot('profile.update'), 403);
+
         $user = Auth::user();
 
         $validated = $this->validate($this->profileRules($user->id));
@@ -73,6 +75,8 @@ new #[Title('Profile settings')] class extends Component {
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
         }
+
+
 
         $user->save();
 
@@ -123,16 +127,24 @@ new #[Title('Profile settings')] class extends Component {
 
     <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
-            
             <div class="mb-4 max-w-xs">
                 <flux:label class="mb-2">{{ __('Profile Photo') }}</flux:label>
-                <x-image-cropper wire:model="photo" :image="auth()->user()->avatarUrl()" label="Foto Profil" />
+                @can('profile.update')
+                    <x-image-cropper wire:model="photo" :image="auth()->user()->avatarUrl()" label="Foto Profil" />
+                @else
+                    <flux:avatar :name="auth()->user()->name" :initials="auth()->user()->initials()" :src="auth()->user()->avatarUrl()" class="h-24 w-24 rounded-full object-cover ring-2 ring-zinc-200 dark:ring-zinc-700" />
+                @endcan
             </div>
 
-            <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
-
-            <div>
-                <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
+            @can('profile.update')
+                <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
+                <div>
+                    <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
+            @else
+                <flux:input wire:model="name" :label="__('Name')" type="text" disabled />
+                <div>
+                    <flux:input wire:model="email" :label="__('Email')" type="email" disabled />
+            @endcan
 
                 {{-- @chisel-email-verification --}}
                 @if ($this->hasUnverifiedEmail)
@@ -155,22 +167,25 @@ new #[Title('Profile settings')] class extends Component {
                 {{-- @end-chisel-email-verification --}}
             </div>
 
+            @can('profile.update')
             <div class="flex items-center gap-4">
                 <div class="flex items-center justify-end">
                     <flux:button variant="primary" type="submit" class="w-full" data-test="update-profile-button">
                         {{ __('Save') }}
                     </flux:button>
                 </div>
-
             </div>
+            @endcan
         </form>
 
         {{-- @chisel-email-verification --}}
+        @can('profile.delete')
         @if ($this->showDeleteUser)
         {{-- @end-chisel-email-verification --}}
             <livewire:pages::settings.delete-user-form />
         {{-- @chisel-email-verification --}}
         @endif
+        @endcan
         {{-- @end-chisel-email-verification --}}
     </x-pages::settings.layout>
 </section>
