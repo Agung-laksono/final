@@ -1,11 +1,11 @@
-@props(['search' => '', 'results' => collect(), 'warehouseId' => null])
+@props(['search' => '', 'results' => collect(), 'warehouseId' => null, 'placeholder' => 'Ketik nama atau kode barang...'])
 
 <div class="relative w-full">
     <!-- Input Search -->
     <flux:input 
         wire:model.live.debounce.300ms="search" 
         icon="magnifying-glass" 
-        placeholder="Ketik nama atau kode barang..." 
+        :placeholder="$placeholder" 
         autocomplete="off"
     />
 

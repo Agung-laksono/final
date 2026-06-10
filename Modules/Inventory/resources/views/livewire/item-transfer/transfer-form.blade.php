@@ -430,7 +430,6 @@ $save = function () {
                         <!-- Mode Manual -->
                         <div x-show="mode === 'manual'" x-cloak class="flex flex-col sm:flex-row gap-3 items-start sm:items-end bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
                             <div class="flex-1 w-full">
-                                <flux:label>Cari Barang Non-Serial</flux:label>
                                 @if($selected_item_data)
                                     <div class="flex items-center justify-between bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 px-3 py-2 rounded-lg">
                                         <div class="flex flex-col">
@@ -444,11 +443,12 @@ $save = function () {
                                         :search="$search" 
                                         :results="$this->results" 
                                         :warehouseId="$from_warehouse_id" 
+                                        placeholder="Cari Barang Non-Serial..."
                                     />
                                 @endif
                             </div>
                             <div class="w-full sm:w-32">
-                                <flux:input type="number" wire:model="selected_item_qty" label="Kuantitas" min="1" />
+                                <flux:input type="number" wire:model="selected_item_qty" placeholder="Qty" min="1" tooltip="Jumlah Kuantitas" />
                             </div>
                             <div class="w-full sm:w-auto">
                                 <flux:button type="button" wire:click="addItem" variant="filled" icon="plus" class="w-full">Tambah</flux:button>

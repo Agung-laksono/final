@@ -10,7 +10,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/inventory-settings', 'item-input.index')->name('inventory.settings')->middleware('role:Super Admin');
     Volt::route('/inventory/warehouses', 'warehouse.index')->name('inventory.warehouses')->middleware('permission:inventory.warehouse.view');
     Volt::route('/inventory-stock-opname', 'item-opname.index')->name('inventory.stock-opname')->middleware('permission:inventory.opname.view');
-    Volt::route('/inventory/transfers', 'item-transfer.transfer-list')->name('inventory.transfers')->middleware('permission:inventory.transfer.view');
+    Volt::route('/inventory/transfers', 'item-transfer.index')->name('inventory.transfers')->middleware('permission:inventory.transfer.view');
     Volt::route('/inventory/movements', 'item-history-movement.index')->name('inventory.movements')->middleware('permission:inventory.movement.view');
     
 });

@@ -39,7 +39,7 @@ with(fn () => [
 ?>
 
 <div>
-    <x-sticky-header class="flex flex-col sm:flex-row justify-end items-start sm:items-center mb-6 gap-4">
+    <x-sticky-header class="flex flex-col sm:flex-row justify-end md:justify-between items-start sm:items-center mb-6 gap-4">
         <div class="hidden md:block w-max">
             <flux:heading size="lg">{{ __('Transfer Antar Gudang') }}</flux:heading>
             <flux:subheading>{{ __('Kelola perpindahan stok antar gudang.') }}</flux:subheading>
