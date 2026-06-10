@@ -51,9 +51,20 @@
                     </flux:sidebar.item>
             </flux:sidebar.nav>
             @endcan
+
+            <!-- Pembelian -->
+            <flux:sidebar.nav>
+                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    {{ __('PEMBELIAN') }}
+                </div>
+                <flux:sidebar.item icon="shopping-cart" :href="route('purchase.index')" :current="request()->routeIs('purchase.*')" wire:navigate>
+                    {{ __('Dashboard Pembelian') }}
+                </flux:sidebar.item>
+            </flux:sidebar.nav>
+
             <flux:sidebar.nav class="mt-4">
                 <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                    {{ __('Dashboard') }}
+                    {{ __('Dashboard Utama') }}
                 </flux:sidebar.item>
             </flux:sidebar.nav>
             <flux:spacer />
