@@ -19,9 +19,9 @@ return new class extends Migration
             $table->string('province')->nullable();
             $table->string('city')->nullable();
             $table->string('district')->nullable();
-            $table->string('village')->nullable();
-            $table->string('image')->nullable();
-            $table->string('reference')->nullable();
+            $table->string('village')->nullable(); // Desa/Kelurahan
+            $table->string('image')->nullable(); // Foto/Logo Vendor
+            $table->string('type')->default('Supplier'); // Tipe: Supplier, Pengrajin, Ekspedisi
             $table->timestamps();
         });
     }
