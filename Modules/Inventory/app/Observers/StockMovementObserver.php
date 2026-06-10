@@ -4,6 +4,10 @@ namespace Modules\Inventory\Observers;
 
 use Modules\Inventory\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
+use App\Models\User;
+use App\Notifications\LowStockNotification;
+use App\Notifications\AbnormalMovementNotification;
 
 class StockMovementObserver
 {
@@ -52,6 +56,31 @@ class StockMovementObserver
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
+        }
+
+        // --- SISTEM NOTIFIKASI ---
+        $recipients = User::permission('inventory.notifikasi.view')
+            ->orWhereHas('roles', fn($q) => $q->where('name', 'Super Admin'))
+            ->get();
+        $item = $movement->item;
+
+        if ($recipients->isNotEmpty() && $item) {
+            // 1. Deteksi Abnormal Movement
+            if (abs($movement->quantity) >= 10) {
+                $type = $movement->quantity > 0 ? 'Masuk' : 'Keluar';
+                Notification::send($recipients, new AbnormalMovementNotification($item, abs($movement->quantity), $type));
+            }
+
+            // 2. Deteksi Low Stock (Hanya jika stok berkurang)
+            if ($movement->quantity < 0 && $item->min_stock > 0) {
+                $totalStock = DB::table('item_warehouse')
+                    ->where('item_id', $movement->item_id)
+                    ->sum('stock');
+                    
+                if ($totalStock < $item->min_stock) {
+                    Notification::send($recipients, new LowStockNotification($item, $totalStock));
+                }
+            }
         }
     }
 }

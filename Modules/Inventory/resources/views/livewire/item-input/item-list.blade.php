@@ -193,7 +193,7 @@ $delete = function (Item $item) {
     @else
         {{-- Tampilan Grid (Vertical Cards dengan Gambar Mencolok) --}}
         <div class="@container w-full">
-            <div class="grid grid-cols-2 @md:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5 @6xl:grid-cols-6 gap-4 mb-6">
+            <div class="grid grid-cols-2 @md:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5 @6xl:grid-cols-7 gap-4 mb-6">
             @forelse ($this->getItems() as $item)
                 <div x-on:dblclick="$dispatch('open-item-detail', { id: {{ $item->id }} })" class="relative bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden hover:scale-102 hover:border-blue-500/50 hover:shadow-lg transition-all cursor-pointer group flex flex-col">
                 @if (!$item->is_active)

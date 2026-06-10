@@ -95,8 +95,11 @@ with(fn () => [
             {{-- Scrollable Container --}}
             <div class="max-h-[28rem] overflow-y-auto relative p-2 flex flex-col gap-1.5">
                 @forelse ($notifications as $notification)
-                    <div wire:click="markAsReadAndRedirect('{{ $notification->id }}', '{{ $notification->data['url'] ?? '#' }}')" class="cursor-pointer group relative flex gap-2.5 p-2.5 rounded-lg border transition-all duration-200 {{ $notification->read_at ? 'bg-white dark:bg-zinc-900/50 border-zinc-100 dark:border-zinc-800/50 opacity-70 hover:opacity-100 hover:border-zinc-200 dark:hover:border-zinc-700' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/50 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm' }}">
-                        
+                    <div wire:click="markAsReadAndRedirect('{{ $notification->id }}', '{{ $notification->data['url'] ?? '#' }}')" 
+                         wire:target="markAsReadAndRedirect('{{ $notification->id }}', '{{ $notification->data['url'] ?? '#' }}')"
+                         wire:loading.class="opacity-50 pointer-events-none"
+                         class="cursor-pointer group relative flex gap-2.5 p-2.5 rounded-lg border transition-all duration-200 {{ $notification->read_at ? 'bg-white dark:bg-zinc-900/50 border-zinc-100 dark:border-zinc-800/50 opacity-70 hover:opacity-100 hover:border-zinc-200 dark:hover:border-zinc-700' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/50 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm' }}">
+
                         {{-- Icon Container --}}
                         <div class="shrink-0">
                             <div class="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700">
@@ -130,8 +133,12 @@ with(fn () => [
                                 </p>
                                 
                                 @if (!$notification->read_at)
-                                    <button wire:click.stop="markAsRead('{{ $notification->id }}')" class="opacity-0 group-hover:opacity-100 p-0.5 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-all" title="Tandai sudah dibaca">
-                                        <flux:icon.check class="w-3 h-3" />
+                                    <button wire:click.stop="markAsRead('{{ $notification->id }}')" 
+                                            wire:target="markAsRead('{{ $notification->id }}')"
+                                            wire:loading.class="opacity-50 pointer-events-none"
+                                            class="opacity-0 group-hover:opacity-100 p-0.5 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-all" title="Tandai sudah dibaca">
+                                        <flux:icon.check wire:loading.remove wire:target="markAsRead('{{ $notification->id }}')" class="w-3 h-3" />
+                                        <svg wire:loading wire:target="markAsRead('{{ $notification->id }}')" class="w-3 h-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     </button>
                                 @endif
                             </div>

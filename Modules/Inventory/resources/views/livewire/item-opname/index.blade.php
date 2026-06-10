@@ -360,6 +360,13 @@ $save = function () {
             // Beritahu user lain secara realtime via Reverb
             \App\Events\InventoryUpdated::safeDispatch("Stock Opname ({$referenceNumber}) berhasil disimpan");
             
+            // Kirim notifikasi ke manajer/admin
+            $recipients = \App\Models\User::permission('inventory.notifikasi.view')
+                ->orWhereHas('roles', fn($q) => $q->where('name', 'Super Admin'))
+                ->get();
+            if ($recipients->isNotEmpty()) {
+                \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\StockOpnameDifferenceNotification($referenceNumber));
+            }
             // Reset sesi opname
             $this->warehouse_id   = '';
             $this->opnameData     = [];

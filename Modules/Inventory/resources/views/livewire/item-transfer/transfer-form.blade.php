@@ -358,6 +358,14 @@ $save = function () {
         // Dispatch global broadcasting event (Reverb) to all listening clients
         \App\Events\InventoryUpdated::safeDispatch('Transfer barang berhasil diproses: ' . $referenceNumber);
         
+        // Kirim notifikasi ke manajer/admin
+        $recipients = \App\Models\User::permission('inventory.notifikasi.view')
+            ->orWhereHas('roles', fn($q) => $q->where('name', 'Super Admin'))
+            ->get();
+        if ($recipients->isNotEmpty()) {
+            \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\WarehouseTransferNotification($referenceNumber, "Terdapat transfer barang baru (No. {$referenceNumber}) yang menunggu konfirmasi."));
+        }
+        
         // Close Modal
         Flux::modal('create-transfer-modal')->close();
 
