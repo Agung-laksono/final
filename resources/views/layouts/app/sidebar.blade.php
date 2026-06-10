@@ -46,7 +46,7 @@
                         {{ __('Opname') }}
                     </flux:sidebar.item>
                     @endcan
-                    <flux:sidebar.item icon="cog-6-tooth" :href="route('inventory.settings')" :current="request()->routeIs('inventory.settings')" wire:navigate>
+                    <flux:sidebar.item icon="cog-6-tooth" :href="route('settings.index')" :current="request()->routeIs('settings.*') || request()->routeIs('profile.*') || request()->routeIs('security.*') || request()->routeIs('appearance.*')" wire:navigate>
                         {{ __('Pengaturan') }}
                     </flux:sidebar.item>
             </flux:sidebar.nav>
@@ -169,5 +169,13 @@
 
         @fluxScripts
         @stack('scripts')
+        <script>
+            document.addEventListener('livewire:init', () => {
+                Livewire.hook('request', ({ options }) => {
+                    options.headers['X-Tab-Focused'] = document.hasFocus() ? '1' : '0';
+                    options.headers['X-Current-Path'] = window.location.pathname;
+                });
+            });
+        </script>
     </body>
 </html>

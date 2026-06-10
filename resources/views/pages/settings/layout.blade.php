@@ -9,6 +9,9 @@
             @can('users.view')
                 <flux:navlist.item :href="route('settings.users')" wire:navigate>{{ __('Users & Roles') }}</flux:navlist.item>
             @endcan
+            @role('Super Admin')
+                <flux:navlist.item :href="route('settings.integrations')" wire:navigate>{{ __('Integrations') }}</flux:navlist.item>
+            @endrole
         </flux:navlist>
     </div>
 

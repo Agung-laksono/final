@@ -5,6 +5,8 @@ use Modules\Inventory\Models\Item;
 use Modules\Inventory\Models\StockTransfer;
 use Modules\Inventory\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use App\Models\User;
 
 with(function () {
     // 1. KPI Metrics
@@ -61,7 +63,20 @@ with(function () {
         $dataOut[] = (int) abs($out);
     }
 
-    return compact('totalItems', 'totalAssetValue', 'pendingTransfers', 'todaysMovements', 'lowStockItems', 'recentActivities', 'categories', 'dataIn', 'dataOut');
+    // 5. Active Users
+    $allUsers = User::all();
+    $activeUsers = [];
+    foreach ($allUsers as $user) {
+        $key = 'user-is-online-' . $user->id;
+        if (Cache::has($key)) {
+            $activeUsers[] = Cache::get($key);
+        }
+    }
+    usort($activeUsers, function ($a, $b) {
+        return $b['last_seen'] <=> $a['last_seen'];
+    });
+
+    return compact('totalItems', 'totalAssetValue', 'pendingTransfers', 'todaysMovements', 'lowStockItems', 'recentActivities', 'categories', 'dataIn', 'dataOut', 'activeUsers');
 });
 
 // Aksi dummy untuk memaksa Livewire me-refresh komponen
@@ -252,8 +267,50 @@ $refreshDashboard = function () {
                     </ul>
                 </div>
             </div>
-        </div>
 
+            {{-- Active Users --}}
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-sm overflow-hidden flex flex-col">
+                <div class="px-4 py-2 border-b border-indigo-100 dark:border-indigo-900/30 flex items-center justify-between bg-indigo-50/50 dark:bg-indigo-900/10">
+                    <div class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                        <div class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                        </div>
+                        <h3 class="text-[11px] font-bold uppercase tracking-wider">Pengguna Aktif</h3>
+                    </div>
+                    <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-full">{{ count($activeUsers) }}</span>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar" :class="compactMode ? 'max-h-[14rem] overflow-y-auto' : ''">
+                    <ul class="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                        @forelse($activeUsers as $activeUser)
+                            <li class="px-4 py-2.5 flex items-center gap-3 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-colors">
+                                <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xs shrink-0">
+                                    {{ substr($activeUser['name'], 0, 2) }}
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <h4 class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">{{ $activeUser['name'] }}</h4>
+                                    <div class="flex items-center gap-1.5 mt-0.5">
+                                        <flux:icon.map-pin class="w-3 h-3 text-zinc-400" />
+                                        <span class="text-[9px] font-mono text-zinc-500 truncate" title="/{{ $activeUser['route'] }}">/{{ $activeUser['route'] }}</span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col items-end shrink-0">
+                                    <span class="text-[9px] text-zinc-500 dark:text-zinc-400">
+                                        {{ \Carbon\Carbon::parse($activeUser['last_seen'])->diffForHumans(null, true, true) }}
+                                    </span>
+                                </div>
+                            </li>
+                        @empty
+                            <li class="px-4 py-6 text-center flex flex-col items-center justify-center">
+                                <flux:icon.users class="h-6 w-6 text-zinc-300 mb-2" />
+                                <p class="font-medium text-zinc-500 text-[10px]">Belum ada pengguna aktif.</p>
+                            </li>
+                        @endforelse
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- ApexCharts Injection via Script --}}
