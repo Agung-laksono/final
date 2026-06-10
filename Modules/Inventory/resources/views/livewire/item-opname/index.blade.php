@@ -25,6 +25,9 @@ state([
     'inputMode'        => 'manual', // 'manual' atau 'barcode'
     'scanned_labels'   => [], // Menyimpan SN yang berhasil discan: [item_id => ['SN1', 'SN2']]
     'scanned_barcode'  => '', // Input dummy untuk kamera scanner
+    'activeSnItemId'   => null,
+    'availableLabels'  => [],
+    'search'           => '',
 ]);
 
 // Hitung items & availableItems secara fresh setiap render.
@@ -63,7 +66,7 @@ with(function () {
         ? Item::whereIn('id', $this->extraItemIds)->get()
         : collect();
 
-    // 4. Gabungkan semua barang untuk ditampilkan di tabel
+    // 4. Gabungkan semua barang
     $allItems = $warehouseItems->concat($extraItems);
 
     // 5. Barang yang BELUM ada di opname ini = tersedia untuk ditambahkan
@@ -71,7 +74,18 @@ with(function () {
         ->orderBy('name')
         ->get();
 
-    return ['items' => $allItems, 'availableItems' => $availableItems];
+    // 6. Filter by search (HANYA untuk tabel)
+    if ($this->search) {
+        $search = strtolower($this->search);
+        $tableItems = $allItems->filter(function ($item) use ($search) {
+            return str_contains(strtolower($item->name), $search) || 
+                   str_contains(strtolower($item->code), $search);
+        });
+    } else {
+        $tableItems = $allItems;
+    }
+
+    return ['items' => $tableItems, 'availableItems' => $availableItems];
 });
 
 updated([
@@ -171,6 +185,39 @@ updated([
         $this->scanned_barcode = '';
     }
 ]);
+
+$openSnModal = function ($itemId) {
+    $this->activeSnItemId = $itemId;
+    
+    if (!isset($this->scanned_labels[$itemId])) {
+        $this->scanned_labels[$itemId] = [];
+    }
+    
+    $warehouseLabels = ItemLabel::where('item_id', $itemId)
+        ->where('warehouse_id', $this->warehouse_id)
+        ->orderBy('label_code')
+        ->pluck('label_code')
+        ->toArray();
+        
+    $this->availableLabels = array_unique(array_merge($warehouseLabels, $this->scanned_labels[$itemId]));
+    
+    $this->dispatch('open-sn-modal');
+};
+
+$toggleSn = function ($labelCode) {
+    $itemId = $this->activeSnItemId;
+    if (!$itemId) return;
+    
+    $scanned = $this->scanned_labels[$itemId] ?? [];
+    
+    if (in_array($labelCode, $scanned)) {
+        $this->scanned_labels[$itemId] = array_values(array_diff($scanned, [$labelCode]));
+    } else {
+        $this->scanned_labels[$itemId][] = $labelCode;
+    }
+    
+    $this->opnameData[$itemId]['actual_stock'] = count($this->scanned_labels[$itemId]);
+};
 
 $loadHistory = function () {
     $allAdjustments = StockAdjustment::with(['item', 'warehouse', 'user'])
@@ -332,22 +379,28 @@ $save = function () {
 <div @barcode-scanned.window="$wire.set('scanned_barcode', $event.detail.code)">
     {{-- Smart Sticky Header --}}
     <x-sticky-header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div>
+        <div class="hidden sm:block" >
             <flux:heading size="lg">Stock Opname</flux:heading>
             <flux:subheading>Sesuaikan stok fisik gudang dengan pencatatan sistem.</flux:subheading>
         </div>
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto mt-3 sm:mt-0">
-            <flux:select wire:model.live="warehouse_id" placeholder="Pilih Gudang..." class="w-full sm:w-64">
-                <flux:select.option value="">-- Pilih Gudang --</flux:select.option>
-                @foreach ($warehouses as $w)
-                    <flux:select.option value="{{ $w->id }}">{{ $w->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
+        <div class="flex flex-row items-center gap-2 w-full sm:w-auto mt-3 sm:mt-0">
+            <div class="flex-1">
+                <flux:select wire:model.live="warehouse_id" placeholder="Pilih Gudang..." class="w-full sm:w-64">
+                    <flux:select.option value="">-- Pilih Gudang --</flux:select.option>
+                    @foreach ($warehouses as $w)
+                        <flux:select.option value="{{ $w->id }}">{{ $w->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
             
-            <div class="flex gap-2 w-full sm:w-auto">
-                <flux:button wire:click="loadHistory" variant="outline" icon="clock" class="flex-1 sm:flex-none">Riwayat</flux:button>
+            <div class="flex gap-2 shrink-0">
+                <flux:button wire:click="loadHistory" variant="outline" icon="clock" class="px-3" tooltip="Riwayat">
+                    <span class="hidden sm:inline">Riwayat</span>
+                </flux:button>
                 @can('inventory.opname.create')
-                <flux:button wire:click="save" variant="primary" icon="document-check" class="flex-1 sm:flex-none">Simpan</flux:button>
+                <flux:button wire:click="save" variant="primary" icon="document-check" class="px-3" tooltip="Simpan">
+                    <span class="hidden sm:inline">Simpan</span>
+                </flux:button>
                 @endcan
             </div>
         </div>
@@ -355,136 +408,174 @@ $save = function () {
 
     @if ($warehouse_id)
             <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden mb-6">
-                <div class="p-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50">
-                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                        <div class="flex items-center gap-3">
-                            <div class="p-2 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg shrink-0">
-                                <flux:icon.clipboard-document-check class="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">Lembar Kerja Opname</h3>
-                                <p class="text-xs text-zinc-500">Sesuaikan jumlah fisik atau gunakan scanner barcode.</p>
-                            </div>
+                <div class="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 flex flex-wrap items-center gap-3">
+                    
+                    {{-- Judul --}}
+                    <div class="flex items-center gap-2 mr-auto">
+                        <div class="p-1.5 bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded shrink-0">
+                            <flux:icon.clipboard-document-check class="w-4 h-4" />
                         </div>
-                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                            <flux:radio.group wire:model.live="inputMode" variant="segmented" class="flex w-full sm:w-auto">
-                                <flux:radio value="manual" label="Input Manual" class="flex-1" />
-                                <flux:radio value="barcode" label="Scan Barcode" class="flex-1" />
-                            </flux:radio.group>
-                            
-                            <div class="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block"></div>
-                            
-                            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                                @if(count($availableItems) > 0)
-                                    <flux:button wire:click="loadAllAvailableItems" size="sm" variant="outline" icon="arrow-down-tray" class="flex-1 sm:flex-none justify-center">
-                                        Tarik Semua ({{ count($availableItems) }})
-                                    </flux:button>
-                                @endif
-                                <div class="flex-1 sm:w-64">
-                                    <flux:select wire:model.live="newItemId" placeholder="Tambah Barang Baru..." searchable>
-                                        <flux:select.option value="">Cari barang...</flux:select.option>
+                        <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-sm whitespace-nowrap">Lembar Kerja</h3>
+                    </div>
+                    
+                    {{-- Toggle Mode --}}
+                    <flux:radio.group wire:model.live="inputMode" variant="segmented" class="flex w-auto order-1 xl:order-none shrink-0" size="sm">
+                        <flux:radio value="manual" label="Manual" class="px-2" />
+                        <flux:radio value="barcode" label="Barcode" class="px-2" />
+                    </flux:radio.group>
+
+                    <div class="h-5 w-px bg-zinc-300 dark:bg-zinc-700 hidden xl:block"></div>
+                    
+                    {{-- Search Tabel --}}
+                    <div class="w-full sm:flex-1 xl:w-48 xl:flex-none order-2 xl:order-none mt-1 sm:mt-0">
+                        <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari di tabel..." class="w-full" />
+                    </div>
+
+                    <div class="h-5 w-px bg-zinc-300 dark:bg-zinc-700 hidden xl:block"></div>
+
+                    {{-- Alat --}}
+                    <div class="w-full sm:flex-1 xl:w-auto xl:flex-none order-3 xl:order-none mt-1 sm:mt-0">
+                        @if($inputMode === 'manual')
+                            <div class="flex gap-2 w-full">
+                                <div class="flex-1">
+                                    <flux:select wire:model.live="newItemId" placeholder="Tambah Manual..." searchable>
+                                        <flux:select.option value="">Pilih barang...</flux:select.option>
                                         @foreach($availableItems as $ai)
                                             <flux:select.option value="{{ $ai->id }}">{{ $ai->code }} - {{ $ai->name }}</flux:select.option>
                                         @endforeach
                                     </flux:select>
                                 </div>
+                                @if(count($availableItems) > 0)
+                                    <flux:button wire:click="loadAllAvailableItems" variant="outline" icon="arrow-down-tray" class="px-2 shrink-0" tooltip="Tarik Semua Barang" />
+                                @endif
                             </div>
-                        </div>
-                    </div>
-                    
-                    {{-- Barcode / Camera Scanner Area --}}
-                    @if($inputMode === 'barcode')
-                        <div class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
-                            <div class="bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20 p-4 rounded-xl flex flex-col sm:flex-row gap-3">
+                        @elseif($inputMode === 'barcode')
+                            <div class="flex gap-2 w-full">
                                 <div class="flex-1 relative">
-                                    <flux:input type="text" wire:model.live.debounce.500ms="scanned_barcode" placeholder="Ketik/pindai barcode dengan alat..." icon="qr-code" autofocus class="bg-white dark:bg-zinc-900" />
+                                    <flux:input type="text" wire:model.live.debounce.500ms="scanned_barcode" placeholder="Pindai alat..." icon="qr-code" autofocus class="w-full bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-100" />
                                 </div>
-                                <div class="flex gap-2 w-full sm:w-auto">
-                                    <flux:button type="button" x-on:click="Flux.modal('camera-scanner-modal').show(); window.dispatchEvent(new Event('camera-scanner-modal-opened'))" variant="filled" icon="camera" class="flex-1 sm:flex-none" tooltip="Gunakan Kamera HP">Buka Kamera HP</flux:button>
-                                </div>
+                                <flux:button type="button" x-on:click="Flux.modal('camera-scanner-modal').show(); window.dispatchEvent(new Event('camera-scanner-modal-opened'))" variant="filled" class="bg-indigo-600 hover:bg-indigo-700 text-white border-none px-2 shrink-0" icon="camera" tooltip="Gunakan Kamera HP" />
                             </div>
-                        </div>
-                    @endif
+                        @endif
+                    </div>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                        <thead class="text-xs text-zinc-500 bg-zinc-50/50 dark:bg-zinc-800/50 uppercase border-b border-zinc-200 dark:border-zinc-700">
-                            <tr>
-                                <th class="px-4 py-3 font-medium">Barang</th>
-                                <th class="px-4 py-3 font-medium text-center w-24">Sistem</th>
-                                <th class="px-4 py-3 font-medium text-center w-32">Aktual</th>
-                                <th class="px-4 py-3 font-medium text-center w-24">Selisih</th>
-                                <th class="px-4 py-3 font-medium w-48">Alasan</th>
-                                <th class="px-4 py-3 font-medium">Catatan</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <div class="overflow-x-auto bg-zinc-50 dark:bg-zinc-800/20 md:bg-transparent p-3 md:p-0">
+                    <flux:table class="block md:table ml-3">
+                        <flux:table.columns class="hidden md:table-header-group">
+                            <flux:table.column>Barang</flux:table.column>
+                            <flux:table.column class="text-center w-24">Sistem</flux:table.column>
+                            <flux:table.column class="text-center w-32">Aktual</flux:table.column>
+                            <flux:table.column class="text-center w-24">Selisih</flux:table.column>
+                            <flux:table.column class="w-48">Alasan</flux:table.column>
+                            <flux:table.column>Catatan</flux:table.column>
+                        </flux:table.columns>
+                        <flux:table.rows class="block md:table-row-group space-y-3 md:space-y-0 max-md:[&>tr>td]:!border-t-0 max-md:[&>tr>td]:!px-0">
                             @foreach ($items as $item)
-                                <tr wire:key="opname-row-{{ $item->id }}-{{ $warehouse_id }}" class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors" x-data="{ 
-                                    sys: {{ $opnameData[$item->id]['system_stock'] ?? 0 }},
-                                    act: @entangle('opnameData.'.$item->id.'.actual_stock').live,
-                                    get diff() {
-                                        if (this.act === '') return 0;
-                                        return (parseInt(this.act) || 0) - this.sys;
-                                    }
-                                }">
-                                    <td class="px-4 py-3">
-                                        <div class="flex flex-col">
-                                            <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->name }}</span>
-                                            <span class="text-[10px] font-mono text-zinc-500">{{ $item->code }}</span>
+                                @php
+                                    $sysStock = $opnameData[$item->id]['system_stock'] ?? 0;
+                                    $xData = "{ 
+                                        sys: {$sysStock},
+                                        act: \$wire.entangle('opnameData.{$item->id}.actual_stock').live,
+                                        get diff() {
+                                            if (this.act === '') return 0;
+                                            return (parseInt(this.act) || 0) - this.sys;
+                                        }
+                                    }";
+                                @endphp
+                                <flux:table.row wire:key="opname-row-{{ $item->id }}-{{ $warehouse_id }}" x-data="{{ $xData }}" class="block md:table-row bg-white dark:bg-zinc-900 md:bg-transparent rounded-xl md:rounded-none shadow-sm md:shadow-none border border-zinc-200 dark:border-zinc-800 md:border-none p-4 md:p-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                    {{-- Barang --}}
+                                    <flux:table.cell class="block md:table-cell border-b border-dashed border-zinc-200 dark:border-zinc-700 md:border-b-0 pb-3 md:pb-3 mb-2 md:mb-0">
+                                        <div class="flex flex-col w-full">
+                                            <span class="font-medium text-base md:text-sm text-zinc-900 dark:text-zinc-100">{{ $item->name }}</span>
+                                            <span class="text-xs md:text-[10px] font-mono text-zinc-500">{{ $item->code }}</span>
                                         </div>
-                                    </td>
+                                    </flux:table.cell>
                                     
-                                    <td class="px-4 py-3 text-center">
-                                        <div class="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded font-semibold text-zinc-700 dark:text-zinc-300">
-                                            {{ $opnameData[$item->id]['system_stock'] ?? 0 }}
+                                    {{-- Sistem --}}
+                                    <flux:table.cell class="block md:table-cell py-1.5 md:py-3">
+                                        <div class="flex w-full items-center justify-between md:justify-center">
+                                            <span class="md:hidden text-[11px] text-zinc-500 uppercase font-medium">Sistem</span>
+                                            <div class="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded font-semibold text-zinc-700 dark:text-zinc-300">
+                                                {{ $opnameData[$item->id]['system_stock'] ?? 0 }}
+                                            </div>
                                         </div>
-                                    </td>
+                                    </flux:table.cell>
                                     
-                                    <td class="px-4 py-3">
-                                        <flux:input type="number" wire:model.live="opnameData.{{ $item->id }}.actual_stock" placeholder="0" class="w-full text-center" :disabled="$item->requires_label" />
-                                        @if($item->requires_label)
-                                            <p class="text-[10px] text-zinc-500 mt-1 text-center">Gunakan scanner</p>
-                                        @endif
-                                    </td>
-                                    
-                                    <td class="px-4 py-3 text-center">
-                                        <span x-text="diff > 0 ? '+' + diff : diff" 
-                                              :class="{
-                                                'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded': diff > 0,
-                                                'text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-500/10 px-2 py-1 rounded': diff < 0,
-                                                'text-zinc-400': diff === 0
-                                              }">
-                                        </span>
-                                    </td>
-                                    
-                                    <td class="px-4 py-3">
-                                        <div x-show="diff !== 0" x-transition>
-                                            <flux:select wire:model="opnameData.{{ $item->id }}.reason" placeholder="Pilih alasan..." class="w-full">
-                                                <flux:select.option value="Salah Hitung">Salah Hitung</flux:select.option>
-                                                <flux:select.option value="Barang Ditemukan">Barang Ditemukan (+)</flux:select.option>
-                                                <flux:select.option value="Kelebihan Terima">Kelebihan Terima (+)</flux:select.option>
-                                                <flux:select.option value="Hilang">Hilang (-)</flux:select.option>
-                                                <flux:select.option value="Rusak">Rusak (-)</flux:select.option>
-                                                <flux:select.option value="Kadaluarsa">Kadaluarsa (-)</flux:select.option>
-                                                <flux:select.option value="Lainnya">Lainnya...</flux:select.option>
-                                            </flux:select>
-                                            @error('opnameData.'.$item->id.'.reason')
-                                                <div class="text-xs text-red-500 mt-1">{{ $message }}</div>
-                                            @enderror
+                                    {{-- Aktual --}}
+                                    <flux:table.cell class="block md:table-cell py-1.5 md:py-3">
+                                        <div class="flex w-full items-center justify-between md:justify-center gap-4">
+                                            <span class="md:hidden text-[11px] text-zinc-500 uppercase font-medium shrink-0">Aktual</span>
+                                            <div class="flex flex-col items-end md:items-center w-32 md:w-full gap-1">
+                                                @if($item->requires_label)
+                                                    <flux:input type="number" value="{{ count($scanned_labels[$item->id] ?? []) }}" class="w-full text-right md:text-center h-8 text-sm" disabled />
+                                                    
+                                                    @if($inputMode === 'manual')
+                                                        <flux:button wire:click="openSnModal({{ $item->id }})" size="xs" variant="outline" class="w-full text-[10px] h-6 px-1">
+                                                            Pilih SN
+                                                        </flux:button>
+                                                    @else
+                                                        <p class="text-[10px] text-zinc-500 text-right md:text-center w-full">Scan label SN</p>
+                                                    @endif
+                                                @else
+                                                    <flux:input type="number" wire:model.live="opnameData.{{ $item->id }}.actual_stock" placeholder="0" class="w-full text-right md:text-center h-8 text-sm" :disabled="$inputMode === 'barcode'" />
+                                                    
+                                                    @if($inputMode === 'barcode')
+                                                        <p class="text-[10px] text-zinc-500 text-right md:text-center w-full">Scan SKU</p>
+                                                    @endif
+                                                @endif
+                                            </div>
                                         </div>
-                                    </td>
+                                    </flux:table.cell>
                                     
-                                    <td class="px-4 py-3">
-                                        <div x-show="diff !== 0" x-transition>
-                                            <flux:input wire:model="opnameData.{{ $item->id }}.notes" placeholder="Catatan opsional..." class="w-full" />
+                                    {{-- Selisih --}}
+                                    <flux:table.cell class="block md:table-cell py-1.5 md:py-3 border-b border-dashed border-zinc-200 dark:border-zinc-700 md:border-b-0 pb-3 md:pb-3 mb-2 md:mb-0">
+                                        <div class="flex w-full items-center justify-between md:justify-center">
+                                            <span class="md:hidden text-[11px] text-zinc-500 uppercase font-medium">Selisih</span>
+                                            <span x-text="diff > 0 ? '+' + diff : diff" 
+                                                  :class="{
+                                                    'text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded text-sm': diff > 0,
+                                                    'text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-500/10 px-2 py-1 rounded text-sm': diff < 0,
+                                                    'text-zinc-400 font-bold text-sm': diff === 0
+                                                  }">
+                                            </span>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </flux:table.cell>
+                                    
+                                    {{-- Alasan --}}
+                                    <flux:table.cell :class="diff !== 0 ? 'block' : 'hidden'" class="md:table-cell py-1.5 md:py-3">
+                                        <div x-show="diff !== 0" x-transition class="flex w-full items-center justify-between md:block gap-4">
+                                            <span class="md:hidden text-[11px] text-zinc-500 uppercase font-medium shrink-0">Alasan</span>
+                                            <div class="w-48 md:w-full">
+                                                <flux:select wire:model="opnameData.{{ $item->id }}.reason" placeholder="Pilih alasan..." class="w-full h-8 text-sm">
+                                                    <flux:select.option value="Salah Hitung">Salah Hitung</flux:select.option>
+                                                    <flux:select.option value="Barang Ditemukan">Barang Ditemukan (+)</flux:select.option>
+                                                    <flux:select.option value="Kelebihan Terima">Kelebihan Terima (+)</flux:select.option>
+                                                    <flux:select.option value="Hilang">Hilang (-)</flux:select.option>
+                                                    <flux:select.option value="Rusak">Rusak (-)</flux:select.option>
+                                                    <flux:select.option value="Kadaluarsa">Kadaluarsa (-)</flux:select.option>
+                                                    <flux:select.option value="Lainnya">Lainnya...</flux:select.option>
+                                                </flux:select>
+                                                @error('opnameData.'.$item->id.'.reason')
+                                                    <div class="text-xs text-red-500 mt-1 text-right md:text-left">{{ $message }}</div>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                    </flux:table.cell>
+                                    
+                                    {{-- Catatan --}}
+                                    <flux:table.cell :class="diff !== 0 ? 'block' : 'hidden'" class="md:table-cell py-1.5 md:py-3 pb-0 md:pb-3">
+                                        <div x-show="diff !== 0" x-transition class="flex w-full items-center justify-between md:block gap-4">
+                                            <span class="md:hidden text-[11px] text-zinc-500 uppercase font-medium shrink-0">Catatan</span>
+                                            <div class="w-48 md:w-full">
+                                                <flux:input wire:model="opnameData.{{ $item->id }}.notes" placeholder="Opsional..." class="w-full h-8 text-sm" />
+                                            </div>
+                                        </div>
+                                    </flux:table.cell>
+                                </flux:table.row>
                             @endforeach
-                        </tbody>
-                    </table>
+                        </flux:table.rows>
+                    </flux:table>
                     
                     @if(count($items) === 0)
                     <div class="flex flex-col items-center justify-center py-16">
@@ -507,162 +598,12 @@ $save = function () {
         </div>
     @endif
 
-    {{-- History Modal --}}
-    <flux:modal name="history-modal" class="md:max-w-4xl" @open-history-modal.window="$el.showModal()">
-        <div class="flex flex-col gap-4">
-            <div class="flex justify-between items-center">
-                <div>
-                    <flux:heading size="lg">Riwayat Gudang</flux:heading>
-                    <flux:subheading>Daftar riwayat pergerakan stok dan dokumen opname (50 terakhir).</flux:subheading>
-                </div>
-            </div>
+    {{-- History Modals --}}
+    @include('inventory::livewire.item-opname.history-modal')
 
-            <div class="flex border-b border-zinc-200 dark:border-zinc-700">
-                <button wire:click="setTab('opname')" class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'opname' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300' }}">
-                    Dokumen Opname
-                </button>
-                <button wire:click="setTab('movement')" class="px-4 py-2 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'movement' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300' }}">
-                    Kartu Stok (Pergerakan)
-                </button>
-            </div>
+    {{-- SN Selection Modal --}}
+    @include('inventory::livewire.item-opname.sn-modal')
 
-            <div class="overflow-y-auto max-h-[60vh] -mx-4 px-4">
-                @if($activeTab === 'opname')
-                    {{-- Daftar Dokumen (Grouped) --}}
-                    <table class="w-full text-sm text-left">
-                        <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 uppercase sticky top-0">
-                            <tr>
-                                <th class="px-4 py-2">Tanggal</th>
-                                <th class="px-4 py-2">No. Dokumen</th>
-                                <th class="px-4 py-2">Gudang</th>
-                                <th class="px-4 py-2 text-center">Jml. Barang</th>
-                                <th class="px-4 py-2 text-center">Total Selisih</th>
-                                <th class="px-4 py-2">Petugas</th>
-                                <th class="px-4 py-2"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                            @forelse($historyAdjustments as $doc)
-                                <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                                    <td class="px-4 py-3">{{ \Carbon\Carbon::parse($doc['adjustment_date'])->format('d M Y') }}</td>
-                                    <td class="px-4 py-3 font-mono text-xs text-zinc-700 dark:text-zinc-300">{{ $doc['reference_number'] }}</td>
-                                    <td class="px-4 py-3">{{ $doc['warehouse'] }}</td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-semibold px-2 py-0.5 rounded-full">
-                                            {{ $doc['total_items'] }} barang
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="font-bold {{ $doc['total_selisih'] > 0 ? 'text-emerald-500' : ($doc['total_selisih'] < 0 ? 'text-rose-500' : 'text-zinc-400') }}">
-                                            {{ $doc['total_selisih'] > 0 ? '+' : '' }}{{ $doc['total_selisih'] }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 text-zinc-500">{{ $doc['petugas'] }}</td>
-                                    <td class="px-4 py-3">
-                                        <flux:button wire:click="loadDocumentDetail('{{ $doc['reference_number'] }}')" size="xs" variant="outline" icon="eye">Detail</flux:button>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="7" class="px-4 py-8 text-center text-zinc-500">Belum ada riwayat opname.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                @else
-                    <table class="w-full text-sm text-left">
-                        <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 uppercase sticky top-0">
-                            <tr>
-                                <th class="px-4 py-2">Waktu</th>
-                                <th class="px-4 py-2">No. Dokumen</th>
-                                <th class="px-4 py-2">Tipe</th>
-                                <th class="px-4 py-2">Barang</th>
-                                <th class="px-4 py-2 text-center">S. Awal</th>
-                                <th class="px-4 py-2 text-center">Jumlah</th>
-                                <th class="px-4 py-2 text-center">S. Akhir</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                            @forelse($historyMovements as $mov)
-                                <tr>
-                                    <td class="px-4 py-2">{{ $mov->created_at->format('d M Y H:i') }}</td>
-                                    <td class="px-4 py-2 font-mono text-xs text-zinc-500">{{ $mov->reference_number ?? '-' }}</td>
-                                    <td class="px-4 py-2 uppercase text-xs font-bold text-zinc-500">{{ $mov->type }}</td>
-                                    <td class="px-4 py-2">{{ $mov->item?->name ?? 'Barang Dihapus' }}</td>
-                                    <td class="px-4 py-2 text-center text-zinc-500">{{ $mov->stock_before }}</td>
-                                    <td class="px-4 py-2 text-center">
-                                        <span class="font-bold {{ $mov->quantity > 0 ? 'text-emerald-500' : 'text-rose-500' }}">
-                                            {{ $mov->quantity > 0 ? '+' : '' }}{{ $mov->quantity }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-2 text-center font-bold">{{ $mov->stock_after }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="7" class="px-4 py-8 text-center text-zinc-500">Belum ada riwayat pergerakan stok.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                @endif
-            </div>
-
-            <div class="flex justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                <flux:modal.close>
-                    <flux:button variant="ghost">Tutup</flux:button>
-                </flux:modal.close>
-            </div>
-        </div>
-    </flux:modal>
-
-    {{-- Document Detail Popup Modal --}}
-    <flux:modal name="document-detail-modal" class="md:max-w-3xl" @open-document-detail-modal.window="$el.showModal()">
-        <div class="flex flex-col gap-4">
-            <div>
-                <flux:heading size="lg">Detail Dokumen Opname</flux:heading>
-                <div class="mt-1 inline-flex items-center gap-2 font-mono text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-md border border-blue-200 dark:border-blue-700">
-                    <flux:icon.document-text class="w-3.5 h-3.5" />
-                    {{ $selectedDocument }}
-                </div>
-            </div>
-
-            <div class="overflow-y-auto max-h-[60vh] -mx-4 px-4">
-                <table class="w-full text-sm text-left">
-                    <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 uppercase sticky top-0">
-                        <tr>
-                            <th class="px-4 py-2">Barang</th>
-                            <th class="px-4 py-2 text-center">Stok Sistem</th>
-                            <th class="px-4 py-2 text-center">Stok Aktual</th>
-                            <th class="px-4 py-2 text-center">Selisih</th>
-                            <th class="px-4 py-2">Alasan</th>
-                            <th class="px-4 py-2">Catatan</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                        @foreach($documentDetail as $row)
-                            <tr>
-                                <td class="px-4 py-3">
-                                    <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $row['item']['name'] ?? 'Barang Dihapus' }}</div>
-                                    <div class="text-xs font-mono text-zinc-400">{{ $row['item']['code'] ?? '' }}</div>
-                                </td>
-                                <td class="px-4 py-3 text-center text-zinc-500">{{ $row['system_stock'] }}</td>
-                                <td class="px-4 py-3 text-center font-semibold">{{ $row['actual_stock'] }}</td>
-                                <td class="px-4 py-3 text-center">
-                                    <span class="font-bold text-sm {{ $row['difference'] > 0 ? 'text-emerald-500' : ($row['difference'] < 0 ? 'text-rose-500' : 'text-zinc-400') }}">
-                                        {{ $row['difference'] > 0 ? '+' : '' }}{{ $row['difference'] }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3">{{ $row['reason'] }}</td>
-                                <td class="px-4 py-3 text-xs text-zinc-500">{{ $row['notes'] }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="flex justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                <flux:modal.close>
-                    <flux:button variant="ghost">Tutup</flux:button>
-                </flux:modal.close>
-            </div>
-        </div>
-    </flux:modal>
     <!-- Komponen Global Scanner Kamera -->
     <x-camera-scanner />
 </div>
