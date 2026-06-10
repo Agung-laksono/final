@@ -38,14 +38,12 @@ class ItemStatusChangedNotification extends Notification
      */
     public function toArray(object $notifiable): array
     {
-        $status = $this->item->is_active ? 'diaktifkan' : 'dinonaktifkan';
-        $color = $this->item->is_active ? 'text-blue-500' : 'text-red-500';
         return [
-            'title' => 'Status Barang Diubah',
-            'message' => "Barang <b>" . e($this->item->name) . "</b> telah $status oleh " . e($this->actor->name) . ".",
-            'icon' => 'arrow-path',
-            'color' => $color,
-            'url' => route('inventory') . '?show_item=' . $this->item->id,
+            'title' => 'Status Barang Berubah',
+            'message' => "Status barang <b>" . e($this->item->name) . "</b> telah diubah menjadi " . ($this->item->is_active ? 'Aktif' : 'Non-aktif') . " oleh " . e($this->actor->name) . ".",
+            'icon' => $this->item->is_active ? 'check-circle' : 'x-circle',
+            'color' => $this->item->is_active ? 'text-green-500' : 'text-red-500',
+            'url' => route('inventory.items') . '?show_item=' . $this->item->id,
         ];
     }
 }

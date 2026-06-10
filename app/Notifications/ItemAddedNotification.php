@@ -43,7 +43,7 @@ class ItemAddedNotification extends Notification
             'message' => "Barang <b>" . e($this->item->name) . "</b> baru saja ditambahkan oleh " . e($this->creator->name) . ".",
             'icon' => 'cube',
             'color' => 'text-green-500',
-            'url' => route('inventory') . '?show_item=' . $this->item->id,
+            'url' => route('inventory.items') . '?show_item=' . $this->item->id,
         ];
     }
 }

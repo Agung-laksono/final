@@ -58,7 +58,7 @@ class ItemUpdatedNotification extends Notification
             'color' => 'text-yellow-500',
             
             // Tautan yang akan dituju saat notifikasi diklik
-            'url' => route('inventory') . '?show_item=' . $this->item->id,
+            'url' => route('inventory.items') . '?show_item=' . $this->item->id,
         ];
     }
 }

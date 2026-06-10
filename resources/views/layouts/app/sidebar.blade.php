@@ -18,8 +18,11 @@
                     {{ __('INVENTORY') }}
                 </div>
                 </div>
+                    <flux:sidebar.item icon="chart-pie" :href="route('inventory')" :current="request()->routeIs('inventory')" wire:navigate>
+                        {{ __('Dashboard') }}
+                    </flux:sidebar.item>
                     @can('inventory.item.view')
-                    <flux:sidebar.item icon="cube" :href="route('inventory')" :current="request()->routeIs('inventory')" wire:navigate>
+                    <flux:sidebar.item icon="cube" :href="route('inventory.items')" :current="request()->routeIs('inventory.items')" wire:navigate>
                         {{ __('Barang') }}
                     </flux:sidebar.item>
                     @endcan
@@ -165,5 +168,6 @@
         @endpersist
 
         @fluxScripts
+        @stack('scripts')
     </body>
 </html>

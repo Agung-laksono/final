@@ -39,7 +39,7 @@ class LowStockNotification extends Notification
             'message' => "Stok barang <b>" . e($this->item->name) . "</b> saat ini sisa " . $this->currentStock . " (Batas Min: " . $this->item->min_stock . ").",
             'icon' => 'exclamation-triangle',
             'color' => 'text-amber-500',
-            'url' => route('inventory') . '?show_item=' . $this->item->id,
+            'url' => route('inventory.items') . '?show_item=' . $this->item->id,
         ];
     }
 }
