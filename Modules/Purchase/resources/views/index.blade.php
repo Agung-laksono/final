@@ -1,4 +1,4 @@
-<x-layouts.app>
+<x-layouts::app>
     <div class="space-y-6">
         <div class="flex items-center justify-between">
             <flux:heading size="xl">Dashboard Pembelian</flux:heading>
@@ -97,4 +97,4 @@
             </div>
         </div>
     </div>
-</x-layouts.app>
+</x-layouts::app>

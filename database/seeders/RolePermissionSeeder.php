@@ -68,6 +68,12 @@ class RolePermissionSeeder extends Seeder
             'marketing.notifikasi.view',
             'admin.notifikasi.view',            
             
+            // Modul Pembelian (Purchase)
+            'purchase.view',
+            'purchase.create',
+            'purchase.update',
+            'purchase.delete',
+
             // Modul Sales
             'sales.view',
             'sales.create',
@@ -106,6 +112,17 @@ class RolePermissionSeeder extends Seeder
             'inventory.movement.view',
             'inventory.opname.view', 'inventory.opname.create', 'inventory.opname.update',
             // Gudang tidak punya hak delete apapun
+        ]);
+
+        $rolePurchasing = Role::firstOrCreate(['name' => 'Purchasing']);
+        $rolePurchasing->givePermissionTo([
+            'purchase.view',
+            'purchase.create',
+            'purchase.update',
+            'purchase.delete',
+            'inventory.view',
+            'inventory.item.view',
+            'inventory.warehouse.view'
         ]);
 
         $roleSales = Role::firstOrCreate(['name' => 'Sales']);
