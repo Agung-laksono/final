@@ -183,7 +183,7 @@ new class extends Component {
                     {{-- Area Foto (Dibatasi proporsional) --}}
                     <div class="w-full flex flex-col items-center justify-center pt-2 pb-2">
                         <div class="w-48 aspect-square">
-                            <x-image-cropper wire:model="image" :image="$image" accept="image/*" />
+                            <x-image-cropper id="vendor-cropper" wire:model="image" :image="$image" accept="image/*" />
                         </div>
                         <span class="text-xs text-zinc-500 mt-3 font-medium text-center">Foto/Logo Vendor <span class="text-zinc-400 font-normal">(Opsional)</span></span>
                     </div>

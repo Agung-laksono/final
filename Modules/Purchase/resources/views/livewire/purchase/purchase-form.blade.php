@@ -31,6 +31,11 @@ state([
     
     'price_history' => [],
     'history_item_name' => '',
+    'history_item_id' => null,
+    'history_limit' => 5,
+    'has_more_history' => false,
+    
+    'detail_po' => null,
     
     'note_item_index' => null,
     'current_note' => '',
@@ -60,6 +65,11 @@ mount(function ($id = null) {
         }
 
         foreach ($po->items as $detail) {
+            $hasHistory = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $detail->item_id)
+                ->whereHas('purchaseOrder', function($q) {
+                    $q->where('status', '!=', 'draft');
+                })->exists();
+
             $this->items[] = [
                 'id' => $detail->id,
                 'item_id' => $detail->item_id,
@@ -69,6 +79,7 @@ mount(function ($id = null) {
                 'subtotal' => $detail->subtotal,
                 'image' => $detail->item->image ?? null,
                 'note' => $detail->notes ?? '', // Hydrate notes from DB
+                'has_history' => $hasHistory,
             ];
         }
     } else {
@@ -113,19 +124,42 @@ $searchResults = computed(function () {
 
 $showPriceHistory = function ($itemId, $itemName) {
     $this->history_item_name = $itemName;
+    $this->history_item_id = $itemId;
+    $this->history_limit = 5;
     
-    $this->price_history = \Modules\Purchase\Models\PurchaseOrderItem::with('purchaseOrder.vendor')
-        ->where('item_id', $itemId)
+    $this->loadHistory();
+};
+
+$loadMoreHistory = function () {
+    $this->history_limit += 5;
+    $this->loadHistory();
+};
+
+$loadHistory = function () {
+    $baseQuery = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $this->history_item_id)
+        ->whereHas('purchaseOrder', function($q) {
+            $q->where('status', '!=', 'draft');
+        });
+
+    $this->has_more_history = $baseQuery->count() > $this->history_limit;
+
+    $this->price_history = \Modules\Purchase\Models\PurchaseOrderItem::with(['purchaseOrder.vendor', 'item.unit'])
+        ->where('item_id', $this->history_item_id)
         ->whereHas('purchaseOrder', function($q) {
             $q->where('status', '!=', 'draft');
         })
         ->get()
         ->sortByDesc(fn($poi) => $poi->purchaseOrder->order_date ?? '')
-        ->take(5)
+        ->take($this->history_limit)
         ->values()
         ->toArray();
-        
-    Flux::modal('price-history-modal')->show();
+};
+
+$viewPoDetail = function ($poId) {
+    $po = \Modules\Purchase\Models\PurchaseOrder::with(['vendor', 'items.item.unit'])->find($poId);
+    if ($po) {
+        $this->detail_po = $po->toArray();
+    }
 };
 
 $saveCart = function ($cartData) {
@@ -217,7 +251,7 @@ $saveCart = function ($cartData) {
                 
                 {{-- Search & Gallery Button --}}
                 <div :class="showHeader ? 'translate-y-0 opacity-100' : '-translate-y-[120%] opacity-0 pointer-events-none'"
-                     class="sticky top-0 z-10 flex items-end gap-2 p-3 mb-4 bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200 dark:border-zinc-800 rounded-xl transition-all duration-300 ease-in-out">
+                     class="sticky top-0 z-20 flex items-end gap-2 p-3 mb-4 bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200 dark:border-zinc-800 rounded-xl transition-all duration-300 ease-in-out">
                     <div class="flex-1 relative" x-data="{ focused: false }" @click.outside="focused = false">
                         <flux:input 
                             wire:model.live.debounce.300ms="search_query" 
@@ -264,19 +298,30 @@ $saveCart = function ($cartData) {
                     </flux:button>
                 </div>
                 
+                {{-- Cart Header (Total Items & Delete All) --}}
+                <div class="flex items-center justify-between px-1 sm:px-2 mb-2 mt-1" x-show="items.length > 0" x-cloak>
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-sm font-bold text-zinc-700 dark:text-zinc-300">Total :</h3>
+                        <span class="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 py-0.5 px-2.5 rounded-full text-xs font-semibold shadow-sm" x-text="items.length + ' Item'"></span>
+                    </div>
+                    <flux:button size="sm" variant="subtle" icon="trash" @click="if(confirm('Hapus semua barang dari keranjang?')) { items = []; updateSubtotal(); }" class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 !px-2 !h-8 transition-colors">
+                        <span class="hidden sm:inline">All</span>
+                    </flux:button>
+                </div>
+
                 {{-- Daftar Barang Terpilih (Modern List) --}}
                 <div class="flex-1 space-y-4">
                     <template x-for="(item, index) in items" :key="index">
-                        <div class="relative flex bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm transition-colors">
+                        <div class="relative flex flex-col sm:flex-row bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm transition-colors">
                             {{-- Delete Button (Top Left over Image) --}}
-                            <div class="absolute -top-3 -left-3 z-20">
-                                <flux:button variant="primary" size="sm" icon="trash" @click="removeItem(index)" class="!rounded-full" />
+                            <div class="absolute top-2 left-2 sm:-top-3 sm:-left-3 z-10">
+                                <flux:button variant="primary" size="sm" icon="trash" @click="removeItem(index)" class="!rounded-full shadow-md hover:!bg-red-500 hover:!border-red-500 hover:scale-110 transition-all duration-200" />
                             </div>
 
-                            {{-- Image Container (Left Edge) --}}
-                            <div class="w-32 sm:w-36 shrink-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center rounded-l-2xl overflow-hidden">
+                            {{-- Image Container (Top on Mobile, Left on Desktop) --}}
+                            <div class="w-full sm:w-32 h-32 sm:h-auto shrink-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center relative rounded-t-2xl sm:rounded-none sm:rounded-l-2xl overflow-hidden">
                                 <template x-if="item.image">
-                                    <img :src="'/storage/' + item.image" class="w-full h-full object-cover">
+                                    <img :src="'/storage/' + item.image" class="w-full h-full object-cover absolute inset-0">
                                 </template>
                                 <template x-if="!item.image">
                                     <flux:icon.cube class="w-10 h-10 text-zinc-300 dark:text-zinc-600" />
@@ -286,11 +331,20 @@ $saveCart = function ($cartData) {
                             {{-- Content --}}
                             <div class="flex-1 flex flex-col p-4 sm:p-5 relative min-w-0">
                                 {{-- Floating Action Buttons on the Right --}}
-                                <div class="absolute bottom-4 right-4" :class="open ? 'z-50' : 'z-30'" x-data="{ open: false }">
-                                    <flux:button variant="primary" size="sm" icon="pencil-square" @click="open = !open" />
+                                <div class="absolute bottom-4 right-4" :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom' }">
+                                    {{-- Tombol Edit (Amber jika ada catatan, Primary jika kosong) --}}
+                                    <div x-show="item.note" x-cloak>
+                                        <flux:button size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
+                                    </div>
+                                    <div x-show="!item.note">
+                                        <flux:button variant="primary" size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" />
+                                    </div>
                                     
                                     {{-- Popover Quick Note --}}
-                                    <div x-show="open" @click.away="open = false" x-transition.origin.top.right class="absolute top-full right-0 mt-3 w-[calc(100vw-2rem)] sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 cursor-auto z-50" style="display: none;">
+                                    <div x-show="open" @click.away="open = false" x-transition 
+                                         class="absolute right-0 w-[calc(100vw-2rem)] sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 cursor-auto z-50" 
+                                         :class="placement === 'top' ? 'bottom-full mb-3 origin-bottom-right' : 'top-full mt-3 origin-top-right'"
+                                         style="display: none;">
                                         <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase mb-4">CATATAN CEPAT</h3>
                                         <div class="bg-slate-50 dark:bg-zinc-800 rounded-xl p-3 shadow-inner border border-zinc-200 dark:border-zinc-700 focus-within:border-zinc-300 focus-within:ring-1 focus-within:ring-zinc-300 transition-colors">
                                             <textarea x-model="item.note" class="w-full bg-transparent border-none focus:border-none focus:ring-0 outline-none focus:outline-none text-sm text-slate-700 dark:text-zinc-300 placeholder-slate-400 dark:placeholder-zinc-500 min-h-[120px] resize-none p-0" placeholder="Tulis catatan..."></textarea>
@@ -299,60 +353,141 @@ $saveCart = function ($cartData) {
                                 </div>
 
                                 {{-- Product Info --}}
-                                <div class="pr-12">
-                                    <h4 class="font-bold text-[#1a2b4c] dark:text-zinc-100 text-[15px] sm:text-base leading-snug line-clamp-1 uppercase" x-text="item.name"></h4>
-                                    <div class="text-[13px] text-zinc-400 font-medium mt-1 uppercase" x-text="item.code || '0001'"></div>
+                                <div class="pr-10 sm:pr-12">
+                                    <h4 class="font-bold text-[#1a2b4c] dark:text-zinc-100 text-[14px] sm:text-[15px] leading-snug line-clamp-1 uppercase" x-text="item.name"></h4>
+                                    <div class="text-[12px] sm:text-[13px] text-zinc-400 font-medium mt-0.5 sm:mt-1 uppercase" x-text="item.code || '0001'"></div>
+                                    
+                                    {{-- Cuplikan Catatan (Opsi 1) --}}
+                                    <div x-show="item.note" x-cloak class="mt-1.5 sm:mt-2 flex items-start gap-1.5 text-[11px] sm:text-[12px] text-zinc-500 dark:text-zinc-400">
+                                        <flux:icon.document-text class="w-3 h-3 sm:w-3.5 sm:h-3.5 mt-0.5 shrink-0 text-amber-500" />
+                                        <span class="italic line-clamp-2 leading-tight" x-text="item.note"></span>
+                                    </div>
                                 </div>
 
                                 {{-- Controls Row --}}
-                                <div class="mt-4 flex flex-wrap items-center gap-3 pr-12">
-                                    {{-- Editable Price Input (Image 1 style) --}}
-                                    <div class="relative flex items-center w-40 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg" :class="open ? 'z-50' : 'z-10'" x-data="{ open: false }">
-                                        <span class="absolute left-3 text-xs font-semibold text-zinc-400">Rp</span>
-                                        <input type="text" :value="formatRupiah(item.unit_price)" @input="item.unit_price = $event.target.value.replace(/\D/g, ''); updateItemSubtotal(index)" class="w-full bg-transparent border-none focus:ring-0 text-center text-[13px] font-bold text-[#1a2b4c] dark:text-zinc-100 py-1.5 pl-8 pr-8" />
-                                        <button type="button" @click="open = !open; $wire.showPriceHistory(item.item_id, item.name)" class="absolute right-2.5 text-zinc-300 hover:text-zinc-500 relative">
-                                            <flux:icon.clock class="w-4 h-4" />
-                                        </button>
-                                        
-                                        {{-- Popover Price History (Livewire) --}}
-                                        <div x-show="open" @click.away="open = false" x-transition.origin.top.left class="absolute top-full left-0 mt-3 w-[calc(100vw-2rem)] sm:w-[380px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-0 cursor-auto overflow-hidden z-50" style="display: none;">
-                                            <div class="flex justify-between items-center p-4 border-b border-zinc-100 dark:border-zinc-800">
-                                                <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">RIWAYAT <span class="text-zinc-500" x-text="'(' + $wire.price_history.length + ')'"></span></h3>
-                                                <button type="button" @click="open = false" class="text-zinc-400 hover:text-zinc-600">
-                                                    <flux:icon.x-mark class="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                            <div class="max-h-64 overflow-y-auto p-2">
-                                                <template x-for="history in $wire.price_history">
-                                                    <div class="p-3 border-b border-zinc-50 dark:border-zinc-800/50 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                                                        <div class="flex justify-between items-start">
-                                                            <div class="text-[11px] text-zinc-500 font-medium" x-text="(new Date(history.purchase_order?.order_date || Date.now())).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) + ' &bull; ' + (history.purchase_order?.po_number || 'INV-0000')">
+                                <div class="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 pr-8 sm:pr-12">
+                                    <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                                        {{-- Editable Price Input (Image 1 style) --}}
+                                        <div class="relative flex items-center flex-1 sm:w-40 min-w-0 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg" :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom', expanded: false }">
+                                            <x-rupiah-input 
+                                                x-model="item.unit_price" 
+                                                @input="updateItemSubtotal(index)"
+                                                align="center" 
+                                                appearance="transparent" 
+                                                class="w-full pr-8" 
+                                            />
+                                            <button type="button" @click="open = !open; if(open) { $wire.showPriceHistory(item.item_id, item.name); $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" 
+                                                    class="absolute right-2.5 transition-colors"
+                                                    :class="item.has_history ? 'text-blue-500 hover:text-blue-600' : 'text-zinc-300 hover:text-zinc-500'">
+                                                <flux:icon.clock class="w-4 h-4" />
+                                            </button>
+                                            
+                                            {{-- Popover Price History (Livewire) --}}
+                                            <div x-show="open" @click.away="open = false" x-transition 
+                                                 class="absolute right-0 sm:right-auto sm:left-0 w-[310px] sm:w-[380px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-0 cursor-auto overflow-hidden z-50 transition-all duration-300" 
+                                                 :class="[
+                                                    placement === 'top' ? 'bottom-full mb-3 origin-bottom-right sm:origin-bottom-left' : 'top-full mt-3 origin-top-right sm:origin-top-left',
+                                                    expanded ? 'sm:w-[500px] sm:-left-20' : ''
+                                                 ]"
+                                                 style="display: none;">
+                                                <div class="flex justify-between items-center p-4 border-b border-zinc-100 dark:border-zinc-800">
+                                                    <div class="flex items-center gap-3">
+                                                        <button type="button" @click="expanded = !expanded" class="text-zinc-400 hover:text-cyan-600 transition-colors" title="Perbesar/Perkecil Tampilan">
+                                                            <flux:icon.arrows-pointing-out class="w-3.5 h-3.5" x-show="!expanded" />
+                                                            <flux:icon.arrows-pointing-in class="w-3.5 h-3.5" x-show="expanded" x-cloak />
+                                                        </button>
+                                                        <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">RIWAYAT <span class="text-zinc-500" x-text="'(' + $wire.price_history.length + ')'"></span></h3>
+                                                    </div>
+                                                    <button type="button" @click="open = false" class="text-zinc-400 hover:text-zinc-600">
+                                                        <flux:icon.x-mark class="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                                <div class="overflow-y-auto p-2 transition-all duration-300" :class="expanded ? 'max-h-[450px]' : 'max-h-64'">
+                                                    <template x-for="history in $wire.price_history">
+                                                        <div x-data="{ showDetail: false }" class="border-b border-zinc-50 dark:border-zinc-800/50 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors group">
+                                                            <div @click="item.unit_price = history.unit_price; updateItemSubtotal(index); open = false" 
+                                                                 class="p-3 cursor-pointer">
+                                                                <div class="flex justify-between items-center">
+                                                                    <div class="flex-1">
+                                                                        <div class="text-[11px] text-zinc-500 font-medium group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors" x-text="(new Date(history.purchase_order?.order_date || Date.now())).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) + ' &bull; ' + (history.purchase_order?.po_number || 'INV-0000')">
+                                                                        </div>
+                                                                        <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                                                                            <flux:icon.building-storefront class="w-3.5 h-3.5 text-zinc-400 group-hover:text-cyan-500 transition-colors" />
+                                                                            <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors truncate max-w-[120px]" x-text="history.purchase_order?.vendor?.name || 'Vendor Tidak Diketahui'"></span>
+                                                                            <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                                                            <span class="text-[10px] font-bold text-zinc-500 uppercase group-hover:text-cyan-600/70 dark:group-hover:text-cyan-400/70 transition-colors bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded" x-text="'Beli: ' + history.quantity + ' ' + (history.item?.unit?.name || '')"></span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="text-right flex items-center gap-3">
+                                                                        <div class="font-bold text-zinc-700 text-sm group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+                                                                            <span x-text="'Rp' + formatRupiah(history.unit_price)"></span>
+                                                                            <span class="text-[10px] text-zinc-400 font-medium lowercase group-hover:text-cyan-500/80 transition-colors" x-text="'/' + (history.item?.unit?.name || 'unit')"></span>
+                                                                        </div>
+                                                                        <button type="button" @click.stop="showDetail = !showDetail; if(showDetail && (!$wire.detail_po || $wire.detail_po.id !== history.purchase_order_id)) $wire.viewPoDetail(history.purchase_order_id)" 
+                                                                                class="p-1.5 text-zinc-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 rounded-full transition-all" 
+                                                                                :class="showDetail ? 'bg-cyan-50 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' : ''"
+                                                                                title="Lihat Detail PO">
+                                                                            <flux:icon.eye class="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <div class="text-right">
-                                                                <div class="font-bold text-zinc-700 text-sm" x-text="'Rp' + formatRupiah(history.unit_price)"></div>
-                                                                <div class="text-[10px] font-bold text-zinc-400 mt-1 uppercase" x-text="history.qty + ' Qty'"></div>
+                                                            
+                                                            {{-- Inline Detail Pop-up (Accordion) --}}
+                                                            <div x-show="showDetail" x-collapse x-cloak class="bg-zinc-100/50 dark:bg-zinc-800/30 border-t border-zinc-100 dark:border-zinc-800 p-3 shadow-inner">
+                                                                <div wire:loading wire:target="viewPoDetail" class="text-[10px] text-zinc-400 text-center w-full py-2">
+                                                                    Memuat isi Purchase Order...
+                                                                </div>
+                                                                
+                                                                <div wire:loading.remove wire:target="viewPoDetail">
+                                                                    <template x-if="$wire.detail_po && $wire.detail_po.id === history.purchase_order_id">
+                                                                        <div class="space-y-2">
+                                                                            <div class="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                                                                                <span>Daftar Barang (Total: <span x-text="'Rp' + formatRupiah($wire.detail_po.grand_total)"></span>)</span>
+                                                                            </div>
+                                                                            <div class="space-y-1.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                                                                                <template x-for="ditem in $wire.detail_po.items">
+                                                                                    <div class="flex justify-between items-center text-[11px] bg-white dark:bg-zinc-900 p-1.5 rounded border border-zinc-200/50 dark:border-zinc-700/50"
+                                                                                         :class="ditem.item_id === history.item_id ? 'border-cyan-200 dark:border-cyan-800 bg-cyan-50/30 dark:bg-cyan-900/10' : ''">
+                                                                                        <div class="flex-1 truncate pr-2 font-medium" :class="ditem.item_id === history.item_id ? 'text-cyan-700 dark:text-cyan-400' : 'text-zinc-600 dark:text-zinc-300'" x-text="ditem.item?.name || 'Unknown'"></div>
+                                                                                        <div class="w-16 text-right text-zinc-500" x-text="ditem.quantity + ' ' + (ditem.item?.unit?.name || '')"></div>
+                                                                                        <div class="w-20 text-right font-bold text-zinc-700 dark:text-zinc-300" x-text="'Rp' + formatRupiah(ditem.unit_price)"></div>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                </div>
                                                             </div>
                                                         </div>
+                                                    </template>
+                                                    <div x-show="$wire.price_history.length === 0" class="p-4 text-center text-xs text-zinc-400">
+                                                        Belum ada riwayat harga.
                                                     </div>
-                                                </template>
-                                                <div x-show="$wire.price_history.length === 0" class="p-4 text-center text-xs text-zinc-400">
-                                                    Belum ada riwayat harga.
+                                                    
+                                                    {{-- Tombol Load More --}}
+                                                    <div x-show="$wire.has_more_history" class="p-2 border-t border-zinc-100 dark:border-zinc-800">
+                                                        <button type="button" wire:click="loadMoreHistory" class="w-full py-1.5 text-xs font-semibold text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 rounded transition-colors flex justify-center items-center gap-1">
+                                                            <span wire:loading.remove wire:target="loadMoreHistory">Muat Lebih Banyak</span>
+                                                            <span wire:loading wire:target="loadMoreHistory">Memuat...</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {{-- Qty Control --}}
-                                    <div class="flex items-center bg-zinc-50 dark:bg-zinc-800/50 rounded-lg h-[32px]">
-                                        <button type="button" @click="decrementQty(index)" class="w-8 h-full flex items-center justify-center text-zinc-400 hover:text-blue-600">-</button>
-                                        <input type="number" x-model.number="item.qty" @input="updateItemSubtotal(index)" class="w-10 text-center bg-transparent border-none focus:ring-0 p-0 text-[13px] font-bold text-[#1a2b4c] dark:text-zinc-100" min="0.1" step="0.1" />
-                                        <button type="button" @click="incrementQty(index)" class="w-8 h-full flex items-center justify-center text-zinc-400 hover:text-blue-600">+</button>
+                                        {{-- Qty Control --}}
+                                        <div class="flex items-center bg-zinc-50 dark:bg-zinc-800/50 rounded-lg h-[32px] shrink-0">
+                                            <button type="button" @click="decrementQty(index)" class="w-8 h-full flex items-center justify-center text-zinc-400 hover:text-blue-600">-</button>
+                                            <input type="number" x-model.number="item.qty" @input="updateItemSubtotal(index)" class="w-10 text-center bg-transparent border-none focus:ring-0 p-0 text-[13px] font-bold text-[#1a2b4c] dark:text-zinc-100" min="0.1" step="0.1" />
+                                            <button type="button" @click="incrementQty(index)" class="w-8 h-full flex items-center justify-center text-zinc-400 hover:text-blue-600">+</button>
+                                        </div>
                                     </div>
 
                                     {{-- Subtotal --}}
-                                    <div class="ml-auto text-sm">
+                                    <div class="flex items-center justify-start sm:justify-end w-full sm:flex-1 text-sm mt-1 sm:mt-0">
                                         <span class="text-zinc-400 text-[11px] font-bold mr-1 uppercase">SUB:</span>
-                                        <span class="font-bold text-[#1a2b4c] dark:text-zinc-100 text-[15px]" x-text="'Rp' + formatRupiah(item.subtotal)"></span>
+                                        <span class="font-bold text-[#1a2b4c] dark:text-zinc-100 text-[14px] sm:text-[15px]" x-text="'Rp' + formatRupiah(item.subtotal)"></span>
                                     </div>
                                 </div>
                             </div>
@@ -483,10 +618,16 @@ $saveCart = function ($cartData) {
                     <flux:separator />
 
                     {{-- Diskon --}}
-                    <flux:input type="number" x-model.number="diskon_global" @input="calculateTax()" label="Diskon Global" icon="receipt-percent" class="text-right" />
+                    <flux:field>
+                        <flux:label>Diskon Global</flux:label>
+                        <x-rupiah-input x-model="diskon_global" @input="calculateTax()" />
+                    </flux:field>
                     
                     {{-- Ongkir --}}
-                    <flux:input type="number" x-model.number="ongkir" @input="calculateTax()" label="Ongkos Kirim" icon="truck" class="text-right" />
+                    <flux:field>
+                        <flux:label>Ongkos Kirim</flux:label>
+                        <x-rupiah-input x-model="ongkir" @input="calculateTax()" />
+                    </flux:field>
 
                     {{-- Pajak PPN (Cached Options) --}}
                     <div x-data="{
@@ -585,7 +726,7 @@ $saveCart = function ($cartData) {
                 </div>
             </div>
         </div>
-    </div>
+    </form>
 
     {{-- Modals Eksternal (Di-load sebagai komponen Livewire terpisah) --}}
     <livewire:global.item-gallery-modal />
@@ -662,7 +803,8 @@ $saveCart = function ($cartData) {
                         unit_price: newItem.unit_price,
                         subtotal: newItem.unit_price,
                         image: newItem.image,
-                        note: ''
+                        note: '',
+                        has_history: newItem.has_history
                     });
                     this.calculateTax();
                 }

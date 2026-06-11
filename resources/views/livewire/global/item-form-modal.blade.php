@@ -258,7 +258,7 @@ new class extends Component {
                     {{-- Area Foto (Dibatasi proporsional) --}}
                     <div class="w-full flex flex-col items-center justify-center pt-2 pb-2">
                         <div class="w-56"> {{-- Lebar fix 224px agar tinggi (aspect-square) tidak terlalu makan tempat --}}
-                            <x-image-cropper wire:model="image" :image="$image" accept="image/*" />
+                            <x-image-cropper id="item-cropper" wire:model="image" :image="$image" accept="image/*" />
                         </div>
                         <span class="text-xs text-zinc-500 mt-3 font-medium">Ganti Foto Utama</span>
                     </div>

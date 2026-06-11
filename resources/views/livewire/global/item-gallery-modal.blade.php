@@ -50,8 +50,17 @@ new class extends Component {
             $query->where('category_id', $this->categoryId);
         }
 
+        $galleryItems = $query->latest()->paginate($this->perPage);
+        
+        $itemIds = $galleryItems->pluck('id')->toArray();
+        $itemsWithHistory = \Modules\Purchase\Models\PurchaseOrderItem::whereIn('item_id', $itemIds)
+            ->whereHas('purchaseOrder', function($q) {
+                $q->where('status', '!=', 'draft');
+            })->pluck('item_id')->unique()->toArray();
+
         return [
-            'galleryItems' => $query->latest()->paginate($this->perPage),
+            'galleryItems' => $galleryItems,
+            'itemsWithHistory' => $itemsWithHistory,
             'categories' => Category::orderBy('name')->get(),
         ];
     }
@@ -101,7 +110,7 @@ new class extends Component {
 
             <div wire:loading.remove wire:target="searchQuery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
                 @forelse($galleryItems as $item)
-                    <div @click="$dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: '{{ addslashes($item->name) }}', code: '{{ $item->code ?? '0001' }}', unit_price: {{ $item->purchase_price ?? 0 }}, image: '{{ $item->image }}' } })"
+                    <div @click="$dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: '{{ addslashes($item->name) }}', code: '{{ $item->code ?? '0001' }}', unit_price: {{ $item->purchase_price ?? 0 }}, image: '{{ $item->image }}', has_history: {{ in_array($item->id, $itemsWithHistory) ? 'true' : 'false' }} } })"
                          :class="$data.items?.find(i => i.item_id == {{ $item->id }}) ? 'border-cyan-600 ring-2 ring-cyan-600 shadow-lg scale-[1.02]' : 'border-zinc-200 dark:border-zinc-800 hover:border-cyan-500/50 hover:shadow-lg hover:scale-[1.02]'"
                          class="relative bg-white dark:bg-zinc-900 rounded-xl border overflow-hidden transition-all cursor-pointer group flex flex-col h-full">
                         

@@ -1,12 +1,13 @@
 @props([
     'image' => null,
     'label' => 'Foto Barang (Crop Interaktif & Kompres WEBP)',
-    'accept' => 'image/*'
+    'accept' => 'image/*',
+    'id' => null
 ])
 
 @php
     $wireModel = $attributes->wire('model')->value();
-    $modalName = 'crop-modal-' . md5($wireModel ?? 'default');
+    $modalName = 'crop-modal-' . ($id ?? md5($wireModel ?? 'default'));
 @endphp
 
 <div x-data="imageCropper('{{ $wireModel }}')" 
