@@ -43,7 +43,7 @@ $updateStatus = function ($queueId, $newStatus) {
             <flux:subheading>Pantau alur dan status dari setiap antrean permintaan barang (Purchase Queue).</flux:subheading>
         </div>
         
-        <flux:button variant="primary" icon="plus" href="{{ route('purchase.queues.kanban') }}">Buat Permintaan Baru</flux:button>
+        <flux:button variant="primary" icon="plus" href="#" wire:click.prevent="Flux::toast('Fitur form permintaan segera hadir!', 'warning')">Buat Permintaan Baru</flux:button>
     </div>
 
     {{-- Kanban Board Area --}}
