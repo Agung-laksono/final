@@ -20,3 +20,4 @@ window.Echo.channel('inventory')
         audio.volume = 0.6;
         audio.play().catch(e => console.log('Audio autoplay prevented by browser:', e));
     });
+window.Echo.channel('purchase').listen('VendorUpdated', (event) => { let audio = new Audio('/notification.mp3'); audio.volume = 0.6; audio.play().catch(e => console.log('Audio autoplay prevented by browser:', e)); });

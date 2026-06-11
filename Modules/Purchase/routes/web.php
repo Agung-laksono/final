@@ -9,6 +9,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Rute Volt untuk Vendor
     \Livewire\Volt\Volt::route('purchase/vendors', 'vendor.index')->name('purchase.vendors.index');
     
+    // Rute Volt untuk Purchase Order
+    \Livewire\Volt\Volt::route('purchase/orders/create', 'purchase.purchase-form')->name('purchase.orders.create');
+    \Livewire\Volt\Volt::route('purchase/orders/{id}/edit', 'purchase.purchase-form')->name('purchase.orders.edit');
+    
     // Rute Volt untuk Dual Kanban Board
     \Livewire\Volt\Volt::route('purchase/queues', 'queue.kanban')->name('purchase.queues.kanban');
     \Livewire\Volt\Volt::route('purchase/orders', 'order.kanban')->name('purchase.orders.kanban');

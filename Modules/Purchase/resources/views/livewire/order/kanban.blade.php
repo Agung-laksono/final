@@ -42,7 +42,7 @@ $updateStatus = function ($orderId, $newStatus) {
             <flux:subheading>Atur dan pantau progres dokumen pemesanan ke Supplier/Vendor secara visual.</flux:subheading>
         </div>
         
-        <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.kanban') }}">Buat PO Baru</flux:button>
+        <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" wire:navigate>Buat PO Baru</flux:button>
     </div>
 
     {{-- Kanban Board Area --}}
