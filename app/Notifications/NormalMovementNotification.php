@@ -5,7 +5,7 @@ namespace App\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
-class AbnormalMovementNotification extends Notification
+class NormalMovementNotification extends Notification
 {
     use Queueable;
 
@@ -40,12 +40,15 @@ class AbnormalMovementNotification extends Notification
      */
     public function toArray(object $notifiable): array
     {
+        $color = $this->type === 'Masuk' ? 'text-green-500' : 'text-orange-500';
+        $icon = $this->type === 'Masuk' ? 'arrow-down-tray' : 'arrow-up-tray';
+
         return [
-            'title' => 'Pergerakan Stok Tidak Wajar',
-            'message' => "<b>" . e($this->userName) . "</b> melakukan mutasi <b>" . $this->type . "</b> sebanyak " . number_format($this->quantity, 0, ',', '.') . " pcs untuk barang <b>" . e($this->item->name) . "</b>.",
+            'title' => 'Mutasi Stok ' . $this->type,
+            'message' => "Oleh <b>" . e($this->userName) . "</b>: Terjadi mutasi <b>" . $this->type . "</b> sebanyak " . number_format($this->quantity, 0, ',', '.') . " pcs untuk barang <b>" . e($this->item->name) . "</b>.",
             'avatar' => $this->userAvatar,
-            'icon' => 'shield-exclamation',
-            'color' => 'text-red-500',
+            'icon' => $icon,
+            'color' => $color,
             'url' => route('inventory.movements') . '?search=' . e($this->item->code),
         ];
     }

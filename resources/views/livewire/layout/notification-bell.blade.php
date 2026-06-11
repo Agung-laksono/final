@@ -57,6 +57,7 @@ $markAllAsRead = function () {
 on([
     'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function () {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
+        $this->js("document.getElementById('notif-sound').play().catch(() => {})");
     }
 ]);
 
@@ -67,6 +68,7 @@ with(fn () => [
 ?>
 
 <div {{ $attributes }}>
+    <audio id="notif-sound" src="/notification.mp3" preload="auto"></audio>
     <flux:dropdown position="top" align="start">
         <flux:sidebar.item class="relative cursor-pointer w-full text-start {{ $unreadCount > 0 ? 'bell-has-unread' : '' }}" data-flux-sidebar-action>
             <x-slot:icon>
@@ -98,15 +100,26 @@ with(fn () => [
                     <div wire:click="markAsReadAndRedirect('{{ $notification->id }}', '{{ $notification->data['url'] ?? '#' }}')" 
                          wire:target="markAsReadAndRedirect('{{ $notification->id }}', '{{ $notification->data['url'] ?? '#' }}')"
                          wire:loading.class="opacity-50 pointer-events-none"
-                         class="cursor-pointer group relative flex gap-2.5 p-2.5 rounded-lg border transition-all duration-200 {{ $notification->read_at ? 'bg-white dark:bg-zinc-900/50 border-zinc-100 dark:border-zinc-800/50 opacity-70 hover:opacity-100 hover:border-zinc-200 dark:hover:border-zinc-700' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/50 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm' }}">
+                         class="cursor-pointer group relative flex items-center gap-2.5 p-2.5 rounded-lg border transition-all duration-200 {{ $notification->read_at ? 'bg-white dark:bg-zinc-900/50 border-zinc-100 dark:border-zinc-800/50 opacity-70 hover:opacity-100 hover:border-zinc-200 dark:hover:border-zinc-700' : 'bg-blue-50/50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/50 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm' }}">
 
                         {{-- Icon Container --}}
                         <div class="shrink-0">
-                            <div class="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700">
-                                @if(isset($notification->data['icon']))
-                                    <flux:icon :icon="$notification->data['icon']" class="h-3.5 w-3.5 {{ $notification->data['color'] ?? 'text-zinc-500' }}" />
+                            <div class="relative h-8 w-8 inline-flex">
+                                @if(isset($notification->data['avatar']))
+                                    <img src="{{ $notification->data['avatar'] }}" alt="Avatar" class="h-8 w-8 rounded-full object-cover ring-2 ring-white dark:ring-zinc-900 shadow-sm" />
+                                    @if(isset($notification->data['icon']))
+                                        <div class="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700 z-10">
+                                            <flux:icon :icon="$notification->data['icon']" class="h-2.5 w-2.5 {{ $notification->data['color'] ?? 'text-zinc-500' }}" />
+                                        </div>
+                                    @endif
                                 @else
-                                    <flux:icon.bell class="h-3.5 w-3.5 text-zinc-500" />
+                                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700 shadow-sm">
+                                        @if(isset($notification->data['icon']))
+                                            <flux:icon :icon="$notification->data['icon']" class="h-4 w-4 {{ $notification->data['color'] ?? 'text-zinc-500' }}" />
+                                        @else
+                                            <flux:icon.bell class="h-4 w-4 text-zinc-500" />
+                                        @endif
+                                    </div>
                                 @endif
                             </div>
                         </div>

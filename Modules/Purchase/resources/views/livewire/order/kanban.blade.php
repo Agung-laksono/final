@@ -33,6 +33,10 @@ $updateStatus = function ($orderId, $newStatus) {
     }
 };
 
+on(['status-updated' => function () {
+    // Kosong saja, tujuannya hanya memancing re-render agar computed $orders dijalankan ulang
+}]);
+
 ?>
 
 <div class="space-y-6">
@@ -99,6 +103,13 @@ $updateStatus = function ($orderId, $newStatus) {
                                     @endif
                                 </div>
                             </div>
+
+                            {{-- Action Buttons --}}
+                            @if(in_array($statusKey, ['processing', 'partially_received']))
+                                <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                                    <flux:button size="sm" variant="primary" class="w-full" wire:click="$dispatch('open-receipt-modal', { orderId: {{ $po->id }} })">📦 Terima Barang</flux:button>
+                                </div>
+                            @endif
                         </div>
                     @empty
                         <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
@@ -109,35 +120,44 @@ $updateStatus = function ($orderId, $newStatus) {
             </div>
         @endforeach
     </div>
-</div>
 
-<script>
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('kanbanBoardOrder', () => ({
-            draggedItemId: null,
-            dragOverColumn: null,
+    <livewire:order.receipt-modal />
 
-            dragStart(event, itemId) {
-                this.draggedItemId = itemId;
-                event.dataTransfer.effectAllowed = 'move';
-                setTimeout(() => event.target.classList.add('opacity-50', 'scale-95'), 0);
-            },
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('kanbanBoardOrder', () => ({
+                draggedItemId: null,
+                dragOverColumn: null,
 
-            dragEnd(event) {
-                this.draggedItemId = null;
-                this.dragOverColumn = null;
-                event.target.classList.remove('opacity-50', 'scale-95');
-            },
+                dragStart(event, itemId) {
+                    this.draggedItemId = itemId;
+                    event.dataTransfer.effectAllowed = 'move';
+                    setTimeout(() => event.target.classList.add('opacity-50', 'scale-95'), 0);
+                },
 
-            dropItem(statusKey) {
-                if (this.draggedItemId) {
-                    @this.call('updateStatus', this.draggedItemId, statusKey);
+                dragEnd(event) {
+                    this.draggedItemId = null;
+                    this.dragOverColumn = null;
+                    event.target.classList.remove('opacity-50', 'scale-95');
+                },
+
+                dropItem(statusKey) {
+                    // Prevent dropping to system-calculated columns
+                    if (statusKey === 'partially_received' || statusKey === 'completed') {
+                        Flux.toast({ title: 'Akses Ditolak', description: 'Gunakan tombol Terima Barang untuk memperbarui status penerimaan.', variant: 'warning' });
+                        this.dragOverColumn = null;
+                        return;
+                    }
+
+                    if (this.draggedItemId) {
+                        @this.call('updateStatus', this.draggedItemId, statusKey);
+                    }
+                    this.dragOverColumn = null;
                 }
-                this.dragOverColumn = null;
-            }
-        }));
-    });
-</script>
+            }));
+        });
+    </script>
+</div>
 
 <style>
     .custom-scrollbar::-webkit-scrollbar {

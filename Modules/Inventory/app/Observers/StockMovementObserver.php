@@ -63,12 +63,20 @@ class StockMovementObserver
             ->orWhereHas('roles', fn($q) => $q->where('name', 'Super Admin'))
             ->get();
         $item = $movement->item;
+        $userName = $movement->user ? $movement->user->name : 'Sistem';
+        
+        // Generate UI Avatar atau gunakan avatar asli jika ada
+        $userAvatar = $movement->user && $movement->user->avatar 
+            ? \Illuminate\Support\Facades\Storage::url($movement->user->avatar) 
+            : 'https://ui-avatars.com/api/?name=' . urlencode($userName) . '&color=FFFFFF&background=09090b';
 
         if ($recipients->isNotEmpty() && $item) {
-            // 1. Deteksi Abnormal Movement
+            // 1. Deteksi Abnormal/Normal Movement
+            $type = $movement->quantity > 0 ? 'Masuk' : 'Keluar';
             if (abs($movement->quantity) >= 10) {
-                $type = $movement->quantity > 0 ? 'Masuk' : 'Keluar';
-                Notification::send($recipients, new AbnormalMovementNotification($item, abs($movement->quantity), $type));
+                Notification::send($recipients, new AbnormalMovementNotification($item, abs($movement->quantity), $type, $userName, $userAvatar));
+            } elseif (abs($movement->quantity) > 0) {
+                Notification::send($recipients, new \App\Notifications\NormalMovementNotification($item, abs($movement->quantity), $type, $userName, $userAvatar));
             }
 
             // 2. Deteksi Low Stock (Hanya jika stok berkurang)

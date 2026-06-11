@@ -25,6 +25,11 @@ class PurchaseOrderItem extends Model
         return $this->belongsTo(\Modules\Inventory\Models\Item::class);
     }
 
+    public function receipts()
+    {
+        return $this->hasMany(PurchaseReceiptItem::class);
+    }
+
     // protected static function newFactory(): PurchaseOrderItemFactory
     // {
     //     // return PurchaseOrderItemFactory::new();

@@ -25,6 +25,11 @@ class PurchaseOrder extends Model
         return $this->hasMany(PurchaseOrderItem::class);
     }
 
+    public function receipts()
+    {
+        return $this->hasMany(PurchaseReceipt::class);
+    }
+
     // protected static function newFactory(): PurchaseOrderFactory
     // {
     //     // return PurchaseOrderFactory::new();

@@ -66,15 +66,26 @@ $deleteAll = function () {
         @if($notifications->count() > 0)
             <div class="divide-y divide-zinc-200 dark:divide-zinc-800">
                 @foreach ($notifications as $notification)
-                    <div class="group relative flex gap-4 p-5 transition-all duration-200 {{ $notification->read_at ? 'bg-transparent opacity-50 hover:opacity-80 grayscale-[50%]' : 'bg-blue-50/80 dark:bg-blue-900/20 hover:bg-blue-100/80 dark:hover:bg-blue-900/30' }}">
+                    <div class="group relative flex items-center gap-4 p-5 transition-all duration-200 {{ $notification->read_at ? 'bg-transparent opacity-50 hover:opacity-80 grayscale-[50%]' : 'bg-blue-50/80 dark:bg-blue-900/20 hover:bg-blue-100/80 dark:hover:bg-blue-900/30' }}">
                         
-                        {{-- Icon --}}
-                        <div class="shrink-0 mt-1">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700 shadow-sm">
-                                @if(isset($notification->data['icon']))
-                                    <flux:icon :icon="$notification->data['icon']" class="h-5 w-5 {{ $notification->data['color'] ?? 'text-zinc-500' }}" />
+                        {{-- Icon / Avatar --}}
+                        <div class="shrink-0">
+                            <div class="relative h-10 w-10 inline-flex">
+                                @if(isset($notification->data['avatar']))
+                                    <img src="{{ $notification->data['avatar'] }}" alt="Avatar" class="h-10 w-10 rounded-full object-cover ring-2 ring-white dark:ring-zinc-900 shadow-sm" />
+                                    @if(isset($notification->data['icon']))
+                                        <div class="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700 z-10">
+                                            <flux:icon :icon="$notification->data['icon']" class="h-3 w-3 {{ $notification->data['color'] ?? 'text-zinc-500' }}" />
+                                        </div>
+                                    @endif
                                 @else
-                                    <flux:icon.bell class="h-5 w-5 text-zinc-500" />
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700 shadow-sm">
+                                        @if(isset($notification->data['icon']))
+                                            <flux:icon :icon="$notification->data['icon']" class="h-5 w-5 {{ $notification->data['color'] ?? 'text-zinc-500' }}" />
+                                        @else
+                                            <flux:icon.bell class="h-5 w-5 text-zinc-500" />
+                                        @endif
+                                    </div>
                                 @endif
                             </div>
                         </div>
