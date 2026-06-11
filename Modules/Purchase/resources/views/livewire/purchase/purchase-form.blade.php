@@ -68,6 +68,7 @@ mount(function ($id = null) {
                 'unit_price' => $detail->unit_price,
                 'subtotal' => $detail->subtotal,
                 'image' => $detail->item->image ?? null,
+                'note' => $detail->notes ?? '', // Hydrate notes from DB
             ];
         }
     } else {
@@ -184,6 +185,7 @@ $saveCart = function ($cartData) {
                 'quantity' => $item['qty'],
                 'unit_price' => $item['unit_price'],
                 'subtotal' => $item['subtotal'],
+                'notes' => $item['note'] ?? null, // Simpan ke DB
             ]
         );
     }
@@ -289,10 +291,7 @@ $saveCart = function ($cartData) {
                                     
                                     {{-- Popover Quick Note --}}
                                     <div x-show="open" @click.away="open = false" x-transition.origin.top.right class="absolute top-full right-0 mt-3 w-[calc(100vw-2rem)] sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 cursor-auto z-50" style="display: none;">
-                                        <div class="flex justify-between items-center mb-4">
-                                            <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">CATATAN CEPAT</h3>
-                                            <button type="button" @click="open = false; $wire.openRichEditor()" class="hidden text-[11px] font-bold text-zinc-500 hover:text-zinc-700 tracking-wider uppercase">EDITOR KAYA</button>
-                                        </div>
+                                        <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase mb-4">CATATAN CEPAT</h3>
                                         <div class="bg-slate-50 dark:bg-zinc-800 rounded-xl p-3 shadow-inner border border-zinc-200 dark:border-zinc-700 focus-within:border-zinc-300 focus-within:ring-1 focus-within:ring-zinc-300 transition-colors">
                                             <textarea x-model="item.note" class="w-full bg-transparent border-none focus:border-none focus:ring-0 outline-none focus:outline-none text-sm text-slate-700 dark:text-zinc-300 placeholder-slate-400 dark:placeholder-zinc-500 min-h-[120px] resize-none p-0" placeholder="Tulis catatan..."></textarea>
                                         </div>
@@ -596,79 +595,6 @@ $saveCart = function ($cartData) {
     <livewire:global.item-form-modal />
     <livewire:global.vendor-form-modal />
 
-    {{-- MODAL RICH EDITOR (Mockup) --}}
-    <flux:modal name="rich-note-modal" class="md:w-[800px] max-w-4xl p-6">
-        <div class="flex justify-between items-start mb-6">
-            <div class="flex items-center gap-4">
-                <div>
-                    <h3 class="text-sm font-bold text-[#1a2b4c] dark:text-white tracking-widest uppercase">EDITOR CATATAN</h3>
-                    <p class="text-[10px] text-slate-400 tracking-wider uppercase mt-0.5">RICH TEXT MODE</p>
-                </div>
-                <button type="button" class="bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold uppercase px-4 py-2 rounded-full flex items-center gap-2 shadow-sm transition-colors">
-                    <flux:icon.document-duplicate class="w-3.5 h-3.5" /> GUNAKAN TEMPLATE
-                </button>
-            </div>
-            <button type="button" x-on:click="$flux.modal('rich-note-modal').close()" class="w-8 h-8 rounded-full border border-zinc-200 flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 transition-colors">
-                <flux:icon.x-mark class="w-4 h-4" />
-            </button>
-        </div>
-
-        <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 shadow-sm flex flex-col overflow-hidden">
-            {{-- Toolbar Mockup --}}
-            <div class="border-b border-zinc-200 dark:border-zinc-700 p-2 px-4 flex flex-wrap items-center gap-3 bg-zinc-50/50 dark:bg-zinc-800/50">
-                <div class="flex gap-3 text-[13px] text-zinc-600 dark:text-zinc-400 border-r border-zinc-200 dark:border-zinc-700 pr-3 py-1 hidden sm:flex">
-                    <span class="hover:text-zinc-900 cursor-pointer">File</span>
-                    <span class="hover:text-zinc-900 cursor-pointer">Edit</span>
-                    <span class="hover:text-zinc-900 cursor-pointer">View</span>
-                    <span class="hover:text-zinc-900 cursor-pointer">Insert</span>
-                    <span class="hover:text-zinc-900 cursor-pointer">Format</span>
-                    <span class="hover:text-zinc-900 cursor-pointer">Tools</span>
-                    <span class="hover:text-zinc-900 cursor-pointer">Table</span>
-                </div>
-                <div class="flex items-center gap-2 text-zinc-400 border-r border-zinc-200 dark:border-zinc-700 pr-3">
-                    <flux:icon.arrow-uturn-left class="w-4 h-4 hover:text-zinc-600 cursor-pointer" />
-                    <flux:icon.arrow-uturn-right class="w-4 h-4 hover:text-zinc-600 cursor-pointer" />
-                </div>
-                <div class="flex items-center gap-2">
-                    <select class="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-xs rounded-md py-1 px-2 focus:ring-0">
-                        <option>Paragraph</option>
-                    </select>
-                    <select class="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-xs rounded-md py-1 px-2 focus:ring-0">
-                        <option>System Font</option>
-                    </select>
-                    <select class="bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-xs rounded-md py-1 px-2 focus:ring-0">
-                        <option>12pt</option>
-                    </select>
-                </div>
-                <div class="flex items-center gap-3 font-serif font-bold text-zinc-700 dark:text-zinc-300 ml-2">
-                    <span class="cursor-pointer hover:text-black">B</span>
-                    <span class="cursor-pointer hover:text-black italic">I</span>
-                    <span class="cursor-pointer hover:text-black underline border-b border-black">U</span>
-                    <span class="cursor-pointer hover:text-black line-through">S</span>
-                    <flux:icon.ellipsis-horizontal class="w-5 h-5 ml-2 cursor-pointer" />
-                </div>
-            </div>
-            
-            {{-- Editor Area --}}
-            <textarea wire:model="current_note" class="w-full h-[300px] border-none focus:ring-0 p-5 text-zinc-800 dark:text-zinc-200 resize-none" placeholder="Ketik catatan detail di sini..."></textarea>
-            
-            {{-- Footer Status Bar --}}
-            <div class="border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-1.5 px-4 flex justify-between items-center text-[11px] text-zinc-400 font-mono">
-                <span>p</span>
-                <span>0 words ✍️</span>
-            </div>
-        </div>
-
-        <div class="mt-6 flex justify-between items-center">
-            <button type="button" x-on:click="$flux.modal('rich-note-modal').close()" class="text-[11px] font-bold text-slate-400 hover:text-slate-600 tracking-widest uppercase" wire:loading.attr="disabled">BATAL</button>
-            <button type="button" wire:click="saveNote" wire:loading.attr="disabled" class="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold uppercase px-8 py-2.5 rounded-xl shadow-sm transition-colors flex items-center justify-center min-w-[100px]">
-                <span wire:loading.remove wire:target="saveNote">SIMPAN</span>
-                <span wire:loading wire:target="saveNote">
-                    <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                </span>
-            </button>
-        </div>
-    </flux:modal>
 
     <script>
     document.addEventListener('alpine:init', () => {
@@ -773,4 +699,5 @@ $saveCart = function ($cartData) {
         }));
     });
     </script>
+
 </div>
