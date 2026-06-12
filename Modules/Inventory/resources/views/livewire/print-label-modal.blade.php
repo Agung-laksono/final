@@ -33,9 +33,9 @@ on(['open-print-labels' => function ($labelIds) {
                 
                 <div class="print-area flex flex-wrap gap-4 justify-center sm:justify-start">
                     @foreach($labels as $label)
-                        <div class="label-card bg-white text-black border border-zinc-300 p-1.5 rounded-md shadow-sm flex flex-row items-center justify-start text-left relative overflow-hidden gap-2" style="width: 50mm; height: 20mm;">
+                        <div class="label-card bg-white text-black border border-zinc-300 rounded-md shadow-sm flex flex-row items-end justify-start text-left overflow-hidden" style="width: 50mm; height: 20mm; padding: 0 0 0 2mm;">
                             <!-- Area QR Code (Kiri) -->
-                            <div class="shrink-0 flex justify-center items-center" wire:ignore>
+                            <div class="shrink-0 flex justify-center items-end h-[55px]" wire:ignore>
                                  <div x-data="{ code: '{{ $label->label_code }}' }" 
                                       x-init="
                                           let attempt = 0;
@@ -50,15 +50,15 @@ on(['open-print-labels' => function ($labelIds) {
                                           };
                                           $nextTick(renderQR);
                                       "
-                                      class="flex justify-center items-center">
+                                      class="flex justify-center items-end h-full">
                                  </div>
                             </div>
                             
                             <!-- Area Teks (Kanan) -->
-                            <div class="flex flex-col justify-center overflow-hidden flex-1 w-full h-full">
-                                <div class="text-[9px] font-bold leading-tight text-zinc-900 truncate" title="{{ $label->item->name }}">{{ strtoupper($label->item->name) }}</div>
-                                <div class="text-[7px] text-zinc-700 mt-0.5 font-mono">code: {{ $label->label_code }}</div>
-                                <div class="text-[6px] text-zinc-500 font-mono tracking-wider mt-auto">{{ \Carbon\Carbon::parse($label->created_at)->format('m-Y') }}</div>
+                            <div class="flex flex-col justify-between flex-1 w-full h-[55px] pl-[2mm] pr-[1mm]">
+                                <div class="text-[8pt] font-bold leading-[1.1] text-zinc-900 line-clamp-2" style="margin:0;" title="{{ $label->item->name }}">{{ strtoupper($label->item->name) }}</div>
+                                <div class="text-[6pt] text-zinc-800 mt-[0.5mm] font-mono" style="margin:0.5mm 0 0 0;">code: {{ $label->label_code }}</div>
+                                <div class="text-[5pt] text-zinc-600 font-mono tracking-wider" style="margin:0;">{{ \Carbon\Carbon::parse($label->created_at)->format('m-Y') }}</div>
                             </div>
                         </div>
                     @endforeach

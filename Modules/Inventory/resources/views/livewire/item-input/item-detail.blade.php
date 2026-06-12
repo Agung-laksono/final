@@ -11,7 +11,10 @@ state([
     'in_this_month' => 0,
     'out_this_month' => 0,
     'avg_out_per_day' => 0,
-    'movements' => []
+    'movements' => [],
+    'initial_stock_warehouse_id' => '',
+    'initial_stock_qty' => 1,
+    'initial_stock_notes' => 'Saldo Awal',
 ]);
 
 $openModal = function ($id) {
@@ -30,6 +33,12 @@ $openModal = function ($id) {
     
     $this->movements = $allMovements->take(50);
     
+    $this->initial_stock_warehouse_id = '';
+    $this->initial_stock_qty = 1;
+    $this->initial_stock_notes = 'Saldo Awal';
+    $this->tab = 'info'; // This is fine to keep, doesn't hurt
+    
+    $this->dispatch('item-detail-modal-opened');
     Flux::modal('item-detail-modal')->show();
 };
 
@@ -80,12 +89,97 @@ $toggleActive = function () {
 $refreshItem = function () {
     if ($this->item) {
         $this->item->refresh();
+        $this->openModal($this->item->id);
+    }
+};
+
+$saveInitialStock = function () {
+    \Illuminate\Support\Facades\Gate::authorize('inventory.item.update'); // using update permission, or maybe create?
+    
+    $this->validate([
+        'initial_stock_warehouse_id' => 'required|exists:warehouses,id',
+        'initial_stock_qty' => 'required|integer|min:1',
+        'initial_stock_notes' => 'nullable|string|max:255',
+    ]);
+
+    \Illuminate\Support\Facades\DB::beginTransaction();
+    try {
+        $warehouseId = $this->initial_stock_warehouse_id;
+        $qty = $this->initial_stock_qty;
+        
+        $stockBefore = \Illuminate\Support\Facades\DB::table('item_warehouse')
+            ->where('item_id', $this->item->id)
+            ->where('warehouse_id', $warehouseId)
+            ->value('stock') ?? 0;
+            
+        $stockAfter = $stockBefore + $qty;
+
+        // 1. Catat Mutasi Stok (Stock Movement)
+        $refNumber = 'SA-' . date('Ymd') . '-' . rand(1000, 9999);
+        StockMovement::create([
+            'item_id' => $this->item->id,
+            'warehouse_id' => $warehouseId,
+            'type' => 'in',
+            'quantity' => $qty,
+            'stock_before' => $stockBefore,
+            'stock_after' => $stockAfter,
+            'reference_number' => $refNumber,
+            'date' => now(),
+            'notes' => $this->initial_stock_notes ?: 'Saldo Awal',
+            'user_id' => auth()->id(),
+        ]);
+
+        // 2. Jika Butuh Label SN, Generate
+        $generatedLabelIds = [];
+        if ($this->item->requires_label) {
+            for ($i = 0; $i < $qty; $i++) {
+                do {
+                    $code = strtoupper(\Illuminate\Support\Str::random(6));
+                } while (\Modules\Inventory\Models\ItemLabel::where('label_code', $code)->exists());
+
+                $label = \Modules\Inventory\Models\ItemLabel::create([
+                    'item_id' => $this->item->id,
+                    'label_code' => $code,
+                    'status' => 'in_stock',
+                    'warehouse_id' => $warehouseId,
+                    'notes' => 'Saldo Awal: ' . $refNumber,
+                ]);
+                $generatedLabelIds[] = $label->id;
+            }
+        } else {
+             // 3. Update Pivot Table (For non-label or just to keep it in sync)
+             \Illuminate\Support\Facades\DB::table('item_warehouse')->updateOrInsert(
+                 ['item_id' => $this->item->id, 'warehouse_id' => $warehouseId],
+                 ['stock' => $stockAfter]
+             );
+        }
+
+        \Illuminate\Support\Facades\DB::commit();
+
+        Flux::modal('initial-stock-modal')->close();
+        
+        $msg = "Saldo Awal berhasil ditambahkan.";
+        if (count($generatedLabelIds) > 0) {
+            $msg .= " " . count($generatedLabelIds) . " Label SN berhasil di-generate.";
+            $this->dispatch('open-print-labels', labelIds: $generatedLabelIds);
+        }
+        
+        Flux::toast(heading: 'Berhasil', text: $msg, variant: 'success');
+        
+        // Refresh Dasbor
+        $this->refreshItem();
+        
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\DB::rollBack();
+        \Illuminate\Support\Facades\Log::error('Saldo Awal Error: ' . $e->getMessage());
+        Flux::toast(heading: 'Gagal', text: 'Terjadi kesalahan sistem: ' . $e->getMessage(), variant: 'danger');
     }
 };
 
 ?>
 
 <div x-data="{
+    tab: 'info',
     init() {
         if (window.Echo) {
             window.Echo.channel('inventory')
@@ -93,6 +187,9 @@ $refreshItem = function () {
                     $wire.refreshItem();
                 });
         }
+        $wire.on('item-detail-modal-opened', () => {
+            this.tab = 'info';
+        });
     }
 }">
     <flux:modal name="item-detail-modal" class="w-full" style="width: 1200px; max-width: 90vw;" scroll="body">
@@ -100,12 +197,17 @@ $refreshItem = function () {
             <div class="flex flex-col gap-6 min-h-[400px]">
                 
                 {{-- Header Modal --}}
-                <div class="mb-2">
+                <div class="mb-2 flex items-center gap-3">
                     <flux:heading size="lg">Detail Barang</flux:heading>
+                    @can('inventory.item.update')
+                        <flux:button wire:click="editItem" variant="outline" size="sm" icon="pencil-square" class="px-2 md:px-3">
+                            <span class="hidden md:inline">Edit Data</span>
+                        </flux:button>
+                    @endcan
                 </div>
 
                 {{-- Konten Utama dengan Tabs --}}
-                <div x-data="{ tab: 'info' }">
+                <div>
                     <div class="flex gap-6 border-b border-zinc-200 dark:border-zinc-700 mb-6">
                         <button type="button" @click="tab = 'info'" :class="tab === 'info' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'" class="pb-3 text-sm transition-colors">
                             Dasbor
@@ -184,7 +286,14 @@ $refreshItem = function () {
 
                                 {{-- Stok per Gudang --}}
                                 <div class="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-200 dark:border-zinc-700">
-                                    <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Ketersediaan Stok</h3>
+                                    <div class="flex justify-between items-center mb-3">
+                                        <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider">Ketersediaan Stok</h3>
+                                        @can('inventory.item.update')
+                                            <flux:button x-on:click="Flux.modal('initial-stock-modal').show()" variant="primary" size="xs" icon="plus" class="text-[10px] h-6 px-1.5 md:px-2">
+                                                <span class="hidden md:inline">Input Saldo Awal</span>
+                                            </flux:button>
+                                        @endcan
+                                    </div>
                                     <div class="space-y-2">
                                         @php $totalStock = 0; @endphp
                                         @forelse($item->warehouses as $warehouse)
@@ -451,11 +560,6 @@ $refreshItem = function () {
                                 <span class="hidden md:inline">Tutup</span>
                             </flux:button>
                         </flux:modal.close>
-                        @can('inventory.item.update')
-                            <flux:button wire:click="editItem" variant="primary" icon="pencil-square">
-                                <span class="hidden md:inline">Edit Data</span>
-                            </flux:button>
-                        @endcan
                     </div>
                 </div>
 
@@ -466,5 +570,46 @@ $refreshItem = function () {
                 Memuat detail...
             </div>
         @endif
+    </flux:modal>
+
+    {{-- Modal Input Saldo Awal --}}
+    <flux:modal name="initial-stock-modal" class="md:w-96">
+        <div class="flex flex-col gap-4">
+            <flux:heading size="lg">Input Saldo Awal</flux:heading>
+            <flux:subheading>Masukkan jumlah stok awal untuk barang ini. Stok akan langsung ditambahkan ke gudang yang dipilih.</flux:subheading>
+            
+            <form wire:submit="saveInitialStock" class="flex flex-col gap-4 mt-2">
+                <flux:select wire:model="initial_stock_warehouse_id" label="Gudang">
+                    <flux:select.option value="" disabled selected>Pilih Gudang...</flux:select.option>
+                    @if($item)
+                        @foreach(\Modules\Inventory\Models\Warehouse::all() as $wh)
+                            <flux:select.option value="{{ $wh->id }}">{{ $wh->name }}</flux:select.option>
+                        @endforeach
+                    @endif
+                </flux:select>
+                
+                <flux:input wire:model="initial_stock_qty" type="number" min="1" label="Jumlah Fisik" required />
+                
+                <flux:input wire:model="initial_stock_notes" label="Catatan (Opsional)" />
+                
+                @if($item && $item->requires_label)
+                    <div class="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-900/50 mt-2">
+                        <div class="flex gap-2">
+                            <flux:icon.qr-code class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                            <div class="text-xs text-blue-700 dark:text-blue-300">
+                                Barang ini wajib berlabel. Sistem otomatis men-generate dan mencetak <strong>label SN baru</strong> setelah disimpan.
+                            </div>
+                        </div>
+                    </div>
+                @endif
+                
+                <div class="flex justify-end gap-2 mt-4">
+                    <flux:modal.close>
+                        <flux:button variant="ghost">Batal</flux:button>
+                    </flux:modal.close>
+                    <flux:button type="submit" variant="primary">Simpan Saldo</flux:button>
+                </div>
+            </form>
+        </div>
     </flux:modal>
 </div>

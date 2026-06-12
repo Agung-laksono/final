@@ -37,13 +37,12 @@ new #[Layout('layouts.empty')] class extends Component {
             width: 50mm; 
             height: 20mm; 
             box-sizing: border-box; 
-            padding: 1.5mm; 
+            padding: 0 0 0 2mm; /* Geser semua ke kanan sejauh 2mm */
             page-break-after: always; 
             display: flex; 
             flex-direction: row; 
-            align-items: center; 
+            align-items: flex-end; /* Menempel ke bawah */
             justify-content: flex-start; 
-            gap: 2mm; 
             overflow: hidden; 
         }
         
@@ -51,16 +50,20 @@ new #[Layout('layouts.empty')] class extends Component {
             flex-shrink: 0; 
             display: flex; 
             justify-content: center; 
-            align-items: center; 
+            align-items: flex-end; 
+            height: 55px; /* Sesuaikan dengan tinggi QR code */
         }
         
         .text-container { 
             display: flex; 
             flex-direction: column; 
-            justify-content: center; 
+            justify-content: space-between; /* Menyebarkan teks agar pas dengan tinggi QR */
             flex: 1; 
-            overflow: hidden; 
             width: 100%; 
+            min-width: 0; /* Penting untuk line-clamp/ellipsis di dalam flex */
+            height: 55px; /* Samakan dengan tinggi QR code agar top/bottom sejajar */
+            padding-left: 2mm; 
+            padding-right: 1mm;
         }
         
         .print-name { 
@@ -68,8 +71,10 @@ new #[Layout('layouts.empty')] class extends Component {
             font-weight: bold; 
             line-height: 1.1; 
             margin: 0; 
-            white-space: nowrap; 
-            overflow: hidden; 
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
             text-overflow: ellipsis; 
             color: black; 
         }
@@ -83,7 +88,7 @@ new #[Layout('layouts.empty')] class extends Component {
         
         .print-date { 
             font-size: 5pt; 
-            margin: auto 0 0 0; /* Auto margin top akan mendorong tanggal ke paling bawah */
+            margin: 0; 
             font-family: monospace; 
             letter-spacing: 0.5px; 
             color: #444; 

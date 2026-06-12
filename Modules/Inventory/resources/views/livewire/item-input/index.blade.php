@@ -15,6 +15,8 @@ layout('layouts::app', ['title' => 'Master Data Inventory']);
         <livewire:item-input.type-form />
         <livewire:item-input.category-form />
         <livewire:item-input.sub-category-form />
-        
     </div>
+
+    <!-- Print Label Modal -->
+    <livewire:print-label-modal />
 </div>
