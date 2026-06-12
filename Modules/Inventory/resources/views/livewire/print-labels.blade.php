@@ -6,12 +6,15 @@ use Modules\Inventory\Models\ItemLabel;
 
 new #[Layout('layouts.empty')] class extends Component {
     public $labels = [];
+    public $copies = [];
 
     public function mount() {
-        $ids = request()->query('ids', '');
-        $idArray = array_filter(explode(',', $ids));
+        // copies array input from URL: ?copies[1]=5&copies[2]=1
+        $copiesInput = request()->query('copies', []);
         
-        if (!empty($idArray)) {
+        if (is_array($copiesInput) && !empty($copiesInput)) {
+            $idArray = array_keys($copiesInput);
+            $this->copies = array_map('intval', $copiesInput);
             $this->labels = ItemLabel::with('item')->whereIn('id', $idArray)->get();
         }
     }
@@ -108,33 +111,35 @@ new #[Layout('layouts.empty')] class extends Component {
     @endif
 
     @foreach($labels as $label)
-        <div class="label-card">
-            <!-- Area QR Code (Kiri) -->
-            <div class="qr-container">
-                 <div x-data="{ code: '{{ $label->label_code }}' }" 
-                      x-init="
-                          let attempt = 0;
-                          let renderQR = () => {
-                              if(typeof QRCode !== 'undefined') {
-                                  // Ukuran 55px disesuaikan dengan tinggi 20mm
-                                  new QRCode($el, { text: code, width: 55, height: 55, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
-                              } else if (attempt < 20) {
-                                  attempt++;
-                                  setTimeout(renderQR, 150);
-                              }
-                          };
-                          $nextTick(renderQR);
-                      ">
-                 </div>
+        @for($i = 0; $i < ($copies[$label->id] ?? 1); $i++)
+            <div class="label-card">
+                <!-- Area QR Code (Kiri) -->
+                <div class="qr-container">
+                     <div x-data="{ code: '{{ $label->label_code }}' }" 
+                          x-init="
+                              let attempt = 0;
+                              let renderQR = () => {
+                                  if(typeof QRCode !== 'undefined') {
+                                      // Ukuran 55px disesuaikan dengan tinggi 20mm
+                                      new QRCode($el, { text: code, width: 55, height: 55, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+                                  } else if (attempt < 20) {
+                                      attempt++;
+                                      setTimeout(renderQR, 150);
+                                  }
+                              };
+                              $nextTick(renderQR);
+                          ">
+                     </div>
+                </div>
+                
+                <!-- Area Teks (Kanan) -->
+                <div class="text-container">
+                    <div class="print-name" title="{{ $label->item->name }}">{{ strtoupper($label->item->name) }}</div>
+                    <div class="print-code">code: {{ $label->label_code }}</div>
+                    <div class="print-date">{{ \Carbon\Carbon::parse($label->created_at)->format('m-Y') }}</div>
+                </div>
             </div>
-            
-            <!-- Area Teks (Kanan) -->
-            <div class="text-container">
-                <div class="print-name" title="{{ $label->item->name }}">{{ strtoupper($label->item->name) }}</div>
-                <div class="print-code">code: {{ $label->label_code }}</div>
-                <div class="print-date">{{ \Carbon\Carbon::parse($label->created_at)->format('m-Y') }}</div>
-            </div>
-        </div>
+        @endfor
     @endforeach
 
     <script>
