@@ -22,6 +22,9 @@
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
 
+<!-- Library Cetak Label QR Code (Frontend) -->
+<script src="{{ asset('js/qrcode.min.js') }}"></script>
+
 @php
     $clarityId = Illuminate\Support\Facades\Cache::rememberForever('setting_clarity_id', function () {
         // Safe check in case the table doesn't exist yet during initial deployment

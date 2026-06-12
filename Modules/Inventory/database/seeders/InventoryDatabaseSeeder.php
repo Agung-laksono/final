@@ -44,7 +44,7 @@ class InventoryDatabaseSeeder extends Seeder
                             $labelsToInsert[] = [
                                 'item_id'      => $item->id,
                                 'warehouse_id' => $wh->id,
-                                'label_code'   => $item->code . '-' . date('ym') . '-' . str_pad($counter, 4, '0', STR_PAD_LEFT),
+                                'label_code'   => strtoupper(\Illuminate\Support\Str::random(6)),
                                 'status'       => 'in_stock',
                                 'created_at'   => now(),
                                 'updated_at'   => now(),

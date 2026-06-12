@@ -57,6 +57,8 @@ new class extends Component {
     #[Rule('boolean')]
     public $requires_label = false;
 
+    public $isInventoryUrl = true;
+
     public $units = [];
     public $types = [];
     public $categories = [];
@@ -109,6 +111,7 @@ new class extends Component {
             $this->min_stock = $item->min_stock;
             $this->max_stock = $item->max_stock;
             $this->is_active = $item->is_active;
+            $this->isInventoryUrl = true; // Saat edit, biarkan switch muncul
             $this->requires_label = $item->requires_label;
         } else {
             $this->item_id = null;
@@ -125,7 +128,10 @@ new class extends Component {
             $this->selling_price = null;
             $this->min_stock = null;
             $this->max_stock = null;
-            $this->is_active = true;
+            // Otomatis non-aktif jika ditambahkan dari luar modul Inventory (misal: dari Purchasing)
+            $this->isInventoryUrl = request()->routeIs('inventory.items');
+            $this->is_active = $this->isInventoryUrl;
+            
             $this->requires_label = false;
         }
         
@@ -315,10 +321,12 @@ new class extends Component {
             {{-- FOOTER: Switch Kiri & Tombol Kanan --}}
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mt-8 pt-4 border-t border-zinc-200 dark:border-zinc-800 gap-4">
                 <div class="flex items-center gap-6 mb-4 md:mb-0">
+                    @if ($this->isInventoryUrl)
                     <flux:switch wire:model="is_active" label="Status Aktif" />
+                    @endif
+                    <div class="mr-10"></div>
                     <flux:switch wire:model="requires_label" label="Cetak label/item" />
                 </div>
-                
                 <div class="flex gap-2 w-full sm:w-auto">
                     <flux:modal.close>
                         <flux:button variant="ghost" class="w-full sm:w-auto">Batal</flux:button>

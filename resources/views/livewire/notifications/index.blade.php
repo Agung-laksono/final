@@ -62,7 +62,7 @@ $deleteAll = function () {
         </div>
     </div>
 
-    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+    <div class="bg-gray-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
         @if($notifications->count() > 0)
             <div class="divide-y divide-zinc-200 dark:divide-zinc-800">
                 @foreach ($notifications as $notification)

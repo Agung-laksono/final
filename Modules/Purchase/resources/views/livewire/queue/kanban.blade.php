@@ -24,6 +24,8 @@ $queues = computed(function () {
 });
 
 $updateStatus = function ($queueId, $newStatus) {
+    abort_unless(auth()->user()->can('purchase.update'), 403, 'Anda tidak memiliki izin untuk mengubah status antrean.');
+    
     if (!array_key_exists($newStatus, $this->columns)) return;
     
     $queue = PurchaseQueue::find($queueId);
@@ -43,7 +45,9 @@ $updateStatus = function ($queueId, $newStatus) {
             <flux:subheading>Pantau alur dan status dari setiap antrean permintaan barang (Purchase Queue).</flux:subheading>
         </div>
         
-        <flux:button variant="primary" icon="plus" href="#" wire:click.prevent="Flux::toast('Fitur form permintaan segera hadir!', 'warning')">Buat Permintaan Baru</flux:button>
+        @can('purchase.create')
+            <flux:button variant="primary" icon="plus" href="#" wire:click.prevent="Flux::toast('Fitur form permintaan segera hadir!', 'warning')">Buat Permintaan Baru</flux:button>
+        @endcan
     </div>
 
     {{-- Kanban Board Area --}}

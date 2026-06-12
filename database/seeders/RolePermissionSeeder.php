@@ -64,6 +64,7 @@ class RolePermissionSeeder extends Seeder
             'users.notifikasi.view',
             'production.notifikasi.view',
             'finance.notifikasi.view',
+            'purchase.notifikasi.view',
             'hr.notifikasi.view',
             'marketing.notifikasi.view',
             'admin.notifikasi.view',            
@@ -120,6 +121,7 @@ class RolePermissionSeeder extends Seeder
             'purchase.create',
             'purchase.update',
             'purchase.delete',
+            'purchase.notifikasi.view',
             'inventory.view',
             'inventory.item.view',
             'inventory.warehouse.view'

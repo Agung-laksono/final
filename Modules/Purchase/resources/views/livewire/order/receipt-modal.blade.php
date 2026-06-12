@@ -53,6 +53,24 @@ on(['open-receipt-modal' => function ($orderId) {
 }]);
 
 $addDistribution = function ($index) {
+    // Pola UX Kelas Dunia: 'Smart Reuse'
+    // Cek apakah ada baris yang saat ini kosong/0
+    foreach ($this->items[$index]['distributions'] as $distIndex => $dist) {
+        if (empty($dist['warehouse_id']) || empty($dist['qty']) || (int)$dist['qty'] <= 0) {
+            // Alih-alih membuat baris baru, arahkan fokus pengguna ke baris yang nganggur
+            $this->js("
+                let row = document.getElementById('dist-row-{$index}-{$distIndex}');
+                if(row) {
+                    row.classList.add('ring-2', 'ring-indigo-400', 'ring-offset-4', 'dark:ring-offset-zinc-900', 'rounded-lg', 'transition-all', 'duration-300');
+                    setTimeout(() => {
+                        row.classList.remove('ring-2', 'ring-indigo-400', 'ring-offset-4', 'dark:ring-offset-zinc-900', 'rounded-lg');
+                    }, 1500);
+                }
+            ");
+            return;
+        }
+    }
+
     $this->items[$index]['distributions'][] = ['warehouse_id' => '', 'qty' => ''];
 };
 
@@ -89,11 +107,40 @@ $updated = function ($property, $value) {
 };
 
 $save = function () {
-    $this->validate([
-        'receipt_date' => 'required|date',
-        'items.*.distributions.*.qty' => 'required|integer|min:0',
-        'items.*.distributions.*.warehouse_id' => 'required|exists:warehouses,id',
-    ]);
+    // Pembersihan Otomatis (Auto-Cleanup): 
+    // Buang baris distribusi yang tidak diisi (qty kosong/0 atau gudang tidak dipilih) 
+    // agar tidak memicu error validasi yang membingungkan pengguna.
+    // Pembersihan Otomatis (Auto-Cleanup) dikembalikan:
+    // Hapus distribusi yang masih berupa draf kosong murni dari payload sebelum divalidasi
+    // agar barang yang memang tidak ingin diterima saat ini tidak memicu error validasi server.
+    foreach ($this->items as $index => $item) {
+        $cleanDistributions = [];
+        foreach ($item['distributions'] as $dist) {
+            // Hanya simpan jika gudang dan qty keduanya valid terisi
+            if (!empty($dist['warehouse_id']) && (int)($dist['qty'] ?? 0) > 0) {
+                $cleanDistributions[] = $dist;
+            }
+        }
+        $this->items[$index]['distributions'] = $cleanDistributions;
+    }
+
+    \Illuminate\Support\Facades\Log::info('Submitting 1 or more warehouses:', $this->items);
+
+    try {
+        $this->validate([
+            'receipt_date' => 'required|date',
+            'items.*.distributions.*.qty' => 'required|integer|min:1',
+            'items.*.distributions.*.warehouse_id' => 'required|exists:warehouses,id',
+        ]);
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        \Illuminate\Support\Facades\Log::error('Validation Error: ' . json_encode($e->errors()));
+        \Flux::toast(
+            heading: 'Validasi Sistem',
+            text: 'Data tidak valid: ' . json_encode($e->errors()),
+            variant: 'danger'
+        );
+        return;
+    }
 
     // Validasi Custom: Gudang tidak boleh duplikat, dan qty tidak boleh lebih dari sisa
     $totalReceiving = 0;
@@ -103,7 +150,11 @@ $save = function () {
         
         foreach ($item['distributions'] as $dist) {
             if (in_array($dist['warehouse_id'], $warehouseIds)) {
-                $this->js("Flux.toast({ title: 'Validasi Gagal', description: 'Gudang penyimpanan untuk barang {$item['name']} tidak boleh ada yang sama.', variant: 'danger' })");
+                \Flux::toast(
+                    heading: 'Validasi Gagal',
+                    text: 'Gudang penyimpanan untuk barang ' . $item['name'] . ' tidak boleh ada yang sama.',
+                    variant: 'danger'
+                );
                 return;
             }
             $warehouseIds[] = $dist['warehouse_id'];
@@ -112,7 +163,11 @@ $save = function () {
         }
         
         if ($itemTotal > $item['remaining']) {
-            $this->js("Flux.toast({ title: 'Validasi Gagal', description: 'Total kuantitas diterima untuk barang {$item['name']} melebihi sisa pesanan ({$item['remaining']}).', variant: 'danger' })");
+            \Flux::toast(
+                heading: 'Validasi Gagal',
+                text: 'Total kuantitas diterima untuk barang ' . $item['name'] . ' melebihi sisa pesanan (' . $item['remaining'] . ').',
+                variant: 'danger'
+            );
             return;
         }
 
@@ -120,7 +175,11 @@ $save = function () {
     }
     
     if ($totalReceiving <= 0) {
-        $this->js("Flux.toast({ title: 'Error', description: 'Masukkan setidaknya satu kuantitas barang yang diterima.', variant: 'danger' })");
+        \Flux::toast(
+            heading: 'Error',
+            text: 'Masukkan setidaknya satu kuantitas barang yang diterima.',
+            variant: 'danger'
+        );
         return;
     }
 
@@ -138,6 +197,7 @@ $save = function () {
 
         $allFullyReceived = true;
         $generatedLabelsCount = 0;
+        $generatedLabelIds = [];
 
         foreach ($this->items as $inputItem) {
             $totalReceivedForItem = collect($inputItem['distributions'])->sum('qty');
@@ -194,20 +254,22 @@ $save = function () {
                         'user_id' => auth()->id(),
                     ]);
 
-                    // Catatan: Update tabel 'item_warehouse' (Pivot) dan perhitungan 'stock_before/after' 
-                    // sekarang sepenuhnya ditangani oleh StockMovementObserver yang Anda buat
-                    // sehingga kita tidak perlu menulis ulang logika update stok secara manual di sini.
-
                     // 5. Generate Labels jika required
                     if ($inputItem['requires_label']) {
                         for ($i = 0; $i < $distQty; $i++) {
-                            ItemLabel::create([
+                            // Generate unique 6-char alphanumeric code
+                            do {
+                                $code = strtoupper(\Illuminate\Support\Str::random(6));
+                            } while (\Modules\Inventory\Models\ItemLabel::where('label_code', $code)->exists());
+
+                            $label = \Modules\Inventory\Models\ItemLabel::create([
                                 'item_id' => $itemModel->id,
-                                'label_code' => $itemModel->code . '-' . strtoupper(Str::random(6)),
+                                'label_code' => $code,
                                 'status' => 'in_stock',
-                                'warehouse_id' => $targetWarehouseId,
+                                'warehouse_id' => $dist['warehouse_id'],
                                 'notes' => 'Dari PO: ' . $this->purchaseOrder->po_number,
                             ]);
+                            $generatedLabelIds[] = $label->id;
                             $generatedLabelsCount++;
                         }
                     }
@@ -238,15 +300,29 @@ $save = function () {
         $this->show = false;
         $this->dispatch('status-updated'); // Refresh Kanban
         
+        // Buka modal cetak label otomatis jika ada label yang digenerate
+        if (count($generatedLabelIds) > 0) {
+            $this->dispatch('open-print-labels', labelIds: $generatedLabelIds);
+        }
+        
         $msg = "Penerimaan barang berhasil disimpan.";
         if ($generatedLabelsCount > 0) {
             $msg .= " $generatedLabelsCount Label Serial berhasil di-generate otomatis.";
         }
-        $this->js("Flux.toast({ title: 'Berhasil', description: '$msg', variant: 'success' })");
+        \Flux::toast(
+            heading: 'Berhasil',
+            text: $msg,
+            variant: 'success'
+        );
 
     } catch (\Exception $e) {
         DB::rollBack();
-        $this->js("Flux.toast({ title: 'Gagal', description: 'Terjadi kesalahan sistem: " . addslashes($e->getMessage()) . "', variant: 'danger' })");
+        \Illuminate\Support\Facades\Log::error('Penerimaan Error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+        \Flux::toast(
+            heading: 'Gagal',
+            text: 'Terjadi kesalahan sistem: ' . $e->getMessage(),
+            variant: 'danger'
+        );
     }
 };
 
@@ -289,6 +365,7 @@ $save = function () {
                     $currentTotal = collect($item['distributions'])->sum(fn($d) => (int)($d['qty'] ?? 0));
                     $whIds = collect($item['distributions'])->pluck('warehouse_id')->filter()->toArray();
                     $hasDuplicates = count($whIds) !== count(array_unique($whIds));
+                    $allDistributionsFilled = collect($item['distributions'])->every(fn($d) => !empty($d['warehouse_id']) && !empty($d['qty']) && (int)$d['qty'] > 0);
                 @endphp
                 <div class="pt-4 border-t border-zinc-100 dark:border-zinc-700/50 space-y-3">
                     <div class="flex justify-between items-center">
@@ -304,9 +381,32 @@ $save = function () {
                     </div>
                     
                     @foreach($item['distributions'] as $distIndex => $dist)
-                        <div class="flex gap-3 items-end">
+                        @php
+                            $isRowEmpty = empty($dist['qty']);
+                            $isQuotaFull = $currentTotal >= $item['remaining'];
+                            $shouldDisable = $isQuotaFull && $isRowEmpty;
+                        @endphp
+                        <div id="dist-row-{{ $index }}-{{ $distIndex }}" 
+                             x-data="{ warehouseId: '{{ $dist['warehouse_id'] }}' }" 
+                             x-on:focusin="
+                                 let dists = $wire.items[{{ $index }}].distributions;
+                                 let cleaned = dists.filter((d, i) => {
+                                     if (i === {{ $distIndex }}) return true;
+                                     return d.warehouse_id && d.warehouse_id !== '' && parseInt(d.qty || 0) > 0;
+                                 });
+                                 if (cleaned.length !== dists.length) {
+                                     $wire.items[{{ $index }}].distributions = cleaned;
+                                 }
+                             "
+                             class="flex gap-3 items-end opacity-100 transition-opacity duration-200 {{ $shouldDisable ? 'opacity-50 grayscale-[50%]' : '' }}">
                             <div class="flex-1">
-                                <flux:select wire:model.live="items.{{ $index }}.distributions.{{ $distIndex }}.warehouse_id" class="w-full text-sm">
+                                <flux:select 
+                                    wire:model.live="items.{{ $index }}.distributions.{{ $distIndex }}.warehouse_id" 
+                                    x-model="warehouseId" 
+                                    @change="$nextTick(() => { setTimeout(() => { document.getElementById('qty-input-{{ $index }}-{{ $distIndex }}')?.focus(); }, 50) })"
+                                    class="w-full text-sm" 
+                                    :disabled="$shouldDisable"
+                                >
                                     <option value="" disabled selected>Pilih Gudang...</option>
                                     @foreach($warehouses_list as $wh)
                                         <option value="{{ $wh->id }}" @disabled(in_array($wh->id, $whIds) && $wh->id != $dist['warehouse_id'])>
@@ -315,13 +415,14 @@ $save = function () {
                                     @endforeach
                                 </flux:select>
                             </div>
-                            <div class="w-32">
+                            <div class="w-24 shrink-0" x-show="warehouseId" style="display: none;" x-transition.opacity.duration.300ms>
                                 <flux:input 
-                                    type="number" 
-                                    min="0" 
+                                    id="qty-input-{{ $index }}-{{ $distIndex }}"
                                     wire:model.live="items.{{ $index }}.distributions.{{ $distIndex }}.qty" 
-                                    class="w-full text-center" 
-                                    placeholder="Qty"
+                                    type="number" 
+                                    min="0"
+                                    class="w-24 text-center text-sm"
+                                    :disabled="$shouldDisable"
                                 />
                             </div>
                             @if(count($item['distributions']) > 1)
@@ -352,9 +453,36 @@ $save = function () {
         $globalError = false;
         $globalTotal = 0;
         foreach($items as $item) {
-            $ct = collect($item['distributions'])->sum(fn($d) => (int)($d['qty'] ?? 0));
+            $ct = 0;
+            $whIds = [];
+            
+            foreach ($item['distributions'] as $dist) {
+                $qty = (int)($dist['qty'] ?? 0);
+                $hasWh = !empty($dist['warehouse_id']);
+                
+                // Jika murni draf kosong (belum disentuh), abaikan saja.
+                // Ini wajar jika pengguna hanya ingin menerima sebagian barang di PO.
+                if (!$hasWh && $qty <= 0) {
+                    continue; 
+                }
+                
+                // Jika nanggung (gudang diisi tapi qty 0, atau qty diisi tapi gudang kosong), BLOCK!
+                if ($hasWh && $qty <= 0) {
+                    $globalError = true;
+                }
+                if (!$hasWh && $qty > 0) {
+                    $globalError = true;
+                }
+                
+                // Jika valid, hitung totalnya
+                if ($hasWh && $qty > 0) {
+                    $whIds[] = $dist['warehouse_id'];
+                    $ct += $qty;
+                }
+            }
+            
             $globalTotal += $ct;
-            $whIds = collect($item['distributions'])->pluck('warehouse_id')->filter()->toArray();
+            
             if ($ct > $item['remaining'] || count($whIds) !== count(array_unique($whIds))) {
                 $globalError = true;
             }

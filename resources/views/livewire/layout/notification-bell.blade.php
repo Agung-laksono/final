@@ -85,7 +85,7 @@ with(fn () => [
         </flux:sidebar.item>
 
         <!-- pop up notifikasi -->
-        <flux:menu class="w-80 sm:w-96 p-0 overflow-hidden">
+        <flux:menu class="w-80 sm:w-96 p-0 overflow-hidden bg-gray-100">
             {{-- Header --}}
             <div class="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-800/50">
                 <h3 class="font-semibold text-sm text-zinc-800 dark:text-zinc-200">{{ __('Notifikasi') }}</h3>

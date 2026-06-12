@@ -28,6 +28,8 @@ state([
 ]);
 
 $save = function () {
+    abort_unless(auth()->user()->can($this->vendor_id ? 'purchase.update' : 'purchase.create'), 403, 'Tidak ada izin menyimpan data vendor.');
+    
     $this->validate([
         'name' => 'required|string|max:255',
         'phone' => 'nullable|string|max:50',
@@ -97,9 +99,11 @@ $resetForm = function () {
 ?>
 
 <div>
-    <flux:modal.trigger name="vendor-form-modal">
-        <flux:button variant="primary" icon="plus" wire:click="resetForm">Tambah Vendor</flux:button>
-    </flux:modal.trigger>
+    @can('purchase.create')
+        <flux:modal.trigger name="vendor-form-modal">
+            <flux:button variant="primary" icon="plus" wire:click="resetForm">Tambah Vendor</flux:button>
+        </flux:modal.trigger>
+    @endcan
 
     <flux:modal name="vendor-form-modal" class="md:w-[500px] space-y-6">
         <div>

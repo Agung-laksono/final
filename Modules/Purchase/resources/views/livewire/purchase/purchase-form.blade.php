@@ -225,7 +225,7 @@ $saveCart = function ($cartData) {
     }
 
     Flux::toast('Purchase Order berhasil disimpan!', 'success');
-    $this->redirectRoute('purchase.orders.kanban', navigate: true);
+    $this->redirectRoute('purchase.orders.kanban');
 };
 ?>
 
@@ -715,7 +715,7 @@ $saveCart = function ($cartData) {
             {{-- Tombol Aksi --}}
             <div class="sm:col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
                 <div class="flex gap-2 w-full">
-                    <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:navigate wire:loading.attr="disabled">Batal</flux:button>
+                    <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:loading.attr="disabled">Batal</flux:button>
                     <flux:button variant="primary" class="w-2/3" icon="check" @click="submitCart()" x-bind:disabled="isSubmitting">
                         <span x-show="!isSubmitting">Simpan PO</span>
                         <span x-show="isSubmitting" class="flex items-center gap-2">

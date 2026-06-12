@@ -23,6 +23,8 @@ $orders = computed(function () {
 });
 
 $updateStatus = function ($orderId, $newStatus) {
+    abort_unless(auth()->user()->can('purchase.update'), 403, 'Anda tidak memiliki izin untuk mengubah status PO.');
+    
     if (!array_key_exists($newStatus, $this->columns)) return;
     
     $po = PurchaseOrder::find($orderId);
@@ -46,7 +48,9 @@ on(['status-updated' => function () {
             <flux:subheading>Atur dan pantau progres dokumen pemesanan ke Supplier/Vendor secara visual.</flux:subheading>
         </div>
         
-        <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" wire:navigate>Buat PO Baru</flux:button>
+        @can('purchase.create')
+            <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}">Buat PO Baru</flux:button>
+        @endcan
     </div>
 
     {{-- Kanban Board Area --}}
@@ -105,11 +109,15 @@ on(['status-updated' => function () {
                             </div>
 
                             {{-- Action Buttons --}}
-                            @if(in_array($statusKey, ['processing', 'partially_received']))
-                                <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                                    <flux:button size="sm" variant="primary" class="w-full" wire:click="$dispatch('open-receipt-modal', { orderId: {{ $po->id }} })">📦 Terima Barang</flux:button>
-                                </div>
-                            @endif
+                                @if(in_array($statusKey, ['processing', 'partially_received']))
+                                    <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                                        @can('purchase.update')
+                                            <flux:button size="sm" variant="primary" class="w-full" wire:click="$dispatch('open-receipt-modal', { orderId: {{ $po->id }} })">📦 Terima Barang</flux:button>
+                                        @else
+                                            <flux:button size="sm" variant="primary" class="w-full opacity-50 cursor-not-allowed" disabled tooltip="Tidak ada hak akses">📦 Terima Barang</flux:button>
+                                        @endcan
+                                    </div>
+                                @endif
                         </div>
                     @empty
                         <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
@@ -157,6 +165,8 @@ on(['status-updated' => function () {
             }));
         });
     </script>
+    
+    <livewire:print-label-modal />
 </div>
 
 <style>

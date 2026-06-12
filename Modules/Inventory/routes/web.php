@@ -14,4 +14,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/inventory/transfers', 'item-transfer.index')->name('inventory.transfers')->middleware('permission:inventory.transfer.view');
     Volt::route('/inventory/movements', 'item-history-movement.index')->name('inventory.movements')->middleware('permission:inventory.movement.view');
     
+    // Route khusus cetak murni tanpa layout dashboard
+    Volt::route('/inventory/print-labels', 'print-labels')->name('inventory.print-labels')->middleware('permission:inventory.item.view');
+    
 });

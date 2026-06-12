@@ -13,6 +13,7 @@ on(['vendor-saved' => function () {
 }]);
 
 $delete = function ($id) {
+    abort_unless(auth()->user()->can('purchase.delete'), 403, 'Tidak ada akses menghapus vendor.');
     Vendor::find($id)?->delete();
 };
 ?>
@@ -49,8 +50,12 @@ $delete = function ($id) {
                         </flux:badge>
                     </flux:table.cell>
                     <flux:table.cell>
-                        <flux:button variant="ghost" size="sm" icon="pencil-square" wire:click="$dispatch('edit-vendor', { id: {{ $vendor->id }} })" />
-                        <flux:button variant="ghost" size="sm" icon="trash" class="text-red-500!" wire:click="delete({{ $vendor->id }})" wire:confirm="Yakin ingin menghapus vendor ini?" />
+                        @can('purchase.update')
+                            <flux:button variant="ghost" size="sm" icon="pencil-square" wire:click="$dispatch('edit-vendor', { id: {{ $vendor->id }} })" />
+                        @endcan
+                        @can('purchase.delete')
+                            <flux:button variant="ghost" size="sm" icon="trash" class="text-red-500!" wire:click="delete({{ $vendor->id }})" wire:confirm="Yakin ingin menghapus vendor ini?" />
+                        @endcan
                     </flux:table.cell>
                 </flux:table.row>
             @empty
