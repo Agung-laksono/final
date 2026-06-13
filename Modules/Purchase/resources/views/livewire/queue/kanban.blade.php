@@ -36,6 +36,10 @@ $updateStatus = function ($queueId, $newStatus) {
     }
 };
 
+on([
+    'status-updated' => function () {}
+]);
+
 ?>
 
 <div class="space-y-6">
@@ -46,7 +50,7 @@ $updateStatus = function ($queueId, $newStatus) {
         </div>
         
         @can('purchase.create')
-            <flux:button variant="primary" icon="plus" href="#" wire:click.prevent="Flux::toast('Fitur form permintaan segera hadir!', 'warning')">Buat Permintaan Baru</flux:button>
+            <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-create-queue-modal')">Buat Permintaan Baru</flux:button>
         @endcan
     </div>
 
@@ -65,40 +69,78 @@ $updateStatus = function ($queueId, $newStatus) {
                         <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50"></div>
                         <h3 class="font-semibold text-zinc-800 dark:text-zinc-200">{{ $column['title'] }}</h3>
                     </div>
-                    <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800">{{ count($this->queues[$statusKey] ?? []) }}</flux:badge>
+                    <div class="flex items-center gap-2">
+                        @if($statusKey === 'approved' && count($this->queues['approved'] ?? []) > 0)
+                            <flux:button size="xs" variant="primary" icon="document-plus" wire:click="$dispatch('open-consolidation-modal')" class="!h-6 !px-2 text-[10px]">Buat PO</flux:button>
+                        @endif
+                        <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800">{{ count($this->queues[$statusKey] ?? []) }}</flux:badge>
+                    </div>
                 </div>
 
                 {{-- Column Items --}}
                 <div class="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
                     @forelse($this->queues[$statusKey] ?? [] as $queue)
+                            @php
+                                $sourceBadge = match($queue->source_type) {
+                                    'low_stock' => [
+                                        'color' => 'red',
+                                        'icon' => '<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+                                        'label' => 'Stok Menipis'
+                                    ],
+                                    'sales' => [
+                                        'color' => 'emerald',
+                                        'icon' => '<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>',
+                                        'label' => 'Pesanan Jual'
+                                    ],
+                                    default => [
+                                        'color' => 'zinc',
+                                        'icon' => '<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>',
+                                        'label' => 'Manual'
+                                    ]
+                                };
+                            @endphp
+
                         <div draggable="true" 
                              @dragstart="dragStart($event, {{ $queue->id }})"
                              @dragend="dragEnd($event)"
-                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 cursor-grab active:cursor-grabbing hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-colors group relative">
+                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative flex flex-col">
                             
                             {{-- Header Card --}}
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-md">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="font-mono text-[11px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded-md">
                                     #PQ-{{ str_pad($queue->id, 4, '0', STR_PAD_LEFT) }}
                                 </span>
-                                <span class="text-[10px] text-zinc-400">{{ $queue->created_at->diffForHumans() }}</span>
+                                <div class="flex items-center text-[10px] text-zinc-400 font-medium">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    {{ $queue->created_at->diffForHumans() }}
+                                </div>
+                            </div>
+
+                            {{-- Source Badge --}}
+                            <div class="mb-2">
+                                <span class="inline-flex items-center rounded-md bg-{{ $sourceBadge['color'] }}-50 dark:bg-{{ $sourceBadge['color'] }}-500/10 px-2 py-1 text-[10px] font-semibold text-{{ $sourceBadge['color'] }}-600 dark:text-{{ $sourceBadge['color'] }}-400 ring-1 ring-inset ring-{{ $sourceBadge['color'] }}-500/20">
+                                    {!! $sourceBadge['icon'] !!}
+                                    {{ $sourceBadge['label'] }}
+                                </span>
                             </div>
 
                             {{-- Item Info --}}
-                            <h4 class="font-medium text-zinc-900 dark:text-zinc-100 mb-1 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            <h4 class="font-semibold text-sm text-zinc-900 dark:text-zinc-100 mb-1 leading-tight group-hover:text-{{ $column['color'] }}-600 dark:group-hover:text-{{ $column['color'] }}-400 transition-colors line-clamp-2">
                                 {{ $queue->item->name ?? 'Barang Dihapus' }}
                             </h4>
                             
-                            {{-- Qty & Source --}}
-                            <div class="flex items-center justify-between text-sm mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                            {{-- Qty Bottom --}}
+                            <div class="flex items-end justify-between text-sm mt-3 pt-3 border-t border-dashed border-zinc-200 dark:border-zinc-700">
                                 <div class="flex flex-col">
-                                    <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Jumlah</span>
-                                    <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $queue->requested_qty }} <span class="text-xs font-normal">Unit</span></span>
+                                    <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Jumlah Diperlukan</span>
+                                    <span class="text-lg font-black text-zinc-800 dark:text-zinc-200 tracking-tight leading-none">{{ $queue->requested_qty }} <span class="text-xs font-medium text-zinc-500">Unit</span></span>
                                 </div>
-                                <div class="flex flex-col text-right">
-                                    <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Sumber</span>
-                                    <span class="font-medium text-zinc-600 dark:text-zinc-400">{{ ucwords(str_replace('_', ' ', $queue->source_type)) }}</span>
-                                </div>
+                                @if($queue->approved_qty !== null && $queue->approved_qty < $queue->requested_qty)
+                                    <div class="flex flex-col text-right" title="Hanya disetujui sebagian">
+                                        <span class="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-0.5">Disetujui</span>
+                                        <span class="text-sm font-bold text-amber-600 dark:text-amber-400 tracking-tight leading-none">{{ $queue->approved_qty }} Unit</span>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @empty
@@ -110,6 +152,10 @@ $updateStatus = function ($queueId, $newStatus) {
             </div>
         @endforeach
     </div>
+    
+    <livewire:queue.create-modal />
+    <livewire:queue.consolidation-modal />
+    <livewire:global.item-gallery-modal />
 </div>
 
 <script>

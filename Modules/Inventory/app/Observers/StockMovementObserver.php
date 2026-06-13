@@ -87,6 +87,24 @@ class StockMovementObserver
                     
                 if ($totalStock < $item->min_stock) {
                     Notification::send($recipients, new LowStockNotification($item, $totalStock));
+                    
+                    // --- OTO-CREATE PURCHASE QUEUE ---
+                    $existingQueue = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $movement->item_id)
+                        ->whereIn('status', ['pending_approval', 'approved', 'ordered', 'on_delivery'])
+                        ->exists();
+                        
+                    if (!$existingQueue) {
+                        $qtyToOrder = $item->max_stock > 0 
+                            ? max($item->max_stock - $totalStock, $item->min_stock)
+                            : $item->min_stock * 2;
+                            
+                        \Modules\Purchase\Models\PurchaseQueue::create([
+                            'item_id' => $movement->item_id,
+                            'source_type' => 'low_stock',
+                            'requested_qty' => $qtyToOrder,
+                            'notes' => 'Sistem Otomatis: Stok menipis (' . $totalStock . ' dari batas minimal ' . $item->min_stock . ').',
+                        ]);
+                    }
                 }
             }
         }

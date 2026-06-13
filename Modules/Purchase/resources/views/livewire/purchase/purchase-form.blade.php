@@ -39,6 +39,8 @@ state([
     
     'note_item_index' => null,
     'current_note' => '',
+    
+    'source_queues' => [],
 ]);
 
 mount(function ($id = null) {
@@ -84,6 +86,45 @@ mount(function ($id = null) {
         }
     } else {
         $this->po_number = ''; // Will be generated on save
+
+        if (request()->has('queues')) {
+            $queueIds = explode(',', request()->query('queues'));
+            $this->source_queues = $queueIds;
+            
+            $queues = \Modules\Purchase\Models\PurchaseQueue::with('item')
+                        ->whereIn('id', $queueIds)
+                        ->where('status', 'approved')
+                        ->get();
+                        
+            $grouped = $queues->groupBy('item_id');
+            
+            foreach ($grouped as $itemId => $qGroup) {
+                $item = $qGroup->first()->item;
+                $totalQty = $qGroup->sum(function($q) {
+                    return $q->approved_qty ?? $q->requested_qty;
+                });
+                
+                $price = $item->purchase_price ?? 0;
+                
+                $hasHistory = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $itemId)
+                    ->whereHas('purchaseOrder', function($q) {
+                        $q->where('status', '!=', 'draft');
+                    })->exists();
+
+                $this->items[] = [
+                    'id' => null,
+                    'item_id' => $itemId,
+                    'name' => $item->name ?? 'Unknown',
+                    'qty' => $totalQty,
+                    'min_qty' => $totalQty,
+                    'unit_price' => $price,
+                    'subtotal' => $totalQty * $price,
+                    'image' => $item->image ?? null,
+                    'note' => 'Gabungan dari ' . $qGroup->count() . ' tiket antrean',
+                    'has_history' => $hasHistory,
+                ];
+            }
+        }
     }
 });
 
@@ -181,9 +222,35 @@ $saveCart = function ($cartData) {
         'vendor_id' => 'required|exists:vendors,id',
         'order_date' => 'required|date',
         'items' => 'required|array|min:1',
-        'items.*.qty' => 'required|numeric|min:0.1',
+        'items.*.qty' => 'required|integer|min:1',
         'items.*.unit_price' => 'required|numeric|min:0',
     ]);
+
+    // Validasi aturan bisnis: Qty tidak boleh kurang dari tiket antrean asal
+    if (!empty($this->source_queues)) {
+        $queues = \Modules\Purchase\Models\PurchaseQueue::whereIn('id', $this->source_queues)->get();
+        
+        // Anti-Double-Fulfillment check
+        $invalidQueues = $queues->filter(fn($q) => $q->status !== 'approved');
+        if ($invalidQueues->isNotEmpty()) {
+            \Flux::toast("Beberapa tiket antrean sudah diproses di PO lain. Silakan kembali ke papan Kanban.", variant: 'danger');
+            return;
+        }
+
+        $groupedQueues = $queues->groupBy('item_id');
+        
+        foreach ($groupedQueues as $itemId => $qGroup) {
+            $minRequired = $qGroup->sum(function($q) {
+                return $q->approved_qty ?? $q->requested_qty;
+            });
+            
+            $cartItem = collect($this->items)->firstWhere('item_id', $itemId);
+            if (!$cartItem || (float)$cartItem['qty'] < (float)$minRequired) {
+                \Flux::toast("Kuantitas pesanan tidak boleh kurang dari {$minRequired} unit karena barang tersebut ditarik dari antrean otomatis.", variant: 'danger');
+                return;
+            }
+        }
+    }
 
     // Recalculate grand total server-side
     $subtotal = collect($this->items)->sum('subtotal');
@@ -211,7 +278,7 @@ $saveCart = function ($cartData) {
 
     // Simpan items
     foreach ($this->items as $item) {
-        PurchaseOrderItem::updateOrCreate(
+        $poi = PurchaseOrderItem::updateOrCreate(
             ['id' => $item['id'] ?? null],
             [
                 'purchase_order_id' => $po->id,
@@ -222,7 +289,33 @@ $saveCart = function ($cartData) {
                 'notes' => $item['note'] ?? null, // Simpan ke DB
             ]
         );
+
+        if (!empty($this->source_queues)) {
+            $queuesToFulfill = \Modules\Purchase\Models\PurchaseQueue::whereIn('id', $this->source_queues)
+                                ->where('item_id', $item['item_id'])
+                                ->get();
+                                
+            foreach ($queuesToFulfill as $q) {
+                // Buat fulfillment bridge
+                \Modules\Purchase\Models\PurchaseQueueFulfillment::updateOrCreate(
+                    [
+                        'purchase_queue_id' => $q->id,
+                        'purchase_order_item_id' => $poi->id,
+                    ],
+                    [
+                        'fulfilled_qty' => $q->approved_qty ?? $q->requested_qty,
+                    ]
+                );
+                
+                // Update queue status to ordered
+                $q->ordered_qty = $q->approved_qty ?? $q->requested_qty;
+                $q->status = 'ordered';
+                $q->save();
+            }
+        }
     }
+
+    $this->source_queues = []; // reset after success
 
     Flux::toast('Purchase Order berhasil disimpan!', 'success');
     $this->redirectRoute('purchase.orders.kanban');
@@ -314,7 +407,7 @@ $saveCart = function ($cartData) {
                     <template x-for="(item, index) in items" :key="index">
                         <div class="relative flex flex-col sm:flex-row bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm transition-colors">
                             {{-- Delete Button (Top Left over Image) --}}
-                            <div class="absolute top-2 left-2 sm:-top-3 sm:-left-3 z-10">
+                            <div class="absolute top-2 left-2 sm:-top-3 sm:-left-3 z-10" x-show="!item.min_qty" x-cloak>
                                 <flux:button variant="primary" size="sm" icon="trash" @click="removeItem(index)" class="!rounded-full shadow-md hover:!bg-red-500 hover:!border-red-500 hover:scale-110 transition-all duration-200" />
                             </div>
 
@@ -479,7 +572,7 @@ $saveCart = function ($cartData) {
                                         {{-- Qty Control --}}
                                         <div class="flex items-center bg-zinc-50 dark:bg-zinc-800/50 rounded-lg h-[32px] shrink-0">
                                             <button type="button" @click="decrementQty(index)" class="w-8 h-full flex items-center justify-center text-zinc-400 hover:text-blue-600">-</button>
-                                            <input type="number" x-model.number="item.qty" @input="updateItemSubtotal(index)" class="w-10 text-center bg-transparent border-none focus:ring-0 p-0 text-[13px] font-bold text-[#1a2b4c] dark:text-zinc-100" min="0.1" step="0.1" />
+                                            <input type="number" x-model.number="item.qty" @input="updateItemSubtotal(index)" @change="validateQty(index)" class="w-10 text-center bg-transparent border-none focus:ring-0 p-0 text-[13px] font-bold text-[#1a2b4c] dark:text-zinc-100" :min="item.min_qty || 1" step="1" />
                                             <button type="button" @click="incrementQty(index)" class="w-8 h-full flex items-center justify-center text-zinc-400 hover:text-blue-600">+</button>
                                         </div>
                                     </div>
@@ -747,7 +840,7 @@ $saveCart = function ($cartData) {
             pajak_nominal: {{ (float) ($pajak_nominal ?? 0) }},
 
             get subtotal_amount() {
-                return this.items.reduce((sum, item) => sum + ((parseFloat(item.qty) || 0) * (parseFloat(item.unit_price) || 0)), 0);
+                return this.items.reduce((sum, item) => sum + ((parseInt(item.qty) || 0) * (parseFloat(item.unit_price) || 0)), 0);
             },
 
             get grand_total() {
@@ -768,21 +861,34 @@ $saveCart = function ($cartData) {
 
             updateItemSubtotal(index) {
                 let item = this.items[index];
-                item.subtotal = (parseFloat(item.qty) || 0) * (parseFloat(item.unit_price) || 0);
+                item.subtotal = (parseInt(item.qty) || 0) * (parseFloat(item.unit_price) || 0);
                 this.calculateTax();
             },
 
             incrementQty(index) {
-                this.items[index].qty = (parseFloat(this.items[index].qty) || 0) + 1;
+                this.items[index].qty = (parseInt(this.items[index].qty) || 0) + 1;
                 this.updateItemSubtotal(index);
             },
 
             decrementQty(index) {
-                let current = parseFloat(this.items[index].qty) || 0;
-                if (current > 1) {
+                let current = parseInt(this.items[index].qty) || 0;
+                let min = parseInt(this.items[index].min_qty) || 1;
+                if (current > min) {
                     this.items[index].qty = current - 1;
+                    if (this.items[index].qty < min) this.items[index].qty = min;
                     this.updateItemSubtotal(index);
                 }
+            },
+
+            validateQty(index) {
+                let current = parseInt(this.items[index].qty) || 0;
+                let min = parseInt(this.items[index].min_qty) || 1;
+                if (current < min) {
+                    this.items[index].qty = min;
+                } else {
+                    this.items[index].qty = current;
+                }
+                this.updateItemSubtotal(index);
             },
 
             addItem(newItem) {

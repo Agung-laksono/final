@@ -77,44 +77,59 @@ on(['status-updated' => function () {
                         <div draggable="true" 
                              @dragstart="dragStart($event, {{ $po->id }})"
                              @dragend="dragEnd($event)"
-                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 cursor-grab active:cursor-grabbing hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-colors group relative">
+                             wire:click="$dispatch('open-detail-modal', { orderId: {{ $po->id }} })"
+                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative">
                             
                             {{-- Header Card --}}
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="text-xs font-bold text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-md">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="font-mono text-xs font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 px-2 py-1 rounded-md">
                                     {{ $po->po_number }}
                                 </span>
-                                <span class="text-[10px] text-zinc-400">{{ \Carbon\Carbon::parse($po->order_date)->format('d M Y') }}</span>
+                                <div class="flex items-center text-[10px] text-zinc-400 font-medium">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    {{ \Carbon\Carbon::parse($po->order_date)->format('d M Y') }}
+                                </div>
                             </div>
 
                             {{-- Vendor Info --}}
-                            <div class="flex items-center gap-2 mb-3">
-                                <flux:avatar src="{{ $po->vendor?->image ? Storage::url($po->vendor->image) : '' }}" fallback="{{ substr($po->vendor?->name ?? '?', 0, 2) }}" size="sm" />
-                                <span class="font-medium text-sm text-zinc-700 dark:text-zinc-300 truncate">
-                                    {{ $po->vendor?->name ?? 'Vendor Terhapus' }}
-                                </span>
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="relative">
+                                    <flux:avatar src="{{ $po->vendor?->image ? Storage::url($po->vendor->image) : '' }}" fallback="{{ substr($po->vendor?->name ?? '?', 0, 2) }}" size="sm" class="ring-2 ring-white dark:ring-zinc-900 shadow-sm" />
+                                </div>
+                                <div class="flex flex-col overflow-hidden">
+                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate">
+                                        {{ $po->vendor?->name ?? 'Vendor Terhapus' }}
+                                    </span>
+                                    <span class="text-[10px] text-zinc-400 truncate">Supplier</span>
+                                </div>
                             </div>
                             
                             {{-- Total & Tax --}}
-                            <div class="flex items-center justify-between text-sm pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                            <div class="flex items-end justify-between pt-3 border-t border-dashed border-zinc-200 dark:border-zinc-700">
                                 <div class="flex flex-col">
-                                    <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Total Nilai</span>
-                                    <span class="font-bold text-emerald-600 dark:text-emerald-400">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</span>
+                                    <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Total Nilai</span>
+                                    <span class="text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight leading-none">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</span>
                                 </div>
-                                <div class="flex items-center gap-1">
+                                <div class="flex items-center">
                                     @if($po->pajak)
-                                        <flux:badge size="sm" color="amber">Tax</flux:badge>
+                                        <flux:badge size="sm" color="amber" class="font-bold">Tax</flux:badge>
                                     @endif
                                 </div>
                             </div>
 
                             {{-- Action Buttons --}}
                                 @if(in_array($statusKey, ['processing', 'partially_received']))
-                                    <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                                    <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                                         @can('purchase.update')
-                                            <flux:button size="sm" variant="primary" class="w-full" wire:click="$dispatch('open-receipt-modal', { orderId: {{ $po->id }} })">📦 Terima Barang</flux:button>
+                                            <button wire:click.stop="$dispatch('open-receipt-modal', { orderId: {{ $po->id }} })" class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white text-sm font-semibold py-2 px-4 rounded-lg shadow-sm hover:shadow-md transition-all">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                                Terima Barang
+                                            </button>
                                         @else
-                                            <flux:button size="sm" variant="primary" class="w-full opacity-50 cursor-not-allowed" disabled tooltip="Tidak ada hak akses">📦 Terima Barang</flux:button>
+                                            <button disabled class="w-full flex items-center justify-center gap-2 bg-zinc-200 dark:bg-zinc-800 text-zinc-400 text-sm font-semibold py-2 px-4 rounded-lg cursor-not-allowed">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                                Terima Barang
+                                            </button>
                                         @endcan
                                     </div>
                                 @endif
@@ -130,6 +145,7 @@ on(['status-updated' => function () {
     </div>
 
     <livewire:order.receipt-modal />
+    <livewire:order.detail-modal />
 
     <script>
         document.addEventListener('alpine:init', () => {
