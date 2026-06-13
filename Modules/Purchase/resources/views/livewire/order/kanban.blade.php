@@ -8,16 +8,27 @@ title('Kanban Purchase Order (PO)');
 // Definisi Kolom Kanban untuk PO
 state([
     'columns' => [
-        'draft' => ['title' => 'Draft', 'color' => 'zinc'],
-        'pending_approval' => ['title' => 'Menunggu ACC', 'color' => 'amber'],
         'processing' => ['title' => 'Diproses Vendor', 'color' => 'blue'],
         'partially_received' => ['title' => 'Diterima Sebagian', 'color' => 'indigo'],
         'completed' => ['title' => 'Selesai', 'color' => 'emerald'],
-    ]
+        'archived' => ['title' => 'Arsip', 'color' => 'slate'],
+    ],
+    'transparent_columns' => false,
+    'search' => '',
+    
+    'order_to_archive' => null,
+    'show_archive_modal' => false,
 ]);
 
 $orders = computed(function () {
-    return PurchaseOrder::with('vendor')->latest()->get()->groupBy(function($po) {
+    $query = PurchaseOrder::with('vendor')->latest();
+    if ($this->search) {
+        $query->where('po_number', 'like', '%' . $this->search . '%')
+              ->orWhereHas('vendor', function($q) {
+                  $q->where('name', 'like', '%' . $this->search . '%');
+              });
+    }
+    return $query->get()->groupBy(function($po) {
         return $po->status ?? 'draft';
     });
 });
@@ -27,12 +38,43 @@ $updateStatus = function ($orderId, $newStatus) {
     
     if (!array_key_exists($newStatus, $this->columns)) return;
     
-    $po = PurchaseOrder::with('items.queueFulfillments.purchaseQueue')->find($orderId);
+    $po = PurchaseOrder::find($orderId);
     if ($po) {
         $po->status = $newStatus;
         $po->save();
+        $this->dispatch('status-updated');
+    }
+};
+
+$confirmArchive = function ($orderId) {
+    $this->order_to_archive = $orderId;
+    $this->show_archive_modal = true;
+};
+
+$archiveOrder = function () {
+    abort_unless(auth()->user()->can('purchase.update'), 403, 'Anda tidak memiliki izin.');
+    
+    if (!$this->order_to_archive) return;
+    
+    $po = PurchaseOrder::with('items.queueFulfillments.purchaseQueue')->find($this->order_to_archive);
+    if ($po) {
+        $po->status = 'archived';
+        $po->save();
+        
+        // Sinkronisasi status antrean (Queue) menjadi arsip
+        foreach ($po->items as $item) {
+            foreach ($item->queueFulfillments as $fulfillment) {
+                if ($fulfillment->purchaseQueue && $fulfillment->purchaseQueue->status === 'completed') {
+                    $fulfillment->purchaseQueue->status = 'archived';
+                    $fulfillment->purchaseQueue->save();
+                }
+            }
+        }
         
         $this->dispatch('status-updated');
+        $this->show_archive_modal = false;
+        $this->order_to_archive = null;
+        \Flux::toast('PO berhasil diarsipkan.', variant: 'success');
     }
 };
 
@@ -43,43 +85,67 @@ on(['status-updated' => function () {
 ?>
 
 <div class="space-y-6">
-    <div class="flex items-center justify-between">
-        <div>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="hidden md:block">
             <flux:heading size="xl">Kanban Purchase Order (PO)</flux:heading>
             <flux:subheading>Atur dan pantau progres dokumen pemesanan ke Supplier/Vendor secara visual.</flux:subheading>
         </div>
         
-        @can('purchase.create')
-            <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}">Buat PO Baru</flux:button>
-        @endcan
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <div class="flex-1 min-w-0 md:w-64">
+                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari PO / Vendor..." />
+            </div>
+
+            <div class="flex items-center gap-3 shrink-0">
+                {{-- Toggle Transparan --}}
+                <div class="hidden sm:flex" title="Mode Transparan">
+                    <flux:switch wire:model.live="transparent_columns" label="Transparan" />
+                </div>
+                <div class="flex sm:hidden" title="Mode Transparan">
+                    <flux:switch wire:model.live="transparent_columns" />
+                </div>
+
+                @can('purchase.create')
+                    {{-- Tombol Add --}}
+                    <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" class="px-3 sm:px-4 shrink-0">
+                        <span class="hidden sm:inline">Buat PO Baru</span>
+                    </flux:button>
+                @endcan
+            </div>
+        </div>
     </div>
 
     {{-- Kanban Board Area --}}
-    <div class="flex gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)]" x-data="kanbanBoardOrder()">
+    <div class="flex justify-start gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)] -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch">
         @foreach($columns as $statusKey => $column)
-            <div class="flex-shrink-0 w-80 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col"
-                 @dragover.prevent="dragOverColumn = '{{ $statusKey }}'"
-                 @dragleave.prevent="dragOverColumn = null"
-                 @drop.prevent="dropItem('{{ $statusKey }}')"
-                 :class="{ 'ring-2 ring-blue-500/50 bg-blue-50/50 dark:bg-blue-900/20': dragOverColumn === '{{ $statusKey }}' }">
+            <div x-data="{ collapsed: {{ $statusKey === 'archived' ? 'true' : 'false' }} }"
+                 class="flex-shrink-0 h-full max-h-full rounded-xl flex flex-col transition-all duration-300 snap-center {{ $transparent_columns ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800' }}"
+                 :class="collapsed ? 'w-16' : 'w-80'"
+                 wire:key="column-{{ $statusKey }}">
                 
                 {{-- Column Header --}}
-                <div class="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-white dark:bg-zinc-900 rounded-t-xl">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50"></div>
-                        <h3 class="font-semibold text-zinc-800 dark:text-zinc-200">{{ $column['title'] }}</h3>
+                <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300 {{ $transparent_columns ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800' }}"
+                     :class="collapsed ? 'flex-col gap-4' : ''">
+                    <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
+                        <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0"></div>
+                        <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
+                            :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
                     </div>
-                    <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
+                    <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
+                        <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
+                        @if($statusKey === 'archived')
+                            <button @click="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" title="Toggle Kolom Arsip">
+                                <flux:icon.arrows-right-left class="w-4 h-4" />
+                            </button>
+                        @endif
+                    </div>
                 </div>
 
                 {{-- Column Items --}}
-                <div class="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
+                <div x-show="!collapsed" x-transition.opacity.duration.300ms class="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
                     @forelse($this->orders[$statusKey] ?? [] as $po)
-                        <div draggable="true" 
-                             @dragstart="dragStart($event, {{ $po->id }})"
-                             @dragend="dragEnd($event)"
-                             wire:click="$dispatch('open-detail-modal', { orderId: {{ $po->id }} })"
-                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative">
+                        <div wire:click="$dispatch('open-detail-modal', { orderId: {{ $po->id }} })"
+                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative cursor-pointer">
                             
                             {{-- Header Card --}}
                             <div class="flex justify-between items-start mb-3">
@@ -109,7 +175,7 @@ on(['status-updated' => function () {
                             <div class="flex items-end justify-between pt-3 border-t border-dashed border-zinc-200 dark:border-zinc-700">
                                 <div class="flex flex-col">
                                     <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Total Nilai</span>
-                                    <span class="text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight leading-none">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</span>
+                                    <span class="text-lg font-black text-zinc-900 dark:text-zinc-100 tracking-tight leading-none">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</span>
                                 </div>
                                 <div class="flex items-center">
                                     @if($po->pajak)
@@ -122,15 +188,23 @@ on(['status-updated' => function () {
                                 @if(in_array($statusKey, ['processing', 'partially_received']))
                                     <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                                         @can('purchase.update')
-                                            <button wire:click.stop="$dispatch('open-receipt-modal', { orderId: {{ $po->id }} })" class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white text-sm font-semibold py-2 px-4 rounded-lg shadow-sm hover:shadow-md transition-all">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                            <flux:button variant="primary" class="w-full" icon="cube" wire:click.stop="$dispatch('open-receipt-modal', { orderId: {{ $po->id }} })">
                                                 Terima Barang
-                                            </button>
+                                            </flux:button>
                                         @else
-                                            <button disabled class="w-full flex items-center justify-center gap-2 bg-zinc-200 dark:bg-zinc-800 text-zinc-400 text-sm font-semibold py-2 px-4 rounded-lg cursor-not-allowed">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                            <flux:button disabled class="w-full" icon="cube">
                                                 Terima Barang
-                                            </button>
+                                            </flux:button>
+                                        @endcan
+                                    </div>
+                                @endif
+                                
+                                @if($statusKey === 'completed')
+                                    <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                                        @can('purchase.update')
+                                            <flux:button variant="ghost" class="w-full text-zinc-500 hover:text-zinc-700" icon="archive-box" wire:click.stop="confirmArchive({{ $po->id }})">
+                                                Arsipkan PO
+                                            </flux:button>
                                         @endcan
                                     </div>
                                 @endif
@@ -145,44 +219,31 @@ on(['status-updated' => function () {
         @endforeach
     </div>
 
+    {{-- Confirm Archive Modal --}}
+    <flux:modal wire:model="show_archive_modal" class="min-w-[22rem]">
+        <div class="p-6">
+            <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center">
+                    <flux:icon.archive-box class="w-5 h-5" />
+                </div>
+                <div>
+                    <flux:heading size="lg">Arsipkan PO?</flux:heading>
+                    <flux:subheading class="mt-2 text-sm">
+                        Purchase Order ini akan dipindahkan ke kolom Arsip agar Kanban tetap rapi. Seluruh antrean yang tergabung di dalamnya juga akan ikut diarsipkan jika sudah selesai. Lanjutkan?
+                    </flux:subheading>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end gap-3">
+                <flux:button variant="ghost" wire:click="$set('show_archive_modal', false)">Batal</flux:button>
+                <flux:button variant="primary" wire:click="archiveOrder">Ya, Arsipkan</flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
     <livewire:order.receipt-modal />
     <livewire:order.detail-modal />
 
-    <script>
-        document.addEventListener('alpine:init', () => {
-            Alpine.data('kanbanBoardOrder', () => ({
-                draggedItemId: null,
-                dragOverColumn: null,
-
-                dragStart(event, itemId) {
-                    this.draggedItemId = itemId;
-                    event.dataTransfer.effectAllowed = 'move';
-                    setTimeout(() => event.target.classList.add('opacity-50', 'scale-95'), 0);
-                },
-
-                dragEnd(event) {
-                    this.draggedItemId = null;
-                    this.dragOverColumn = null;
-                    event.target.classList.remove('opacity-50', 'scale-95');
-                },
-
-                dropItem(statusKey) {
-                    // Prevent dropping to system-calculated columns
-                    if (statusKey === 'partially_received' || statusKey === 'completed') {
-                        Flux.toast({ title: 'Akses Ditolak', description: 'Gunakan tombol Terima Barang untuk memperbarui status penerimaan.', variant: 'warning' });
-                        this.dragOverColumn = null;
-                        return;
-                    }
-
-                    if (this.draggedItemId) {
-                        @this.call('updateStatus', this.draggedItemId, statusKey);
-                    }
-                    this.dragOverColumn = null;
-                }
-            }));
-        });
-    </script>
-    
     <livewire:print-label-modal />
 </div>
 
@@ -199,5 +260,9 @@ on(['status-updated' => function () {
     }
     .dark .custom-scrollbar::-webkit-scrollbar-thumb {
         background-color: #334155;
+    }
+    .vertical-text {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
     }
 </style>

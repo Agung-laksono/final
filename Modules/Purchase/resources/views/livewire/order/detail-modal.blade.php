@@ -30,7 +30,7 @@ $getStatusBadge = function ($status) {
 ?>
 
 <div>
-    <flux:modal wire:model="show" class="md:w-[800px] space-y-6">
+    <flux:modal wire:model="show" class="w-full md:w-[800px] lg:w-[1000px] space-y-6">
         @if($order)
             <div class="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-4">
                 <div>

@@ -20,7 +20,7 @@ state([
 ]);
 
 on(['open-receipt-modal' => function ($orderId) {
-    $this->purchaseOrder = PurchaseOrder::with(['items.item', 'vendor'])->findOrFail($orderId);
+    $this->purchaseOrder = PurchaseOrder::with(['items.item', 'vendor', 'items.queueFulfillments.purchaseQueue'])->findOrFail($orderId);
     
     $this->receipt_date = Carbon::now()->format('Y-m-d');
     $this->warehouses_list = Warehouse::all();
@@ -290,6 +290,16 @@ $save = function () {
         // 6. Update PO Status
         if ($totalReceivedItems >= $totalPOItems) {
             $this->purchaseOrder->status = 'completed';
+            
+            // Sinkronisasi status tiket antrean menjadi 'completed' jika PO selesai
+            foreach ($this->purchaseOrder->items as $poItemModel) {
+                foreach ($poItemModel->queueFulfillments as $fulfillment) {
+                    if ($fulfillment->purchaseQueue && in_array($fulfillment->purchaseQueue->status, ['approved', 'ordered'])) {
+                        $fulfillment->purchaseQueue->status = 'completed';
+                        $fulfillment->purchaseQueue->save();
+                    }
+                }
+            }
         } else {
             $this->purchaseOrder->status = 'partially_received';
         }

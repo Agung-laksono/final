@@ -30,6 +30,11 @@ class PurchaseOrderItem extends Model
         return $this->hasMany(PurchaseReceiptItem::class);
     }
 
+    public function queueFulfillments()
+    {
+        return $this->hasMany(PurchaseQueueFulfillment::class, 'purchase_order_item_id');
+    }
+
     // protected static function newFactory(): PurchaseOrderItemFactory
     // {
     //     // return PurchaseOrderItemFactory::new();

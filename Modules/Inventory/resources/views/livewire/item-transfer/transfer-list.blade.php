@@ -53,10 +53,9 @@ with(fn () => [
 
             @can('inventory.transfer.create')
             <flux:modal.trigger name="create-transfer-modal">
-                <flux:button variant="primary" icon="plus" class="hidden sm:flex">
-                    {{ __('Transfer Baru') }}
+                <flux:button variant="primary" icon="plus" class="px-3 sm:px-4">
+                    <span class="hidden sm:inline">{{ __('Transfer Baru') }}</span>
                 </flux:button>
-                <flux:button variant="primary" icon="plus" class="sm:hidden px-2" />
             </flux:modal.trigger>
             @endcan
         </div>

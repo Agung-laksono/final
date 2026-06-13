@@ -18,7 +18,7 @@ state([
     'diskon_global' => 0,
     'pajak_persen' => 0,
     'pajak_nominal' => 0,
-    'status' => 'draft',
+    'status' => 'processing',
     
     'items' => [], // array of ['id' => null, 'item_id' => id, 'name' => name, 'qty' => 1, 'unit_price' => price, 'subtotal' => price]
     
