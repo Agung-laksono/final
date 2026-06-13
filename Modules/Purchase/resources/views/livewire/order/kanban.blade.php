@@ -27,10 +27,11 @@ $updateStatus = function ($orderId, $newStatus) {
     
     if (!array_key_exists($newStatus, $this->columns)) return;
     
-    $po = PurchaseOrder::find($orderId);
+    $po = PurchaseOrder::with('items.queueFulfillments.purchaseQueue')->find($orderId);
     if ($po) {
         $po->status = $newStatus;
         $po->save();
+        
         $this->dispatch('status-updated');
     }
 };

@@ -12,8 +12,9 @@ state([
         'pending_approval' => ['title' => 'Menunggu Persetujuan', 'color' => 'zinc'],
         'approved' => ['title' => 'Disetujui (Antre)', 'color' => 'blue'],
         'ordered' => ['title' => 'Sudah Dipesan (PO)', 'color' => 'amber'],
-        'on_delivery' => ['title' => 'Dalam Perjalanan', 'color' => 'indigo'],
         'completed' => ['title' => 'Selesai / Ready', 'color' => 'emerald'],
+        'rejected' => ['title' => 'Ditolak', 'color' => 'red'],
+        'archived' => ['title' => 'Arsip', 'color' => 'slate'],
     ]
 ]);
 
@@ -36,9 +37,20 @@ $updateStatus = function ($queueId, $newStatus) {
     }
 };
 
-on([
-    'status-updated' => function () {}
-]);
+$rejectQueue = function ($queueId) {
+    abort_unless(auth()->user()->can('purchase.update'), 403, 'Anda tidak memiliki izin.');
+    $queue = PurchaseQueue::find($queueId);
+    if ($queue) {
+        $queue->status = 'rejected';
+        $queue->approved_qty = 0;
+        $queue->save();
+        $this->dispatch('status-updated');
+    }
+};
+
+on(['status-updated' => function () {
+    // Kosong saja, tujuannya hanya memancing re-render agar computed $queues dijalankan ulang
+}]);
 
 ?>
 
@@ -55,13 +67,10 @@ on([
     </div>
 
     {{-- Kanban Board Area --}}
-    <div class="flex gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)]" x-data="kanbanBoard()">
+    <div class="flex gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)]">
         @foreach($columns as $statusKey => $column)
-            <div class="flex-shrink-0 w-80 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col"
-                 @dragover.prevent="dragOverColumn = '{{ $statusKey }}'"
-                 @dragleave.prevent="dragOverColumn = null"
-                 @drop.prevent="dropItem('{{ $statusKey }}')"
-                 :class="{ 'ring-2 ring-blue-500/50 bg-blue-50/50 dark:bg-blue-900/20': dragOverColumn === '{{ $statusKey }}' }">
+            <div class="flex-1 flex flex-col min-w-[320px] max-w-[320px] bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl border border-zinc-200 dark:border-zinc-800/50 shadow-sm overflow-hidden" 
+                 wire:key="column-{{ $statusKey }}">
                 
                 {{-- Column Header --}}
                 <div class="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-white dark:bg-zinc-900 rounded-t-xl">
@@ -100,10 +109,7 @@ on([
                                 };
                             @endphp
 
-                        <div draggable="true" 
-                             @dragstart="dragStart($event, {{ $queue->id }})"
-                             @dragend="dragEnd($event)"
-                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative flex flex-col">
+                        <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative flex flex-col">
                             
                             {{-- Header Card --}}
                             <div class="flex justify-between items-start mb-3">
@@ -135,13 +141,34 @@ on([
                                     <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Jumlah Diperlukan</span>
                                     <span class="text-lg font-black text-zinc-800 dark:text-zinc-200 tracking-tight leading-none">{{ $queue->requested_qty }} <span class="text-xs font-medium text-zinc-500">Unit</span></span>
                                 </div>
-                                @if($queue->approved_qty !== null && $queue->approved_qty < $queue->requested_qty)
-                                    <div class="flex flex-col text-right" title="Hanya disetujui sebagian">
-                                        <span class="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-0.5">Disetujui</span>
-                                        <span class="text-sm font-bold text-amber-600 dark:text-amber-400 tracking-tight leading-none">{{ $queue->approved_qty }} Unit</span>
+                                @if($queue->approved_qty !== null && $queue->status !== 'rejected')
+                                    @if($queue->approved_qty < $queue->requested_qty)
+                                        <div class="flex flex-col text-right" title="Hanya disetujui sebagian">
+                                            <span class="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-0.5">Disetujui</span>
+                                            <span class="text-sm font-bold text-amber-600 dark:text-amber-400 tracking-tight leading-none">{{ $queue->approved_qty }} Unit</span>
+                                        </div>
+                                    @elseif($queue->approved_qty > $queue->requested_qty)
+                                        <div class="flex flex-col text-right" title="Disetujui lebih dari permintaan">
+                                            <span class="text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-0.5">Disetujui Ekstra</span>
+                                            <span class="text-sm font-bold text-blue-600 dark:text-blue-400 tracking-tight leading-none">+{{ $queue->approved_qty }} Unit</span>
+                                        </div>
+                                    @endif
+                                @endif
+                                @if($queue->status === 'rejected')
+                                    <div class="flex flex-col text-right">
+                                        <span class="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-0.5">Disetujui</span>
+                                        <span class="text-sm font-bold text-red-600 dark:text-red-400 tracking-tight leading-none">0 Unit</span>
                                     </div>
                                 @endif
                             </div>
+
+                            {{-- Action Buttons for Pending Approval --}}
+                            @if($statusKey === 'pending_approval')
+                                <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex gap-2 w-full">
+                                    <flux:button variant="danger" size="sm" class="flex-1 text-[11px]" @click.stop="if(confirm('Tolak permintaan ini?')) { $wire.rejectQueue({{ $queue->id }}) }">Tolak</flux:button>
+                                    <flux:button variant="primary" size="sm" class="flex-1 text-[11px]" @click.stop="$dispatch('open-approval-modal', { id: {{ $queue->id }} })">Setujui</flux:button>
+                                </div>
+                            @endif
                         </div>
                     @empty
                         <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
@@ -155,37 +182,9 @@ on([
     
     <livewire:queue.create-modal />
     <livewire:queue.consolidation-modal />
+    <livewire:queue.approval-modal />
     <livewire:global.item-gallery-modal />
 </div>
-
-<script>
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('kanbanBoard', () => ({
-            draggedItemId: null,
-            dragOverColumn: null,
-
-            dragStart(event, itemId) {
-                this.draggedItemId = itemId;
-                event.dataTransfer.effectAllowed = 'move';
-                // Memberikan efek semi transparan pada item yang sedang ditarik
-                setTimeout(() => event.target.classList.add('opacity-50', 'scale-95'), 0);
-            },
-
-            dragEnd(event) {
-                this.draggedItemId = null;
-                this.dragOverColumn = null;
-                event.target.classList.remove('opacity-50', 'scale-95');
-            },
-
-            dropItem(statusKey) {
-                if (this.draggedItemId) {
-                    @this.call('updateStatus', this.draggedItemId, statusKey);
-                }
-                this.dragOverColumn = null;
-            }
-        }));
-    });
-</script>
 
 <style>
     .custom-scrollbar::-webkit-scrollbar {
