@@ -256,18 +256,24 @@ $saveCart = function ($cartData) {
     $subtotal = collect($this->items)->sum('subtotal');
     $grandTotal = $subtotal + (float)$this->ongkir - (float)$this->diskon_global + (float)$this->pajak_nominal;
 
+    $data = [
+        'po_number' => $this->po_number,
+        'vendor_id' => $this->vendor_id,
+        'order_date' => $this->order_date,
+        'status' => $this->status,
+        'ongkir' => $this->ongkir,
+        'diskon_global' => $this->diskon_global,
+        'pajak' => $this->pajak_nominal,
+        'total_amount' => $grandTotal,
+    ];
+
+    if (!$this->order_id) {
+        $data['created_by'] = auth()->id();
+    }
+
     $po = PurchaseOrder::updateOrCreate(
         ['id' => $this->order_id],
-        [
-            'po_number' => $this->po_number,
-            'vendor_id' => $this->vendor_id,
-            'order_date' => $this->order_date,
-            'status' => $this->status,
-            'ongkir' => $this->ongkir,
-            'diskon_global' => $this->diskon_global,
-            'pajak' => $this->pajak_nominal,
-            'total_amount' => $grandTotal,
-        ]
+        $data
     );
 
     // Hapus item lama (jika edit) yang tidak ada di keranjang lagi

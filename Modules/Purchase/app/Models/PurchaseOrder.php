@@ -20,6 +20,11 @@ class PurchaseOrder extends Model
         return $this->belongsTo(Vendor::class);
     }
 
+    public function creator()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by');
+    }
+
     public function items()
     {
         return $this->hasMany(PurchaseOrderItem::class);

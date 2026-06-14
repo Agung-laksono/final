@@ -161,6 +161,13 @@ on(['status-updated' => function () {
                                     #PQ-{{ str_pad($queue->id, 4, '0', STR_PAD_LEFT) }}
                                 </span>
                                 <div class="flex items-center text-[10px] text-zinc-400 font-medium">
+                                    @if($queue->creator)
+                                        <flux:avatar src="" fallback="{{ substr($queue->creator->name, 0, 2) }}" size="xs" class="w-4 h-4 mr-1 text-[8px]" />
+                                        <span class="mr-2" title="Dibuat oleh {{ $queue->creator->name }}">{{ strtok($queue->creator->name, ' ') }}</span>
+                                    @else
+                                        <flux:icon.cpu-chip class="w-3 h-3 mr-1" />
+                                        <span class="mr-2" title="Dibuat otomatis oleh Sistem">Sistem</span>
+                                    @endif
                                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     {{ $queue->created_at->diffForHumans() }}
                                 </div>

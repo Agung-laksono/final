@@ -20,6 +20,11 @@ class PurchaseQueue extends Model
         return $this->belongsTo(\Modules\Inventory\Models\Item::class);
     }
 
+    public function creator()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by');
+    }
+
     public function fulfillments()
     {
         return $this->hasMany(PurchaseQueueFulfillment::class);

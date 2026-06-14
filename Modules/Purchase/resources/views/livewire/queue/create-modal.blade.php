@@ -37,7 +37,8 @@ $save = function () {
         'source_type' => 'manual',
         'requested_qty' => $this->requested_qty,
         'notes' => $this->notes,
-        'status' => 'pending_approval'
+        'status' => 'pending_approval',
+        'created_by' => auth()->id()
     ]);
 
     $this->dispatch('status-updated'); // Memanggil event agar kanban ter-refresh
