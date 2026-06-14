@@ -19,4 +19,9 @@ class Vendor extends Model
     // {
     //     // return VendorFactory::new();
     // }
+
+    public function purchaseOrders()
+    {
+        return $this->hasMany(PurchaseOrder::class);
+    }
 }

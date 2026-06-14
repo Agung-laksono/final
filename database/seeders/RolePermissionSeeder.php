@@ -70,10 +70,22 @@ class RolePermissionSeeder extends Seeder
             'admin.notifikasi.view',            
             
             // Modul Pembelian (Purchase)
-            'purchase.view',
-            'purchase.create',
-            'purchase.update',
-            'purchase.delete',
+            'purchase.dashboard.view',
+            'purchase.queue.view',
+            'purchase.queue.create',
+            'purchase.queue.update',
+            'purchase.queue.delete',
+            'purchase.approve.view',
+            'purchase.approve.update',
+            'purchase.approve.delete',
+            'purchase.order.view',
+            'purchase.order.create',
+            'purchase.order.update',
+            'purchase.order.delete',
+            'purchase.vendor.view',
+            'purchase.vendor.create',
+            'purchase.vendor.update',
+            'purchase.vendor.delete',
 
             // Modul Sales
             'sales.view',
@@ -112,15 +124,16 @@ class RolePermissionSeeder extends Seeder
             'inventory.transfer.view', 'inventory.transfer.create', 'inventory.transfer.update',
             'inventory.movement.view',
             'inventory.opname.view', 'inventory.opname.create', 'inventory.opname.update',
+            'purchase.queue.view', // Gudang bisa melihat antrean
             // Gudang tidak punya hak delete apapun
         ]);
 
         $rolePurchasing = Role::firstOrCreate(['name' => 'Purchasing']);
         $rolePurchasing->givePermissionTo([
-            'purchase.view',
-            'purchase.create',
-            'purchase.update',
-            'purchase.delete',
+            'purchase.dashboard.view',
+            'purchase.queue.view', 'purchase.queue.create', 'purchase.queue.update', 'purchase.queue.delete',
+            'purchase.order.view', 'purchase.order.create', 'purchase.order.update', 'purchase.order.delete',
+            'purchase.vendor.view', 'purchase.vendor.create', 'purchase.vendor.update', 'purchase.vendor.delete',
             'purchase.notifikasi.view',
             'inventory.view',
             'inventory.item.view',

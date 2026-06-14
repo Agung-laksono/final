@@ -34,12 +34,17 @@ $queues = computed(function () {
 });
 
 $updateStatus = function ($queueId, $newStatus) {
-    abort_unless(auth()->user()->can('purchase.update'), 403, 'Anda tidak memiliki izin untuk mengubah status antrean.');
-    
     if (!array_key_exists($newStatus, $this->columns)) return;
     
     $queue = PurchaseQueue::find($queueId);
     if ($queue) {
+        // Jika mengubah menjadi approved, butuh izin khusus
+        if ($newStatus === 'approved' || $queue->status === 'pending_approval') {
+            abort_unless(auth()->user()->can('purchase.approve.update'), 403, 'Anda tidak memiliki izin untuk menyetujui antrean.');
+        } else {
+            abort_unless(auth()->user()->can('purchase.queue.update'), 403, 'Anda tidak memiliki izin untuk menggeser antrean.');
+        }
+
         $queue->status = $newStatus;
         $queue->save();
         $this->dispatch('status-updated');
@@ -47,7 +52,7 @@ $updateStatus = function ($queueId, $newStatus) {
 };
 
 $rejectQueue = function ($queueId) {
-    abort_unless(auth()->user()->can('purchase.update'), 403, 'Anda tidak memiliki izin.');
+    abort_unless(auth()->user()->can('purchase.approve.delete'), 403, 'Anda tidak memiliki izin untuk menolak antrean.');
     $queue = PurchaseQueue::find($queueId);
     if ($queue) {
         $queue->status = 'rejected';

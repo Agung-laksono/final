@@ -34,7 +34,7 @@ $orders = computed(function () {
 });
 
 $updateStatus = function ($orderId, $newStatus) {
-    abort_unless(auth()->user()->can('purchase.update'), 403, 'Anda tidak memiliki izin untuk mengubah status PO.');
+    abort_unless(auth()->user()->can('purchase.order.update'), 403, 'Anda tidak memiliki izin untuk mengubah status PO.');
     
     if (!array_key_exists($newStatus, $this->columns)) return;
     
@@ -52,7 +52,7 @@ $confirmArchive = function ($orderId) {
 };
 
 $archiveOrder = function () {
-    abort_unless(auth()->user()->can('purchase.update'), 403, 'Anda tidak memiliki izin.');
+    abort_unless(auth()->user()->can('purchase.order.update'), 403, 'Anda tidak memiliki izin.');
     
     if (!$this->order_to_archive) return;
     
@@ -187,7 +187,7 @@ on(['status-updated' => function () {
                             {{-- Action Buttons --}}
                                 @if(in_array($statusKey, ['processing', 'partially_received']))
                                     <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                                        @can('purchase.update')
+                                        @can('purchase.order.update')
                                             <flux:button variant="primary" class="w-full" icon="cube" wire:click.stop="$dispatch('open-receipt-modal', { orderId: {{ $po->id }} })">
                                                 Terima Barang
                                             </flux:button>
@@ -201,7 +201,7 @@ on(['status-updated' => function () {
                                 
                                 @if($statusKey === 'completed')
                                     <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                                        @can('purchase.update')
+                                        @can('purchase.order.update')
                                             <flux:button variant="ghost" class="w-full text-zinc-500 hover:text-zinc-700" icon="archive-box" wire:click.stop="confirmArchive({{ $po->id }})">
                                                 Arsipkan PO
                                             </flux:button>

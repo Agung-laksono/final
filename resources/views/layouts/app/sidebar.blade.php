@@ -53,25 +53,33 @@
             @endcan
 
             <!-- Pembelian -->
-            @can('purchase.view')
+            @canany(['purchase.dashboard.view', 'purchase.queue.view', 'purchase.order.view', 'purchase.vendor.view'])
             <flux:sidebar.nav>
                 <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                     {{ __('PEMBELIAN') }}
                 </div>
+                @can('purchase.dashboard.view')
                 <flux:sidebar.item icon="shopping-cart" :href="route('purchase.index')" :current="request()->routeIs('purchase.index')" wire:navigate>
                     {{ __('Dashboard Pembelian') }}
                 </flux:sidebar.item>
+                @endcan
+                @can('purchase.queue.view')
                 <flux:sidebar.item icon="queue-list" :href="route('purchase.queues.kanban')" :current="request()->routeIs('purchase.queues.*')" wire:navigate>
                     {{ __('Kanban Permintaan') }}
                 </flux:sidebar.item>
+                @endcan
+                @can('purchase.order.view')
                 <flux:sidebar.item icon="clipboard-document-list" :href="route('purchase.orders.kanban')" :current="request()->routeIs('purchase.orders.*')" wire:navigate>
                     {{ __('Kanban PO') }}
                 </flux:sidebar.item>
+                @endcan
+                @can('purchase.vendor.view')
                 <flux:sidebar.item icon="building-office-2" :href="route('purchase.vendors.index')" :current="request()->routeIs('purchase.vendors.*')" wire:navigate>
                     {{ __('Data Vendor') }}
                 </flux:sidebar.item>
+                @endcan
             </flux:sidebar.nav>
-            @endcan
+            @endcanany
 
             <flux:sidebar.nav class="mt-4">
                 <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
