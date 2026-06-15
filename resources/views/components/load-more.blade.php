@@ -22,7 +22,7 @@
         {{-- Progress Bar Premium --}}
         <div class="relative w-full h-1.5 bg-zinc-200/60 dark:bg-zinc-800/60 rounded-full overflow-hidden shadow-inner backdrop-blur-sm">
             <div 
-                class="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 rounded-full transition-all duration-700 ease-in-out" 
+                class="absolute top-0 left-0 h-full bg-gradient-to-r from-cyan-400 to-cyan-600 rounded-full transition-all duration-700 ease-in-out" 
                 style="width: {{ $percentage }}%"
             >
                 {{-- Efek shimmer/kilauan halus di dalam progress bar --}}
@@ -34,15 +34,15 @@
         @if ($paginator->hasMorePages())
             <div class="mt-6 w-full relative group">
                 {{-- Efek Glow di belakang tombol saat dihover --}}
-                <div class="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-violet-500 rounded-xl blur opacity-0 group-hover:opacity-20 transition duration-500"></div>
+                <div class="absolute -inset-0.5 bg-gradient-to-r from-cyan-400 to-cyan-600 rounded-xl blur opacity-0 group-hover:opacity-20 transition duration-500"></div>
                 
                 <button 
                     wire:click="{{ $action }}" 
                     wire:loading.attr="disabled"
-                    class="relative w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-70 disabled:cursor-wait"
+                    class="relative w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-70 disabled:cursor-wait"
                 >
                     {{-- Spinner (hanya muncul saat loading) --}}
-                    <svg wire:loading wire:target="{{ $action }}" class="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg wire:loading wire:target="{{ $action }}" class="animate-spin h-4 w-4 text-cyan-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -51,7 +51,7 @@
                     <flux:icon.chevron-down wire:loading.remove wire:target="{{ $action }}" class="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
 
                     <span wire:loading.remove wire:target="{{ $action }}">Muat Lebih Banyak</span>
-                    <span wire:loading wire:target="{{ $action }}" class="text-blue-600 dark:text-blue-400">Sedang menarik data...</span>
+                    <span wire:loading wire:target="{{ $action }}" class="text-cyan-600 dark:text-cyan-400">Sedang menarik data...</span>
                 </button>
             </div>
         @else
