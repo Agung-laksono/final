@@ -4,6 +4,8 @@ use Livewire\Volt\Component;
 use Livewire\WithPagination;
 use Modules\Inventory\Models\Item;
 use Modules\Inventory\Models\Category;
+use Modules\Inventory\Models\SubCategory;
+use Modules\Inventory\Models\Type;
 use Livewire\Attributes\On;
 
 new class extends Component {
@@ -11,16 +13,23 @@ new class extends Component {
 
     public $searchQuery = '';
     public $categoryId = '';
+    public $subCategoryId = '';
+    public $typeId = '';
+    public $stockFilter = ''; // '' (semua), 'tersedia', 'habis'
+    public $statusFilter = 'aktif'; // 'aktif', 'non-aktif', '' (semua)
+    public $historyFilter = false;
+
     public $perPage = 12;
 
-    public function updatedSearchQuery()
+    public function updated($property)
     {
-        $this->resetPage();
-    }
-    
-    public function updatedCategoryId()
-    {
-        $this->resetPage();
+        if (in_array($property, ['searchQuery', 'categoryId', 'subCategoryId', 'typeId', 'stockFilter', 'statusFilter', 'historyFilter'])) {
+            $this->resetPage();
+        }
+        
+        if ($property === 'categoryId') {
+            $this->subCategoryId = '';
+        }
     }
     
     public function loadMore()
@@ -49,6 +58,37 @@ new class extends Component {
         if ($this->categoryId) {
             $query->where('category_id', $this->categoryId);
         }
+        if ($this->subCategoryId) {
+            $query->where('sub_category_id', $this->subCategoryId);
+        }
+        if ($this->typeId) {
+            $query->where('type_id', $this->typeId);
+        }
+
+        if ($this->statusFilter === 'aktif') {
+            $query->where('is_active', true);
+        } elseif ($this->statusFilter === 'non-aktif') {
+            $query->where('is_active', false);
+        }
+
+        if ($this->stockFilter === 'tersedia') {
+            $query->whereHas('warehouses', function($q) {
+                $q->where('stock', '>', 0);
+            });
+        } elseif ($this->stockFilter === 'habis') {
+            $query->whereDoesntHave('warehouses', function($q) {
+                $q->where('stock', '>', 0);
+            });
+        }
+
+        if ($this->historyFilter) {
+            $query->whereIn('id', function($q) {
+                $q->select('item_id')
+                  ->from('purchase_order_items')
+                  ->join('purchase_orders', 'purchase_order_items.purchase_order_id', '=', 'purchase_orders.id')
+                  ->where('purchase_orders.status', '!=', 'draft');
+            });
+        }
 
         $galleryItems = $query->latest()->paginate($this->perPage);
         
@@ -58,10 +98,14 @@ new class extends Component {
                 $q->where('status', '!=', 'draft');
             })->pluck('item_id')->unique()->toArray();
 
+        $subCategories = $this->categoryId ? SubCategory::where('category_id', $this->categoryId)->orderBy('name')->get() : [];
+
         return [
             'galleryItems' => $galleryItems,
             'itemsWithHistory' => $itemsWithHistory,
             'categories' => Category::orderBy('name')->get(),
+            'subCategories' => $subCategories,
+            'types' => Type::orderBy('name')->get(),
         ];
     }
 };
@@ -86,14 +130,61 @@ new class extends Component {
                         placeholder="Cari nama atau kode barang..." 
                         class="flex-1 w-full" />
                         
-                    <div class="flex items-center gap-3 w-full sm:w-auto">
-                        <flux:select wire:model.live="categoryId" placeholder="Semua Kategori" class="w-full sm:w-48">
-                            <flux:select.option value="">Semua Kategori</flux:select.option>
-                            @foreach($categories as $category)
-                                <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <flux:select wire:model.live="typeId" placeholder="Semua Tipe Barang" class="w-full sm:w-40">
+                            <flux:select.option value="">Semua Tipe Barang</flux:select.option>
+                            @foreach($types as $type)
+                                <flux:select.option value="{{ $type->id }}">{{ $type->name }}</flux:select.option>
                             @endforeach
                         </flux:select>
                         
+                        <flux:dropdown>
+                            <flux:button variant="subtle" icon="adjustments-horizontal" class="shrink-0">
+                                <span class="hidden md:inline">Filter</span>
+                            </flux:button>
+                            <flux:menu class="w-72 space-y-4 p-4">
+                                <div>
+                                    <flux:heading size="sm" class="mb-2">Filter Lanjutan</flux:heading>
+                                </div>
+                                
+                                <flux:select wire:model.live="subCategoryId" placeholder="Semua Sub Kategori" :disabled="!$categoryId">
+                                    <flux:select.option value="">Semua Sub Kategori</flux:select.option>
+                                    @foreach($subCategories as $subCat)
+                                        <flux:select.option value="{{ $subCat->id }}">{{ $subCat->name }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+
+                                <flux:select wire:model.live="categoryId" placeholder="Semua Kategori">
+                                    <flux:select.option value="">Semua Kategori</flux:select.option>
+                                    @foreach($categories as $category)
+                                        <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                                
+                                <div class="space-y-1">
+                                    <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Ketersediaan Stok</div>
+                                    <flux:radio.group wire:model.live="stockFilter" class="flex gap-4">
+                                        <flux:radio value="" label="Semua" />
+                                        <flux:radio value="tersedia" label="Tersedia" />
+                                        <flux:radio value="habis" label="Habis" />
+                                    </flux:radio.group>
+                                </div>
+
+                                <div class="space-y-1">
+                                    <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Status Barang</div>
+                                    <flux:radio.group wire:model.live="statusFilter" class="flex gap-4">
+                                        <flux:radio value="aktif" label="Aktif" />
+                                        <flux:radio value="non-aktif" label="Non-Aktif" />
+                                        <flux:radio value="" label="Semua" />
+                                    </flux:radio.group>
+                                </div>
+
+                                <div class="pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                                    <flux:switch wire:model.live="historyFilter" label="Pernah Dipesan/Dibeli" />
+                                </div>
+                            </flux:menu>
+                        </flux:dropdown>
+
                         @can('inventory.item.create')
                         <flux:button wire:click="$dispatch('open-item-modal')" variant="primary" icon="plus" class="shrink-0">
                             <span class="hidden md:inline">Barang Baru</span>
@@ -112,9 +203,9 @@ new class extends Component {
 
             <div wire:loading.remove wire:target="searchQuery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
                 @forelse($galleryItems as $item)
-                    <div @click="$dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: '{{ addslashes($item->name) }}', code: '{{ $item->code ?? '0001' }}', unit_price: {{ $item->purchase_price ?? 0 }}, image: '{{ $item->image }}', has_history: {{ in_array($item->id, $itemsWithHistory) ? 'true' : 'false' }} } })"
-                         :class="$data.items?.find(i => i.item_id == {{ $item->id }}) ? 'border-cyan-600 ring-2 ring-cyan-600 shadow-lg scale-[1.02]' : 'border-zinc-200 dark:border-zinc-800 hover:border-cyan-500/50 hover:shadow-lg hover:scale-[1.02]'"
-                         class="relative bg-white dark:bg-zinc-900 rounded-xl border overflow-hidden transition-all cursor-pointer group flex flex-col h-full">
+                    <div @if($item->is_active) @click="playSelectSound(); $dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: '{{ addslashes($item->name) }}', code: '{{ $item->code ?? '0001' }}', unit_price: {{ $item->purchase_price ?? 0 }}, image: '{{ $item->image }}', has_history: {{ in_array($item->id, $itemsWithHistory) ? 'true' : 'false' }} } })" @endif
+                         :class="$data.items?.find(i => i.item_id == {{ $item->id }}) ? 'border-cyan-600 ring-2 ring-cyan-600 shadow-lg scale-[1.02]' : 'border-zinc-200 dark:border-zinc-800 {{ $item->is_active ? 'hover:border-cyan-500/50 hover:shadow-lg hover:scale-[1.02]' : '' }}'"
+                         class="relative bg-white dark:bg-zinc-900 rounded-xl border overflow-hidden transition-all {{ $item->is_active ? 'cursor-pointer group' : 'cursor-not-allowed' }} flex flex-col h-full">
                         
                         {{-- NON ACTIVE Overlay --}}
                         @if (!$item->is_active)
@@ -192,4 +283,80 @@ new class extends Component {
             </div>
         </div>
     </flux:modal>
+
+    <script>
+        if (typeof window.playSelectSound === 'undefined') {
+            // Gunakan satu AudioContext secara global agar tidak kena limit browser (max 6 context)
+            let sharedAudioCtx = null;
+
+            window.playSelectSound = function(type = 'ting') {
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioContext) return;
+                    
+                    if (!sharedAudioCtx) {
+                        sharedAudioCtx = new AudioContext();
+                    }
+
+                    // Browser kadang me-suspend audio sampai ada interaksi user
+                    if (sharedAudioCtx.state === 'suspended') {
+                        sharedAudioCtx.resume();
+                    }
+                    
+                    const ctx = sharedAudioCtx;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    const now = ctx.currentTime;
+                    
+                    if (type === 'pop') {
+                        // Suara Gelembung Air / UI Pop (Paling Responsif)
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(800, now);
+                        osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+                        gain.gain.setValueAtTime(0, now);
+                        gain.gain.linearRampToValueAtTime(0.5, now + 0.01);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                        osc.start(now);
+                        osc.stop(now + 0.05);
+                        
+                    } else if (type === 'kasir') {
+                        // Suara Beep Scanner Kasir
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(1500, now);
+                        gain.gain.setValueAtTime(0, now);
+                        gain.gain.setValueAtTime(0.1, now + 0.01);
+                        gain.gain.setValueAtTime(0, now + 0.08);
+                        osc.start(now);
+                        osc.stop(now + 0.1);
+                        
+                    } else if (type === 'ting') {
+                        // Suara Lonceng Lembut
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(1200, now);
+                        gain.gain.setValueAtTime(0, now);
+                        gain.gain.linearRampToValueAtTime(0.4, now + 0.02);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                        osc.start(now);
+                        osc.stop(now + 0.4);
+                        
+                    } else if (type === 'click') {
+                        // Suara Ketukan Mekanik
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(100, now);
+                        gain.gain.setValueAtTime(0, now);
+                        gain.gain.linearRampToValueAtTime(0.5, now + 0.01);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.02);
+                        osc.start(now);
+                        osc.stop(now + 0.03);
+                    }
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    
+                } catch (e) {
+                    console.error('AudioContext error', e);
+                }
+            }
+        }
+    </script>
 </div>
