@@ -98,7 +98,8 @@ class RolePermissionSeeder extends Seeder
             'sales.order.update',
             'sales.order.delete',
             'sales.approve.update',
-            'sales.payment.create',
+            'sales.payment.create', // Sales bisa input pembayaran
+            'sales.payment.validate', // Finance bisa validasi pembayaran
 
             // Modul Pegawai / Settings
             'users.view',
@@ -132,6 +133,7 @@ class RolePermissionSeeder extends Seeder
             'inventory.movement.view',
             'inventory.opname.view', 'inventory.opname.create', 'inventory.opname.update',
             'purchase.queue.view', // Gudang bisa melihat antrean
+            'sales.order.view', 'sales.order.update', // Gudang butuh ini untuk memproses Fulfillment
             // Gudang tidak punya hak delete apapun
         ]);
 
@@ -152,7 +154,29 @@ class RolePermissionSeeder extends Seeder
             'sales.dashboard.view',
             'sales.customer.view', 'sales.customer.create', 'sales.customer.update', 'sales.customer.delete',
             'sales.order.view', 'sales.order.create', 'sales.order.update', 'sales.order.delete',
-            'sales.payment.create',
+            'sales.payment.create', // Sales bisa input bukti bayar
+            'inventory.view',
+            'inventory.item.view',
+        ]);
+
+        $roleKepalaSales = Role::firstOrCreate(['name' => 'Kepala Sales']);
+        $roleKepalaSales->givePermissionTo([
+            'sales.dashboard.view',
+            'sales.customer.view', 'sales.customer.create', 'sales.customer.update', 'sales.customer.delete',
+            'sales.order.view', 'sales.order.create', 'sales.order.update', 'sales.order.delete',
+            'sales.approve.update', // Kepala Sales bisa approve (ACC) pesanan
+            'sales.payment.create', // Bisa input bukti bayar juga
+            'sales.notifikasi.view',
+            'inventory.view',
+            'inventory.item.view',
+        ]);
+
+        $roleFinance = Role::firstOrCreate(['name' => 'Finance']);
+        $roleFinance->givePermissionTo([
+            'sales.dashboard.view',
+            'sales.order.view',
+            'sales.payment.validate', // Finance yang berhak memvalidasi pembayaran
+            'finance.notifikasi.view',
             'inventory.view',
             'inventory.item.view',
         ]);

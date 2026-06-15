@@ -107,7 +107,7 @@ on(['status-updated' => function () {
 
                 @can('purchase.create')
                     {{-- Tombol Add --}}
-                    <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" class="px-3 sm:px-4 shrink-0">
+                    <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" class="px-3 sm:px-4 shrink-0" wire:navigate>
                         <span class="hidden sm:inline">Buat PO Baru</span>
                     </flux:button>
                 @endcan

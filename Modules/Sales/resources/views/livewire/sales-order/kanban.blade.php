@@ -104,14 +104,7 @@ on(['status-updated' => function () {
             <div x-data="{ collapsed: {{ $statusKey === 'completed' ? 'true' : 'false' }} }"
                  class="flex-shrink-0 h-full max-h-full rounded-xl flex flex-col transition-all duration-300 snap-center {{ $transparent_columns ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800' }}"
                  :class="collapsed ? 'w-16' : 'w-80'"
-                 wire:key="column-{{ $statusKey }}"
-                 @dragover.prevent=""
-                 @drop.prevent="
-                     const orderId = $event.dataTransfer.getData('text/plain');
-                     if(orderId && !collapsed) {
-                         $wire.updateStatus(orderId, '{{ $statusKey }}');
-                     }
-                 ">
+                 wire:key="column-{{ $statusKey }}">
                 
                 {{-- Column Header --}}
                 <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300 {{ $transparent_columns ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800' }}"
@@ -146,13 +139,7 @@ on(['status-updated' => function () {
 
                     @forelse($this->orders[$statusKey] ?? [] as $order)
                         <div wire:key="order-{{ $order->id }}"
-                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative cursor-grab active:cursor-grabbing"
-                             draggable="true"
-                             @dragstart="
-                                 $event.dataTransfer.setData('text/plain', '{{ $order->id }}');
-                                 $event.target.classList.add('opacity-50');
-                             "
-                             @dragend="$event.target.classList.remove('opacity-50')">
+                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative">
                             
                             {{-- Header Kartu (Customer & Pembayaran) --}}
                             <div class="flex items-start justify-between mb-3">
@@ -209,7 +196,9 @@ on(['status-updated' => function () {
                                     <flux:button size="sm" variant="subtle" icon="eye" class="h-6 w-6 p-0" title="Detail SO" wire:click.stop="$dispatch('open-detail-modal', { orderId: {{ $order->id }} })" />
                                     
                                     {{-- Tombol Pembayaran --}}
-                                    <flux:button size="sm" variant="subtle" icon="banknotes" class="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/50" title="Input Pembayaran" wire:click.stop="$dispatch('open-payment-modal', { orderId: {{ $order->id }} })" />
+                                    @canany(['sales.payment.create', 'sales.payment.validate'])
+                                        <flux:button size="sm" variant="subtle" icon="banknotes" class="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/50" title="Pembayaran" wire:click.stop="$dispatch('open-payment-modal', { orderId: {{ $order->id }} })" />
+                                    @endcanany
                                     
                                     {{-- Tombol Aksi Spesifik --}}
                                     @if($statusKey === 'pending_approval')

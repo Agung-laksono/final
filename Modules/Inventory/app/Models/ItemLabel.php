@@ -26,4 +26,12 @@ class ItemLabel extends Model
     {
         return $this->belongsTo(Warehouse::class);
     }
+
+    /**
+     * Riwayat fulfillment untuk fisik barang ini
+     */
+    public function salesOrderFulfillments()
+    {
+        return $this->hasMany(\Modules\Sales\Models\SalesOrderFulfillment::class);
+    }
 }

@@ -26,6 +26,11 @@ class SalesOrderFulfillment extends Model
         return $this->belongsTo(\Modules\Inventory\Models\Item::class);
     }
 
+    public function itemLabel()
+    {
+        return $this->belongsTo(\Modules\Inventory\Models\ItemLabel::class);
+    }
+
     public function scanner()
     {
         return $this->belongsTo(\App\Models\User::class, 'scanned_by');

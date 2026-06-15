@@ -31,7 +31,7 @@ on(['open-payment-modal' => function ($orderId) {
 }]);
 
 $savePayment = function () {
-    abort_unless(auth()->user()->can('sales.order.update'), 403);
+    abort_unless(auth()->user()->can('sales.payment.create'), 403);
     
     $this->validate([
         'amount' => 'required|numeric|min:1',
@@ -65,26 +65,58 @@ $savePayment = function () {
         'proof_path' => $proofPath,
         'notes' => $this->notes,
         'created_by' => auth()->id(),
+        'status' => 'pending', // Menunggu validasi Finance
     ]);
 
-    // Update status pembayaran SO
-    $totalPaid = $this->order->payments()->sum('amount') + $this->amount;
-    
-    if ($totalPaid >= $this->order->total_amount) {
-        $this->order->payment_status = 'paid';
-    } elseif ($totalPaid > 0) {
-        $this->order->payment_status = 'partial';
-    }
-    
-    $this->order->save();
-
-    \Flux::toast('Pembayaran berhasil dicatat.', variant: 'success');
+    \Flux::toast('Bukti pembayaran berhasil diunggah. Menunggu validasi Finance.', variant: 'success');
     
     $this->order->load('payments'); // Reload
     $this->amount = '';
     $this->proof = null;
     $this->notes = '';
     $this->dispatch('status-updated');
+};
+
+$verifyPayment = function ($paymentId) {
+    abort_unless(auth()->user()->can('sales.payment.validate'), 403);
+    
+    $payment = SalesPayment::find($paymentId);
+    if ($payment && $payment->status === 'pending') {
+        $payment->status = 'verified';
+        $payment->verified_by = auth()->id();
+        $payment->verified_at = now();
+        $payment->save();
+
+        // Update status SO berdasarkan pembayaran yang sudah diverifikasi
+        $totalVerified = $this->order->payments()->where('status', 'verified')->sum('amount');
+        
+        if ($totalVerified >= $this->order->total_amount) {
+            $this->order->payment_status = 'paid';
+        } elseif ($totalVerified > 0) {
+            $this->order->payment_status = 'partial';
+        }
+        $this->order->save();
+
+        \Flux::toast('Pembayaran diverifikasi!', variant: 'success');
+        $this->order->load('payments');
+        $this->dispatch('status-updated');
+    }
+};
+
+$rejectPayment = function ($paymentId) {
+    abort_unless(auth()->user()->can('sales.payment.validate'), 403);
+    
+    $payment = SalesPayment::find($paymentId);
+    if ($payment && $payment->status === 'pending') {
+        $payment->status = 'rejected';
+        $payment->verified_by = auth()->id();
+        $payment->verified_at = now();
+        // rejection_reason bisa ditambahkan nanti jika perlu popup modal
+        $payment->save();
+
+        \Flux::toast('Pembayaran ditolak.', variant: 'danger');
+        $this->order->load('payments');
+    }
 };
 
 ?>
@@ -107,38 +139,51 @@ $savePayment = function () {
         <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             {{-- Bagian Kiri: Form Input --}}
             <div class="space-y-4">
-                <div>
-                    <flux:label class="mb-2">Nominal Bayar <span class="text-red-500">*</span></flux:label>
-                    <x-rupiah-input wire:model="amount" placeholder="Contoh: 5000000" required />
-                </div>
-                <div class="grid grid-cols-1 gap-4">
-                    <flux:input type="date" wire:model="payment_date" label="Tanggal" required />
-                    <flux:select wire:model="payment_method" label="Metode">
-                        <option value="transfer">Transfer Bank</option>
-                        <option value="cash">Tunai (Cash)</option>
-                        <option value="credit_card">Kartu Kredit</option>
-                        <option value="qris">QRIS</option>
-                    </flux:select>
-                </div>
-                
-                <div>
-                    <flux:label class="mb-2">Bukti Transfer (Opsional)</flux:label>
-                    <x-image-cropper id="payment-cropper" wire:model="proof" :image="$proof && is_string($proof) && !str_starts_with($proof, 'data:image') ? Storage::url($proof) : null" accept="image/*" />
-                </div>
-                
-                <flux:textarea wire:model="notes" label="Catatan" placeholder="Keterangan tambahan..." />
-                
-                <flux:button variant="primary" wire:click="savePayment" icon="plus" class="w-full">Catat Pembayaran</flux:button>
+                @can('sales.payment.create')
+                    <div>
+                        <flux:label class="mb-2">Nominal Bayar <span class="text-red-500">*</span></flux:label>
+                        <x-rupiah-input wire:model="amount" placeholder="Contoh: 5000000" required />
+                    </div>
+                    <div class="grid grid-cols-1 gap-4">
+                        <flux:input type="date" wire:model="payment_date" label="Tanggal" required />
+                        <flux:select wire:model="payment_method" label="Metode">
+                            <option value="transfer">Transfer Bank</option>
+                            <option value="cash">Tunai (Cash)</option>
+                            <option value="credit_card">Kartu Kredit</option>
+                            <option value="qris">QRIS</option>
+                        </flux:select>
+                    </div>
+                    
+                    <div>
+                        <flux:label class="mb-2">Bukti Transfer (Opsional)</flux:label>
+                        <x-image-cropper id="payment-cropper" wire:model="proof" :image="$proof && is_string($proof) && !str_starts_with($proof, 'data:image') ? Storage::url($proof) : null" accept="image/*" />
+                    </div>
+                    
+                    <flux:textarea wire:model="notes" label="Catatan" placeholder="Keterangan tambahan..." />
+                    
+                    <flux:button variant="primary" wire:click="savePayment" icon="arrow-up-tray" class="w-full">Unggah Bukti Bayar</flux:button>
+                @else
+                    <div class="flex flex-col items-center justify-center h-full text-center p-6 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl">
+                        <flux:icon.lock-closed class="w-8 h-8 text-zinc-400 mb-2" />
+                        <span class="text-sm text-zinc-500">Anda berada di mode Validasi (Finance).<br>Gunakan panel riwayat di sebelah kanan untuk memverifikasi pembayaran dari Sales.</span>
+                    </div>
+                @endcan
             </div>
 
             {{-- Bagian Kanan: Riwayat Pembayaran --}}
             <div class="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
                 <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200 mb-3">Riwayat Pembayaran</h3>
                 
-                <div class="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                    @forelse($order->payments as $payment)
-                        <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-100 dark:border-zinc-800 text-sm flex gap-3">
-                            <div class="flex-1">
+                <div class="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                    @forelse($order->payments()->latest()->get() as $payment)
+                        <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border {{ $payment->status === 'pending' ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10' : 'border-zinc-100 dark:border-zinc-800' }} text-sm flex gap-3 relative overflow-hidden">
+                            @if($payment->status === 'pending')
+                                <div class="absolute top-0 right-0 bg-amber-500 text-white text-[9px] px-2 py-0.5 rounded-bl-lg font-bold tracking-wide">PENDING VERIFIKASI</div>
+                            @elseif($payment->status === 'rejected')
+                                <div class="absolute top-0 right-0 bg-red-500 text-white text-[9px] px-2 py-0.5 rounded-bl-lg font-bold tracking-wide">DITOLAK</div>
+                            @endif
+
+                            <div class="flex-1 mt-3">
                                 <div class="flex justify-between items-start mb-1">
                                     <span class="font-bold text-zinc-900 dark:text-zinc-100">Rp {{ number_format($payment->amount, 0, ',', '.') }}</span>
                                     <span class="text-[10px] text-zinc-400">{{ \Carbon\Carbon::parse($payment->payment_date)->format('d M Y') }}</span>
@@ -148,9 +193,20 @@ $savePayment = function () {
                                     <span>•</span>
                                     <span class="truncate">{{ $payment->notes ?: 'Tanpa catatan' }}</span>
                                 </div>
+                                
+                                @if($payment->status === 'pending')
+                                    @can('sales.payment.validate')
+                                        <div class="flex gap-2 mt-3 pt-3 border-t border-amber-200 dark:border-amber-800">
+                                            <flux:button size="sm" variant="primary" wire:click="verifyPayment({{ $payment->id }})" class="w-full bg-emerald-600 hover:bg-emerald-700 border-none text-white text-xs">ACC / Valid</flux:button>
+                                            <flux:button size="sm" variant="danger" wire:click="rejectPayment({{ $payment->id }})" class="w-full text-xs">Tolak</flux:button>
+                                        </div>
+                                    @else
+                                        <div class="mt-2 text-[10px] italic text-amber-600 dark:text-amber-500">Menunggu pengecekan Finance...</div>
+                                    @endcan
+                                @endif
                             </div>
                             @if($payment->proof_path)
-                                <a href="{{ Storage::url($payment->proof_path) }}" target="_blank" class="shrink-0 w-12 h-12 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden hover:opacity-80 transition-opacity" title="Lihat Bukti">
+                                <a href="{{ Storage::url($payment->proof_path) }}" target="_blank" class="shrink-0 w-16 h-16 mt-2 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden hover:opacity-80 transition-opacity border border-zinc-200 dark:border-zinc-700" title="Lihat Bukti">
                                     <img src="{{ Storage::url($payment->proof_path) }}" class="w-full h-full object-cover" />
                                 </a>
                             @endif
@@ -161,7 +217,8 @@ $savePayment = function () {
                 </div>
                 
                 @php
-                    $terbayar = $order->payments->sum('amount');
+                    // Hitung hanya yang sudah diverifikasi
+                    $terbayar = $order->payments()->where('status', 'verified')->sum('amount');
                     $sisa = $order->total_amount - $terbayar;
                 @endphp
                 <div class="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-700 text-sm">

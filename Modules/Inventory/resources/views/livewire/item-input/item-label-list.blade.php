@@ -47,7 +47,9 @@ $printSelected = function () {
 };
 
 with(fn () => [
-    'labels' => ItemLabel::with('warehouse')
+    'labels' => ItemLabel::with(['warehouse', 'salesOrderFulfillments' => function($q) {
+            $q->latest()->limit(1)->with('salesOrder');
+        }])
         ->where('item_id', $this->itemId)
         ->when($this->search, function ($query) {
             $query->where('label_code', 'like', '%' . $this->search . '%')
@@ -136,15 +138,25 @@ with(fn () => [
                                     'sold' => 'zinc',
                                     'broken' => 'red',
                                     'in_transit' => 'amber',
+                                    'bokking' => 'indigo',
                                 ];
                                 $statusLabels = [
                                     'in_stock' => 'Tersedia',
                                     'sold' => 'Terjual',
                                     'broken' => 'Rusak',
                                     'in_transit' => 'Transit',
+                                    'bokking' => 'Di-Booking',
                                 ];
                                 $color = $statusColors[$label->status] ?? 'zinc';
                                 $text = $statusLabels[$label->status] ?? $label->status;
+                                
+                                // Jika status bokking, cari tau SO-nya
+                                if ($label->status === 'bokking') {
+                                    $so = $label->salesOrderFulfillments->first()?->salesOrder;
+                                    if ($so) {
+                                        $text .= ' (' . $so->so_number . ')';
+                                    }
+                                }
                             @endphp
                             <flux:badge :color="$color" size="sm">{{ $text }}</flux:badge>
                         </flux:table.cell>

@@ -11,6 +11,11 @@ class SalesPayment extends Model
 
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'payment_date' => 'date',
+        'verified_at' => 'datetime',
+    ];
+
     public function salesOrder()
     {
         return $this->belongsTo(SalesOrder::class);
@@ -19,5 +24,10 @@ class SalesPayment extends Model
     public function creator()
     {
         return $this->belongsTo(\App\Models\User::class, 'created_by');
+    }
+
+    public function verifier()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'verified_by');
     }
 }
