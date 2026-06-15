@@ -22,10 +22,10 @@ new class extends Component {
     #[Rule('nullable|string')]
     public $address = '';
     
-    #[Rule('required|string|max:255')]
+    #[Rule('nullable|string|max:255')]
     public $province = '';
     
-    #[Rule('required|string|max:255')]
+    #[Rule('nullable|string|max:255')]
     public $city = '';
     
     #[Rule('nullable|string|max:255')]
@@ -213,6 +213,7 @@ new class extends Component {
                                 <flux:select.option value="Supplier">Supplier</flux:select.option>
                             <flux:select.option value="Pengrajin">Pengrajin</flux:select.option>
                             <flux:select.option value="Ekspedisi">Ekspedisi</flux:select.option>
+                            <flux:select.option value="Packing">Packing</flux:select.option>
                             @foreach($customOptions as $opt)
                                 <flux:select.option value="{{ $opt }}">{{ $opt }}</flux:select.option>
                             @endforeach

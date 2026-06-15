@@ -88,10 +88,17 @@ class RolePermissionSeeder extends Seeder
             'purchase.vendor.delete',
 
             // Modul Sales
-            'sales.view',
-            'sales.create',
-            'sales.update',
-            'sales.delete',
+            'sales.dashboard.view',
+            'sales.customer.view',
+            'sales.customer.create',
+            'sales.customer.update',
+            'sales.customer.delete',
+            'sales.order.view',
+            'sales.order.create',
+            'sales.order.update',
+            'sales.order.delete',
+            'sales.approve.update',
+            'sales.payment.create',
 
             // Modul Pegawai / Settings
             'users.view',
@@ -142,19 +149,18 @@ class RolePermissionSeeder extends Seeder
 
         $roleSales = Role::firstOrCreate(['name' => 'Sales']);
         $roleSales->givePermissionTo([
-            'sales.view',
-            'sales.create',
-            'sales.update',
-            // Sales hanya bisa lihat daftar barang dan stok
+            'sales.dashboard.view',
+            'sales.customer.view', 'sales.customer.create', 'sales.customer.update', 'sales.customer.delete',
+            'sales.order.view', 'sales.order.create', 'sales.order.update', 'sales.order.delete',
+            'sales.payment.create',
             'inventory.view',
             'inventory.item.view',
-            'inventory.warehouse.view'
         ]);
 
         $roleMarketing = Role::firstOrCreate(['name' => 'Marketing']);
         $roleMarketing->givePermissionTo([
             'inventory.view', 
-            'sales.view'
+            'sales.dashboard.view'
         ]);
 
         // Jadikan user pertama di sistem sebagai Super Admin

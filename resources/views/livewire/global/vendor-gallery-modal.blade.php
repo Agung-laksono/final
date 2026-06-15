@@ -9,8 +9,15 @@ new class extends Component {
     use WithPagination;
 
     public $searchQuery = '';
+    public $typeFilter = '';
+    public $isFilterLocked = false;
 
     public function updatedSearchQuery()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTypeFilter()
     {
         $this->resetPage();
     }
@@ -22,25 +29,57 @@ new class extends Component {
         $this->resetPage();
     }
 
+    #[On('set-filter-type')]
+    public function setFilterType($type = '', $locked = false)
+    {
+        if (is_array($type)) {
+            $this->typeFilter = $type['type'] ?? '';
+            $this->isFilterLocked = $type['locked'] ?? false;
+        } else {
+            $this->typeFilter = $type;
+            $this->isFilterLocked = $locked;
+        }
+        $this->resetPage();
+    }
+
+    #[On('reset-vendor-filter')]
+    public function resetFilter()
+    {
+        $this->typeFilter = '';
+        $this->isFilterLocked = false;
+        $this->resetPage();
+    }
+
     public function with()
     {
         $query = Vendor::query();
 
+        if ($this->typeFilter !== '') {
+            $query->where('type', $this->typeFilter);
+        }
+
         if (strlen($this->searchQuery) >= 2) {
-            $query->where('name', 'like', '%' . $this->searchQuery . '%')
-                  ->orWhere('phone', 'like', '%' . $this->searchQuery . '%')
-                  ->orWhere('type', 'like', '%' . $this->searchQuery . '%');
+            $query->where(function($q) {
+                $q->where('name', 'like', '%' . $this->searchQuery . '%')
+                  ->orWhere('phone', 'like', '%' . $this->searchQuery . '%');
+            });
+        }
+
+        $types = Vendor::select('type')->distinct()->pluck('type')->filter()->toArray();
+        if ($this->typeFilter && !in_array($this->typeFilter, $types)) {
+            $types[] = $this->typeFilter;
         }
 
         return [
             'vendors' => $query->latest()->paginate(12),
+            'availableTypes' => $types,
         ];
     }
 };
 ?>
 
 <div>
-    <flux:modal name="vendor-gallery-modal" class="md:w-[800px] max-w-4xl">
+    <flux:modal name="vendor-gallery-modal" class="md:w-[800px] max-w-4xl" @close="$wire.resetFilter()">
         <div class="space-y-6">
             <div class="flex items-start justify-between">
                 <div>
@@ -49,17 +88,26 @@ new class extends Component {
                 </div>
             </div>
             
-            {{-- Search Bar & Add Button --}}
-            <div class="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700">
+            {{-- Search Bar, Filter, & Add Button --}}
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700">
                 <flux:input 
                     wire:model.live.debounce.300ms="searchQuery" 
                     icon="magnifying-glass" 
-                    placeholder="Cari nama, tipe, atau telepon vendor..." 
+                    placeholder="Cari nama atau telepon vendor..." 
                     class="flex-1" />
                 
-                <flux:button wire:click="$dispatch('open-vendor-modal')" wire:loading.attr="disabled" variant="primary" icon="plus" class="shrink-0">
-                    <span class="hidden md:inline">Vendor Baru</span>
-                </flux:button>
+                <div class="flex items-center gap-3">
+                    <flux:select wire:model.live="typeFilter" class="w-full sm:w-48" :disabled="$isFilterLocked">
+                        <option value="">Semua Tipe</option>
+                        @foreach($availableTypes as $t)
+                            <option value="{{ $t }}">{{ $t }}</option>
+                        @endforeach
+                    </flux:select>
+                    
+                    <flux:button wire:click="$dispatch('open-vendor-modal')" wire:loading.attr="disabled" variant="primary" icon="plus" class="shrink-0">
+                        <span class="hidden md:inline">Vendor Baru</span>
+                    </flux:button>
+                </div>
             </div>
 
             {{-- Loading State Indicator --}}

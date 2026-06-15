@@ -324,7 +324,7 @@ new class extends Component {
 <div>
     {{-- Fitur Pencarian Pintar (Livewire) --}}
     <div class="mb-6 relative">
-        <flux:input wire:model.live.debounce.500ms="searchQuery" label="Pencarian Pintar Wilayah (Opsional)" placeholder="Ketik nama provinsi, kota, kecamatan, atau desa..." icon="magnifying-glass" />
+        <flux:input wire:model.live.debounce.500ms="searchQuery" label="Pencarian Pintar Wilayah" placeholder="Ketik nama provinsi, kota, kecamatan, atau desa..." icon="magnifying-glass" />
         
         <div wire:loading wire:target="searchQuery" class="absolute right-3 top-9 text-xs text-zinc-400">Mencari...</div>
 
@@ -367,8 +367,8 @@ new class extends Component {
     <div class="space-y-4">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Provinsi <span class="text-red-500">*</span></label>
-                <select required wire:model.live="province" class="w-full h-10 px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Provinsi</label>
+                <select wire:model.live="province" class="w-full h-10 px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
                     <option value="">-- Pilih Provinsi --</option>
                     @foreach($provincesList as $p)
                         <option value="{{ $p['name'] }}">{{ $p['name'] }}</option>
@@ -377,8 +377,8 @@ new class extends Component {
             </div>
             
             <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Kota/Kabupaten <span class="text-red-500">*</span></label>
-                <select required wire:model.live="city" @disabled(empty($citiesList)) class="w-full h-10 px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Kota/Kabupaten</label>
+                <select wire:model.live="city" @disabled(empty($citiesList)) class="w-full h-10 px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
                     <option value="">-- Pilih Kota --</option>
                     @foreach($citiesList as $c)
                         <option value="{{ $c['name'] }}">{{ $c['name'] }}</option>
@@ -389,7 +389,7 @@ new class extends Component {
         
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Kecamatan <span class="text-zinc-400 font-normal">(Opsional)</span></label>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Kecamatan</label>
                 <select wire:model.live="district" @disabled(empty($districtsList)) class="w-full h-10 px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
                     <option value="">-- Pilih Kecamatan --</option>
                     @foreach($districtsList as $d)
@@ -399,7 +399,7 @@ new class extends Component {
             </div>
             
             <div>
-                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Kelurahan/Desa <span class="text-zinc-400 font-normal">(Opsional)</span></label>
+                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Kelurahan/Desa</label>
                 <select wire:model.live="village" @disabled(empty($villagesList)) class="w-full h-10 px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
                     <option value="">-- Pilih Desa --</option>
                     @foreach($villagesList as $v)

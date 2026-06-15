@@ -1,23 +1,23 @@
 <?php
 use function Livewire\Volt\{state, layout, title, computed, on, mount, updated};
-use Modules\Purchase\Models\PurchaseOrder;
-use Modules\Purchase\Models\PurchaseOrderItem;
-use Modules\Purchase\Models\Vendor;
+use Modules\Sales\Models\SalesOrder;
+use Modules\Sales\Models\SalesOrderItem;
+use Modules\Sales\Models\Customer;
 use Modules\Inventory\Models\Item;
 use Illuminate\Support\Str;
 
 layout('layouts.app');
-title('Form Purchase Order');
+title('Form Pembuatan Sales Order');
 
 state([
     'order_id' => null,
-    'po_number' => '',
-    'vendor_id' => '',
+    'so_number' => '',
+    'customer_id' => '',
     'order_date' => date('Y-m-d'),
-    'ongkir' => 0,
-    'diskon_global' => 0,
-    'pajak_persen' => 0,
-    'pajak_nominal' => 0,
+    'shipping_fee' => 0,
+    'discount' => 0,
+    'tax_percent' => 0,
+    'tax' => 0,
     'status' => 'processing',
     
     'items' => [], // array of ['id' => null, 'item_id' => id, 'name' => name, 'qty' => 1, 'unit_price' => price, 'subtotal' => price]
@@ -25,9 +25,9 @@ state([
     'search_query' => '',
     'show_suggestions' => false,
 
-    'vendor_search_query' => '',
-    'show_vendor_suggestions' => false,
-    'selected_vendor' => null,
+    'customer_search_query' => '',
+    'show_customer_suggestions' => false,
+    'selected_customer' => null,
     
     'price_history' => [],
     'history_item_name' => '',
@@ -40,34 +40,34 @@ state([
     'note_item_index' => null,
     'current_note' => '',
     
-    'source_queues' => [],
+    
 ]);
 
 mount(function ($id = null) {
     if ($id) {
-        $po = PurchaseOrder::with(['items.item', 'vendor'])->findOrFail($id);
+        $po = SalesOrder::with(['items.item', 'customer'])->findOrFail($id);
         $this->order_id = $po->id;
-        $this->po_number = $po->po_number;
-        $this->vendor_id = $po->vendor_id;
+        $this->so_number = $po->so_number;
+        $this->customer_id = $po->customer_id;
         $this->order_date = $po->order_date;
-        $this->ongkir = $po->ongkir ?? 0;
-        $this->diskon_global = $po->diskon_global ?? 0;
-        $this->pajak_nominal = $po->pajak ?? 0;
+        $this->shipping_fee = $po->shipping_fee ?? 0;
+        $this->discount = $po->discount ?? 0;
+        $this->tax = $po->pajak ?? 0;
         $this->status = $po->status;
         
-        if ($po->vendor) {
-            $this->selected_vendor = $po->vendor->toArray();
+        if ($po->customer) {
+            $this->selected_customer = $po->customer->toArray();
         }
         
-        // Coba hitung pajak_persen dari pajak_nominal jika ada
+        // Coba hitung tax_percent dari tax jika ada
         // Ini estimasi, karena kita tidak menyimpan persentase secara eksplisit
-        $sub = $po->items->sum('subtotal') + $this->ongkir - $this->diskon_global;
-        if ($sub > 0 && $this->pajak_nominal > 0) {
-            $this->pajak_persen = round(($this->pajak_nominal / $sub) * 100);
+        $sub = $po->items->sum('subtotal') + $this->shipping_fee - $this->discount;
+        if ($sub > 0 && $this->tax > 0) {
+            $this->tax_percent = round(($this->tax / $sub) * 100);
         }
 
         foreach ($po->items as $detail) {
-            $hasHistory = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $detail->item_id)
+            $hasHistory = \Modules\Sales\Models\SalesOrderItem::where('item_id', $detail->item_id)
                 ->whereHas('purchaseOrder', function($q) {
                     $q->where('status', '!=', 'draft');
                 })->exists();
@@ -85,73 +85,35 @@ mount(function ($id = null) {
             ];
         }
     } else {
-        $this->po_number = ''; // Will be generated on save
+        $this->so_number = ''; // Will be generated on save
 
-        if (request()->has('queues')) {
-            $queueIds = explode(',', request()->query('queues'));
-            $this->source_queues = $queueIds;
-            
-            $queues = \Modules\Purchase\Models\PurchaseQueue::with('item')
-                        ->whereIn('id', $queueIds)
-                        ->where('status', 'approved')
-                        ->get();
-                        
-            $grouped = $queues->groupBy('item_id');
-            
-            foreach ($grouped as $itemId => $qGroup) {
-                $item = $qGroup->first()->item;
-                $totalQty = $qGroup->sum(function($q) {
-                    return $q->approved_qty ?? $q->requested_qty;
-                });
-                
-                $price = $item->purchase_price ?? 0;
-                
-                $hasHistory = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $itemId)
-                    ->whereHas('purchaseOrder', function($q) {
-                        $q->where('status', '!=', 'draft');
-                    })->exists();
-
-                $this->items[] = [
-                    'id' => null,
-                    'item_id' => $itemId,
-                    'name' => $item->name ?? 'Unknown',
-                    'qty' => $totalQty,
-                    'min_qty' => $totalQty,
-                    'unit_price' => $price,
-                    'subtotal' => $totalQty * $price,
-                    'image' => $item->image ?? null,
-                    'note' => 'Gabungan dari ' . $qGroup->count() . ' tiket antrean',
-                    'has_history' => $hasHistory,
-                ];
-            }
-        }
     }
 });
 
 // Computed search results remain in Livewire
 
-$vendorSearchResults = computed(function () {
-    if (strlen($this->vendor_search_query) < 2) return [];
-    return Vendor::where('name', 'like', '%' . $this->vendor_search_query . '%')
-               ->orWhere('phone', 'like', '%' . $this->vendor_search_query . '%')
+$customerSearchResults = computed(function () {
+    if (strlen($this->customer_search_query) < 2) return [];
+    return Customer::where('name', 'like', '%' . $this->customer_search_query . '%')
+               ->orWhere('phone', 'like', '%' . $this->customer_search_query . '%')
                ->take(5)->get();
 });
 
-$selectVendor = function ($vendorId) {
-    $vendor = Vendor::find($vendorId);
-    if ($vendor) {
-        $this->selected_vendor = $vendor->toArray();
-        $this->vendor_id = $vendor->id;
+$selectCustomer = function ($customerId) {
+    $customer = Customer::find($customerId);
+    if ($customer) {
+        $this->selected_customer = $customer->toArray();
+        $this->customer_id = $customer->id;
     }
-    $this->vendor_search_query = '';
-    $this->show_vendor_suggestions = false;
+    $this->customer_search_query = '';
+    $this->show_customer_suggestions = false;
 };
 
 
 
-$clearVendor = function () {
-    $this->selected_vendor = null;
-    $this->vendor_id = '';
+$clearCustomer = function () {
+    $this->selected_customer = null;
+    $this->customer_id = '';
 };
 
 $searchResults = computed(function () {
@@ -177,14 +139,14 @@ $loadMoreHistory = function () {
 };
 
 $loadHistory = function () {
-    $baseQuery = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $this->history_item_id)
+    $baseQuery = \Modules\Sales\Models\SalesOrderItem::where('item_id', $this->history_item_id)
         ->whereHas('purchaseOrder', function($q) {
             $q->where('status', '!=', 'draft');
         });
 
     $this->has_more_history = $baseQuery->count() > $this->history_limit;
 
-    $this->price_history = \Modules\Purchase\Models\PurchaseOrderItem::with(['purchaseOrder.vendor', 'item.unit'])
+    $this->price_history = \Modules\Sales\Models\SalesOrderItem::with(['purchaseOrder.customer', 'item.unit'])
         ->where('item_id', $this->history_item_id)
         ->whereHas('purchaseOrder', function($q) {
             $q->where('status', '!=', 'draft');
@@ -197,7 +159,7 @@ $loadHistory = function () {
 };
 
 $viewPoDetail = function ($poId) {
-    $po = \Modules\Purchase\Models\PurchaseOrder::with(['vendor', 'items.item.unit'])->find($poId);
+    $po = \Modules\Sales\Models\SalesOrder::with(['customer', 'items.item.unit'])->find($poId);
     if ($po) {
         $this->detail_po = $po->toArray();
     }
@@ -205,130 +167,86 @@ $viewPoDetail = function ($poId) {
 
 $saveCart = function ($cartData) {
     $this->items = $cartData['items'] ?? [];
-    $this->ongkir = $cartData['ongkir'] ?? 0;
-    $this->diskon_global = $cartData['diskon_global'] ?? 0;
-    $this->pajak_persen = $cartData['pajak_persen'] ?? 0;
-    $this->pajak_nominal = $cartData['pajak_nominal'] ?? 0;
+    $this->shipping_fee = $cartData['shipping_fee'] ?? 0;
+    $this->discount = $cartData['discount'] ?? 0;
+    $this->tax_percent = $cartData['tax_percent'] ?? 0;
+    $this->tax = $cartData['tax'] ?? 0;
 
     if (!$this->order_id) {
-        // Generate ODM-1000 format
-        $latestPo = PurchaseOrder::orderBy('id', 'desc')->first();
+        // Generate SO-20260614-1000 format
+        $latestPo = SalesOrder::orderBy('id', 'desc')->first();
         $nextId = $latestPo ? $latestPo->id + 1 : 1000;
-        $this->po_number = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $this->so_number = 'SO-20260614-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
     }
 
     $this->validate([
-        'po_number' => 'required|string|max:100|unique:purchase_orders,po_number,' . $this->order_id,
-        'vendor_id' => 'required|exists:vendors,id',
+        'so_number' => 'required|string|max:100|unique:sales_orders,so_number,' . $this->order_id,
+        'customer_id' => 'required|exists:customers,id',
         'order_date' => 'required|date',
         'items' => 'required|array|min:1',
         'items.*.qty' => 'required|integer|min:1',
         'items.*.unit_price' => 'required|numeric|min:0',
     ]);
 
-    // Validasi aturan bisnis: Qty tidak boleh kurang dari tiket antrean asal
-    if (!empty($this->source_queues)) {
-        $queues = \Modules\Purchase\Models\PurchaseQueue::whereIn('id', $this->source_queues)->get();
-        
-        // Anti-Double-Fulfillment check
-        $invalidQueues = $queues->filter(fn($q) => $q->status !== 'approved');
-        if ($invalidQueues->isNotEmpty()) {
-            \Flux::toast("Beberapa tiket antrean sudah diproses di PO lain. Silakan kembali ke papan Kanban.", variant: 'danger');
-            return;
-        }
 
-        $groupedQueues = $queues->groupBy('item_id');
-        
-        foreach ($groupedQueues as $itemId => $qGroup) {
-            $minRequired = $qGroup->sum(function($q) {
-                return $q->approved_qty ?? $q->requested_qty;
-            });
-            
-            $cartItem = collect($this->items)->firstWhere('item_id', $itemId);
-            if (!$cartItem || (float)$cartItem['qty'] < (float)$minRequired) {
-                \Flux::toast("Kuantitas pesanan tidak boleh kurang dari {$minRequired} unit karena barang tersebut ditarik dari antrean otomatis.", variant: 'danger');
-                return;
-            }
-        }
-    }
 
     // Recalculate grand total server-side
     $subtotal = collect($this->items)->sum('subtotal');
-    $grandTotal = $subtotal + (float)$this->ongkir - (float)$this->diskon_global + (float)$this->pajak_nominal;
+    $grandTotal = $subtotal + (float)$this->shipping_fee - (float)$this->discount + (float)$this->tax;
 
     $data = [
-        'po_number' => $this->po_number,
-        'vendor_id' => $this->vendor_id,
+        'so_number' => $this->so_number,
+        'customer_id' => $this->customer_id,
         'order_date' => $this->order_date,
         'status' => $this->status,
-        'ongkir' => $this->ongkir,
-        'diskon_global' => $this->diskon_global,
-        'pajak' => $this->pajak_nominal,
+        'shipping_fee' => $this->shipping_fee,
+        'discount' => $this->discount,
+        'tax' => $this->tax,
         'total_amount' => $grandTotal,
+                'packing_fee' => 0,
+                'payment_status' => 'unpaid',
     ];
 
     if (!$this->order_id) {
         $data['created_by'] = auth()->id();
     }
 
-    $po = PurchaseOrder::updateOrCreate(
+    $po = SalesOrder::updateOrCreate(
         ['id' => $this->order_id],
         $data
     );
 
     // Hapus item lama (jika edit) yang tidak ada di keranjang lagi
     $currentItemIds = collect($this->items)->pluck('id')->filter()->toArray();
-    PurchaseOrderItem::where('purchase_order_id', $po->id)
+    SalesOrderItem::where('sales_order_id', $po->id)
                      ->whereNotIn('id', $currentItemIds)
                      ->delete();
 
     // Simpan items
     foreach ($this->items as $item) {
-        $poi = PurchaseOrderItem::updateOrCreate(
+        $poi = SalesOrderItem::updateOrCreate(
             ['id' => $item['id'] ?? null],
             [
-                'purchase_order_id' => $po->id,
+                'sales_order_id' => $po->id,
                 'item_id' => $item['item_id'],
-                'quantity' => $item['qty'],
+                'qty' => $item['qty'],
                 'unit_price' => $item['unit_price'],
                 'subtotal' => $item['subtotal'],
                 'notes' => $item['note'] ?? null, // Simpan ke DB
             ]
         );
 
-        if (!empty($this->source_queues)) {
-            $queuesToFulfill = \Modules\Purchase\Models\PurchaseQueue::whereIn('id', $this->source_queues)
-                                ->where('item_id', $item['item_id'])
-                                ->get();
-                                
-            foreach ($queuesToFulfill as $q) {
-                // Buat fulfillment bridge
-                \Modules\Purchase\Models\PurchaseQueueFulfillment::updateOrCreate(
-                    [
-                        'purchase_queue_id' => $q->id,
-                        'purchase_order_item_id' => $poi->id,
-                    ],
-                    [
-                        'fulfilled_qty' => $q->approved_qty ?? $q->requested_qty,
-                    ]
-                );
-                
-                // Update queue status to ordered
-                $q->ordered_qty = $q->approved_qty ?? $q->requested_qty;
-                $q->status = 'ordered';
-                $q->save();
-            }
-        }
+
     }
 
-    $this->source_queues = []; // reset after success
+    
 
-    Flux::toast('Purchase Order berhasil disimpan!', 'success');
-    $this->redirectRoute('purchase.orders.kanban');
+    Flux::toast('Sales Order berhasil disimpan!', 'success');
+    $this->redirectRoute('sales.orders.kanban');
 };
 ?>
 
-<div class="xl:max-w-7xl xl:mx-auto" x-data="cartSystem()" @item-selected.window="addItem($event.detail.item)" @vendor-selected.window="$wire.selectVendor($event.detail.vendorId)">
+<div class="xl:max-w-7xl xl:mx-auto" x-data="cartSystem()" @item-selected.window="addItem($event.detail.item)" @customer-selected.window="$wire.selectCustomer($event.detail.customerId)">
     
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
@@ -508,11 +426,11 @@ $saveCart = function ($cartData) {
                                                                  class="p-3 cursor-pointer">
                                                                 <div class="flex justify-between items-center">
                                                                     <div class="flex-1">
-                                                                        <div class="text-[11px] text-zinc-500 font-medium group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors" x-text="(new Date(history.purchase_order?.order_date || Date.now())).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) + ' &bull; ' + (history.purchase_order?.po_number || 'INV-0000')">
+                                                                        <div class="text-[11px] text-zinc-500 font-medium group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors" x-text="(new Date(history.purchase_order?.order_date || Date.now())).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) + ' &bull; ' + (history.purchase_order?.so_number || 'INV-0000')">
                                                                         </div>
                                                                         <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                                                                             <flux:icon.building-storefront class="w-3.5 h-3.5 text-zinc-400 group-hover:text-cyan-500 transition-colors" />
-                                                                            <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors truncate max-w-[120px]" x-text="history.purchase_order?.vendor?.name || 'Vendor Tidak Diketahui'"></span>
+                                                                            <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors truncate max-w-[120px]" x-text="history.purchase_order?.customer?.name || 'Customer Tidak Diketahui'"></span>
                                                                             <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
                                                                             <span class="text-[10px] font-bold text-zinc-500 uppercase group-hover:text-cyan-600/70 dark:group-hover:text-cyan-400/70 transition-colors bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded" x-text="'Beli: ' + history.quantity + ' ' + (history.item?.unit?.name || '')"></span>
                                                                         </div>
@@ -522,7 +440,7 @@ $saveCart = function ($cartData) {
                                                                             <span x-text="'Rp' + formatRupiah(history.unit_price)"></span>
                                                                             <span class="text-[10px] text-zinc-400 font-medium lowercase group-hover:text-cyan-500/80 transition-colors" x-text="'/' + (history.item?.unit?.name || 'unit')"></span>
                                                                         </div>
-                                                                        <button type="button" @click.stop="showDetail = !showDetail; if(showDetail && (!$wire.detail_po || $wire.detail_po.id !== history.purchase_order_id)) $wire.viewPoDetail(history.purchase_order_id)" 
+                                                                        <button type="button" @click.stop="showDetail = !showDetail; if(showDetail && (!$wire.detail_po || $wire.detail_po.id !== history.sales_order_id)) $wire.viewPoDetail(history.sales_order_id)" 
                                                                                 class="p-1.5 text-zinc-400 hover:text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 rounded-full transition-all" 
                                                                                 :class="showDetail ? 'bg-cyan-50 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400' : ''"
                                                                                 title="Lihat Detail PO">
@@ -535,11 +453,11 @@ $saveCart = function ($cartData) {
                                                             {{-- Inline Detail Pop-up (Accordion) --}}
                                                             <div x-show="showDetail" x-collapse x-cloak class="bg-zinc-100/50 dark:bg-zinc-800/30 border-t border-zinc-100 dark:border-zinc-800 p-3 shadow-inner">
                                                                 <div wire:loading wire:target="viewPoDetail" class="text-[10px] text-zinc-400 text-center w-full py-2">
-                                                                    Memuat isi Purchase Order...
+                                                                    Memuat isi Sales Order...
                                                                 </div>
                                                                 
                                                                 <div wire:loading.remove wire:target="viewPoDetail">
-                                                                    <template x-if="$wire.detail_po && $wire.detail_po.id === history.purchase_order_id">
+                                                                    <template x-if="$wire.detail_po && $wire.detail_po.id === history.sales_order_id">
                                                                         <div class="space-y-2">
                                                                             <div class="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2">
                                                                                 <span>Daftar Barang (Total: <span x-text="'Rp' + formatRupiah($wire.detail_po.grand_total)"></span>)</span>
@@ -618,33 +536,33 @@ $saveCart = function ($cartData) {
                 
                 <flux:separator />
 
-                {{-- Pilih Vendor --}}
+                {{-- Pilih Pelanggan --}}
                 <div>
-                    <flux:heading size="lg" class="mb-3">Vendor / Supplier</flux:heading>
+                    <flux:heading size="lg" class="mb-3">Customer / Affiliate</flux:heading>
                     
-                    @if($selected_vendor)
-                        {{-- Vendor Card Terpilih --}}
+                    @if($selected_customer)
+                        {{-- Customer Card Terpilih --}}
                         <div class="group flex items-center gap-4 p-3 rounded-xl border border-blue-200 bg-blue-50/50 dark:border-blue-900/50 dark:bg-blue-900/20 transition-all">
-                            <flux:avatar src="{{ $selected_vendor['image'] ? Storage::url($selected_vendor['image']) : '' }}" fallback="{{ substr($selected_vendor['name'], 0, 2) }}" size="lg" class="shadow-sm" />
+                            <flux:avatar src="{{ $selected_customer['image'] ? Storage::url($selected_customer['image']) : '' }}" fallback="{{ substr($selected_customer['name'], 0, 2) }}" size="lg" class="shadow-sm" />
                             
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-base leading-none truncate">{{ $selected_vendor['name'] }}</h3>
+                                    <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-base leading-none truncate">{{ $selected_customer['name'] }}</h3>
                                     <span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 leading-none">
-                                        {{ $selected_vendor['type'] ?? 'Umum' }}
+                                        {{ $selected_customer['type'] ?? 'Umum' }}
                                     </span>
                                 </div>
                                 
                                 <div class="mt-2 flex flex-col gap-y-1.5 text-xs text-zinc-600 dark:text-zinc-400">
                                     <div class="flex items-center gap-1.5">
                                         <flux:icon.phone class="w-3.5 h-3.5 shrink-0 text-zinc-400" />
-                                        <span class="truncate">{{ $selected_vendor['phone'] ?: 'Belum ada nomor telepon' }}</span>
+                                        <span class="truncate">{{ $selected_customer['phone'] ?: 'Belum ada nomor telepon' }}</span>
                                     </div>
-                                    @if($selected_vendor['province'] || $selected_vendor['city'])
+                                    @if($selected_customer['province'] || $selected_customer['city'])
                                     <div class="flex items-center gap-1.5">
                                         <flux:icon.map-pin class="w-3.5 h-3.5 shrink-0 text-zinc-400" />
-                                        <span class="truncate lg:text-[6px] xl:text-[10px]" title="{{ implode(', ', array_filter([$selected_vendor['district'] ?? null, $selected_vendor['city'] ?? null, $selected_vendor['province'] ?? null])) }}">
-                                            {{ implode(', ', array_filter([$selected_vendor['district'] ?? null, $selected_vendor['city'] ?? null, $selected_vendor['province'] ?? null])) }}
+                                        <span class="truncate lg:text-[6px] xl:text-[10px]" title="{{ implode(', ', array_filter([$selected_customer['district'] ?? null, $selected_customer['city'] ?? null, $selected_customer['province'] ?? null])) }}">
+                                            {{ implode(', ', array_filter([$selected_customer['district'] ?? null, $selected_customer['city'] ?? null, $selected_customer['province'] ?? null])) }}
                                         </span>
                                     </div>
                                     @endif
@@ -653,27 +571,27 @@ $saveCart = function ($cartData) {
                             
                             {{-- Tombol Silang Batal Pilih --}}
                             <div class="shrink-0">
-                                <flux:button variant="subtle" size="sm" icon="x-mark" class="text-zinc-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors rounded-full w-8 h-8 flex items-center justify-center p-0" wire:click="clearVendor" wire:loading.attr="disabled" tooltip="Ganti Vendor"></flux:button>
+                                <flux:button variant="subtle" size="sm" icon="x-mark" class="text-zinc-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors rounded-full w-8 h-8 flex items-center justify-center p-0" wire:click="clearCustomer" wire:loading.attr="disabled" tooltip="Ganti Customer"></flux:button>
                             </div>
                         </div>
                     @else
-                        {{-- Vendor Search & Gallery Button --}}
+                        {{-- Customer Search & Gallery Button --}}
                         <div class="flex items-end gap-2 relative">
                             <div class="flex-1 relative" x-data="{ focused: false }" @click.outside="focused = false">
                                 <flux:input 
-                                    wire:model.live.debounce.300ms="vendor_search_query" 
-                                    @focus="focused = true; $wire.set('show_vendor_suggestions', true)"
+                                    wire:model.live.debounce.300ms="customer_search_query" 
+                                    @focus="focused = true; $wire.set('show_customer_suggestions', true)"
                                     icon="building-storefront" 
-                                    placeholder="Cari vendor..." />
+                                    placeholder="Cari customer..." />
                                 
-                                {{-- Dropdown Vendor Suggestion --}}
-                                <div x-show="focused && $wire.show_vendor_suggestions && $wire.vendor_search_query.length >= 2" 
+                                {{-- Dropdown Customer Suggestion --}}
+                                <div x-show="focused && $wire.show_customer_suggestions && $wire.customer_search_query.length >= 2" 
                                      x-cloak
                                      class="absolute z-20 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl overflow-hidden">
-                                    @if(count($this->vendorSearchResults) > 0)
+                                    @if(count($this->customerSearchResults) > 0)
                                         <ul class="divide-y divide-zinc-100 dark:divide-zinc-700 max-h-64 overflow-y-auto">
-                                            @foreach($this->vendorSearchResults as $v)
-                                                <li wire:click="selectVendor({{ $v->id }})" wire:loading.class="opacity-50 pointer-events-none"
+                                            @foreach($this->customerSearchResults as $v)
+                                                <li wire:click="selectCustomer({{ $v->id }})" wire:loading.class="opacity-50 pointer-events-none"
                                                     class="px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-3 transition-colors">
                                                     <flux:avatar src="{{ $v->image ? Storage::url($v->image) : '' }}" fallback="{{ substr($v->name, 0, 2) }}" size="sm" />
                                                     <div>
@@ -684,13 +602,13 @@ $saveCart = function ($cartData) {
                                             @endforeach
                                         </ul>
                                     @else
-                                        <div class="px-4 py-3 text-sm text-zinc-500 text-center">Vendor tidak ditemukan.</div>
+                                        <div class="px-4 py-3 text-sm text-zinc-500 text-center">Customer tidak ditemukan.</div>
                                     @endif
                                 </div>
                             </div>
                             
-                            {{-- Tombol Galeri Vendor --}}
-                            <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('vendor-gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
+                            {{-- Tombol Galeri Customer --}}
+                            <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('customer-gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
                                 <div class="flex items-center gap-2">
                                     <flux:icon.squares-2x2 class="w-4 h-4" x-show="!loading" />
                                     <svg x-show="loading" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -698,7 +616,7 @@ $saveCart = function ($cartData) {
                                 </div>
                             </flux:button>
                         </div>
-                        @error('vendor_id') <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> @enderror
+                        @error('customer_id') <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> @enderror
                     @endif
                 </div>
             </div>
@@ -719,7 +637,7 @@ $saveCart = function ($cartData) {
                     {{-- Diskon --}}
                     <flux:field>
                         <flux:label>Diskon Global</flux:label>
-                        <x-rupiah-input x-model="diskon_global" @input="calculateTax()" />
+                        <x-rupiah-input x-model="discount" @input="calculateTax()" />
                     </flux:field>
                     
                     {{-- Ongkir --}}
@@ -748,7 +666,7 @@ $saveCart = function ($cartData) {
                                 this.options = this.options.filter(o => o !== val);
                                 if(this.options.length === 0) this.options = [0]; // Default fallback
                                 localStorage.setItem('purchase_tax_options', JSON.stringify(this.options));
-                                if ($data.pajak_persen == val) {
+                                if ($data.tax_percent == val) {
                                     $data.setPajakPersen(0);
                                 }
                                 if(!this.options.some(o => o !== 0)) {
@@ -765,7 +683,7 @@ $saveCart = function ($cartData) {
                                 <div class="relative flex items-center">
                                     <button type="button" 
                                         @click="deleteMode ? removeOption(opt) : $data.setPajakPersen(opt)"
-                                        :class="[$data.pajak_persen == opt ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700', deleteMode && opt !== 0 ? 'animate-pulse ring-2 ring-red-400' : '']"
+                                        :class="[$data.tax_percent == opt ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700', deleteMode && opt !== 0 ? 'animate-pulse ring-2 ring-red-400' : '']"
                                         class="px-2 py-1 text-xs rounded-md font-medium transition-all cursor-pointer"
                                         x-text="opt === 0 ? '0%' : opt + '%'">
                                     </button>
@@ -814,7 +732,7 @@ $saveCart = function ($cartData) {
             {{-- Tombol Aksi --}}
             <div class="sm:col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
                 <div class="flex gap-2 w-full">
-                    <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:loading.attr="disabled">Batal</flux:button>
+                    <flux:button variant="ghost" class="w-1/3" href="{{ route('sales.orders.kanban') }}" wire:loading.attr="disabled">Batal</flux:button>
                     <flux:button variant="primary" class="w-2/3" icon="check" @click="submitCart()" x-bind:disabled="isSubmitting">
                         <span x-show="!isSubmitting">Simpan PO</span>
                         <span x-show="isSubmitting" class="flex items-center gap-2">
@@ -829,39 +747,39 @@ $saveCart = function ($cartData) {
 
     {{-- Modals Eksternal (Di-load sebagai komponen Livewire terpisah) --}}
     <livewire:global.item-gallery-modal />
-    <livewire:global.vendor-gallery-modal />
+    <livewire:global.customer-gallery-modal />
     
     {{-- Modal Tambah Barang dari komponen global --}}
     <livewire:global.item-form-modal />
-    <livewire:global.vendor-form-modal />
+    <livewire:customer.customer-form-modal />
 
 
     <script>
-    const initPurchaseCart = () => {
+    const initSalesCart = () => {
         Alpine.data('cartSystem', () => ({
             items: @json($items),
             ongkir: {{ (float) ($ongkir ?? 0) }},
-            diskon_global: {{ (float) ($diskon_global ?? 0) }},
-            pajak_persen: {{ (float) ($pajak_persen ?? 0) }},
-            pajak_nominal: {{ (float) ($pajak_nominal ?? 0) }},
+            discount: {{ (float) ($discount ?? 0) }},
+            tax_percent: {{ (float) ($tax_percent ?? 0) }},
+            tax: {{ (float) ($tax ?? 0) }},
 
             get subtotal_amount() {
                 return this.items.reduce((sum, item) => sum + ((parseInt(item.qty) || 0) * (parseFloat(item.unit_price) || 0)), 0);
             },
 
             get grand_total() {
-                return this.subtotal_amount + (parseFloat(this.ongkir) || 0) - (parseFloat(this.diskon_global) || 0) + (parseFloat(this.pajak_nominal) || 0);
+                return this.subtotal_amount + (parseFloat(this.ongkir) || 0) - (parseFloat(this.discount) || 0) + (parseFloat(this.tax) || 0);
             },
 
             calculateTax() {
-                if (this.pajak_persen > 0) {
-                    let sub = this.subtotal_amount + (parseFloat(this.ongkir) || 0) - (parseFloat(this.diskon_global) || 0);
-                    this.pajak_nominal = (this.pajak_persen / 100) * sub;
+                if (this.tax_percent > 0) {
+                    let sub = this.subtotal_amount + (parseFloat(this.ongkir) || 0) - (parseFloat(this.discount) || 0);
+                    this.tax = (this.tax_percent / 100) * sub;
                 }
             },
 
             setPajakPersen(persen) {
-                this.pajak_persen = persen;
+                this.tax_percent = persen;
                 this.calculateTax();
             },
 
@@ -936,9 +854,9 @@ $saveCart = function ($cartData) {
                     await this.$wire.saveCart({
                         items: this.items,
                         ongkir: this.ongkir,
-                        diskon_global: this.diskon_global,
-                        pajak_persen: this.pajak_persen,
-                        pajak_nominal: this.pajak_nominal,
+                        discount: this.discount,
+                        tax_percent: this.tax_percent,
+                        tax: this.tax,
                         grand_total: this.grand_total
                     });
                 } finally {
@@ -954,9 +872,9 @@ $saveCart = function ($cartData) {
     };
 
     if (window.Alpine) {
-        initPurchaseCart();
+        initSalesCart();
     } else {
-        document.addEventListener('alpine:init', initPurchaseCart);
+        document.addEventListener('alpine:init', initSalesCart);
     }
     </script>
 

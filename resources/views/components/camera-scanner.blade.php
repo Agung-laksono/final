@@ -56,7 +56,7 @@
     </div>
 
     <script>
-        document.addEventListener('alpine:init', () => {
+        const initCameraScanner = () => {
             Alpine.data('cameraScannerComponent', () => ({
                 isOpen: false,
                 isLoading: false,
@@ -218,7 +218,13 @@
                     });
                 }
             }));
-        });
+        };
+
+        if (window.Alpine) {
+            initCameraScanner();
+        } else {
+            document.addEventListener('alpine:init', initCameraScanner);
+        }
     </script>
     
     <style>

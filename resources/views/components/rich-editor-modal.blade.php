@@ -54,7 +54,7 @@
 
 @once
 <script>
-document.addEventListener('alpine:init', () => {
+const initRichEditor = () => {
     Alpine.data('richEditorModal', (name) => ({
 
         // ── Lazy Load: apakah TinyMCE sudah pernah di-load? ──
@@ -141,6 +141,12 @@ document.addEventListener('alpine:init', () => {
             this.destroyEditor();
         }
     }));
-});
+};
+
+if (window.Alpine) {
+    initRichEditor();
+} else {
+    document.addEventListener('alpine:init', initRichEditor);
+}
 </script>
 @endonce

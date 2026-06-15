@@ -81,6 +81,30 @@
             </flux:sidebar.nav>
             @endcanany
 
+            <!-- Penjualan -->
+            @canany(['sales.dashboard.view', 'sales.customer.view', 'sales.order.view'])
+            <flux:sidebar.nav>
+                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    {{ __('PENJUALAN') }}
+                </div>
+                {{-- @can('sales.dashboard.view')
+                <flux:sidebar.item icon="presentation-chart-line" :href="route('sales.index')" :current="request()->routeIs('sales.index')" wire:navigate>
+                    {{ __('Dashboard Penjualan') }}
+                </flux:sidebar.item>
+                @endcan --}}
+                @can('sales.customer.view')
+                <flux:sidebar.item icon="user-group" :href="route('sales.customers.index')" :current="request()->routeIs('sales.customers.*')" wire:navigate>
+                    {{ __('Data Pelanggan') }}
+                </flux:sidebar.item>
+                @endcan
+                @can('sales.order.view')
+                <flux:sidebar.item icon="clipboard-document-list" :href="route('sales.orders.kanban')" :current="request()->routeIs('sales.orders.*')" wire:navigate>
+                    {{ __('Kanban Sales Order') }}
+                </flux:sidebar.item>
+                @endcan
+            </flux:sidebar.nav>
+            @endcanany
+
             <flux:sidebar.nav class="mt-4">
                 <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                     {{ __('Dashboard Utama') }}
