@@ -5,9 +5,8 @@ window.Html5QrcodeScanner = Html5QrcodeScanner;
 window.Html5Qrcode = Html5Qrcode;
 
 // Cropper-style Interactive Crop — Pure Alpine JS, Zero Library
-document.addEventListener('alpine:init', () => {
-    Alpine.data('imageCropper', (wireModel = 'image') => {
-        return {
+window.imageCropperData = (wireModel = 'image') => {
+    return {
             isProcessing: false,
             isCropping: false,
             originalFile: null,
@@ -334,6 +333,21 @@ document.addEventListener('alpine:init', () => {
                 this.resetCropperState();
             },
 
+            applyOriginal() {
+                if (!this.imgSrc) return;
+                this.newSize = this.originalSize;
+                this.croppedImgSrc = this.imgSrc;
+                this.$wire.set(wireModel, this.imgSrc);
+                this.hasCropped = true;
+                this.isCropping = false;
+                this.isProcessing = false;
+            },
+
+            removeImage() {
+                this.resetCropperState();
+                this.$wire.set(wireModel, null);
+            },
+
             resetCropperState() {
                 this.originalFile = null;
                 this.imgSrc = null;
@@ -362,8 +376,7 @@ document.addEventListener('alpine:init', () => {
                 return (bytes / 1024).toFixed(1) + ' KB';
             }
         };
-    });
-});
+};
 
 /**
  * Echo exposes an expressive API for subscribing to channels and listening
