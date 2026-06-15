@@ -1,32 +1,37 @@
-# AI Handover Notes
+# 🚀 AI Handover & Progress Report
 
-## Status Terakhir (9 Juni 2026)
-Aplikasi saat ini stabil dan fitur Notifikasi Global (Bell) sudah berfungsi penuh. User baru saja selesai dan akan istirahat memancing 🎣.
+Halo! File ini ditinggalkan oleh sesi AI sebelumnya untuk memberikan ringkasan agar Anda bisa langsung melanjutkan pekerjaan tanpa kehilangan arah setelah berpindah *device*.
 
-### Pencapaian Fitur Notifikasi:
-1. **Penyelesaian Bug Kompiler Volt/Livewire**:
-   - Sempat terjadi `ParseError: syntax error, unexpected token "protected"` secara berulang.
-   - **Penyebab Utama**: Compiler Livewire (V3) menggunakan Regex `/}(\s*);/` untuk mencari akhir dari sebuah Anonymous Class dan menyisipkan `protected function view()`. Penggunaan sintaks fungsional Volt (`on()`, `state()`, `with()`) tanpa diakhiri closure membuat regex tersebut meleset dan menyisipkan fungsi di tengah-tengah script (biasanya memotong closure lain secara tidak sengaja).
-   - **Solusi**: Merubah sintaks fungsional Volt menjadi format *Anonymous Class* (`new class extends Component { ... }`) di file `notification-bell.blade.php`. Ini menyelesaikan bug kompiler secara permanen.
+## 🎯 Apa Saja yang Baru Saja Diselesaikan?
 
-2. **Real-Time dengan Pusher**:
-   - `unreadCount` akan diinisialisasi melalui `mount()`.
-   - Menggunakan Laravel Echo & Pusher untuk mendengarkan event notifikasi bawaan Laravel (`Illuminate\Notifications\Events\BroadcastNotificationCreated`) di *private channel* `App.Models.User.{id}`.
-   - Penggunaan placeholder `{authId}` pada kunci listener Livewire `#[On(...)]` sangat penting (hindari *string concatenation* di dalam attribute PHP8).
-   - Ketiga class notifikasi (`ItemAddedNotification`, `ItemStatusChangedNotification`, `ItemUpdatedNotification`) sudah memiliki array `'broadcast'` pada method `via()`, jadi notifikasi terkirim sukses ke Pusher tanpa perlu mengimplementasikan interface `ShouldBroadcast`.
+Sepanjang sesi panjang hari ini, kita telah menyelesaikan lompatan arsitektural yang sangat besar untuk modul **Penjualan (Sales)**:
 
-3. **Penyesuaian UI/UX Bel**:
-   - Menghindari penggunaan *wrapper* tambahan di dalam `flux:sidebar.item` agar layout *collapse* Flux UI tidak berantakan.
-   - Memasukkan ikon bel ke dalam `<x-slot:icon>` milik `flux:sidebar.item`.
-   - Membuat *badge* angka merah bulat diletakkan menggunakan posisi absolut relatif terhadap wadah ikon (top-left).
-   - Menyediakan class CSS khusus `.bell-has-unread` dan keyframes animasi `@keyframes bell-ring` (di `app.css`) yang membuat bel berayun lembut berwarna merah saat ada notifikasi belum dibaca.
+### 1. Sistem Scanner & Fulfillment Hybrid (Gudang)
+- **Logika Cerdas**: Sistem *Fulfillment* kini mengenali barang bernomor seri (`requires_label = true`) dan mewajibkan petugas gudang memindai Barcode Kamera. Untuk barang receh (`requires_label = false`), petugas bisa sekadar menginput angka manual.
+- **Auto-Booking (WebSockets)**: Begitu Gudang menekan "Simpan", status fisik *Item Label* otomatis dikunci menjadi `bokking` (tersambung dengan nomor `SO` penjualannya). Perubahan ini merambat seketika ke modul *Inventory* tanpa perlu *reload* layar berkat implementasi *Laravel Echo*.
+- **UI Mobile-First**: Tabel *Fulfillment* telah dibongkar total menjadi desain "Kartu Bertumpuk (*Stacked Cards*)" yang sangat cantik dan hemat ruang saat diakses via *smartphone* petugas.
 
-4. **Transisi ke Queue Synchronous**:
-   - User mengatur aplikasi untuk skala maksimal ~20 orang dan akan menggunakan *shared hosting/cPanel*.
-   - Keputusan Arsitektur: Mengubah `QUEUE_CONNECTION=database` menjadi `QUEUE_CONNECTION=sync` di `.env` untuk menghindari kebutuhan *background worker/daemon* yang tidak didukung cPanel biasa.
-   - Karena sinkron, pengiriman notifikasi sedikit menambah jeda (delay) saat user melakukan simpan data, namun infrastruktur menjadi sangat sederhana.
+### 2. Hak Akses Jabatan (Separation of Duties)
+Kita telah menanamkan *Role* & *Permissions* tingkat Enterprise:
+- **Sales**: Hanya bisa input Order & mengunggah bukti bayar.
+- **Kepala Sales**: Satu-satunya yang berhak menekan "Approve (ACC)" pesanan.
+- **Gudang**: Akses eksklusif untuk mengeksekusi Scanner di *Fulfillment*, namun tak bisa sentuh urusan uang/pemesanan.
+- **Finance**: Akses eksklusif untuk mengecek dan mencairkan pembayaran.
 
-### Langkah Selanjutnya Saat User Kembali:
-- Melanjutkan perbaikan tampilan (UI) sesuai instruksi user sebelumnya ("kita perbaiki tampilan dulu").
-- Periksa jika ada bagian UI yang terdampak oleh perbaikan struktur *sidebar* terbaru.
-- Menjalankan perintah `npm run dev` dan `php artisan serve` seperti biasa (tidak perlu menjalankan `queue:work` lagi karena antrean sudah sinkron).
+### 3. Validasi Pembayaran 2 Tahap (Sales ➡️ Finance)
+- Sales mengunggah bukti bayar di Kanban, statusnya akan terkunci sebagai **"PENDING VERIFIKASI"**.
+- Tim Finance membuka layar yang sama, namun mereka mendapatkan kontrol untuk menekan **"ACC/Valid"** atau **"Tolak"**. Sisa tagihan SO baru akan terpotong secara nyata apabila Finance menyetujuinya.
+
+---
+
+## 🚦 Apa Selanjutnya (Next Steps)?
+Semua fungsionalitas di atas (Fulfillment & Payment) sudah ditulis kodenya. Hal yang paling ideal untuk dilakukan selanjutnya:
+
+1. **Uji Coba Langsung (Testing)**:
+   Buatlah 1 buah Sales Order (dari staf Sales). Coba loginkan akun *Kepala Sales* untuk ACC. Lalu loginkan akun *Gudang* untuk scan barang. Terakhir loginkan akun *Finance* untuk ACC transfer bank-nya.
+2. **Modul Pengiriman (Shipping)**: 
+   Sistem *Packing* dan cetak resi ekspedisi sudah ada tombolnya di Kanban, namun mungkin *flow*-nya perlu kita rapikan sesuai SOP ekspedisi perusahaan Anda.
+3. **Modul Pengembalian (Retur)**:
+   Membangun alur Retur Penjualan (bagaimana uang dikembalikan/dipotong piutang, dan bagaimana fisik barang masuk kembali ke status `in_stock`).
+
+Selamat melanjutkan pekerjaan di *device* yang baru! Panggil saja AI untuk melanjutkan kapanpun Anda siap. 🛠️✨
