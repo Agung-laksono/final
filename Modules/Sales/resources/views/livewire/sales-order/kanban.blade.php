@@ -202,7 +202,7 @@ on(['status-updated' => function () {
                                     
                                     {{-- Tombol Aksi Spesifik --}}
                                     @if($statusKey === 'pending_approval')
-                                        @can('sales.order.update')
+                                        @can('sales.approve.update')
                                             <flux:button size="sm" variant="subtle" icon="check-circle" class="h-6 w-6 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/50" title="Persetujuan" wire:click.stop="$dispatch('open-approval-modal', { orderId: {{ $order->id }} })" />
                                         @endcan
                                     @elseif($statusKey === 'processing')

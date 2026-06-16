@@ -18,7 +18,7 @@ state([
     'discount' => 0,
     'tax_percent' => 0,
     'tax' => 0,
-    'status' => 'processing',
+    'status' => 'pending_approval',
     
     'items' => [], // array of ['id' => null, 'item_id' => id, 'name' => name, 'qty' => 1, 'unit_price' => price, 'subtotal' => price]
     
@@ -238,8 +238,6 @@ $saveCart = function ($cartData) {
 
 
     }
-
-    
 
     Flux::toast('Sales Order berhasil disimpan!', 'success');
     $this->redirectRoute('sales.orders.kanban');

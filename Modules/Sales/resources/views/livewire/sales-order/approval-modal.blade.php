@@ -17,9 +17,35 @@ on(['open-approval-modal' => function ($orderId) {
 }]);
 
 $approve = function () {
-    abort_unless(auth()->user()->can('sales.order.update'), 403);
+    abort_unless(auth()->user()->can('sales.approve.update'), 403);
     
     if ($this->order) {
+        // --- CEK KETERSEDIAAN STOK DAN BUAT ANTREAN JIKA KURANG ---
+        foreach ($this->order->items as $item) {
+            $totalStock = \Illuminate\Support\Facades\DB::table('item_warehouse')
+                ->where('item_id', $item->item_id)
+                ->sum('stock');
+                
+            if ($totalStock < $item->qty) {
+                $deficit = $item->qty - $totalStock;
+                
+                // Pastikan belum ada antrean untuk item ini dari SO ini
+                $existingQueue = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $item->item_id)
+                    ->where('source_type', 'sales')
+                    ->where('notes', 'like', '%SO: ' . $this->order->so_number . '%')
+                    ->exists();
+                    
+                if (!$existingQueue) {
+                    \Modules\Purchase\Models\PurchaseQueue::create([
+                        'item_id' => $item->item_id,
+                        'source_type' => 'sales',
+                        'requested_qty' => $deficit,
+                        'notes' => 'Kekurangan stok untuk SO: ' . $this->order->so_number . ' (Tersedia: ' . $totalStock . ', Pesanan: ' . $item->qty . ')',
+                    ]);
+                }
+            }
+        }
+        
         $this->order->status = 'processing';
         // Simpan catatan persetujuan jika diperlukan
         $this->order->save();
@@ -30,7 +56,7 @@ $approve = function () {
 };
 
 $reject = function () {
-    abort_unless(auth()->user()->can('sales.order.update'), 403);
+    abort_unless(auth()->user()->can('sales.approve.update'), 403);
     
     if ($this->order) {
         $this->order->status = 'rejected';
