@@ -52,9 +52,10 @@ class DatabaseSeeder extends Seeder
             $user->assignRole($data['role']);
         }
 
-        // 4. Jalankan seeder modul inventaris
+        // 4. Jalankan seeder modul inventaris dan purchase
         $this->call([
             \Modules\Inventory\Database\Seeders\InventoryDatabaseSeeder::class,
+            \Modules\Purchase\Database\Seeders\PurchaseDatabaseSeeder::class,
         ]);
     }
 }

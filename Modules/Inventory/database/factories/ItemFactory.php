@@ -30,7 +30,13 @@ class ItemFactory extends Factory
             'code' => 'ITM-' . $this->faker->unique()->numerify('####'),
             'name' => $name,
             'description' => $this->faker->sentence(),
-            'image' => 'items/image-placeholder.webp', // Placeholder bawaan
+            'image' => (function() {
+                $files = \Illuminate\Support\Facades\Storage::disk('public')->files('items');
+                if (count($files) > 0) {
+                    return $files[array_rand($files)];
+                }
+                return 'items/image-placeholder.webp';
+            })(),
             'unit_id' => $this->faker->numberBetween(1, 5), // Asumsi unit ID 1-5 ada
             'type_id' => $this->faker->numberBetween(1, 3), // Asumsi type ID 1-3 ada
             'category_id' => $this->faker->numberBetween(1, 4), // Asumsi category ID 1-4 ada

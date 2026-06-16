@@ -31,7 +31,7 @@ class InventoryDatabaseSeeder extends Seeder
                 $labelsToInsert = [];
                 
                 foreach ($randomWarehouses as $wh) {
-                    $qty = rand(5, 20); // Kuantitas fisik per gudang
+                    $qty = 0; // Kuantitas fisik per gudang
                     
                     $item->warehouses()->attach($wh->id, [
                         'stock' => $qty,
