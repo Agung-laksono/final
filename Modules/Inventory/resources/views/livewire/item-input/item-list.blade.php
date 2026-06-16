@@ -236,24 +236,19 @@ $delete = function (Item $item) {
                         </h3>
                         
                         {{-- Harga & Stok --}}
-                        <div class="mt-auto pt-2.5 border-t border-zinc-100 dark:border-zinc-800/50 flex justify-between items-end">
+                        <div class="mt-auto pt-2.5 border-t border-zinc-100 dark:border-zinc-800/50 flex items-end justify-between">
                             <div class="flex flex-col">
-                                <span class=" text-[11px] font-medium text-zinc-400 mb-0.5">Harga
-                                    <span class="font-bold text-emerald-600 dark:text-emerald-400leading-none"> jual</span> /
-                                     <span class="font-bold text-gray-600 dark:text-gray-400leading-none"> beli</span>
-                                </span>
-                                <span class="grid grid-cols-1 md:flex">
-                                    <span class="font-bold text-emerald-600 dark:text-emerald-400 text-xs md:text-sm leading-none">Rp{{ number_format($item->selling_price, 0, ',', '.') }} /</span>
-                                    <span class="font-bold text-gray-600 dark:text-gray-400 text-[9px] leading-none mt-1">Rp{{ number_format($item->purchase_price, 0, ',', '.') }}</span>
-                                </span>
-                            </div>
-                            
-                            <div class="flex flex-col items-end">
-                                <span class="text-[9px] font-medium text-zinc-400 mb-0.5">Stok</span>
-                                <div class="flex items-baseline gap-0.5">
-                                    <span class="font-bold text-zinc-800 dark:text-zinc-200 text-[16px] leading-none">{{ $item->warehouses->sum('pivot.stock') }}</span>
-                                    <span class="text-[9px] text-zinc-500">{{ $item->unit?->name ?? '-' }}</span>
+                                <div class="flex items-center gap-1.5 mb-1">
+                                    <span class="text-[9px] font-semibold text-zinc-400 uppercase tracking-wider">Beli</span>
+                                    <span class="text-[11px] text-zinc-500 font-medium">Rp{{ number_format($item->purchase_price, 0, ',', '.') }}</span>
                                 </div>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[9px] font-semibold text-emerald-500 uppercase tracking-wider">Jual</span>
+                                    <span class="font-bold text-emerald-600 dark:text-emerald-400 text-sm leading-none">Rp{{ number_format($item->selling_price, 0, ',', '.') }}</span>
+                                </div>
+                            </div>
+                            <div class="text-[10px] font-semibold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 px-2 py-1.5 rounded-md whitespace-nowrap mb-0.5">
+                                Stok: {{ $item->warehouses->sum('pivot.stock') }} {{ $item->unit?->name ?? '-' }}
                             </div>
                         </div>
                     </div>

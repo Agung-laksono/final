@@ -746,7 +746,7 @@ $saveCart = function ($cartData) {
     </form>
 
     {{-- Modals Eksternal (Di-load sebagai komponen Livewire terpisah) --}}
-    <livewire:global.item-gallery-modal />
+    <livewire:global.item-gallery-modal context="sales" />
     <livewire:global.customer-gallery-modal />
     
     {{-- Modal Tambah Barang dari komponen global --}}

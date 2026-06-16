@@ -247,7 +247,7 @@ on(['status-updated' => function () {
     <livewire:queue.create-modal />
     <livewire:queue.consolidation-modal />
     <livewire:queue.approval-modal />
-    <livewire:global.item-gallery-modal />
+    <livewire:global.item-gallery-modal context="purchase" />
 </div>
 
 <style>

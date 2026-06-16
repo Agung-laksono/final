@@ -20,6 +20,7 @@ new class extends Component {
     public $historyFilter = false;
 
     public $perPage = 12;
+    public $context = 'inventory';
 
     public function updated($property)
     {
@@ -203,7 +204,7 @@ new class extends Component {
 
             <div wire:loading.remove wire:target="searchQuery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
                 @forelse($galleryItems as $item)
-                    <div @if($item->is_active) @click="playSelectSound(); $dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: '{{ addslashes($item->name) }}', code: '{{ $item->code ?? '0001' }}', unit_price: {{ $item->purchase_price ?? 0 }}, image: '{{ $item->image }}', has_history: {{ in_array($item->id, $itemsWithHistory) ? 'true' : 'false' }} } })" @endif
+                    <div @if($item->is_active) @click="playSelectSound(); $dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: '{{ addslashes($item->name) }}', code: '{{ $item->code ?? '0001' }}', unit_price: {{ $context === 'sales' ? ($item->selling_price ?? 0) : ($item->purchase_price ?? 0) }}, image: '{{ $item->image }}', has_history: {{ in_array($item->id, $itemsWithHistory) ? 'true' : 'false' }} } })" @endif
                          :class="$data.items?.find(i => i.item_id == {{ $item->id }}) ? 'border-cyan-600 ring-2 ring-cyan-600 shadow-lg scale-[1.02]' : 'border-zinc-200 dark:border-zinc-800 {{ $item->is_active ? 'hover:border-cyan-500/50 hover:shadow-lg hover:scale-[1.02]' : '' }}'"
                          class="relative bg-white dark:bg-zinc-900 rounded-xl border overflow-hidden transition-all {{ $item->is_active ? 'cursor-pointer group' : 'cursor-not-allowed' }} flex flex-col h-full">
                         
@@ -249,14 +250,22 @@ new class extends Component {
                             {{-- Harga & Stok --}}
                             <div class="mt-auto pt-2.5 border-t border-zinc-100 dark:border-zinc-800/50 flex justify-between items-end">
                                 <div class="flex flex-col">
-                                    <span class="text-[10px] sm:text-[11px] font-medium text-zinc-400 mb-0.5">Harga
-                                        <span class="font-bold text-emerald-600 dark:text-emerald-400 leading-none"> jual</span> /
-                                        <span class="font-bold text-gray-600 dark:text-gray-400 leading-none"> beli</span>
-                                    </span>
-                                    <span class="flex flex-col sm:flex-row sm:items-baseline gap-1">
-                                        <span class="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] sm:text-xs leading-none">Rp{{ number_format($item->selling_price ?? 0, 0, ',', '.') }} <span class="hidden sm:inline">/</span></span>
-                                        <span class="font-bold text-gray-600 dark:text-gray-400 text-[9px] leading-none">Rp{{ number_format($item->purchase_price ?? 0, 0, ',', '.') }}</span>
-                                    </span>
+                                    @if($context === 'sales')
+                                        <span class="text-[10px] sm:text-[11px] font-medium text-emerald-500 mb-0.5">Harga Jual</span>
+                                        <span class="font-bold text-emerald-600 dark:text-emerald-400 text-[12px] sm:text-[14px] leading-none">Rp{{ number_format($item->selling_price ?? 0, 0, ',', '.') }}</span>
+                                    @elseif($context === 'purchase')
+                                        <span class="text-[10px] sm:text-[11px] font-medium text-zinc-500 mb-0.5">Harga Beli</span>
+                                        <span class="font-bold text-zinc-700 dark:text-zinc-300 text-[12px] sm:text-[14px] leading-none">Rp{{ number_format($item->purchase_price ?? 0, 0, ',', '.') }}</span>
+                                    @else
+                                        <span class="text-[10px] sm:text-[11px] font-medium text-zinc-400 mb-0.5">Harga
+                                            <span class="font-bold text-emerald-600 dark:text-emerald-400 leading-none"> jual</span> /
+                                            <span class="font-bold text-gray-600 dark:text-gray-400 leading-none"> beli</span>
+                                        </span>
+                                        <span class="flex flex-col sm:flex-row sm:items-baseline gap-1">
+                                            <span class="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] sm:text-xs leading-none">Rp{{ number_format($item->selling_price ?? 0, 0, ',', '.') }} <span class="hidden sm:inline">/</span></span>
+                                            <span class="font-bold text-gray-600 dark:text-gray-400 text-[9px] leading-none">Rp{{ number_format($item->purchase_price ?? 0, 0, ',', '.') }}</span>
+                                        </span>
+                                    @endif
                                 </div>
                                 
                                 <div class="flex flex-col items-end">
