@@ -16,52 +16,93 @@ state([
     'items' => [], // Array of BOM items with inputs
 ]);
 
+$refreshItems = function() {
+    if (!$this->order) return;
+    
+    $recipe = ProductionRecipe::with('items.item')->where('item_id', $this->order->item_id)->where('is_active', true)->first();
+    if ($recipe) {
+        $newItems = [];
+        $collisionDetected = false;
+
+        foreach ($recipe->items as $recipeItem) {
+            $existing = null;
+            foreach ($this->items as $oldItem) {
+                if ($oldItem['item_id'] === $recipeItem->item_id) {
+                    $existing = $oldItem;
+                    break;
+                }
+            }
+
+            $neededQty = $recipeItem->qty * $this->order->requested_qty;
+            $stock = DB::table('item_warehouse')->where('item_id', $recipeItem->item_id)->sum('stock');
+            
+            $alreadyConsumed = DB::table('stock_movements')
+                ->where('reference_number', $this->order->order_number)
+                ->where('item_id', $recipeItem->item_id)
+                ->where('type', 'out')
+                ->sum('quantity') ?? 0;
+            
+            $remainingNeeded = max(0, $neededQty - $alreadyConsumed);
+            
+            $existingRequest = InventoryRequest::where('item_id', $recipeItem->item_id)
+                ->where('source_type', 'production')
+                ->where('reference_number', $this->order->order_number)
+                ->first();
+            
+            $currentInputQty = $existing ? $existing['input_qty'] : 0;
+            $currentScanned = $existing ? $existing['scanned_labels'] : [];
+
+            if (!$recipeItem->item->requires_label) {
+                if ($currentInputQty > $stock) {
+                    $currentInputQty = 0;
+                    $collisionDetected = true;
+                }
+            } else {
+                if (count($currentScanned) > $stock) {
+                    $currentScanned = [];
+                    $currentInputQty = 0;
+                    $collisionDetected = true;
+                }
+            }
+            
+            $newItems[] = [
+                'item_id' => $recipeItem->item_id,
+                'name' => $recipeItem->item->name,
+                'requires_label' => $recipeItem->item->requires_label,
+                'needed' => $neededQty,
+                'already_consumed' => $alreadyConsumed,
+                'remaining_needed' => $remainingNeeded,
+                'stock' => $stock,
+                'input_qty' => $currentInputQty,
+                'scanned_labels' => $currentScanned,
+                'request_status' => $existingRequest ? $existingRequest->status : null,
+                'request_qty' => $existingRequest ? $existingRequest->requested_qty : 0,
+            ];
+        }
+        $this->items = $newItems;
+
+        if ($collisionDetected && $this->show) {
+            \Flux::toast('PERINGATAN: Stok baru saja diambil pengguna lain secara Real-Time! Input Anda di-reset.', variant: 'danger');
+        }
+    }
+};
+
 on(['open-fulfillment-modal' => function ($orderId) {
     $this->orderId = $orderId;
     $this->order = ProductionOrder::with('item')->find($orderId);
     $this->notes = '';
     $this->production_mode = 'internal';
-    
-    // Load BOM
     $this->items = [];
-    if ($this->order) {
-        $recipe = ProductionRecipe::with('items.item')->where('item_id', $this->order->item_id)->where('is_active', true)->first();
-        if ($recipe) {
-            foreach ($recipe->items as $recipeItem) {
-                $neededQty = $recipeItem->qty * $this->order->requested_qty;
-                $stock = DB::table('item_warehouse')->where('item_id', $recipeItem->item_id)->sum('stock');
-                
-                $alreadyConsumed = DB::table('stock_movements')
-                    ->where('reference_number', $this->order->order_number)
-                    ->where('item_id', $recipeItem->item_id)
-                    ->where('type', 'out')
-                    ->sum('quantity') ?? 0;
-                
-                $remainingNeeded = max(0, $neededQty - $alreadyConsumed);
-                
-                $existingRequest = InventoryRequest::where('item_id', $recipeItem->item_id)
-                    ->where('source_type', 'production')
-                    ->where('reference_number', $this->order->order_number)
-                    ->first();
-                
-                $this->items[] = [
-                    'item_id' => $recipeItem->item_id,
-                    'name' => $recipeItem->item->name,
-                    'requires_label' => $recipeItem->item->requires_label,
-                    'needed' => $neededQty,
-                    'already_consumed' => $alreadyConsumed,
-                    'remaining_needed' => $remainingNeeded,
-                    'stock' => $stock,
-                    'input_qty' => 0,
-                    'scanned_labels' => [],
-                    'request_status' => $existingRequest ? $existingRequest->status : null,
-                    'request_qty' => $existingRequest ? $existingRequest->requested_qty : 0,
-                ];
-            }
-        }
-    }
+    
+    $this->refreshItems();
     
     $this->show = true;
+}]);
+
+on(['echo:inventory,InventoryUpdated' => function () {
+    if ($this->show) {
+        $this->refreshItems();
+    }
 }]);
 
 on(['barcode-scanned' => function ($code) {
@@ -183,28 +224,6 @@ $save = function () {
                 
                 if ($deficit > 0) {
                     $hasDeficit = true;
-                    
-                    // Cek apakah sudah ada request
-                    $existingRequest = InventoryRequest::where('item_id', $material['item_id'])
-                        ->where('source_type', 'production')
-                        ->where('reference_number', $this->order->order_number)
-                        ->first();
-                        
-                    if (!$existingRequest) {
-                        InventoryRequest::create([
-                            'item_id' => $material['item_id'],
-                            'source_type' => 'production',
-                            'reference_number' => $this->order->order_number,
-                            'requested_qty' => $deficit,
-                            'notes' => 'Defisit Bahan Baku Produksi (Disiapkan: ' . ($material['already_consumed'] + $inputQty) . ', Total Butuh: ' . $material['needed'] . ')',
-                            'status' => 'draft',
-                        ]);
-                    } elseif ($existingRequest->status === 'draft') {
-                        // Update deficit if it's still in draft
-                        $existingRequest->requested_qty = $deficit;
-                        $existingRequest->notes = 'Defisit Bahan Baku Produksi (Disiapkan: ' . ($material['already_consumed'] + $inputQty) . ', Total Butuh: ' . $material['needed'] . ')';
-                        $existingRequest->save();
-                    }
                 }
 
                 if ($inputQty > 0) {
@@ -231,7 +250,13 @@ $save = function () {
                             ->where('item_id', $material['item_id'])
                             ->where('stock', '>', 0)
                             ->orderBy('stock', 'desc')
+                            ->lockForUpdate()
                             ->get();
+
+                        $totalStock = $warehouses->sum('stock');
+                        if ($totalStock < $remainingToDeduct) {
+                            throw new \Exception("Stok aktual {$material['name']} tidak mencukupi. Kemungkinan stok baru saja diambil pengguna lain. Harap tutup dan buka kembali tiket ini.");
+                        }
 
                         foreach ($warehouses as $wh) {
                             if ($remainingToDeduct <= 0) break;
@@ -278,7 +303,7 @@ $save = function () {
         });
 
         if ($hasDeficit) {
-            \Flux::toast('Bahan baku kurang! Otomatis membuat antrean permintaan barang.', variant: 'warning');
+            \Flux::toast('Pesanan masuk ke status Menunggu Bahan. Tiket permintaan pembelian sudah diterbitkan sebelumnya.', variant: 'warning');
         } else {
             if ($this->production_mode === 'maklon') {
                 \Flux::toast('Semua bahan disiapkan. Pesanan masuk ke Antre Maklon.', variant: 'success');
@@ -359,7 +384,11 @@ $save = function () {
                                         {{ $item['input_qty'] }} <span class="text-xs text-zinc-500 font-normal">Scan</span>
                                     </div>
                                 @else
-                                    <flux:input type="number" wire:model.live="items.{{ $index }}.input_qty" min="0" max="{{ min($item['remaining_needed'], $item['stock']) }}" class="w-full text-center" />
+                                    @if($item['stock'] <= 0)
+                                        <div class="text-center text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 py-2 rounded-lg border border-red-100 dark:border-red-800">Kosong</div>
+                                    @else
+                                        <flux:input type="number" wire:model.live="items.{{ $index }}.input_qty" min="0" max="{{ min($item['remaining_needed'], $item['stock']) }}" class="w-full text-center" />
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -430,7 +459,7 @@ $save = function () {
                 @if($hasIncompleteStockUsage)
                     Harap lengkapi input/scan bahan baku yang <strong class="text-zinc-700 dark:text-zinc-300">tersedia di gudang</strong> sebelum melanjutkan.
                 @elseif($hasStockDeficit)
-                    Pesanan akan masuk ke status <strong class="text-amber-600 dark:text-amber-500">Menunggu Bahan</strong> dan otomatis membuat pengajuan pembelian ke Purchasing.
+                    Pesanan akan tetap di status <strong class="text-amber-600 dark:text-amber-500">Menunggu Bahan</strong> (Tiket pembelian telah diterbitkan).
                 @else
                     Pesanan akan diteruskan ke proses produksi.
                 @endif
@@ -440,9 +469,9 @@ $save = function () {
                 @if($hasIncompleteStockUsage)
                     <flux:button variant="primary" disabled class="flex-1 sm:flex-none opacity-50 cursor-not-allowed">Lengkapi Bahan</flux:button>
                 @elseif($hasStockDeficit)
-                    <flux:button variant="danger" wire:click="save" icon="shopping-cart" class="flex-1 sm:flex-none">Ajukan Pengadaan Bahan</flux:button>
+                    <flux:button variant="warning" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 sm:flex-none">Simpan & Tunggu Bahan</flux:button>
                 @else
-                    <flux:button variant="primary" wire:click="save" icon="check" class="flex-1 sm:flex-none">Lanjut Produksi</flux:button>
+                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 sm:flex-none">Lanjut Produksi</flux:button>
                 @endif
             </div>
         </div>
