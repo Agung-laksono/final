@@ -84,13 +84,6 @@ on(['status-updated' => function () {
                 <div class="flex sm:hidden" title="Mode Transparan">
                     <flux:switch wire:model.live="transparent_columns" />
                 </div>
-
-                @can('purchase.create')
-                    {{-- Tombol Add --}}
-                    <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-create-queue-modal')" class="px-3 sm:px-4 shrink-0">
-                        <span class="hidden sm:inline">Buat Permintaan Baru</span>
-                    </flux:button>
-                @endcan
             </div>
         </div>
     </div>
@@ -234,7 +227,6 @@ on(['status-updated' => function () {
         @endforeach
     </div>
     
-    <livewire:queue.create-modal />
     <livewire:queue.consolidation-modal />
     <livewire:global.item-gallery-modal context="purchase" />
 </div>

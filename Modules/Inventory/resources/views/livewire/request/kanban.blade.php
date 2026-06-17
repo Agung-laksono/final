@@ -13,10 +13,12 @@ state([
         'draft' => ['title' => 'Permintaan Baru', 'color' => 'amber'],
         'review' => ['title' => 'Sedang Ditinjau', 'color' => 'blue'],
         'routed' => ['title' => 'Telah Dialihkan', 'color' => 'emerald'],
+        'archived' => ['title' => 'Arsip', 'color' => 'zinc'],
         'rejected' => ['title' => 'Ditolak', 'color' => 'red'],
     ],
     'search' => '',
     'promptItemId' => null,
+    'transparent_columns' => false,
 ]);
 
 $requests = computed(function () {
@@ -158,8 +160,20 @@ $reject = function ($requestId) {
     }
 };
 
+$archive = function ($requestId) {
+    abort_unless(auth()->user()->can('inventory.request.update'), 403);
+    $req = InventoryRequest::find($requestId);
+    if ($req) {
+        $req->status = 'archived';
+        $req->save();
+        \App\Events\KanbanUpdated::safeDispatch('inventory_request');
+        \Flux::toast('Tiket diarsipkan.', variant: 'success');
+    }
+};
+
 on([
-    'echo:kanban.inventory_request,KanbanUpdated' => function () {}
+    'echo:kanban.inventory_request,KanbanUpdated' => function () {},
+    'status-updated' => function () {}
 ]);
 ?>
 
@@ -169,23 +183,54 @@ on([
             <flux:heading size="xl">Pivot Permintaan Barang</flux:heading>
             <flux:subheading>Hub pusat penentuan alur defisit barang (Beli vs Produksi).</flux:subheading>
         </div>
-        <div class="w-full md:w-64">
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari barang atau ref..." />
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <div class="flex-1 min-w-0 md:w-64">
+                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari barang atau ref..." />
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+                {{-- Toggle Transparan --}}
+                <div class="hidden sm:flex" title="Mode Transparan">
+                    <flux:switch wire:model.live="transparent_columns" label="Transparan" />
+                </div>
+                <div class="flex sm:hidden" title="Mode Transparan">
+                    <flux:switch wire:model.live="transparent_columns" />
+                </div>
+
+                @can('inventory.request.create')
+                    <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-create-request-modal')" class="shrink-0">
+                        <span class="hidden sm:inline">Buat Permintaan</span>
+                    </flux:button>
+                @endcan
+            </div>
         </div>
     </div>
 
-    <div class="flex justify-start gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)] snap-x">
+    <div class="flex justify-start gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)] -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch">
         @foreach($columns as $statusKey => $column)
-            <div class="w-80 flex-shrink-0 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col h-full snap-center">
-                <div class="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-white dark:bg-zinc-900 rounded-t-xl">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500"></div>
-                        <h3 class="font-semibold text-zinc-800 dark:text-zinc-200">{{ $column['title'] }}</h3>
+            <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['archived', 'rejected']) ? 'true' : 'false' }}).as('kanban-col-inv-{{ $statusKey }}-user-{{ auth()->id() }}') }"
+                 class="flex-shrink-0 h-full max-h-full rounded-xl flex flex-col transition-all duration-300 snap-center {{ $this->transparent_columns ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800' }}"
+                 :class="collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80'"
+                 @click="if(collapsed) collapsed = false"
+                 wire:key="column-{{ $statusKey }}">
+                
+                {{-- Column Header --}}
+                <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300 {{ $this->transparent_columns ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800' }}"
+                     :class="collapsed ? 'flex-col gap-4 h-full pb-8' : ''">
+                    <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
+                        <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0"></div>
+                        <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
+                            :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
                     </div>
-                    <flux:badge size="sm">{{ count($this->requests[$statusKey] ?? []) }}</flux:badge>
+                    <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
+                        <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->requests[$statusKey] ?? []) }}</flux:badge>
+                        <button @click.stop="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
+                            <flux:icon.arrows-right-left class="w-4 h-4" x-bind:class="collapsed ? 'rotate-90' : ''" />
+                        </button>
+                    </div>
                 </div>
                 
-                <div class="flex-1 p-3 overflow-y-auto space-y-3">
+                {{-- Column Items --}}
+                <div x-show="!collapsed" x-transition.opacity.duration.300ms class="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
                     @forelse($this->requests[$statusKey] ?? [] as $req)
                         <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700">
                             <div class="flex justify-between items-start mb-2">
@@ -306,10 +351,15 @@ on([
                                         <span class="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5 border-t border-emerald-200/50 dark:border-emerald-800/50 pt-1">(Status Beli: {{ $liveStatus }})</span>
                                     @endif
                                 </div>
+                                <div class="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 w-full">
+                                    <flux:button size="xs" variant="subtle" wire:click="archive({{ $req->id }})" class="w-full !text-[10px]">Pindahkan ke Arsip</flux:button>
+                                </div>
                             @endif
                         </div>
                     @empty
-                        <div class="text-center text-sm text-zinc-400 py-4">Kosong</div>
+                        <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
+                            Kosong
+                        </div>
                     @endforelse
                 </div>
             </div>
@@ -333,5 +383,26 @@ on([
     </div>
     
     <livewire:recipe.form-modal />
+    <livewire:request.create-modal />
     <livewire:global.item-gallery-modal context="inventory" />
 </div>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 10px;
+    }
+    .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #334155;
+    }
+    .vertical-text {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+    }
+</style>

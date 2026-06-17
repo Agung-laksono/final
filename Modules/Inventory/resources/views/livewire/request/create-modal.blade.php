@@ -1,28 +1,31 @@
 <?php
 
 use function Livewire\Volt\{state, on, computed};
-use Modules\Purchase\Models\PurchaseQueue;
+use Modules\Inventory\Models\InventoryRequest;
 use Modules\Inventory\Models\Item;
 
 state([
     'show' => false,
     'item_id' => '',
+    'item_name' => '',
     'requested_qty' => 1,
     'notes' => '',
 ]);
 
-$items = computed(function () {
-    return Item::where('is_active', true)->orderBy('name')->get();
-});
-
-on(['open-create-queue-modal' => function () {
-    $this->reset(['item_id', 'requested_qty', 'notes']);
+on(['open-create-request-modal' => function () {
+    $this->reset(['item_id', 'item_name', 'requested_qty', 'notes']);
+    $this->item_id = '';
+    $this->item_name = '';
     $this->requested_qty = 1;
     $this->show = true;
 }]);
 
 $selectItem = function ($id) {
     $this->item_id = $id;
+    $item = Item::find($id);
+    if ($item) {
+        $this->item_name = $item->name . ' (' . $item->code . ')';
+    }
 };
 
 $save = function () {
@@ -32,20 +35,31 @@ $save = function () {
         'notes' => 'nullable|string',
     ]);
 
-    PurchaseQueue::create([
+    $lastRequest = InventoryRequest::where('source_type', 'manual')
+        ->where('reference_number', 'like', 'REQ-M-%')
+        ->orderBy('id', 'desc')
+        ->first();
+        
+    $nextNumber = 1;
+    if ($lastRequest) {
+        $lastNumber = (int) str_replace('REQ-M-', '', $lastRequest->reference_number);
+        $nextNumber = $lastNumber + 1;
+    }
+    $referenceNumber = 'REQ-M-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+
+    InventoryRequest::create([
         'item_id' => $this->item_id,
         'source_type' => 'manual',
+        'reference_number' => $referenceNumber,
         'requested_qty' => $this->requested_qty,
         'notes' => $this->notes,
-        'status' => 'approved',
-        'approved_qty' => $this->requested_qty,
-        'created_by' => auth()->id()
+        'status' => 'review',
     ]);
 
     $this->dispatch('status-updated'); // Memanggil event agar kanban ter-refresh
-    \App\Events\KanbanUpdated::safeDispatch('purchase_queue');
+    \App\Events\KanbanUpdated::safeDispatch('inventory_request');
     $this->show = false;
-    \Flux::toast('Permintaan pembelian berhasil ditambahkan ke antrean!', 'success');
+    \Flux::toast('Permintaan barang berhasil dibuat dan langsung masuk antrean Peninjauan!', 'success');
 };
 
 ?>
@@ -53,8 +67,8 @@ $save = function () {
 <div>
     <flux:modal wire:model="show" class="md:w-[500px]" wire:ignore.self>
         <div class="border-b border-zinc-200 dark:border-zinc-700 pb-4 mb-5">
-            <flux:heading size="lg">Buat Permintaan Pembelian (Manual)</flux:heading>
-            <flux:subheading>Isi form ini untuk mengajukan kebutuhan stok barang ke tim pengadaan.</flux:subheading>
+            <flux:heading size="lg">Buat Permintaan Barang (Manual)</flux:heading>
+            <flux:subheading>Isi form ini untuk mengajukan permintaan barang baru ke Gudang.</flux:subheading>
         </div>
 
         <form wire:submit="save" class="space-y-5" @item-selected.window="$wire.selectItem($event.detail.item.item_id); setTimeout(() => { $flux.modal('gallery-modal').close() }, 50)">
@@ -62,16 +76,9 @@ $save = function () {
                 <flux:label>Barang (Item) <span class="text-red-500">*</span></flux:label>
                 <div class="flex items-center gap-2">
                     <div class="flex-1">
-                        <flux:select wire:model.live="item_id" placeholder="Pilih barang..." searchable>
-                            @foreach($this->items as $item)
-                                <flux:select.option value="{{ $item->id }}">{{ $item->name }} ({{ $item->code }})</flux:select.option>
-                            @endforeach
-                        </flux:select>
+                        <flux:input wire:model="item_name" readonly placeholder="Klik Galeri untuk memilih barang &rarr;" class="bg-zinc-50 dark:bg-zinc-900" />
                     </div>
-                    <flux:button variant="subtle" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading" tooltip="Buka Galeri Barang">
-                        <flux:icon.squares-2x2 class="w-5 h-5 text-zinc-500" x-show="!loading" />
-                        <svg x-show="loading" class="animate-spin w-5 h-5 text-zinc-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    </flux:button>
+                    <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading" icon="squares-plus">Galeri</flux:button>
                 </div>
                 <flux:error name="item_id" />
             </flux:field>
@@ -90,7 +97,7 @@ $save = function () {
 
             <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                 <flux:button wire:click="$set('show', false)">Batal</flux:button>
-                <flux:button variant="primary" type="submit">Buat Permintaan</flux:button>
+                <flux:button variant="primary" type="submit">Simpan & Tinjau</flux:button>
             </div>
         </form>
     </flux:modal>
