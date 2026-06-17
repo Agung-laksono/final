@@ -7,7 +7,6 @@ title('Kanban Produksi');
 
 state([
     'columns' => [
-        'pending_approval' => ['title' => 'Menunggu Persetujuan', 'color' => 'amber'],
         'material_fulfillment' => ['title' => 'Pemenuhan Bahan', 'color' => 'orange'],
         'waiting_vendor' => ['title' => 'Antre Maklon', 'color' => 'cyan'],
         'in_production' => ['title' => 'Sedang Diproduksi', 'color' => 'blue'],
@@ -204,9 +203,7 @@ on(['maklon-po-created' => function () {
                             @endif
 
                             <div class="flex flex-col gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                                @if($statusKey === 'pending_approval')
-                                    <flux:button size="sm" variant="primary" wire:click="updateStatus({{ $order->id }}, 'material_fulfillment')" class="w-full justify-center">Setujui Produksi</flux:button>
-                                @elseif($statusKey === 'material_fulfillment')
+                                @if($statusKey === 'material_fulfillment')
                                     @if($order->status === 'waiting_material')
                                         <flux:button size="sm" variant="filled" wire:click="checkMaterialArrival({{ $order->id }})" class="w-full justify-center !bg-red-600 hover:!bg-red-700 text-white" tooltip="Validasi stok gudang secara Real-Time">Validasi Kedatangan Bahan</flux:button>
                                     @else

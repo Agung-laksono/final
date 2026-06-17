@@ -174,6 +174,8 @@ $saveFulfillment = function () {
     } else {
         \Flux::toast('Fulfillment parsial disimpan.', variant: 'success');
         $this->loadOrder(); // Reload the data
+        $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('sales_order');
     }
 };
 

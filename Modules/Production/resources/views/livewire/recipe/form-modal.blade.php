@@ -13,15 +13,25 @@ state([
     'pickingMode' => null, // 'product' or numeric index for materials
 ]);
 
-on(['open-recipe-modal' => function ($params = null) {
+on(['open-recipe-modal' => function ($recipeId = null, $itemId = null, $params = null) {
     $this->recipeId = null;
     $this->item_id = '';
     $this->product_name = '';
     $this->materials = [];
     $this->pickingMode = null;
     
-    if (isset($params['recipeId'])) {
-        $recipe = ProductionRecipe::with(['items.item', 'item'])->find($params['recipeId']);
+    // Support both named arguments (Livewire 3 behavior) and array payload (fallback)
+    if (is_array($recipeId)) {
+        $params = $recipeId;
+        $recipeId = $params['recipeId'] ?? null;
+        $itemId = $params['itemId'] ?? null;
+    } elseif (is_array($params)) {
+        $recipeId = $recipeId ?? $params['recipeId'] ?? null;
+        $itemId = $itemId ?? $params['itemId'] ?? null;
+    }
+    
+    if ($recipeId) {
+        $recipe = ProductionRecipe::with(['items.item', 'item'])->find($recipeId);
         if ($recipe) {
             $this->recipeId = $recipe->id;
             $this->item_id = $recipe->item_id;
@@ -35,6 +45,12 @@ on(['open-recipe-modal' => function ($params = null) {
                     'qty' => $bom->qty
                 ];
             }
+        }
+    } elseif ($itemId) {
+        $item = Item::find($itemId);
+        if ($item) {
+            $this->item_id = $item->id;
+            $this->product_name = $item->code . ' - ' . $item->name;
         }
     } else {
         // Start empty
@@ -126,8 +142,8 @@ $handleItemSelected = function ($itemData) {
             <div>
                 <flux:label>Pilih Produk Jadi (Hasil Rakitan)</flux:label>
                 <div class="flex gap-2 mt-1">
-                    <flux:input wire:model="product_name" readonly placeholder="Klik tombol galeri ->" class="flex-1 bg-zinc-50" />
-                    <flux:button variant="filled" icon="photo" x-on:click="$wire.set('pickingMode', 'product'); setTimeout(() => { $flux.modal('gallery-modal').show() }, 50)" :disabled="$recipeId !== null">Galeri</flux:button>
+                    <flux:input wire:model="product_name" readonly placeholder="Ketik atau klik tombol galeri ->" class="flex-1 bg-zinc-50" />
+                    <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; $wire.set('pickingMode', 'product'); setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading || $recipeId !== null" icon="squares-plus">Galeri</flux:button>
                 </div>
             </div>
             
@@ -153,7 +169,7 @@ $handleItemSelected = function ($itemData) {
                             <div class="flex-1 space-y-1">
                                 <div class="flex gap-2">
                                     <flux:input readonly value="{{ $mat['name'] ? ($mat['code'] . ' - ' . $mat['name']) : '' }}" placeholder="Pilih bahan dari galeri..." class="flex-1 bg-white" />
-                                    <flux:button variant="subtle" icon="photo" x-on:click="$wire.set('pickingMode', {{ $index }}); setTimeout(() => { $flux.modal('gallery-modal').show() }, 50)"></flux:button>
+                                    <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; $wire.set('pickingMode', {{ $index }}); setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading" icon="squares-plus">Galeri</flux:button>
                                 </div>
                                 @error('materials.'.$index.'.item_id') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                             </div>

@@ -14,8 +14,13 @@ $fetchCount = function () {
             $this->colorClass = 'bg-amber-500';
             break;
         case 'sales_order':
-            $this->count = \Modules\Sales\Models\SalesOrder::whereIn('status', ['pending_approval', 'waiting_payment'])->count();
-            $this->colorClass = 'bg-rose-500';
+            if (auth()->user()->hasRole('Gudang') && !auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Sales'])) {
+                $this->count = \Modules\Sales\Models\SalesOrder::whereIn('status', ['processing', 'packing'])->count();
+                $this->colorClass = 'bg-blue-500';
+            } else {
+                $this->count = \Modules\Sales\Models\SalesOrder::whereIn('status', ['pending_approval'])->count();
+                $this->colorClass = 'bg-rose-500';
+            }
             break;
         case 'production_order':
             $this->count = \Modules\Production\Models\ProductionOrder::whereIn('status', ['pending_approval', 'waiting_material'])->count();

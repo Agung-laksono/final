@@ -18,7 +18,7 @@ $kpis = computed(function () {
         ->count();
         
     // Pending Queue
-    $pendingQueue = PurchaseQueue::where('status', 'pending_approval')->count();
+    $pendingQueue = PurchaseQueue::where('status', 'approved')->count();
     
     // Total Spending bulan ini (completed/processing/partially_received)
     $totalSpending = PurchaseOrder::whereIn('status', ['completed', 'processing', 'partially_received'])
@@ -82,7 +82,7 @@ on(['echo:purchase,OrderUpdated' => function () {}, 'echo:purchase,QueueUpdated'
                 </div>
                 <p class="text-3xl font-bold text-zinc-900 dark:text-white">{{ number_format($this->kpis['pending_queue'], 0, ',', '.') }}</p>
                 <p class="text-xs text-amber-600 dark:text-amber-400 mt-2 font-medium flex items-center gap-1">
-                    Membutuhkan persetujuan
+                    Siap dibuatkan PO
                     <flux:icon.arrow-right class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </p>
             </a>

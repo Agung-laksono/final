@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Notification;
 use App\Models\User;
 use App\Notifications\LowStockNotification;
 use App\Notifications\AbnormalMovementNotification;
+use Illuminate\Support\Str;
 
 class StockMovementObserver
 {
@@ -88,22 +89,26 @@ class StockMovementObserver
                 if ($totalStock < $item->min_stock) {
                     Notification::send($recipients, new LowStockNotification($item, $totalStock));
                     
-                    // --- OTO-CREATE PURCHASE QUEUE ---
-                    $existingQueue = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $movement->item_id)
-                        ->whereIn('status', ['pending_approval', 'approved', 'ordered', 'on_delivery'])
+                    // --- OTO-CREATE INVENTORY REQUEST ---
+                    $existingRequest = \Modules\Inventory\Models\InventoryRequest::where('item_id', $movement->item_id)
+                        ->whereIn('status', ['draft', 'review'])
                         ->exists();
                         
-                    if (!$existingQueue) {
+                    if (!$existingRequest) {
                         $qtyToOrder = $item->max_stock > 0 
                             ? max($item->max_stock - $totalStock, $item->min_stock)
                             : $item->min_stock * 2;
                             
-                        \Modules\Purchase\Models\PurchaseQueue::create([
+                        \Modules\Inventory\Models\InventoryRequest::create([
                             'item_id' => $movement->item_id,
                             'source_type' => 'low_stock',
+                            'reference_number' => 'REQ-' . strtoupper(Str::random(6)),
                             'requested_qty' => $qtyToOrder,
                             'notes' => 'Sistem Otomatis: Stok menipis (' . $totalStock . ' dari batas minimal ' . $item->min_stock . ').',
+                            'status' => 'draft'
                         ]);
+                        
+                        \App\Events\KanbanUpdated::safeDispatch('inventory_request');
                     }
                 }
             }

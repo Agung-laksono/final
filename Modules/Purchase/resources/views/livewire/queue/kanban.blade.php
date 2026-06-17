@@ -9,7 +9,6 @@ title('Kanban Permintaan Pembelian');
 // Definisi Kolom Kanban
 state([
     'columns' => [
-        'pending_approval' => ['title' => 'Menunggu Persetujuan', 'color' => 'zinc'],
         'approved' => ['title' => 'Disetujui (Antre)', 'color' => 'blue'],
         'ordered' => ['title' => 'Sudah Dipesan (PO)', 'color' => 'amber'],
         'completed' => ['title' => 'Selesai / Ready', 'color' => 'emerald'],
@@ -29,7 +28,7 @@ $queues = computed(function () {
         });
     }
     return $query->get()->groupBy(function($q) {
-        return $q->status ?? 'pending_approval';
+        return $q->status ?? 'approved';
     });
 });
 
@@ -38,12 +37,7 @@ $updateStatus = function ($queueId, $newStatus) {
     
     $queue = PurchaseQueue::find($queueId);
     if ($queue) {
-        // Jika mengubah menjadi approved, butuh izin khusus
-        if ($newStatus === 'approved' || $queue->status === 'pending_approval') {
-            abort_unless(auth()->user()->can('purchase.approve.update'), 403, 'Anda tidak memiliki izin untuk menyetujui antrean.');
-        } else {
-            abort_unless(auth()->user()->can('purchase.queue.update'), 403, 'Anda tidak memiliki izin untuk menggeser antrean.');
-        }
+        abort_unless(auth()->user()->can('purchase.queue.update'), 403, 'Anda tidak memiliki izin untuk menggeser antrean.');
 
         $queue->status = $newStatus;
         $queue->save();
@@ -54,7 +48,7 @@ $updateStatus = function ($queueId, $newStatus) {
 };
 
 $rejectQueue = function ($queueId) {
-    abort_unless(auth()->user()->can('purchase.approve.delete'), 403, 'Anda tidak memiliki izin untuk menolak antrean.');
+    abort_unless(auth()->user()->can('purchase.queue.update'), 403, 'Anda tidak memiliki izin untuk menolak antrean.');
     $queue = PurchaseQueue::find($queueId);
     if ($queue) {
         $queue->status = 'rejected';
@@ -228,13 +222,7 @@ on(['status-updated' => function () {
                                 @endif
                             </div>
 
-                            {{-- Action Buttons for Pending Approval --}}
-                            @if($statusKey === 'pending_approval')
-                                <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex gap-2 w-full">
-                                    <flux:button variant="danger" size="sm" class="flex-1 text-[11px]" @click.stop="if(confirm('Tolak permintaan ini?')) { $wire.rejectQueue({{ $queue->id }}) }">Tolak</flux:button>
-                                    <flux:button variant="primary" size="sm" class="flex-1 text-[11px]" @click.stop="$dispatch('open-approval-modal', { id: {{ $queue->id }} })">Setujui</flux:button>
-                                </div>
-                            @endif
+
                         </div>
                     @empty
                         <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
@@ -248,7 +236,6 @@ on(['status-updated' => function () {
     
     <livewire:queue.create-modal />
     <livewire:queue.consolidation-modal />
-    <livewire:queue.approval-modal />
     <livewire:global.item-gallery-modal context="purchase" />
 </div>
 

@@ -7,13 +7,26 @@ title('Kanban Sales Order');
 
 // Definisi Kolom Kanban untuk Sales Order
 state([
-    'columns' => [
-        'pending_approval' => ['title' => 'Menunggu Persetujuan', 'color' => 'amber'],
-        'processing' => ['title' => 'Diproses Gudang', 'color' => 'blue'],
-        'packing' => ['title' => 'Packing', 'color' => 'purple'],
-        'shipping' => ['title' => 'Pengiriman', 'color' => 'orange'],
-        'completed' => ['title' => 'Selesai', 'color' => 'emerald'],
-    ],
+    'columns' => function () {
+        // Jika user HANYA memiliki role Gudang (bukan Admin/Manager/Sales)
+        if (auth()->user()->hasRole('Gudang') && !auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Sales'])) {
+            return [
+                'processing' => ['title' => 'Diproses Gudang', 'color' => 'blue'],
+                'packing' => ['title' => 'Packing', 'color' => 'purple'],
+            ];
+        }
+        
+        // Tampilan default untuk peran lain
+        return [
+            'pending_approval' => ['title' => 'Menunggu Persetujuan', 'color' => 'amber'],
+            'processing' => ['title' => 'Diproses Gudang', 'color' => 'blue'],
+            'packing' => ['title' => 'Packing', 'color' => 'purple'],
+            'shipping' => ['title' => 'Pengiriman', 'color' => 'orange'],
+            'arrived' => ['title' => 'Sampai', 'color' => 'teal'],
+            'completed' => ['title' => 'Selesai', 'color' => 'emerald'],
+            'archived' => ['title' => 'Arsip', 'color' => 'zinc'],
+        ];
+    },
     'transparent_columns' => false,
     'search' => '',
 ]);
@@ -60,13 +73,41 @@ $markAsArrived = function ($orderId) {
     
     $so = SalesOrder::find($orderId);
     if ($so) {
+        $so->status = 'arrived';
+        $so->save();
+        
+        \Flux::toast('Barang sudah diterima pelanggan.', variant: 'success');
+        $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('sales_order');
+    }
+};
+
+$markAsCompleted = function ($orderId) {
+    abort_unless(auth()->user()->can('sales.order.update') || auth()->user()->hasRole('Finance'), 403);
+    
+    $so = SalesOrder::find($orderId);
+    if ($so) {
         $so->status = 'completed';
         $so->save();
         
         // Di sini bisa ditambahkan logika pengurangan stok otomatis (mutasi keluar)
         // secara formal di inventory system.
         
-        \Flux::toast('Pesanan selesai! Barang sudah diterima pelanggan.', variant: 'success');
+        \Flux::toast('Pesanan selesai!', variant: 'success');
+        $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('sales_order');
+    }
+};
+
+$markAsArchived = function ($orderId) {
+    abort_unless(auth()->user()->can('sales.order.update') || auth()->user()->hasRole('Finance'), 403);
+    
+    $so = SalesOrder::find($orderId);
+    if ($so) {
+        $so->status = 'archived';
+        $so->save();
+        
+        \Flux::toast('Pesanan berhasil diarsipkan.', variant: 'success');
         $this->dispatch('status-updated');
         \App\Events\KanbanUpdated::safeDispatch('sales_order');
     }
@@ -115,14 +156,15 @@ on([
     {{-- Kanban Board Area --}}
     <div class="flex justify-start gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)] -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch">
         @foreach($columns as $statusKey => $column)
-            <div x-data="{ collapsed: {{ $statusKey === 'completed' ? 'true' : 'false' }} }"
+            <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['completed', 'archived']) ? 'true' : 'false' }}).as('kanban-col-sales-{{ $statusKey }}-user-{{ auth()->id() }}') }"
                  class="flex-shrink-0 h-full max-h-full rounded-xl flex flex-col transition-all duration-300 snap-center {{ $transparent_columns ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800' }}"
-                 :class="collapsed ? 'w-16' : 'w-80'"
+                 :class="collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80'"
+                 @click="if(collapsed) collapsed = false"
                  wire:key="column-{{ $statusKey }}">
                 
                 {{-- Column Header --}}
                 <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300 {{ $transparent_columns ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800' }}"
-                     :class="collapsed ? 'flex-col gap-4' : ''">
+                     :class="collapsed ? 'flex-col gap-4 h-full pb-8' : ''">
                     <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
                         <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0"></div>
                         <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
@@ -130,11 +172,9 @@ on([
                     </div>
                     <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
                         <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
-                        @if($statusKey === 'completed')
-                            <button @click="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" title="Toggle Kolom Selesai">
-                                <flux:icon.arrows-right-left class="w-4 h-4" />
-                            </button>
-                        @endif
+                        <button @click.stop="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
+                            <flux:icon.arrows-right-left class="w-4 h-4" x-bind:class="collapsed ? 'rotate-90' : ''" />
+                        </button>
                     </div>
                 </div>
 
@@ -242,7 +282,7 @@ on([
                                     @endif
 
                                     {{-- Shipping Info --}}
-                                    @if(in_array($order->status, ['shipping', 'completed']) && ($order->courier_vendor || $totalActualShipping > 0 || $order->shipping_fee > 0))
+                                    @if(in_array($order->status, ['shipping', 'arrived', 'completed', 'archived']) && ($order->courier_vendor || $totalActualShipping > 0 || $order->shipping_fee > 0))
                                         <div class="flex items-center justify-between text-[10px] bg-white dark:bg-zinc-900 p-1.5 rounded border border-zinc-200 dark:border-zinc-700">
                                             <div class="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
                                                 <flux:icon.truck class="w-3 h-3 text-orange-500 shrink-0" /> 
@@ -299,11 +339,19 @@ on([
                                         @endif
                                     @elseif($statusKey === 'shipping')
                                         @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Sales']))
-                                            <flux:button size="sm" variant="subtle" icon="flag" class="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/50" title="Tandai Barang Telah Sampai" wire:click.stop="markAsArrived({{ $order->id }})" />
+                                            <flux:button size="sm" variant="subtle" icon="flag" class="h-6 w-6 p-0 text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/50" title="Tandai Barang Telah Sampai" wire:click.stop="markAsArrived({{ $order->id }})" />
                                         @endif
                                         
                                         @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager']))
                                             <flux:button size="sm" variant="subtle" icon="document-text" class="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50" title="Update Resi/Ekspedisi" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })" />
+                                        @endif
+                                    @elseif($statusKey === 'arrived')
+                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Finance']))
+                                            <flux:button size="sm" variant="subtle" icon="check-badge" class="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/50" title="Tandai Selesai" wire:click.stop="markAsCompleted({{ $order->id }})" />
+                                        @endif
+                                    @elseif($statusKey === 'completed')
+                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Finance']))
+                                            <flux:button size="sm" variant="subtle" icon="inbox-arrow-down" class="h-6 w-6 p-0 text-zinc-600 hover:text-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800" title="Arsipkan Pesanan" wire:click.stop="markAsArchived({{ $order->id }})" />
                                         @endif
                                     @endif
                                 </div>

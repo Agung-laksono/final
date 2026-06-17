@@ -37,7 +37,8 @@ $save = function () {
         'source_type' => 'manual',
         'requested_qty' => $this->requested_qty,
         'notes' => $this->notes,
-        'status' => 'pending_approval',
+        'status' => 'approved',
+        'approved_qty' => $this->requested_qty,
         'created_by' => auth()->id()
     ]);
 

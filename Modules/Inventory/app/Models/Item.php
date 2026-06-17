@@ -88,6 +88,51 @@ class Item extends Model
         return max(0, $atp);
     }
 
+    /**
+     * Get detailed inventory statistics for Warehouse Dashboard
+     */
+    public function getInventoryStats()
+    {
+        $physical = \Illuminate\Support\Facades\DB::table('item_warehouse')
+            ->where('item_id', $this->id)
+            ->sum('stock') ?? 0;
+
+        $production = \Modules\Production\Models\ProductionOrder::where('item_id', $this->id)
+            ->whereNotIn('status', ['completed', 'archived', 'rejected'])
+            ->selectRaw('SUM(requested_qty - fulfilled_qty) as remaining')
+            ->value('remaining') ?? 0;
+
+        $purchaseQueue = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $this->id)
+            ->whereIn('status', ['approved'])
+            ->sum('requested_qty') ?? 0;
+
+        $purchaseOrder = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $this->id)
+            ->whereIn('status', ['ordered'])
+            ->sum('requested_qty') ?? 0;
+            
+        $salesCommitted = \Modules\Sales\Models\SalesOrderItem::where('item_id', $this->id)
+            ->whereHas('salesOrder', function($q) {
+                $q->whereIn('status', ['approved', 'processing']);
+            })
+            ->sum('qty') ?? 0;
+            
+        $warehouseDetails = $this->warehouses()->get()->map(function($w) {
+            return [
+                'name' => $w->name,
+                'stock' => $w->pivot->stock,
+            ];
+        })->toArray();
+            
+        return [
+            'physical' => $physical,
+            'warehouse_details' => $warehouseDetails,
+            'production' => $production,
+            'purchase_queue' => $purchaseQueue,
+            'purchase_order' => $purchaseOrder,
+            'sales_committed' => $salesCommitted,
+        ];
+    }
+
     /** 
      * Riwayat Pergerakan Stok (Keluar/Masuk/Transfer)
      * untuk barang ini
