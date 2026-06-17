@@ -13,7 +13,7 @@ state([
 on(['open-vendor-cost-modal' => function ($orderId) {
     $this->orderId = $orderId;
     $this->order = ProductionOrder::find($orderId);
-    $this->vendor_cost = $this->order ? $this->order->vendor_cost : 0;
+    $this->vendor_cost = $this->order && $this->order->vendor_cost > 0 ? $this->order->vendor_cost : null;
     $this->notes = '';
     $this->show = true;
 }]);
@@ -22,7 +22,9 @@ $save = function () {
     abort_unless(auth()->user()->can('production.order.update'), 403);
     
     $this->validate([
-        'vendor_cost' => 'required|numeric|min:0'
+        'vendor_cost' => 'required|numeric|gt:0'
+    ], [
+        'vendor_cost.gt' => 'Biaya tidak boleh Rp 0.'
     ]);
 
     if ($this->order) {
@@ -48,7 +50,7 @@ $save = function () {
 
         @if($order)
             <div class="space-y-4">
-                <flux:input type="number" wire:model="vendor_cost" label="Total Biaya Vendor (Rp)" min="0" />
+                <x-currency-input wire:model="vendor_cost" label="Total Biaya Vendor (Rp)" placeholder="0" />
                 <flux:textarea wire:model="notes" label="Catatan Jasa/Maklon (Opsional)" placeholder="Misal: Jasa potong kayu dan finishing..." />
             </div>
 

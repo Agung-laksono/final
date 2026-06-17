@@ -17,6 +17,11 @@ class ProductionOrder extends Model
         return $this->belongsTo(\Modules\Inventory\Models\Item::class);
     }
 
+    public function purchaseOrder()
+    {
+        return $this->belongsTo(\Modules\Purchase\Models\PurchaseOrder::class, 'purchase_order_id');
+    }
+
     public function creator()
     {
         return $this->belongsTo(\App\Models\User::class, 'created_by');

@@ -264,9 +264,6 @@ $saveInitialStock = function () {
                                     </div>
 
                                     <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <div>
-                                            agung
-                                        </div>
                                         <div class="flex items-center justify-between bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
                                             <div class="flex items-center gap-2">
                                                 <div class="w-2 h-2 rounded-full {{ $item->is_active ? 'bg-emerald-500' : 'bg-zinc-400' }}"></div>
@@ -518,8 +515,8 @@ $saveInitialStock = function () {
                                                 <td class="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
                                                     {{ $m->warehouse?->name ?? '-' }}
                                                 </td>
-                                                <td class="px-4 py-3 text-right font-bold {{ $m->quantity > 0 ? 'text-emerald-500' : 'text-rose-500' }}">
-                                                    {{ $m->quantity > 0 ? '+' : '' }}{{ $m->quantity }}
+                                                <td class="px-4 py-3 text-right font-bold {{ str_contains($m->type, 'in') ? 'text-emerald-500' : 'text-rose-500' }}">
+                                                    {{ str_contains($m->type, 'in') ? '+' : '-' }}{{ $m->quantity }}
                                                 </td>
                                                 <td class="px-4 py-3 text-center text-zinc-500 font-mono">
                                                     {{ $m->stock_after }}

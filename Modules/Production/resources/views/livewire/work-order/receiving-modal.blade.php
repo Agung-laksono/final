@@ -1,5 +1,5 @@
 <?php
-use function Livewire\Volt\{state, on};
+use function Livewire\Volt\{state, on, computed};
 use Modules\Production\Models\ProductionOrder;
 use Modules\Inventory\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
@@ -8,89 +8,171 @@ state([
     'show' => false,
     'orderId' => null,
     'order' => null,
-    'qty' => 1,
     'notes' => '',
-    'warehouse_id' => null,
+    'distributions' => [],
     'warehouses' => []
 ]);
 
 on(['open-receiving-modal' => function ($orderId) {
     $this->orderId = $orderId;
     $this->order = ProductionOrder::with('item')->find($orderId);
-    $this->qty = $this->order ? ($this->order->requested_qty - $this->order->fulfilled_qty) : 1;
+    
+    $remaining = $this->order ? ($this->order->requested_qty - $this->order->fulfilled_qty) : 1;
+    
+    $this->distributions = [
+        ['warehouse_id' => '', 'qty' => null]
+    ];
     $this->notes = '';
     $this->warehouses = DB::table('warehouses')->get();
-    $this->warehouse_id = $this->warehouses->first()->id ?? null;
     $this->show = true;
 }]);
+
+$isMaxQtyReached = computed(function () {
+    if (!$this->order) return false;
+    $maxAllowed = $this->order->requested_qty - $this->order->fulfilled_qty;
+    $total = collect($this->distributions)->sum(fn($d) => (int)($d['qty'] ?? 0));
+    return $total >= $maxAllowed || count($this->distributions) >= $this->warehouses->count();
+});
+
+$addDistribution = function () {
+    $this->distributions[] = ['warehouse_id' => '', 'qty' => null];
+};
+
+$removeDistribution = function ($index) {
+    unset($this->distributions[$index]);
+    $this->distributions = array_values($this->distributions);
+};
+
+$updated = function ($property, $value) {
+    if ($this->order && str_starts_with($property, 'distributions.') && str_ends_with($property, '.qty')) {
+        $parts = explode('.', $property);
+        $index = $parts[1];
+        
+        $totalOther = 0;
+        foreach ($this->distributions as $idx => $dist) {
+            if ($idx != $index) {
+                $totalOther += (int)($dist['qty'] ?? 0);
+            }
+        }
+        
+        $maxAllowed = $this->order->requested_qty - $this->order->fulfilled_qty;
+        $maxAllowedForThisRow = $maxAllowed - $totalOther;
+        
+        if ((int)$value > $maxAllowedForThisRow) {
+            $this->distributions[$index]['qty'] = max(1, $maxAllowedForThisRow);
+        }
+    }
+};
 
 $save = function () {
     abort_unless(auth()->user()->can('production.order.update'), 403);
     
     $this->validate([
-        'qty' => 'required|numeric|min:1',
-        'warehouse_id' => 'required'
+        'distributions' => 'required|array|min:1',
+        'distributions.*.warehouse_id' => 'required',
+        'distributions.*.qty' => 'required|numeric|min:1'
+    ], [
+        'distributions.*.warehouse_id.required' => 'Gudang tujuan wajib dipilih.',
+        'distributions.*.qty.min' => 'Jumlah minimal 1.'
     ]);
 
     if ($this->order) {
+        $totalQty = collect($this->distributions)->sum('qty');
         $maxAllowed = $this->order->requested_qty - $this->order->fulfilled_qty;
-        if ($this->qty > $maxAllowed) {
-            \Flux::toast('Jumlah melebihi sisa yang harus diproduksi.', variant: 'danger');
+        
+        if ($totalQty > $maxAllowed) {
+            \Flux::toast("Total jumlah yang dialokasikan ($totalQty) melebihi sisa yang harus diproduksi ($maxAllowed).", variant: 'danger');
             return;
         }
 
-        DB::transaction(function () {
+        $generatedLabelIds = [];
+        $generatedLabelsCount = 0;
+
+        DB::transaction(function () use ($totalQty, &$generatedLabelIds, &$generatedLabelsCount) {
             // Update the production order
-            $this->order->fulfilled_qty += $this->qty;
+            $this->order->fulfilled_qty += $totalQty;
             if ($this->order->fulfilled_qty >= $this->order->requested_qty) {
                 $this->order->status = 'completed';
             }
             $this->order->save();
 
-            // Insert into item_warehouse (update stock)
-            $existingStock = DB::table('item_warehouse')
-                ->where('item_id', $this->order->item_id)
-                ->where('warehouse_id', $this->warehouse_id)
-                ->first();
+            foreach ($this->distributions as $dist) {
+                $qty = $dist['qty'];
+                $wh_id = $dist['warehouse_id'];
+                
+                // Insert into item_warehouse (update stock)
+                $existingStock = DB::table('item_warehouse')
+                    ->where('item_id', $this->order->item_id)
+                    ->where('warehouse_id', $wh_id)
+                    ->first();
 
-            if ($existingStock) {
-                DB::table('item_warehouse')
-                    ->where('id', $existingStock->id)
-                    ->update(['stock' => $existingStock->stock + $this->qty, 'updated_at' => now()]);
-            } else {
-                DB::table('item_warehouse')->insert([
+                if ($existingStock) {
+                    DB::table('item_warehouse')
+                        ->where('id', $existingStock->id)
+                        ->update(['stock' => $existingStock->stock + $qty, 'updated_at' => now()]);
+                } else {
+                    DB::table('item_warehouse')->insert([
+                        'item_id' => $this->order->item_id,
+                        'warehouse_id' => $wh_id,
+                        'stock' => $qty,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                // Create StockMovement history
+                StockMovement::create([
                     'item_id' => $this->order->item_id,
-                    'warehouse_id' => $this->warehouse_id,
-                    'stock' => $this->qty,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'warehouse_id' => $wh_id,
+                    'type' => 'in',
+                    'quantity' => $qty,
+                    'stock_before' => $existingStock ? $existingStock->stock : 0,
+                    'stock_after' => ($existingStock ? $existingStock->stock : 0) + $qty,
+                    'reference_number' => $this->order->order_number,
+                    'date' => now()->toDateString(),
+                    'notes' => 'Penerimaan hasil produksi. ' . $this->notes,
+                    'user_id' => auth()->id(),
                 ]);
-            }
 
-            // Create StockMovement history
-            StockMovement::create([
-                'item_id' => $this->order->item_id,
-                'warehouse_id' => $this->warehouse_id,
-                'type' => 'in',
-                'qty' => $this->qty,
-                'reference_number' => $this->order->order_number,
-                'notes' => 'Penerimaan hasil produksi. ' . $this->notes,
-                'created_by' => auth()->id(),
-            ]);
+                // Generate Labels if required
+                if ($this->order->item->requires_label) {
+                    for ($i = 0; $i < $qty; $i++) {
+                        do {
+                            $code = strtoupper(\Illuminate\Support\Str::random(6));
+                        } while (\Modules\Inventory\Models\ItemLabel::where('label_code', $code)->exists());
+
+                        $label = \Modules\Inventory\Models\ItemLabel::create([
+                            'item_id' => $this->order->item_id,
+                            'label_code' => $code,
+                            'status' => 'in_stock',
+                            'warehouse_id' => $wh_id,
+                            'notes' => 'Dari Hasil Produksi: ' . $this->order->order_number,
+                        ]);
+                        $generatedLabelIds[] = $label->id;
+                        $generatedLabelsCount++;
+                    }
+                }
+            }
         });
         
         $this->dispatch('status-updated');
         $this->show = false;
-        \Flux::toast('Penerimaan hasil produksi berhasil dicatat.', variant: 'success');
+        
+        if (count($generatedLabelIds) > 0) {
+            $this->dispatch('open-print-labels', labelIds: $generatedLabelIds);
+            \Flux::toast("Penerimaan hasil produksi berhasil dicatat. $generatedLabelsCount Label Serial berhasil di-generate.", variant: 'success');
+        } else {
+            \Flux::toast('Penerimaan hasil produksi berhasil dicatat.', variant: 'success');
+        }
     }
 };
 ?>
 
-<flux:modal wire:model="show" class="md:w-[500px]">
+<flux:modal wire:model="show" class="md:w-[600px]">
     <div class="space-y-6">
         <div>
             <flux:heading size="lg">Penerimaan Hasil Produksi</flux:heading>
-            <flux:subheading>Terima barang jadi ke dalam gudang (Bisa parsial).</flux:subheading>
+            <flux:subheading>Terima barang jadi dan alokasikan ke beberapa gudang sekaligus.</flux:subheading>
         </div>
 
         @if($order)
@@ -104,14 +186,55 @@ $save = function () {
             </div>
 
             <div class="space-y-4">
-                <flux:input type="number" wire:model="qty" label="Jumlah Diterima" min="1" max="{{ $order->requested_qty - $order->fulfilled_qty }}" />
+                <flux:heading size="md">Alokasi Gudang</flux:heading>
                 
-                <flux:select wire:model="warehouse_id" label="Masuk ke Gudang" placeholder="Pilih Gudang">
-                    @foreach($warehouses as $wh)
-                        <flux:select.option value="{{ $wh->id }}">{{ $wh->name }}</flux:select.option>
-                    @endforeach
-                </flux:select>
+                @php
+                    $selectedWarehouses = collect($distributions)->pluck('warehouse_id')->filter()->toArray();
+                @endphp
 
+                <div class="space-y-3">
+                    @foreach($distributions as $index => $dist)
+                        <div class="flex items-start gap-3">
+                            <div class="flex-1">
+                                <flux:select wire:model.live="distributions.{{ $index }}.warehouse_id" placeholder="Pilih Gudang Tujuan">
+                                    @foreach($warehouses as $wh)
+                                        @php
+                                            $isDisabled = in_array($wh->id, $selectedWarehouses) && $dist['warehouse_id'] != $wh->id;
+                                        @endphp
+                                        <flux:select.option value="{{ $wh->id }}" :disabled="$isDisabled">{{ $wh->name }}{{ $isDisabled ? ' (Sudah dipilih)' : '' }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+                            
+                            @if(!empty($dist['warehouse_id']))
+                                <div class="w-24 shrink-0 transition-all duration-300">
+                                    <flux:input type="number" wire:model.live.debounce.300ms="distributions.{{ $index }}.qty" min="1" max="{{ $order->requested_qty - $order->fulfilled_qty }}" placeholder="Qty" />
+                                </div>
+                            @else
+                                <div class="w-24 shrink-0"></div>
+                            @endif
+                            
+                            @if(count($distributions) > 1)
+                                <flux:button variant="subtle" icon="trash" class="shrink-0 mt-0.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-500/10" wire:click="removeDistribution({{ $index }})" />
+                            @else
+                                <div class="w-10 shrink-0"></div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+                
+                @if($errors->has('distributions.*.warehouse_id'))
+                    <div class="text-sm text-red-500">Mohon pastikan semua pilihan gudang terisi.</div>
+                @endif
+                
+                @if($errors->has('distributions.*.qty'))
+                    <div class="text-sm text-red-500">Mohon pastikan semua jumlah/qty terisi minimal 1.</div>
+                @endif
+
+                <flux:button variant="subtle" icon="plus" size="sm" class="w-full text-zinc-500 border-dashed" wire:click="addDistribution" :disabled="$this->isMaxQtyReached">Tambah Alokasi Gudang</flux:button>
+            </div>
+
+            <div class="mt-6 border-t border-zinc-200 dark:border-zinc-700 pt-4">
                 <flux:textarea wire:model="notes" label="Catatan (Opsional)" />
             </div>
 

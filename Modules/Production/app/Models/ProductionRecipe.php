@@ -17,6 +17,11 @@ class ProductionRecipe extends Model
         return $this->hasMany(ProductionRecipeItem::class);
     }
 
+    public function item()
+    {
+        return $this->belongsTo(\Modules\Inventory\Models\Item::class);
+    }
+
     // protected static function newFactory(): ProductionRecipeFactory
     // {
     //     // return ProductionRecipeFactory::new();

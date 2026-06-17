@@ -155,10 +155,10 @@ on([
                                 <flux:badge :color="$color" size="sm">{{ $label }}</flux:badge>
                             </flux:table.cell>
                             <flux:table.cell class="text-right font-medium">
-                                @if($move->quantity > 0)
+                                @if(str_contains($move->type, 'in') || str_contains($move->type, 'plus'))
                                     <span class="text-emerald-600 dark:text-emerald-400">+{{ $move->quantity }}</span>
                                 @else
-                                    <span class="text-red-600 dark:text-red-400">{{ $move->quantity }}</span>
+                                    <span class="text-red-600 dark:text-red-400">-{{ abs($move->quantity) }}</span>
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell class="text-center font-semibold">{{ $move->stock_after }}</flux:table.cell>

@@ -49,6 +49,11 @@ new #[Layout('layouts.empty')] class extends Component {
             overflow: hidden; 
         }
         
+        .label-card:last-of-type {
+            page-break-after: auto;
+            break-after: auto;
+        }
+        
         .qr-container { 
             flex-shrink: 0; 
             display: flex; 

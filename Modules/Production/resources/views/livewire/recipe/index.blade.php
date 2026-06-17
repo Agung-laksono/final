@@ -118,4 +118,5 @@ on(['recipe-saved' => function () {
     </div>
 
     <livewire:recipe.form-modal />
+    <livewire:global.item-gallery-modal context="inventory" />
 </div>

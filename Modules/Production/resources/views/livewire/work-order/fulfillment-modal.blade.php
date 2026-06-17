@@ -3,6 +3,8 @@ use function Livewire\Volt\{state, on};
 use Modules\Production\Models\ProductionOrder;
 use Modules\Production\Models\ProductionRecipe;
 use Modules\Inventory\Models\InventoryRequest;
+use Modules\Inventory\Models\ItemLabel;
+use Modules\Inventory\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 
 state([
@@ -10,6 +12,7 @@ state([
     'orderId' => null,
     'order' => null,
     'notes' => '',
+    'production_mode' => 'internal', // 'internal' or 'maklon'
     'items' => [], // Array of BOM items with inputs
 ]);
 
@@ -17,6 +20,7 @@ on(['open-fulfillment-modal' => function ($orderId) {
     $this->orderId = $orderId;
     $this->order = ProductionOrder::with('item')->find($orderId);
     $this->notes = '';
+    $this->production_mode = 'internal';
     
     // Load BOM
     $this->items = [];
@@ -27,13 +31,21 @@ on(['open-fulfillment-modal' => function ($orderId) {
                 $neededQty = $recipeItem->qty * $this->order->requested_qty;
                 $stock = DB::table('item_warehouse')->where('item_id', $recipeItem->item_id)->sum('stock');
                 
+                $existingRequest = InventoryRequest::where('item_id', $recipeItem->item_id)
+                    ->where('source_type', 'production')
+                    ->where('reference_number', $this->order->order_number)
+                    ->first();
+                
                 $this->items[] = [
                     'item_id' => $recipeItem->item_id,
                     'name' => $recipeItem->item->name,
+                    'requires_label' => $recipeItem->item->requires_label,
                     'needed' => $neededQty,
                     'stock' => $stock,
                     'input_qty' => 0,
-                    'scanned_labels' => [] // If they use scanner in the future
+                    'scanned_labels' => [],
+                    'request_status' => $existingRequest ? $existingRequest->status : null,
+                    'request_qty' => $existingRequest ? $existingRequest->requested_qty : 0,
                 ];
             }
         }
@@ -42,52 +54,241 @@ on(['open-fulfillment-modal' => function ($orderId) {
     $this->show = true;
 }]);
 
+on(['barcode-scanned' => function ($code) {
+    if (!$this->show) return;
+
+    $code = trim($code);
+    if (empty($code)) return;
+
+    $label = ItemLabel::with('item')->where('label_code', $code)->first();
+
+    if (!$label) {
+        \Flux::toast('Barcode tidak terdaftar dalam sistem.', variant: 'danger');
+        return;
+    }
+
+    if ($label->status !== 'in_stock') {
+        \Flux::toast("Barcode {$code} tidak tersedia (status: {$label->status}).", variant: 'danger');
+        return;
+    }
+
+    // Cari item ini di BOM
+    $itemIndex = null;
+    foreach ($this->items as $idx => $material) {
+        if ($material['item_id'] === $label->item_id) {
+            $itemIndex = $idx;
+            break;
+        }
+    }
+
+    if ($itemIndex === null) {
+        \Flux::toast("Bahan {$label->item->name} tidak ada dalam resep produk ini.", variant: 'danger');
+        return;
+    }
+
+    $material = $this->items[$itemIndex];
+
+    if (!$material['requires_label']) {
+        \Flux::toast("Bahan {$label->item->name} tidak membutuhkan scan barcode.", variant: 'warning');
+        return;
+    }
+
+    // Cek apakah sudah di-scan
+    $alreadyScanned = false;
+    foreach ($material['scanned_labels'] as $sl) {
+        if ($sl['id'] === $label->id) {
+            $alreadyScanned = true;
+            break;
+        }
+    }
+
+    if ($alreadyScanned) {
+        \Flux::toast("Barcode {$code} sudah di-scan sebelumnya.", variant: 'warning');
+        return;
+    }
+
+    // Cek apakah kuota sudah terpenuhi
+    if ($material['input_qty'] >= $material['needed']) {
+        \Flux::toast("Kebutuhan bahan {$label->item->name} sudah terpenuhi.", variant: 'warning');
+        return;
+    }
+
+    // Tambahkan ke scanned labels
+    $this->items[$itemIndex]['scanned_labels'][] = [
+        'id' => $label->id,
+        'code' => $label->label_code,
+        'warehouse_id' => $label->warehouse_id
+    ];
+    $this->items[$itemIndex]['input_qty']++;
+
+    \Flux::toast("Berhasil scan: {$label->item->name} ({$code})", variant: 'success');
+}]);
+
+$removeScannedLabel = function($itemIndex, $labelIndex) {
+    unset($this->items[$itemIndex]['scanned_labels'][$labelIndex]);
+    $this->items[$itemIndex]['scanned_labels'] = array_values($this->items[$itemIndex]['scanned_labels']);
+    $this->items[$itemIndex]['input_qty']--;
+};
+
 $save = function () {
     abort_unless(auth()->user()->can('production.order.update'), 403);
     
     if ($this->order) {
-        $hasDeficit = false;
-        
+        if (empty($this->items)) {
+            \Flux::toast('Produk ini belum memiliki resep (BOM). Harap buat resep terlebih dahulu.', variant: 'danger');
+            return;
+        }
+
+        // Validasi ketat (Backend Protection)
         foreach ($this->items as $material) {
             $inputQty = (int) $material['input_qty'];
-            $deficit = max(0, $material['needed'] - $inputQty);
             
-            if ($deficit > 0) {
-                $hasDeficit = true;
-                
-                // Cek apakah sudah ada request
-                $existingRequest = InventoryRequest::where('item_id', $material['item_id'])
-                    ->where('source_type', 'production')
-                    ->where('reference_number', $this->order->order_number)
-                    ->exists();
-                    
-                if (!$existingRequest) {
-                    InventoryRequest::create([
-                        'item_id' => $material['item_id'],
-                        'source_type' => 'production',
-                        'reference_number' => $this->order->order_number,
-                        'requested_qty' => $deficit,
-                        'notes' => 'Defisit Bahan Baku Produksi (Disiapkan: ' . $inputQty . ', Butuh: ' . $material['needed'] . ')',
-                        'status' => 'draft',
-                    ]);
-                }
+            if ($inputQty < 0) {
+                \Flux::toast("Input kuantitas untuk {$material['name']} tidak valid.", variant: 'danger');
+                return;
+            }
+
+            if ($inputQty > $material['needed']) {
+                \Flux::toast("Kuantitas {$material['name']} melebihi jumlah yang dibutuhkan ({$material['needed']}).", variant: 'danger');
+                return;
+            }
+
+            if ($inputQty > $material['stock']) {
+                \Flux::toast("Stok {$material['name']} di gudang tidak mencukupi untuk memenuhi input ({$inputQty} > {$material['stock']}).", variant: 'danger');
+                return;
+            }
+            
+            if ($material['requires_label'] && count($material['scanned_labels']) !== $inputQty) {
+                \Flux::toast("Jumlah scan barcode untuk {$material['name']} tidak sesuai dengan perhitungan.", variant: 'danger');
+                return;
             }
         }
+
+        $hasDeficit = false;
         
-        if ($hasDeficit) {
-            $this->order->status = 'waiting_material';
-            if ($this->notes) {
-                $this->order->notes = $this->order->notes . "\n[Material Shortage]: " . $this->notes;
+        DB::transaction(function () use (&$hasDeficit) {
+            foreach ($this->items as $material) {
+                $inputQty = (int) $material['input_qty'];
+                $deficit = max(0, $material['needed'] - $inputQty);
+                
+                if ($deficit > 0) {
+                    $hasDeficit = true;
+                    
+                    // Cek apakah sudah ada request
+                    $existingRequest = InventoryRequest::where('item_id', $material['item_id'])
+                        ->where('source_type', 'production')
+                        ->where('reference_number', $this->order->order_number)
+                        ->exists();
+                        
+                    if (!$existingRequest) {
+                        InventoryRequest::create([
+                            'item_id' => $material['item_id'],
+                            'source_type' => 'production',
+                            'reference_number' => $this->order->order_number,
+                            'requested_qty' => $deficit,
+                            'notes' => 'Defisit Bahan Baku Produksi (Disiapkan: ' . $inputQty . ', Butuh: ' . $material['needed'] . ')',
+                            'status' => 'draft',
+                        ]);
+                    }
+                }
+
+                if ($inputQty > 0) {
+                    if ($material['requires_label']) {
+                        foreach ($material['scanned_labels'] as $sl) {
+                            $labelModel = ItemLabel::find($sl['id']);
+                            $labelModel->status = 'consumed';
+                            $labelModel->notes = 'Dikonsumsi untuk Produksi: ' . $this->order->order_number;
+                            $labelModel->save();
+
+                            DB::table('item_warehouse')
+                                ->where('item_id', $material['item_id'])
+                                ->where('warehouse_id', $sl['warehouse_id'])
+                                ->decrement('stock', 1);
+
+                            $newStock = DB::table('item_warehouse')
+                                ->where('item_id', $material['item_id'])
+                                ->where('warehouse_id', $sl['warehouse_id'])
+                                ->value('stock');
+
+                            StockMovement::create([
+                                'item_id' => $material['item_id'],
+                                'warehouse_id' => $sl['warehouse_id'],
+                                'type' => 'out',
+                                'quantity' => 1,
+                                'stock_before' => $newStock + 1,
+                                'stock_after' => $newStock,
+                                'reference_number' => $this->order->order_number,
+                                'date' => now()->toDateString(),
+                                'notes' => 'Fulfillment bahan produksi. Label: ' . $sl['code'],
+                                'user_id' => auth()->id(),
+                            ]);
+                        }
+                    } else {
+                        $remainingToDeduct = $inputQty;
+                        $warehouses = DB::table('item_warehouse')
+                            ->where('item_id', $material['item_id'])
+                            ->where('stock', '>', 0)
+                            ->orderBy('stock', 'desc')
+                            ->get();
+
+                        foreach ($warehouses as $wh) {
+                            if ($remainingToDeduct <= 0) break;
+
+                            $deduct = min($wh->stock, $remainingToDeduct);
+                            DB::table('item_warehouse')
+                                ->where('id', $wh->id)
+                                ->decrement('stock', $deduct);
+
+                            StockMovement::create([
+                                'item_id' => $material['item_id'],
+                                'warehouse_id' => $wh->warehouse_id,
+                                'type' => 'out',
+                                'quantity' => $deduct,
+                                'stock_before' => $wh->stock,
+                                'stock_after' => $wh->stock - $deduct,
+                                'reference_number' => $this->order->order_number,
+                                'date' => now()->toDateString(),
+                                'notes' => 'Fulfillment bahan produksi.',
+                                'user_id' => auth()->id(),
+                            ]);
+
+                            $remainingToDeduct -= $deduct;
+                        }
+                    }
+                }
             }
-            $this->order->save();
+            
+            if ($hasDeficit) {
+                $this->order->status = 'waiting_material';
+                if ($this->notes) {
+                    $this->order->notes = $this->order->notes . "\n[Material Shortage]: " . $this->notes;
+                }
+                $this->order->save();
+            } else {
+                if ($this->production_mode === 'maklon') {
+                    $this->order->status = 'waiting_vendor';
+                    if ($this->notes) {
+                        $this->order->notes = $this->order->notes . "\n[Fulfillment]: " . $this->notes;
+                    }
+                    $this->order->save();
+                } else {
+                    $this->order->status = 'in_production';
+                    if ($this->notes) {
+                        $this->order->notes = $this->order->notes . "\n[Fulfillment]: " . $this->notes;
+                    }
+                    $this->order->save();
+                }
+            }
+        });
+
+        if ($hasDeficit) {
             \Flux::toast('Bahan baku kurang! Otomatis membuat antrean permintaan barang.', variant: 'warning');
         } else {
-            $this->order->status = 'in_production';
-            if ($this->notes) {
-                $this->order->notes = $this->order->notes . "\n[Fulfillment]: " . $this->notes;
+            if ($this->production_mode === 'maklon') {
+                \Flux::toast('Semua bahan disiapkan. Pesanan masuk ke Antre Maklon.', variant: 'success');
+            } else {
+                \Flux::toast('Semua bahan disiapkan. Status menjadi Sedang Diproduksi (Internal).', variant: 'success');
             }
-            $this->order->save();
-            \Flux::toast('Semua bahan disiapkan. Status menjadi Sedang Diproduksi.', variant: 'success');
         }
 
         $this->dispatch('status-updated');
@@ -132,42 +333,122 @@ $save = function () {
                                     <div class="inline-block ml-2"><flux:badge size="sm" color="green">Lengkap</flux:badge></div>
                                 @endif
                             </div>
-                            <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex gap-3">
+                            <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex flex-wrap gap-3 items-center">
                                 <div>Dibutuhkan: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['needed'] }}</span></div>
                                 <div class="border-l border-zinc-300 dark:border-zinc-600 pl-3">Stok Fisik: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['stock'] }}</span></div>
+                                @if($item['request_status'])
+                                    <div class="border-l border-zinc-300 dark:border-zinc-600 pl-3">
+                                        Status Purchasing: 
+                                        @if($item['request_status'] === 'draft')
+                                            <span class="text-orange-500 font-medium">Dalam Antrean (Draft) &middot; {{ $item['request_qty'] }} dipesan</span>
+                                        @elseif($item['request_status'] === 'ordered')
+                                            <span class="text-blue-500 font-medium">Sedang Diperjalanan (Ordered) &middot; {{ $item['request_qty'] }} dipesan</span>
+                                        @elseif($item['request_status'] === 'completed')
+                                            <span class="text-green-500 font-medium">Selesai (Completed) &middot; {{ $item['request_qty'] }} diterima</span>
+                                        @else
+                                            <span class="text-zinc-500">{{ $item['request_status'] }} &middot; {{ $item['request_qty'] }} dipesan</span>
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                         </div>
                         
                         <div class="flex items-center gap-3 self-end sm:self-auto shrink-0 w-full sm:w-32 justify-between sm:justify-end mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-0 border-zinc-200 dark:border-zinc-700">
                             <span class="text-sm font-medium text-zinc-600 dark:text-zinc-400 sm:hidden">Siap Diberikan:</span>
                             <div class="w-24 sm:w-full">
-                                <flux:input type="number" wire:model="items.{{ $index }}.input_qty" min="0" max="{{ $item['needed'] }}" class="w-full text-center" />
+                                @if($item['requires_label'])
+                                    <div class="text-center font-bold text-xl text-indigo-600 dark:text-indigo-400">
+                                        {{ $item['input_qty'] }} <span class="text-xs text-zinc-500 font-normal">Scan</span>
+                                    </div>
+                                @else
+                                    <flux:input type="number" wire:model.live="items.{{ $index }}.input_qty" min="0" max="{{ min($item['needed'], $item['stock']) }}" class="w-full text-center" />
+                                @endif
                             </div>
                         </div>
                     </div>
+                    @if($item['requires_label'] && count($item['scanned_labels']) > 0)
+                        <div class="mt-2 ml-2 pl-4 border-l-2 border-indigo-200 dark:border-indigo-900/50 flex flex-wrap gap-2">
+                            @foreach($item['scanned_labels'] as $labelIndex => $sl)
+                                <div class="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 text-xs px-2 py-1 rounded border border-indigo-100 dark:border-indigo-800/50">
+                                    <flux:icon.qr-code class="w-3 h-3" />
+                                    {{ $sl['code'] }}
+                                    <button type="button" wire:click="removeScannedLabel({{ $index }}, {{ $labelIndex }})" class="ml-1 text-indigo-400 hover:text-red-500"><flux:icon.x-mark class="w-3 h-3" /></button>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
                 @endforeach
             @else
-                <div class="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-lg text-sm flex gap-2">
-                    <flux:icon.information-circle class="w-5 h-5 shrink-0" />
-                    <p>Tidak ada data resep (BOM) untuk produk ini. Abaikan scan dan langsung konfirmasi penyiapan bahan.</p>
+                <div class="p-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 rounded-xl flex flex-col items-center justify-center text-center">
+                    <div class="w-12 h-12 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mb-3">
+                        <flux:icon.exclamation-triangle class="w-6 h-6" />
+                    </div>
+                    <flux:heading size="md" class="text-red-800 dark:text-red-300 mb-1">Resep (BOM) Tidak Ditemukan</flux:heading>
+                    <p class="text-sm text-red-600 dark:text-red-400 max-w-sm mx-auto mb-4">
+                        Sistem menolak produksi karena resep bahan baku kosong. Produksi buta tanpa resep akan merusak pelacakan stok.
+                    </p>
+                    <flux:button href="{{ route('production.recipes') }}" wire:navigate variant="danger" icon="document-plus">
+                        Buka Menu Resep (BOM)
+                    </flux:button>
                 </div>
             @endif
+        </div>
+
+        @if(count($items) > 0)
+        <div class="mt-6 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
+            <flux:heading size="md" class="mb-3">Metode Produksi</flux:heading>
+            <flux:radio.group wire:model="production_mode" class="flex flex-col sm:flex-row gap-4">
+                <flux:radio value="internal" label="Produksi Internal (In-House)" />
+                <flux:radio value="maklon" label="Kirim ke Vendor (Maklon / Eksternal)" />
+            </flux:radio.group>
         </div>
 
         <div class="mt-4">
             <flux:textarea wire:model="notes" label="Catatan (Opsional)" placeholder="Misal: Bahan baku kurang..." />
         </div>
 
+        @php
+            $hasIncompleteInput = false;
+            $hasStockDeficit = false;
+
+            foreach ($items as $item) {
+                $maxInput = min((int)$item['needed'], (int)$item['stock']);
+                if ((int)$item['input_qty'] < $maxInput) {
+                    $hasIncompleteInput = true;
+                }
+                if ((int)$item['needed'] > (int)$item['stock']) {
+                    $hasStockDeficit = true;
+                }
+            }
+        @endphp
+
         <div class="mt-6 flex flex-col-reverse sm:flex-row justify-between items-center gap-4">
             <span class="text-xs text-zinc-500 text-center sm:text-left w-full sm:w-auto">
                 <flux:icon.information-circle class="inline w-4 h-4 mr-1 text-blue-500" />
-                Jika input kurang dari dibutuhkan, pesanan masuk ke status Menunggu Bahan.
+                @if($hasIncompleteInput)
+                    Harap lengkapi input/scan bahan baku yang <strong class="text-zinc-700 dark:text-zinc-300">tersedia di gudang</strong> sebelum melanjutkan.
+                @elseif($hasStockDeficit)
+                    Pesanan akan masuk ke status <strong class="text-amber-600 dark:text-amber-500">Menunggu Bahan</strong> dan otomatis membuat pengajuan pembelian ke Purchasing.
+                @else
+                    Pesanan akan diteruskan ke proses produksi.
+                @endif
             </span>
             <div class="flex gap-2 sm:gap-3 w-full sm:w-auto">
                 <flux:button variant="ghost" wire:click="$set('show', false)" class="flex-1 sm:flex-none">Batal</flux:button>
-                <flux:button variant="primary" wire:click="save" icon="check" class="flex-1 sm:flex-none">Simpan</flux:button>
+                @if($hasIncompleteInput)
+                    <flux:button variant="primary" disabled class="flex-1 sm:flex-none opacity-50 cursor-not-allowed">Lengkapi Bahan</flux:button>
+                @elseif($hasStockDeficit)
+                    <flux:button variant="danger" wire:click="save" icon="shopping-cart" class="flex-1 sm:flex-none">Ajukan Pengadaan Bahan</flux:button>
+                @else
+                    <flux:button variant="primary" wire:click="save" icon="check" class="flex-1 sm:flex-none">Lanjut Produksi</flux:button>
+                @endif
             </div>
         </div>
+        @else
+        <div class="mt-6 flex justify-end">
+            <flux:button variant="ghost" wire:click="$set('show', false)">Tutup</flux:button>
+        </div>
+        @endif
     </div>
     @endif
 </flux:modal>

@@ -10,12 +10,14 @@ state([
         'pending_approval' => ['title' => 'Menunggu Persetujuan', 'color' => 'amber'],
         'waiting_material' => ['title' => 'Menunggu Bahan', 'color' => 'red'],
         'material_fulfillment' => ['title' => 'Pemenuhan Bahan', 'color' => 'orange'],
+        'waiting_vendor' => ['title' => 'Antre Maklon', 'color' => 'cyan'],
         'in_production' => ['title' => 'Sedang Diproduksi', 'color' => 'blue'],
         'receiving' => ['title' => 'Penerimaan Gudang', 'color' => 'purple'],
         'completed' => ['title' => 'Selesai', 'color' => 'emerald'],
         'archived' => ['title' => 'Arsip', 'color' => 'zinc'],
     ],
     'search' => '',
+    'selectedOrders' => [],
 ]);
 
 $orders = computed(function () {
@@ -45,6 +47,64 @@ $updateStatus = function ($orderId, $newStatus) {
     }
 };
 
+$checkMaterialArrival = function ($orderId) {
+    abort_unless(auth()->user()->can('production.order.update'), 403);
+    
+    $po = ProductionOrder::find($orderId);
+    if (!$po) return;
+
+    $recipe = \DB::table('production_recipes')->where('item_id', $po->item_id)->where('is_active', true)->first();
+    
+    // Jika tidak ada resep, langsung loloskan
+    if (!$recipe) {
+        $po->status = 'material_fulfillment';
+        $po->save();
+        \Flux::toast('Lanjut ke Penyiapan Bahan.', variant: 'success');
+        return;
+    }
+
+    $recipeItems = \DB::table('production_recipe_items')
+        ->join('items', 'production_recipe_items.item_id', '=', 'items.id')
+        ->where('production_recipe_id', $recipe->id)
+        ->select('production_recipe_items.*', 'items.name')
+        ->get();
+
+    $deficitItems = [];
+
+    foreach ($recipeItems as $ri) {
+        $needed = $ri->qty * $po->requested_qty;
+        $stock = \DB::table('item_warehouse')
+            ->where('item_id', $ri->item_id)
+            ->sum('stock') ?? 0;
+
+        if ($stock < $needed) {
+            $deficitItems[] = "{$ri->name} (Butuh: {$needed}, Fisik: {$stock})";
+        }
+    }
+
+    if (count($deficitItems) > 0) {
+        $msg = "Bahan fisik di gudang masih kurang! " . implode(', ', $deficitItems);
+        \Flux::toast($msg, variant: 'danger');
+        return;
+    }
+
+    // Jika lengkap
+    $po->status = 'material_fulfillment';
+    $po->save();
+    \Flux::toast('Semua bahan fisik telah tervalidasi! Silakan masuk ke Penyiapan Bahan untuk memotong stok.', variant: 'success');
+};
+
+$toggleSelection = function ($orderId) {
+    if (in_array($orderId, $this->selectedOrders)) {
+        $this->selectedOrders = array_diff($this->selectedOrders, [$orderId]);
+    } else {
+        $this->selectedOrders[] = $orderId;
+    }
+};
+
+on(['maklon-po-created' => function () {
+    $this->selectedOrders = [];
+}]);
 ?>
 
 <div class="space-y-6">
@@ -66,7 +126,12 @@ $updateStatus = function ($orderId, $newStatus) {
                         <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500"></div>
                         <h3 class="font-semibold text-zinc-800 dark:text-zinc-200">{{ $column['title'] }}</h3>
                     </div>
-                    <flux:badge size="sm">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
+                    <div class="flex items-center gap-2">
+                        @if($statusKey === 'waiting_vendor' && count($this->selectedOrders) > 0)
+                            <flux:button size="sm" variant="primary" icon="plus" wire:click="$dispatch('open-maklon-modal', { orderIds: {{ json_encode($this->selectedOrders) }} })">Buat PO</flux:button>
+                        @endif
+                        <flux:badge size="sm">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
+                    </div>
                 </div>
                 
                 <div class="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
@@ -74,9 +139,18 @@ $updateStatus = function ($orderId, $newStatus) {
                         <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
                             <div class="flex justify-between items-start mb-2">
                                 <span class="text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">{{ $order->order_number }}</span>
-                                <span class="text-[10px] text-zinc-500">{{ $order->created_at->format('d M') }}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] text-zinc-500">{{ $order->created_at->format('d M') }}</span>
+                                </div>
                             </div>
-                            <div class="font-bold text-sm text-zinc-900 dark:text-white mb-1">{{ $order->item->name }}</div>
+                            <div class="flex items-start gap-2">
+                                @if($statusKey === 'waiting_vendor')
+                                    <div class="pt-0.5">
+                                        <flux:checkbox wire:click="toggleSelection({{ $order->id }})" :checked="in_array($order->id, $this->selectedOrders)" />
+                                    </div>
+                                @endif
+                                <div class="font-bold text-sm text-zinc-900 dark:text-white mb-1">{{ $order->item->name }}</div>
+                            </div>
                             <div class="flex gap-2 text-sm text-zinc-600 dark:text-zinc-400 mb-3">
                                 <div>Target: <span class="font-bold text-blue-600">{{ $order->requested_qty }}</span></div>
                                 @if($order->fulfilled_qty > 0)
@@ -89,14 +163,21 @@ $updateStatus = function ($orderId, $newStatus) {
                                     <flux:icon.link class="w-3 h-3" /> Ref: {{ $order->reference_number }}
                                 </div>
                             @endif
+                            @if($order->purchaseOrder)
+                                <div class="text-xs text-zinc-500 flex items-center gap-1 mb-2">
+                                    <flux:icon.truck class="w-3 h-3" /> PO: {{ $order->purchaseOrder->po_number }}
+                                </div>
+                            @endif
 
                             <div class="flex flex-col gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                                 @if($statusKey === 'pending_approval')
                                     <flux:button size="sm" variant="primary" wire:click="updateStatus({{ $order->id }}, 'material_fulfillment')" class="w-full justify-center">Setujui Produksi</flux:button>
                                 @elseif($statusKey === 'waiting_material')
-                                    <flux:button size="sm" variant="filled" wire:click="updateStatus({{ $order->id }}, 'material_fulfillment')" class="w-full justify-center !bg-red-600 hover:!bg-red-700 text-white">Bahan Sudah Datang</flux:button>
+                                    <flux:button size="sm" variant="filled" wire:click="checkMaterialArrival({{ $order->id }})" class="w-full justify-center !bg-red-600 hover:!bg-red-700 text-white" tooltip="Validasi stok gudang secara Real-Time">Validasi Kedatangan Bahan</flux:button>
                                 @elseif($statusKey === 'material_fulfillment')
                                     <flux:button size="sm" variant="filled" wire:click="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })" class="w-full justify-center !bg-orange-600 hover:!bg-orange-700 text-white">Bahan Siap -> Produksi</flux:button>
+                                @elseif($statusKey === 'waiting_vendor')
+                                    <flux:button size="sm" variant="subtle" wire:click="updateStatus({{ $order->id }}, 'material_fulfillment')" class="w-full justify-center text-zinc-500">Batal Maklon</flux:button>
                                 @elseif($statusKey === 'in_production')
                                     <div class="flex gap-2">
                                         <flux:button size="sm" variant="subtle" wire:click="$dispatch('open-vendor-cost-modal', { orderId: {{ $order->id }} })" class="w-full justify-center" tooltip="Input Biaya Vendor/Maklon">
@@ -122,6 +203,7 @@ $updateStatus = function ($orderId, $newStatus) {
     </div>
 
     <livewire:work-order.fulfillment-modal />
+    <livewire:work-order.maklon-modal />
     <livewire:work-order.vendor-cost-modal />
     <livewire:work-order.receiving-modal />
 </div>
