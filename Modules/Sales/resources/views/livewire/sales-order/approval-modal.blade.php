@@ -20,6 +20,7 @@ $approve = function () {
     abort_unless(auth()->user()->can('sales.approve.update'), 403);
     
     if ($this->order) {
+        $hasDeficit = false;
         // --- CEK KETERSEDIAAN STOK DAN BUAT ANTREAN JIKA KURANG ---
         foreach ($this->order->items as $item) {
             // Hitung Available to Promise (ATP)
@@ -47,6 +48,7 @@ $approve = function () {
                         'notes' => 'Defisit stok untuk pesanan pelanggan (ATP: ' . $atp . ', Dipesan: ' . $item->qty . ')',
                         'status' => 'draft',
                     ]);
+                    $hasDeficit = true;
                 }
             }
         }
@@ -55,6 +57,10 @@ $approve = function () {
         // Simpan catatan persetujuan jika diperlukan
         $this->order->save();
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('sales_order');
+        if ($hasDeficit) {
+            \App\Events\KanbanUpdated::safeDispatch('inventory_request');
+        }
         $this->show = false;
         \Flux::toast('Pesanan disetujui, lanjut ke pemrosesan gudang.', variant: 'success');
     }
@@ -67,6 +73,7 @@ $reject = function () {
         $this->order->status = 'rejected';
         $this->order->save();
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('sales_order');
         $this->show = false;
         \Flux::toast('Pesanan ditolak.', variant: 'danger');
     }

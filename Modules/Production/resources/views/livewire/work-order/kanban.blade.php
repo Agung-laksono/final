@@ -8,7 +8,6 @@ title('Kanban Produksi');
 state([
     'columns' => [
         'pending_approval' => ['title' => 'Menunggu Persetujuan', 'color' => 'amber'],
-        'waiting_material' => ['title' => 'Menunggu Bahan', 'color' => 'red'],
         'material_fulfillment' => ['title' => 'Pemenuhan Bahan', 'color' => 'orange'],
         'waiting_vendor' => ['title' => 'Antre Maklon', 'color' => 'cyan'],
         'in_production' => ['title' => 'Sedang Diproduksi', 'color' => 'blue'],
@@ -29,12 +28,25 @@ $orders = computed(function () {
                   $q->where('name', 'like', '%' . $this->search . '%');
               });
     }
-    return $query->get()->groupBy('status');
+    
+    $grouped = $query->get()->groupBy('status');
+    
+    // Merge waiting_material ke dalam material_fulfillment
+    if (isset($grouped['waiting_material'])) {
+        $fulfillment = $grouped['material_fulfillment'] ?? collect();
+        $grouped['material_fulfillment'] = $fulfillment->merge($grouped['waiting_material'])->sortByDesc('created_at');
+        unset($grouped['waiting_material']);
+    }
+    
+    return $grouped;
 });
 
-on(['status-updated' => function () {
-    // Trigger re-render
-}]);
+on([
+    'status-updated' => function () {
+        // Trigger re-render
+    },
+    'echo:kanban.production_order,KanbanUpdated' => function () {}
+]);
 
 $updateStatus = function ($orderId, $newStatus) {
     abort_unless(auth()->user()->can('production.order.update'), 403);
@@ -43,6 +55,8 @@ $updateStatus = function ($orderId, $newStatus) {
     if ($po) {
         $po->status = $newStatus;
         $po->save();
+        $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('production_order');
         \Flux::toast('Status berhasil diperbarui.', variant: 'success');
     }
 };
@@ -59,6 +73,8 @@ $checkMaterialArrival = function ($orderId) {
     if (!$recipe) {
         $po->status = 'material_fulfillment';
         $po->save();
+        $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('production_order');
         \Flux::toast('Lanjut ke Penyiapan Bahan.', variant: 'success');
         return;
     }
@@ -73,12 +89,21 @@ $checkMaterialArrival = function ($orderId) {
 
     foreach ($recipeItems as $ri) {
         $needed = $ri->qty * $po->requested_qty;
+        
+        $alreadyConsumed = \DB::table('stock_movements')
+            ->where('reference_number', $po->order_number)
+            ->where('item_id', $ri->item_id)
+            ->where('type', 'out')
+            ->sum('quantity') ?? 0;
+            
+        $remainingNeeded = max(0, $needed - $alreadyConsumed);
+            
         $stock = \DB::table('item_warehouse')
             ->where('item_id', $ri->item_id)
             ->sum('stock') ?? 0;
 
-        if ($stock < $needed) {
-            $deficitItems[] = "{$ri->name} (Butuh: {$needed}, Fisik: {$stock})";
+        if ($stock < $remainingNeeded) {
+            $deficitItems[] = "{$ri->name} (Butuh: {$remainingNeeded}, Fisik: {$stock})";
         }
     }
 
@@ -91,6 +116,8 @@ $checkMaterialArrival = function ($orderId) {
     // Jika lengkap
     $po->status = 'material_fulfillment';
     $po->save();
+    $this->dispatch('status-updated');
+    \App\Events\KanbanUpdated::safeDispatch('production_order');
     \Flux::toast('Semua bahan fisik telah tervalidasi! Silakan masuk ke Penyiapan Bahan untuk memotong stok.', variant: 'success');
 };
 
@@ -138,7 +165,14 @@ on(['maklon-po-created' => function () {
                     @forelse($this->orders[$statusKey] ?? [] as $order)
                         <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
                             <div class="flex justify-between items-start mb-2">
-                                <span class="text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">{{ $order->order_number }}</span>
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded w-max">{{ $order->order_number }}</span>
+                                    @if($order->status === 'waiting_material')
+                                        <span class="text-[10px] font-semibold text-red-600 dark:text-red-400 flex items-center gap-1">
+                                            <flux:icon.exclamation-triangle class="w-3 h-3" /> Kurang Bahan
+                                        </span>
+                                    @endif
+                                </div>
                                 <div class="flex items-center gap-2">
                                     <span class="text-[10px] text-zinc-500">{{ $order->created_at->format('d M') }}</span>
                                 </div>
@@ -172,10 +206,12 @@ on(['maklon-po-created' => function () {
                             <div class="flex flex-col gap-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                                 @if($statusKey === 'pending_approval')
                                     <flux:button size="sm" variant="primary" wire:click="updateStatus({{ $order->id }}, 'material_fulfillment')" class="w-full justify-center">Setujui Produksi</flux:button>
-                                @elseif($statusKey === 'waiting_material')
-                                    <flux:button size="sm" variant="filled" wire:click="checkMaterialArrival({{ $order->id }})" class="w-full justify-center !bg-red-600 hover:!bg-red-700 text-white" tooltip="Validasi stok gudang secara Real-Time">Validasi Kedatangan Bahan</flux:button>
                                 @elseif($statusKey === 'material_fulfillment')
-                                    <flux:button size="sm" variant="filled" wire:click="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })" class="w-full justify-center !bg-orange-600 hover:!bg-orange-700 text-white">Bahan Siap -> Produksi</flux:button>
+                                    @if($order->status === 'waiting_material')
+                                        <flux:button size="sm" variant="filled" wire:click="checkMaterialArrival({{ $order->id }})" class="w-full justify-center !bg-red-600 hover:!bg-red-700 text-white" tooltip="Validasi stok gudang secara Real-Time">Validasi Kedatangan Bahan</flux:button>
+                                    @else
+                                        <flux:button size="sm" variant="filled" wire:click="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })" class="w-full justify-center !bg-orange-600 hover:!bg-orange-700 text-white">Bahan Siap -> Produksi</flux:button>
+                                    @endif
                                 @elseif($statusKey === 'waiting_vendor')
                                     <flux:button size="sm" variant="subtle" wire:click="updateStatus({{ $order->id }}, 'material_fulfillment')" class="w-full justify-center text-zinc-500">Batal Maklon</flux:button>
                                 @elseif($statusKey === 'in_production')

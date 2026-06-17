@@ -309,6 +309,7 @@ $save = function () {
 
         $this->show = false;
         $this->dispatch('status-updated'); // Refresh Kanban
+        \App\Events\KanbanUpdated::safeDispatch('purchase_order');
         
         // Buka modal cetak label otomatis jika ada label yang digenerate
         if (count($generatedLabelIds) > 0) {

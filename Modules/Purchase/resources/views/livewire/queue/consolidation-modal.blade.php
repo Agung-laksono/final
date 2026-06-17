@@ -53,7 +53,7 @@ $proceedToPO = function () {
                         <div class="flex-1 min-w-0">
                             <div class="flex justify-between items-start">
                                 <div class="font-semibold text-sm text-zinc-900 dark:text-zinc-100 truncate pr-2">{{ $q->item->name }}</div>
-                                <div class="font-mono text-xs text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded shrink-0">#PQ-{{ str_pad($q->id, 4, '0', STR_PAD_LEFT) }}</div>
+                                <div class="font-mono text-xs text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded shrink-0">#ANT-{{ str_pad($q->id, 4, '0', STR_PAD_LEFT) }}</div>
                             </div>
                             <div class="text-xs text-zinc-500 mt-1 flex items-center gap-2">
                                 <span class="font-bold text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded">Disetujui: {{ $q->approved_qty ?? $q->requested_qty }} {{ $q->item->unit->name ?? 'Unit' }}</span>

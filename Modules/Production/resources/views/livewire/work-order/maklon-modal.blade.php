@@ -47,7 +47,7 @@ $save = function () {
 
         // Create PO
         $nextId = PurchaseOrder::max('id') + 1;
-        $poNumber = 'PO-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $poNumber = 'GUNJAS-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
 
         $totalAmount = array_sum($this->costs);
 
@@ -87,6 +87,7 @@ $save = function () {
 
     $this->dispatch('maklon-po-created');
     $this->dispatch('status-updated');
+    \App\Events\KanbanUpdated::safeDispatch('production_order');
     $this->show = false;
     \Flux::toast('Perintah Kerja Maklon berhasil dibuat!', variant: 'success');
 };

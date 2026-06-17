@@ -211,10 +211,10 @@ $saveCart = function ($cartData) {
     $this->pajak_nominal = $cartData['pajak_nominal'] ?? 0;
 
     if (!$this->order_id) {
-        // Generate ODM-1000 format
+        // Generate PEM-1000 format
         $latestPo = PurchaseOrder::orderBy('id', 'desc')->first();
         $nextId = $latestPo ? $latestPo->id + 1 : 1000;
-        $this->po_number = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $this->po_number = 'PEM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
     }
 
     $this->validate([
@@ -323,6 +323,7 @@ $saveCart = function ($cartData) {
 
     $this->source_queues = []; // reset after success
 
+    \App\Events\KanbanUpdated::safeDispatch('purchase_order');
     Flux::toast('Purchase Order berhasil disimpan!', 'success');
     $this->redirectRoute('purchase.orders.kanban');
 };

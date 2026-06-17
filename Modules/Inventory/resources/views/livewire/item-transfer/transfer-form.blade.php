@@ -229,7 +229,7 @@ $removeLabel = function ($itemIndex, $labelId) {
 };
 
 $generateReferenceNumber = function () {
-    $prefix = 'TF-' . date('ymd') . '-';
+    $prefix = 'TRF-';
     $lastTransfer = StockTransfer::where('reference_number', 'like', $prefix . '%')
         ->orderBy('id', 'desc')
         ->first();

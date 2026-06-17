@@ -53,6 +53,7 @@ $saveApproval = function () {
         $queue->save();
         
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('purchase_queue');
         $this->show = false;
         \Flux::toast('Persetujuan berhasil disimpan.', variant: 'success');
     }

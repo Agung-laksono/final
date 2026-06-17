@@ -156,6 +156,7 @@ $save = function () {
         });
         
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('production_order');
         $this->show = false;
         
         if (count($generatedLabelIds) > 0) {

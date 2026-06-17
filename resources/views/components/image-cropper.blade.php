@@ -13,6 +13,7 @@
 <div x-data="window.imageCropperData('{{ $wireModel }}')" 
      x-init="$watch('isCropping', val => val ? Flux.modal('{{ $modalName }}').show() : Flux.modal('{{ $modalName }}').close())"
      @item-saved.window="resetCropper()"
+     @reset-cropper.window="resetCropper()"
      class="relative">
 
     {{-- Modal Crop (1 Langkah) --}}

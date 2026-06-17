@@ -42,6 +42,7 @@ $save = function () {
     ]);
 
     $this->dispatch('status-updated'); // Memanggil event agar kanban ter-refresh
+    \App\Events\KanbanUpdated::safeDispatch('purchase_queue');
     $this->show = false;
     \Flux::toast('Permintaan pembelian berhasil ditambahkan ke antrean!', 'success');
 };

@@ -32,10 +32,22 @@
                     </flux:sidebar.item>
                     @endcan
                     @can('inventory.transfer.view')
-                    <flux:sidebar.item icon="arrows-right-left" :href="route('inventory.transfers')" :current="request()->routeIs('inventory.transfers*')" wire:navigate>
+                    <flux:sidebar.item :href="route('inventory.transfers')" :current="request()->routeIs('inventory.transfers*')" wire:navigate>
+                        <x-slot:icon>
+                            <div class="relative">
+                                <flux:icon.arrows-right-left class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                                <livewire:layout.sidebar-badge type="inventory_transfer" />
+                            </div>
+                        </x-slot:icon>
                         {{ __('Transfer Barang') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="inbox-arrow-down" :href="route('inventory.requests')" :current="request()->routeIs('inventory.requests*')" wire:navigate>
+                    <flux:sidebar.item :href="route('inventory.requests')" :current="request()->routeIs('inventory.requests*')" wire:navigate>
+                        <x-slot:icon>
+                            <div class="relative">
+                                <flux:icon.inbox-arrow-down class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                                <livewire:layout.sidebar-badge type="inventory_request" />
+                            </div>
+                        </x-slot:icon>
                         {{ __('Permintaan Barang') }}
                     </flux:sidebar.item>
                     @endcan
@@ -67,12 +79,24 @@
                 </flux:sidebar.item>
                 @endcan
                 @can('purchase.queue.view')
-                <flux:sidebar.item icon="queue-list" :href="route('purchase.queues.kanban')" :current="request()->routeIs('purchase.queues.*')" wire:navigate>
+                <flux:sidebar.item :href="route('purchase.queues.kanban')" :current="request()->routeIs('purchase.queues.*')" wire:navigate>
+                    <x-slot:icon>
+                        <div class="relative">
+                            <flux:icon.queue-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                            <livewire:layout.sidebar-badge type="purchase_queue" />
+                        </div>
+                    </x-slot:icon>
                     {{ __('Kanban Permintaan') }}
                 </flux:sidebar.item>
                 @endcan
                 @can('purchase.order.view')
-                <flux:sidebar.item icon="clipboard-document-list" :href="route('purchase.orders.kanban')" :current="request()->routeIs('purchase.orders.*')" wire:navigate>
+                <flux:sidebar.item :href="route('purchase.orders.kanban')" :current="request()->routeIs('purchase.orders.*')" wire:navigate>
+                    <x-slot:icon>
+                        <div class="relative">
+                            <flux:icon.clipboard-document-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                            <livewire:layout.sidebar-badge type="purchase_order" />
+                        </div>
+                    </x-slot:icon>
                     {{ __('Kanban PO') }}
                 </flux:sidebar.item>
                 @endcan
@@ -91,7 +115,13 @@
                     {{ __('PRODUKSI') }}
                 </div>
                 @can('production.order.view')
-                <flux:sidebar.item icon="wrench-screwdriver" :href="route('production.orders')" :current="request()->routeIs('production.orders*')" wire:navigate>
+                <flux:sidebar.item :href="route('production.orders')" :current="request()->routeIs('production.orders*')" wire:navigate>
+                    <x-slot:icon>
+                        <div class="relative">
+                            <flux:icon.wrench-screwdriver class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                            <livewire:layout.sidebar-badge type="production_order" />
+                        </div>
+                    </x-slot:icon>
                     {{ __('Kanban Produksi') }}
                 </flux:sidebar.item>
                 @endcan
@@ -120,7 +150,13 @@
                 </flux:sidebar.item>
                 @endcan
                 @can('sales.order.view')
-                <flux:sidebar.item icon="clipboard-document-list" :href="route('sales.orders.kanban')" :current="request()->routeIs('sales.orders.*')" wire:navigate>
+                <flux:sidebar.item :href="route('sales.orders.kanban')" :current="request()->routeIs('sales.orders.*')" wire:navigate>
+                    <x-slot:icon>
+                        <div class="relative">
+                            <flux:icon.clipboard-document-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                            <livewire:layout.sidebar-badge type="sales_order" />
+                        </div>
+                    </x-slot:icon>
                     {{ __('Kanban Sales Order') }}
                 </flux:sidebar.item>
                 @endcan

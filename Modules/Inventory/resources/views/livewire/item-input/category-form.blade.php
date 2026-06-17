@@ -66,7 +66,7 @@ $delete = function (Category $category) {
                         <span class="font-semibold text-zinc-900 dark:text-white">{{ $category->name }}</span>
                         <flux:badge size="sm" variant="pill" color="blue" class="font-mono">{{ $category->items_count }} Barang</flux:badge>
                     </div>
-                    <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="flex gap-2 transition-opacity">
                         <flux:button wire:click="openModal({{ $category->id }})" variant="ghost" size="sm" icon="pencil" class="text-blue-500 hover:text-blue-700" />
                         <flux:button wire:click="delete({{ $category->id }})" wire:confirm="Yakin menghapus kategori {{ $category->name }}?" variant="ghost" size="sm" icon="trash" class="text-red-500 hover:text-red-700" />
                     </div>

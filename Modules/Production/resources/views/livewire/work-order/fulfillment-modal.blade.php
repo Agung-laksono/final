@@ -31,6 +31,14 @@ on(['open-fulfillment-modal' => function ($orderId) {
                 $neededQty = $recipeItem->qty * $this->order->requested_qty;
                 $stock = DB::table('item_warehouse')->where('item_id', $recipeItem->item_id)->sum('stock');
                 
+                $alreadyConsumed = DB::table('stock_movements')
+                    ->where('reference_number', $this->order->order_number)
+                    ->where('item_id', $recipeItem->item_id)
+                    ->where('type', 'out')
+                    ->sum('quantity') ?? 0;
+                
+                $remainingNeeded = max(0, $neededQty - $alreadyConsumed);
+                
                 $existingRequest = InventoryRequest::where('item_id', $recipeItem->item_id)
                     ->where('source_type', 'production')
                     ->where('reference_number', $this->order->order_number)
@@ -41,6 +49,8 @@ on(['open-fulfillment-modal' => function ($orderId) {
                     'name' => $recipeItem->item->name,
                     'requires_label' => $recipeItem->item->requires_label,
                     'needed' => $neededQty,
+                    'already_consumed' => $alreadyConsumed,
+                    'remaining_needed' => $remainingNeeded,
                     'stock' => $stock,
                     'input_qty' => 0,
                     'scanned_labels' => [],
@@ -148,8 +158,8 @@ $save = function () {
                 return;
             }
 
-            if ($inputQty > $material['needed']) {
-                \Flux::toast("Kuantitas {$material['name']} melebihi jumlah yang dibutuhkan ({$material['needed']}).", variant: 'danger');
+            if ($inputQty > $material['remaining_needed']) {
+                \Flux::toast("Kuantitas {$material['name']} melebihi sisa kekurangan yang dibutuhkan ({$material['remaining_needed']}).", variant: 'danger');
                 return;
             }
 
@@ -169,7 +179,7 @@ $save = function () {
         DB::transaction(function () use (&$hasDeficit) {
             foreach ($this->items as $material) {
                 $inputQty = (int) $material['input_qty'];
-                $deficit = max(0, $material['needed'] - $inputQty);
+                $deficit = max(0, $material['remaining_needed'] - $inputQty);
                 
                 if ($deficit > 0) {
                     $hasDeficit = true;
@@ -178,7 +188,7 @@ $save = function () {
                     $existingRequest = InventoryRequest::where('item_id', $material['item_id'])
                         ->where('source_type', 'production')
                         ->where('reference_number', $this->order->order_number)
-                        ->exists();
+                        ->first();
                         
                     if (!$existingRequest) {
                         InventoryRequest::create([
@@ -186,9 +196,14 @@ $save = function () {
                             'source_type' => 'production',
                             'reference_number' => $this->order->order_number,
                             'requested_qty' => $deficit,
-                            'notes' => 'Defisit Bahan Baku Produksi (Disiapkan: ' . $inputQty . ', Butuh: ' . $material['needed'] . ')',
+                            'notes' => 'Defisit Bahan Baku Produksi (Disiapkan: ' . ($material['already_consumed'] + $inputQty) . ', Total Butuh: ' . $material['needed'] . ')',
                             'status' => 'draft',
                         ]);
+                    } elseif ($existingRequest->status === 'draft') {
+                        // Update deficit if it's still in draft
+                        $existingRequest->requested_qty = $deficit;
+                        $existingRequest->notes = 'Defisit Bahan Baku Produksi (Disiapkan: ' . ($material['already_consumed'] + $inputQty) . ', Total Butuh: ' . $material['needed'] . ')';
+                        $existingRequest->save();
                     }
                 }
 
@@ -199,24 +214,11 @@ $save = function () {
                             $labelModel->status = 'consumed';
                             $labelModel->notes = 'Dikonsumsi untuk Produksi: ' . $this->order->order_number;
                             $labelModel->save();
-
-                            DB::table('item_warehouse')
-                                ->where('item_id', $material['item_id'])
-                                ->where('warehouse_id', $sl['warehouse_id'])
-                                ->decrement('stock', 1);
-
-                            $newStock = DB::table('item_warehouse')
-                                ->where('item_id', $material['item_id'])
-                                ->where('warehouse_id', $sl['warehouse_id'])
-                                ->value('stock');
-
                             StockMovement::create([
                                 'item_id' => $material['item_id'],
                                 'warehouse_id' => $sl['warehouse_id'],
                                 'type' => 'out',
-                                'quantity' => 1,
-                                'stock_before' => $newStock + 1,
-                                'stock_after' => $newStock,
+                                'quantity' => -1,
                                 'reference_number' => $this->order->order_number,
                                 'date' => now()->toDateString(),
                                 'notes' => 'Fulfillment bahan produksi. Label: ' . $sl['code'],
@@ -235,17 +237,11 @@ $save = function () {
                             if ($remainingToDeduct <= 0) break;
 
                             $deduct = min($wh->stock, $remainingToDeduct);
-                            DB::table('item_warehouse')
-                                ->where('id', $wh->id)
-                                ->decrement('stock', $deduct);
-
                             StockMovement::create([
                                 'item_id' => $material['item_id'],
                                 'warehouse_id' => $wh->warehouse_id,
                                 'type' => 'out',
-                                'quantity' => $deduct,
-                                'stock_before' => $wh->stock,
-                                'stock_after' => $wh->stock - $deduct,
+                                'quantity' => -$deduct,
                                 'reference_number' => $this->order->order_number,
                                 'date' => now()->toDateString(),
                                 'notes' => 'Fulfillment bahan produksi.',
@@ -292,6 +288,8 @@ $save = function () {
         }
 
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('production_order');
+        \App\Events\InventoryUpdated::safeDispatch('Fulfillment bahan produksi PO ' . $this->order->order_number . ' diproses');
         $this->show = false;
     }
 };
@@ -329,14 +327,14 @@ $save = function () {
                         <div class="flex-1">
                             <div class="text-zinc-900 dark:text-zinc-100 font-medium text-base">
                                 {{ $item['name'] }}
-                                @if($item['input_qty'] >= $item['needed'])
+                                @if($item['input_qty'] >= $item['remaining_needed'])
                                     <div class="inline-block ml-2"><flux:badge size="sm" color="green">Lengkap</flux:badge></div>
                                 @endif
                             </div>
                             <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex flex-wrap gap-3 items-center">
-                                <div>Dibutuhkan: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['needed'] }}</span></div>
+                                <div>Sisa Kurang: <span class="font-bold text-rose-600 dark:text-rose-500">{{ $item['remaining_needed'] }}</span> <span class="text-xs text-zinc-400">(Telah Diambil: {{ $item['already_consumed'] }} / Total Butuh: {{ $item['needed'] }})</span></div>
                                 <div class="border-l border-zinc-300 dark:border-zinc-600 pl-3">Stok Fisik: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['stock'] }}</span></div>
-                                @if($item['request_status'])
+                                @if($item['request_status'] && $item['remaining_needed'] > 0)
                                     <div class="border-l border-zinc-300 dark:border-zinc-600 pl-3">
                                         Status Purchasing: 
                                         @if($item['request_status'] === 'draft')
@@ -361,7 +359,7 @@ $save = function () {
                                         {{ $item['input_qty'] }} <span class="text-xs text-zinc-500 font-normal">Scan</span>
                                     </div>
                                 @else
-                                    <flux:input type="number" wire:model.live="items.{{ $index }}.input_qty" min="0" max="{{ min($item['needed'], $item['stock']) }}" class="w-full text-center" />
+                                    <flux:input type="number" wire:model.live="items.{{ $index }}.input_qty" min="0" max="{{ min($item['remaining_needed'], $item['stock']) }}" class="w-full text-center" />
                                 @endif
                             </div>
                         </div>
@@ -408,16 +406,20 @@ $save = function () {
         </div>
 
         @php
-            $hasIncompleteInput = false;
+            $hasIncompleteStockUsage = false;
             $hasStockDeficit = false;
-
-            foreach ($items as $item) {
-                $maxInput = min((int)$item['needed'], (int)$item['stock']);
-                if ((int)$item['input_qty'] < $maxInput) {
-                    $hasIncompleteInput = true;
-                }
-                if ((int)$item['needed'] > (int)$item['stock']) {
-                    $hasStockDeficit = true;
+            
+            foreach($items as $item) {
+                if ($item['remaining_needed'] > 0) {
+                    $maxCanFulfill = min($item['remaining_needed'], $item['stock']);
+                    
+                    if ($item['input_qty'] < $maxCanFulfill) {
+                        $hasIncompleteStockUsage = true;
+                    }
+                    
+                    if ($item['remaining_needed'] > $item['stock']) {
+                        $hasStockDeficit = true;
+                    }
                 }
             }
         @endphp
@@ -425,7 +427,7 @@ $save = function () {
         <div class="mt-6 flex flex-col-reverse sm:flex-row justify-between items-center gap-4">
             <span class="text-xs text-zinc-500 text-center sm:text-left w-full sm:w-auto">
                 <flux:icon.information-circle class="inline w-4 h-4 mr-1 text-blue-500" />
-                @if($hasIncompleteInput)
+                @if($hasIncompleteStockUsage)
                     Harap lengkapi input/scan bahan baku yang <strong class="text-zinc-700 dark:text-zinc-300">tersedia di gudang</strong> sebelum melanjutkan.
                 @elseif($hasStockDeficit)
                     Pesanan akan masuk ke status <strong class="text-amber-600 dark:text-amber-500">Menunggu Bahan</strong> dan otomatis membuat pengajuan pembelian ke Purchasing.
@@ -435,7 +437,7 @@ $save = function () {
             </span>
             <div class="flex gap-2 sm:gap-3 w-full sm:w-auto">
                 <flux:button variant="ghost" wire:click="$set('show', false)" class="flex-1 sm:flex-none">Batal</flux:button>
-                @if($hasIncompleteInput)
+                @if($hasIncompleteStockUsage)
                     <flux:button variant="primary" disabled class="flex-1 sm:flex-none opacity-50 cursor-not-allowed">Lengkapi Bahan</flux:button>
                 @elseif($hasStockDeficit)
                     <flux:button variant="danger" wire:click="save" icon="shopping-cart" class="flex-1 sm:flex-none">Ajukan Pengadaan Bahan</flux:button>

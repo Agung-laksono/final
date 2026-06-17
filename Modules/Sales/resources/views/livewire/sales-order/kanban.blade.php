@@ -19,12 +19,21 @@ state([
 ]);
 
 $orders = computed(function () {
-    $query = SalesOrder::with(['customer', 'creator'])->latest();
+    $query = SalesOrder::with(['customer', 'creator', 'items', 'fulfillments'])->latest();
+    
+    // Batasi: Staf Sales biasa hanya bisa melihat SO buatannya sendiri.
+    // Peran lain (Kepala Sales, Gudang, Shipping, Super Admin) tetap melihat semua.
+    if (auth()->user()->hasRole('Sales') && !auth()->user()->hasAnyRole(['Super Admin', 'Kepala Sales', 'Manager'])) {
+        $query->where('created_by', auth()->id());
+    }
+
     if ($this->search) {
-        $query->where('so_number', 'like', '%' . $this->search . '%')
-              ->orWhereHas('customer', function($q) {
-                  $q->where('name', 'like', '%' . $this->search . '%');
+        $query->where(function($q) {
+            $q->where('so_number', 'like', '%' . $this->search . '%')
+              ->orWhereHas('customer', function($q2) {
+                  $q2->where('name', 'like', '%' . $this->search . '%');
               });
+        });
     }
     return $query->get()->groupBy(function($so) {
         return $so->status ?? 'pending_approval';
@@ -42,6 +51,7 @@ $updateStatus = function ($orderId, $newStatus) {
         $so->status = $newStatus;
         $so->save();
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('sales_order');
     }
 };
 
@@ -58,12 +68,16 @@ $markAsArrived = function ($orderId) {
         
         \Flux::toast('Pesanan selesai! Barang sudah diterima pelanggan.', variant: 'success');
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('sales_order');
     }
 };
 
-on(['status-updated' => function () {
-    // Kosong saja, tujuannya hanya memancing re-render agar computed $orders dijalankan ulang
-}]);
+on([
+    'status-updated' => function () {
+        // Kosong saja, tujuannya hanya memancing re-render agar computed $orders dijalankan ulang
+    },
+    'echo:kanban.sales_order,KanbanUpdated' => function () {}
+]);
 
 ?>
 
@@ -171,14 +185,78 @@ on(['status-updated' => function () {
                                 <div class="text-sm font-bold text-zinc-900 dark:text-zinc-100 mt-2">
                                     Rp {{ number_format($order->total_amount, 0, ',', '.') }}
                                 </div>
-                                <div class="flex gap-2 mt-2">
-                                    <div class="text-[10px] text-zinc-500 bg-white dark:bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 w-fit">
-                                        {{ count($order->items ?? []) }} Barang
+                                @php
+                                    $orderedQty = $order->items->sum('qty');
+                                    $fulfilledQty = $order->fulfillments->sum('scanned_qty');
+                                    $progressPercent = $orderedQty > 0 ? min(100, round(($fulfilledQty / $orderedQty) * 100)) : 0;
+                                    
+                                    $totalActualPacking = (float)$order->actual_packing_fee + $order->items->sum('actual_packing_fee');
+                                    $totalActualShipping = (float)$order->actual_shipping_fee + $order->items->sum('actual_shipping_fee');
+                                    
+                                    $totalVerifiedPayment = $order->payments->where('status', 'verified')->sum('amount');
+                                    $totalAmount = (float)$order->total_amount;
+                                    $paymentPercent = $totalAmount > 0 ? min(100, round(($totalVerifiedPayment / $totalAmount) * 100)) : 0;
+                                @endphp
+                                
+                                <div class="mt-3 space-y-2">
+                                    {{-- Progress Bar Gudang --}}
+                                    <div class="space-y-1">
+                                        <div class="flex justify-between text-[10px] font-medium">
+                                            <span class="text-zinc-500">Progress Gudang</span>
+                                            <span class="{{ $progressPercent === 100 ? 'text-emerald-600' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $fulfilledQty }} / {{ $orderedQty }} ({{ $progressPercent }}%)</span>
+                                        </div>
+                                        <div class="h-1.5 w-full bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                                            <div class="h-full {{ $progressPercent === 100 ? 'bg-emerald-500' : 'bg-blue-500' }} transition-all duration-500" style="width: {{ $progressPercent }}%"></div>
+                                        </div>
                                     </div>
-                                    @if($order->courier_vendor)
-                                    <div class="text-[10px] text-zinc-500 bg-white dark:bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 w-fit flex items-center gap-1">
-                                        <flux:icon.truck class="w-3 h-3" /> {{ $order->courier_vendor }}
+                                    
+                                    {{-- Progress Bar Pembayaran --}}
+                                    <div class="space-y-1 mt-2">
+                                        <div class="flex justify-between text-[10px] font-medium">
+                                            <span class="text-zinc-500">Pembayaran</span>
+                                            <span class="{{ $paymentPercent === 100 ? 'text-emerald-600' : 'text-zinc-700 dark:text-zinc-300' }}">Rp {{ number_format($totalVerifiedPayment, 0, ',', '.') }} / {{ number_format($totalAmount, 0, ',', '.') }} ({{ $paymentPercent }}%)</span>
+                                        </div>
+                                        <div class="h-1.5 w-full bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                                            <div class="h-full {{ $paymentPercent === 100 ? 'bg-emerald-500' : 'bg-amber-500' }} transition-all duration-500" style="width: {{ $paymentPercent }}%"></div>
+                                        </div>
                                     </div>
+                                    
+                                    {{-- Packing Info (Hanya untuk Admin/Manager/Finance) --}}
+                                    @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Finance']))
+                                        @if(in_array($order->status, ['packing', 'shipping', 'completed']) && ($totalActualPacking > 0 || $order->packing_receipt_path || $order->packing_fee > 0))
+                                            <div class="flex items-center justify-between text-[10px] bg-white dark:bg-zinc-900 p-1.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                                <div class="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+                                                    <flux:icon.archive-box class="w-3 h-3 text-purple-500 shrink-0" /> 
+                                                    <span class="truncate">{{ $order->packing_receipt_path ? 'Nota Packing' : 'Packing' }}</span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    @if($totalActualPacking > 0)
+                                                        <span class="font-mono font-bold text-zinc-700 dark:text-zinc-300">{{ number_format($totalActualPacking, 0, ',', '.') }}</span>
+                                                    @endif
+                                                    @if($order->packing_receipt_path)
+                                                        <a href="{{ Storage::url($order->packing_receipt_path) }}" target="_blank" class="text-purple-600 hover:text-purple-700 shrink-0" title="Lihat Nota Packing" wire:click.stop><flux:icon.document-check class="w-3 h-3" /></a>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        @endif
+                                    @endif
+
+                                    {{-- Shipping Info --}}
+                                    @if(in_array($order->status, ['shipping', 'completed']) && ($order->courier_vendor || $totalActualShipping > 0 || $order->shipping_fee > 0))
+                                        <div class="flex items-center justify-between text-[10px] bg-white dark:bg-zinc-900 p-1.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                            <div class="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+                                                <flux:icon.truck class="w-3 h-3 text-orange-500 shrink-0" /> 
+                                                <span class="truncate max-w-[100px]" title="{{ $order->courier_vendor }}">{{ $order->courier_vendor ?: 'Ekspedisi' }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-1.5">
+                                                @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Finance']) && $totalActualShipping > 0)
+                                                    <span class="font-mono font-bold text-zinc-700 dark:text-zinc-300">{{ number_format($totalActualShipping, 0, ',', '.') }}</span>
+                                                @endif
+                                                @if($order->shipping_receipt_path)
+                                                    <a href="{{ Storage::url($order->shipping_receipt_path) }}" target="_blank" class="text-orange-600 hover:text-orange-700 shrink-0" title="Lihat Resi" wire:click.stop><flux:icon.document-text class="w-3 h-3" /></a>
+                                                @endif
+                                            </div>
+                                        </div>
                                     @endif
                                 </div>
                             </div>
@@ -192,7 +270,7 @@ on(['status-updated' => function () {
                                     </span>
                                 </div>
                                 
-                                <div class="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                <div class="flex gap-1 transition-opacity">
                                     <flux:button size="sm" variant="subtle" icon="eye" class="h-6 w-6 p-0" title="Detail SO" wire:click.stop="$dispatch('open-detail-modal', { orderId: {{ $order->id }} })" />
                                     
                                     {{-- Tombol Pembayaran --}}
@@ -206,18 +284,27 @@ on(['status-updated' => function () {
                                             <flux:button size="sm" variant="subtle" icon="check-circle" class="h-6 w-6 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/50" title="Persetujuan" wire:click.stop="$dispatch('open-approval-modal', { orderId: {{ $order->id }} })" />
                                         @endcan
                                     @elseif($statusKey === 'processing')
-                                        @can('sales.order.update')
+                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Gudang']))
                                             <flux:button size="sm" variant="subtle" icon="qr-code" class="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50" title="Fulfillment Gudang" wire:click.stop="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })" />
-                                        @endcan
+                                        @endif
                                     @elseif($statusKey === 'packing')
-                                        @can('sales.order.update')
-                                            <flux:button size="sm" variant="subtle" icon="archive-box" class="h-6 w-6 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/50" title="Input Detail Packing" wire:click.stop="$dispatch('open-packing-modal', { orderId: {{ $order->id }} })" />
-                                            <flux:button size="sm" variant="subtle" icon="truck" class="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/50" title="Kirim via Ekspedisi" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })" />
-                                        @endcan
+                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Gudang']))
+                                            @if(!$order->is_packed || auth()->user()->hasAnyRole(['Super Admin', 'Manager']))
+                                                <flux:button size="sm" variant="subtle" icon="archive-box" class="h-6 w-6 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/50" title="Input Detail Packing" wire:click.stop="$dispatch('open-packing-modal', { orderId: {{ $order->id }} })" />
+                                            @endif
+                                            
+                                            @if($order->is_packed)
+                                                <flux:button size="sm" variant="subtle" icon="truck" class="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/50" title="Kirim via Ekspedisi" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })" />
+                                            @endif
+                                        @endif
                                     @elseif($statusKey === 'shipping')
-                                        @can('sales.order.update')
-                                            <flux:button size="sm" variant="subtle" icon="truck" class="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/50" title="Tandai Sampai" wire:click.stop="markAsArrived({{ $order->id }})" />
-                                        @endcan
+                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Sales']))
+                                            <flux:button size="sm" variant="subtle" icon="flag" class="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/50" title="Tandai Barang Telah Sampai" wire:click.stop="markAsArrived({{ $order->id }})" />
+                                        @endif
+                                        
+                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager']))
+                                            <flux:button size="sm" variant="subtle" icon="document-text" class="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50" title="Update Resi/Ekspedisi" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })" />
+                                        @endif
                                     @endif
                                 </div>
                             </div>
@@ -239,6 +326,7 @@ on(['status-updated' => function () {
     <livewire:sales-order.payment-modal />
     <livewire:sales-order.detail-modal />
     <livewire:global.vendor-gallery-modal />
+    <livewire:global.vendor-form-modal />
 </div>
 
 <style>

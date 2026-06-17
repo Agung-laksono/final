@@ -173,10 +173,10 @@ $saveCart = function ($cartData) {
     $this->tax = $cartData['tax'] ?? 0;
 
     if (!$this->order_id) {
-        // Generate SO-20260614-1000 format
+        // Generate ODM-1000 format
         $latestPo = SalesOrder::orderBy('id', 'desc')->first();
         $nextId = $latestPo ? $latestPo->id + 1 : 1000;
-        $this->so_number = 'SO-20260614-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $this->so_number = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
     }
 
     $this->validate([
@@ -239,6 +239,7 @@ $saveCart = function ($cartData) {
 
     }
 
+    \App\Events\KanbanUpdated::safeDispatch('sales_order');
     Flux::toast('Sales Order berhasil disimpan!', 'success');
     $this->redirectRoute('sales.orders.kanban');
 };

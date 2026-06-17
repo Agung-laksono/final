@@ -43,13 +43,18 @@ on(['open-detail-modal' => function ($orderId) {
             
             <div class="flex gap-2">
                 <flux:button variant="subtle" icon="printer">Cetak Nota</flux:button>
-                <flux:button variant="ghost" wire:click="$set('show', false)" icon="x-mark"></flux:button>
+                {{-- Double X button removed, flux:modal already provides one --}}
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {{-- Kolom Kiri: Info Pelanggan & Keuangan --}}
-            <div class="space-y-6">
+        @php
+            // Tim gudang biasa (tanpa role manajerial) tidak boleh melihat harga
+            $canViewPrices = !(auth()->user()->hasRole('Gudang') && !auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Kepala Sales']));
+        @endphp
+
+        <div class="{{ $canViewPrices ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : 'flex flex-col gap-6' }}">
+            {{-- Kolom Kiri/Atas: Info Pelanggan & Keuangan --}}
+            <div class="{{ $canViewPrices ? 'space-y-6' : 'w-full md:w-1/2' }}">
                 {{-- Info Pelanggan --}}
                 <div>
                     <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Informasi Pelanggan</h3>
@@ -63,6 +68,7 @@ on(['open-detail-modal' => function ($orderId) {
                 </div>
 
                 {{-- Status Keuangan --}}
+                @if($canViewPrices)
                 <div>
                     <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Status Keuangan</h3>
                     <div class="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50">
@@ -92,6 +98,7 @@ on(['open-detail-modal' => function ($orderId) {
                         </div>
                     </div>
                 </div>
+                @endif
             </div>
 
             {{-- Kolom Kanan: Daftar Barang & Logistik --}}
@@ -105,8 +112,10 @@ on(['open-detail-modal' => function ($orderId) {
                                 <tr>
                                     <th class="px-4 py-2 font-semibold text-zinc-600 dark:text-zinc-300">Barang</th>
                                     <th class="px-4 py-2 font-semibold text-zinc-600 dark:text-zinc-300 text-right">Qty</th>
+                                    @if($canViewPrices)
                                     <th class="px-4 py-2 font-semibold text-zinc-600 dark:text-zinc-300 text-right">Harga</th>
                                     <th class="px-4 py-2 font-semibold text-zinc-600 dark:text-zinc-300 text-right">Subtotal</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -119,21 +128,34 @@ on(['open-detail-modal' => function ($orderId) {
                                             @endif
                                         </td>
                                         <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-400">{{ $item->qty }}</td>
+                                        @if($canViewPrices)
                                         <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-400">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
                                         <td class="px-4 py-3 text-right font-medium text-zinc-900 dark:text-zinc-100">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                                        @endif
                                     </tr>
                                 @endforeach
                             </tbody>
+                            @if($canViewPrices)
                             <tfoot class="bg-zinc-50 dark:bg-zinc-800/50 text-right">
                                 @if($order->packing_fee > 0)
                                 <tr>
-                                    <td colspan="3" class="px-4 py-2 text-zinc-500">Biaya Packing</td>
+                                    <td colspan="3" class="px-4 py-2 text-zinc-500">
+                                        Biaya Packing
+                                        @if($order->packing_receipt_path)
+                                            <a href="{{ Storage::url($order->packing_receipt_path) }}" target="_blank" class="ml-2 inline-flex items-center text-xs text-purple-600 hover:text-purple-700 underline" title="Lihat Bukti Nota"><flux:icon.document-text class="w-3 h-3 mr-0.5" /> Bukti</a>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-2 font-medium">Rp {{ number_format($order->packing_fee, 0, ',', '.') }}</td>
                                 </tr>
                                 @endif
                                 @if($order->shipping_fee > 0)
                                 <tr>
-                                    <td colspan="3" class="px-4 py-2 text-zinc-500">Ongkos Kirim ({{ $order->courier_vendor }})</td>
+                                    <td colspan="3" class="px-4 py-2 text-zinc-500">
+                                        Ongkos Kirim ({{ $order->courier_vendor }})
+                                        @if($order->shipping_receipt_path)
+                                            <a href="{{ Storage::url($order->shipping_receipt_path) }}" target="_blank" class="ml-2 inline-flex items-center text-xs text-orange-600 hover:text-orange-700 underline" title="Lihat Resi Asli"><flux:icon.document-text class="w-3 h-3 mr-0.5" /> Bukti</a>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-2 font-medium">Rp {{ number_format($order->shipping_fee, 0, ',', '.') }}</td>
                                 </tr>
                                 @endif
@@ -144,6 +166,7 @@ on(['open-detail-modal' => function ($orderId) {
                                 </tr>
                                 @endif
                             </tfoot>
+                            @endif
                         </table>
                     </div>
                 </div>

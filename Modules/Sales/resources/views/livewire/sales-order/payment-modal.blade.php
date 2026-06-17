@@ -33,12 +33,17 @@ on(['open-payment-modal' => function ($orderId) {
 $savePayment = function () {
     abort_unless(auth()->user()->can('sales.payment.create'), 403);
     
-    $this->validate([
+    $rules = [
         'amount' => 'required|numeric|min:1',
         'payment_method' => 'required|string',
         'payment_date' => 'required|date',
-        'proof' => 'nullable|image|max:2048',
-    ]);
+    ];
+    
+    if ($this->proof && !is_string($this->proof)) {
+        $rules['proof'] = 'image|max:2048';
+    }
+    
+    $this->validate($rules);
 
     if (!$this->order) return;
 
@@ -74,7 +79,11 @@ $savePayment = function () {
     $this->amount = '';
     $this->proof = null;
     $this->notes = '';
+    $this->payment_date = now()->format('Y-m-d');
+    $this->payment_method = 'transfer';
+    
     $this->dispatch('status-updated');
+    $this->dispatch('reset-cropper');
 };
 
 $verifyPayment = function ($paymentId) {
@@ -100,6 +109,7 @@ $verifyPayment = function ($paymentId) {
         \Flux::toast('Pembayaran diverifikasi!', variant: 'success');
         $this->order->load('payments');
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('sales_order');
     }
 };
 
@@ -143,6 +153,7 @@ $rejectPayment = function ($paymentId) {
                     <div>
                         <flux:label class="mb-2">Nominal Bayar <span class="text-red-500">*</span></flux:label>
                         <x-rupiah-input wire:model="amount" placeholder="Contoh: 5000000" required />
+                        <flux:error name="amount" />
                     </div>
                     <div class="grid grid-cols-1 gap-4">
                         <flux:input type="date" wire:model="payment_date" label="Tanggal" required />
@@ -157,6 +168,7 @@ $rejectPayment = function ($paymentId) {
                     <div>
                         <flux:label class="mb-2">Bukti Transfer (Opsional)</flux:label>
                         <x-image-cropper id="payment-cropper" wire:model="proof" :image="$proof && is_string($proof) && !str_starts_with($proof, 'data:image') ? Storage::url($proof) : null" accept="image/*" />
+                        <flux:error name="proof" />
                     </div>
                     
                     <flux:textarea wire:model="notes" label="Catatan" placeholder="Keterangan tambahan..." />

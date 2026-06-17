@@ -299,7 +299,7 @@ $save = function () {
             ->orderByDesc('id')
             ->value('reference_number');
         $lastNumber      = $lastRef ? (int) substr($lastRef, 4) : 0;
-        $referenceNumber = 'ADJ-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        $referenceNumber = 'OPM-' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
 
         foreach ($this->opnameData as $itemId => $data) {
             $actual     = $data['actual_stock'] !== '' ? (int) $data['actual_stock'] : $data['system_stock'];

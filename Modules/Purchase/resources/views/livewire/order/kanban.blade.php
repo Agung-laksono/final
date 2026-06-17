@@ -43,6 +43,7 @@ $updateStatus = function ($orderId, $newStatus) {
         $po->status = $newStatus;
         $po->save();
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('purchase_order');
     }
 };
 
@@ -72,15 +73,19 @@ $archiveOrder = function () {
         }
         
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('purchase_order');
         $this->show_archive_modal = false;
         $this->order_to_archive = null;
         \Flux::toast('PO berhasil diarsipkan.', variant: 'success');
     }
 };
 
-on(['status-updated' => function () {
-    // Kosong saja, tujuannya hanya memancing re-render agar computed $orders dijalankan ulang
-}]);
+on([
+    'status-updated' => function () {
+        // Kosong saja, tujuannya hanya memancing re-render agar computed $orders dijalankan ulang
+    },
+    'echo:kanban.purchase_order,KanbanUpdated' => function () {}
+]);
 
 ?>
 

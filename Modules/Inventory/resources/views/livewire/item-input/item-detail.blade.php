@@ -17,7 +17,7 @@ state([
     'initial_stock_notes' => 'Saldo Awal',
 ]);
 
-$openModal = function ($id) {
+$fetchData = function ($id) {
     $this->item = Item::with(['category', 'subCategory', 'unit', 'type', 'warehouses'])->findOrFail($id);
     
     // Ambil data pergerakan stok
@@ -32,11 +32,15 @@ $openModal = function ($id) {
     $this->avg_out_per_day = round($this->out_this_month / max(1, now()->day), 1);
     
     $this->movements = $allMovements->take(50);
+};
+
+$openModal = function ($id) {
+    $this->fetchData($id);
     
     $this->initial_stock_warehouse_id = '';
     $this->initial_stock_qty = 1;
     $this->initial_stock_notes = 'Saldo Awal';
-    $this->tab = 'info'; // This is fine to keep, doesn't hurt
+    $this->tab = 'info'; 
     
     $this->dispatch('item-detail-modal-opened');
     Flux::modal('item-detail-modal')->show();
@@ -88,8 +92,7 @@ $toggleActive = function () {
 
 $refreshItem = function () {
     if ($this->item) {
-        $this->item->refresh();
-        $this->openModal($this->item->id);
+        $this->fetchData($this->item->id);
     }
 };
 
@@ -516,7 +519,7 @@ $saveInitialStock = function () {
                                                     {{ $m->warehouse?->name ?? '-' }}
                                                 </td>
                                                 <td class="px-4 py-3 text-right font-bold {{ str_contains($m->type, 'in') ? 'text-emerald-500' : 'text-rose-500' }}">
-                                                    {{ str_contains($m->type, 'in') ? '+' : '-' }}{{ $m->quantity }}
+                                                    {{ str_contains($m->type, 'in') ? '+' : '-' }}{{ abs($m->quantity) }}
                                                 </td>
                                                 <td class="px-4 py-3 text-center text-zinc-500 font-mono">
                                                     {{ $m->stock_after }}

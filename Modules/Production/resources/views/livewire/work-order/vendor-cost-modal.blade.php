@@ -35,6 +35,7 @@ $save = function () {
         $this->order->save();
         
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('production_order');
         $this->show = false;
         \Flux::toast('Biaya vendor berhasil disimpan.', variant: 'success');
     }

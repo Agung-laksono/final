@@ -46,6 +46,8 @@ $routeToPurchase = function ($requestId) {
         $req->routed_by = auth()->id();
         $req->save();
         
+        \App\Events\KanbanUpdated::safeDispatch('inventory_request');
+        \App\Events\KanbanUpdated::safeDispatch('purchase_queue');
         \Flux::toast('Berhasil dialihkan ke Antrean Pembelian.', variant: 'success');
     }
 };
@@ -55,8 +57,10 @@ $routeToProduction = function ($requestId) {
     
     $req = InventoryRequest::with('item')->find($requestId);
     if ($req && $req->status !== 'routed') {
-        // Generate random order number for production
-        $orderNumber = 'PROD-' . date('Ymd') . '-' . strtoupper(Str::random(4));
+        // Generate sequential PROD-0001 format
+        $latestProd = ProductionOrder::orderBy('id', 'desc')->first();
+        $nextId = $latestProd ? $latestProd->id + 1 : 1000;
+        $orderNumber = 'PROD-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
         
         ProductionOrder::create([
             'order_number' => $orderNumber,
@@ -73,6 +77,8 @@ $routeToProduction = function ($requestId) {
         $req->routed_by = auth()->id();
         $req->save();
         
+        \App\Events\KanbanUpdated::safeDispatch('inventory_request');
+        \App\Events\KanbanUpdated::safeDispatch('production_order');
         \Flux::toast('Berhasil dialihkan ke Antrean Produksi.', variant: 'success');
     }
 };
@@ -83,6 +89,7 @@ $review = function ($requestId) {
     if ($req) {
         $req->status = 'review';
         $req->save();
+        \App\Events\KanbanUpdated::safeDispatch('inventory_request');
         \Flux::toast('Permintaan sedang ditinjau.', variant: 'success');
     }
 };
@@ -93,8 +100,13 @@ $reject = function ($requestId) {
     if ($req) {
         $req->status = 'rejected';
         $req->save();
+        \App\Events\KanbanUpdated::safeDispatch('inventory_request');
     }
 };
+
+on([
+    'echo:kanban.inventory_request,KanbanUpdated' => function () {}
+]);
 ?>
 
 <div class="space-y-6">

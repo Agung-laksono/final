@@ -48,6 +48,8 @@ $updateStatus = function ($queueId, $newStatus) {
         $queue->status = $newStatus;
         $queue->save();
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('purchase_queue');
+        \Flux::toast('Status berhasil diperbarui.', variant: 'success');
     }
 };
 
@@ -158,7 +160,7 @@ on(['status-updated' => function () {
                             {{-- Header Card --}}
                             <div class="flex justify-between items-start mb-3">
                                 <span class="font-mono text-[11px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded-md">
-                                    #PQ-{{ str_pad($queue->id, 4, '0', STR_PAD_LEFT) }}
+                                    #ANT-{{ str_pad($queue->id, 4, '0', STR_PAD_LEFT) }}
                                 </span>
                                 <div class="flex items-center text-[10px] text-zinc-400 font-medium">
                                     @if($queue->creator)
