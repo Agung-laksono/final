@@ -22,25 +22,30 @@ $approve = function () {
     if ($this->order) {
         // --- CEK KETERSEDIAAN STOK DAN BUAT ANTREAN JIKA KURANG ---
         foreach ($this->order->items as $item) {
-            $totalStock = \Illuminate\Support\Facades\DB::table('item_warehouse')
-                ->where('item_id', $item->item_id)
-                ->sum('stock');
-                
-            if ($totalStock < $item->qty) {
-                $deficit = $item->qty - $totalStock;
+            // Hitung Available to Promise (ATP)
+            $itemModel = \Modules\Inventory\Models\Item::find($item->item_id);
+            // Tambahkan kembali qty item saat ini ke ATP agar tidak double count sebagai booking
+            // Karena SO ini masih berstatus 'draft' saat disetujui, qty-nya mungkin sudah masuk dalam 
+            // perhitungan booking jika kita ubah status SO ini.
+            $atp = $itemModel ? $itemModel->getATP() : 0;
+
+            if ($item->qty > $atp) {
+                $deficit = $item->qty - $atp;
                 
                 // Pastikan belum ada antrean untuk item ini dari SO ini
-                $existingQueue = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $item->item_id)
+                $existingRequest = \Modules\Inventory\Models\InventoryRequest::where('item_id', $item->item_id)
                     ->where('source_type', 'sales')
-                    ->where('notes', 'like', '%SO: ' . $this->order->so_number . '%')
+                    ->where('reference_number', $this->order->so_number)
                     ->exists();
                     
-                if (!$existingQueue) {
-                    \Modules\Purchase\Models\PurchaseQueue::create([
+                if (!$existingRequest) {
+                    \Modules\Inventory\Models\InventoryRequest::create([
                         'item_id' => $item->item_id,
                         'source_type' => 'sales',
+                        'reference_number' => $this->order->so_number,
                         'requested_qty' => $deficit,
-                        'notes' => 'Kekurangan stok untuk SO: ' . $this->order->so_number . ' (Tersedia: ' . $totalStock . ', Pesanan: ' . $item->qty . ')',
+                        'notes' => 'Defisit stok untuk pesanan pelanggan (ATP: ' . $atp . ', Dipesan: ' . $item->qty . ')',
+                        'status' => 'draft',
                     ]);
                 }
             }

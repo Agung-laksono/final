@@ -35,6 +35,9 @@
                     <flux:sidebar.item icon="arrows-right-left" :href="route('inventory.transfers')" :current="request()->routeIs('inventory.transfers*')" wire:navigate>
                         {{ __('Transfer Barang') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="inbox-arrow-down" :href="route('inventory.requests')" :current="request()->routeIs('inventory.requests*')" wire:navigate>
+                        {{ __('Permintaan Barang') }}
+                    </flux:sidebar.item>
                     @endcan
                     @can('inventory.movement.view')
                     <flux:sidebar.item icon="clock" :href="route('inventory.movements')" :current="request()->routeIs('inventory.movements*')" wire:navigate>
@@ -76,6 +79,25 @@
                 @can('purchase.vendor.view')
                 <flux:sidebar.item icon="building-office-2" :href="route('purchase.vendors.index')" :current="request()->routeIs('purchase.vendors.*')" wire:navigate>
                     {{ __('Data Vendor') }}
+                </flux:sidebar.item>
+                @endcan
+            </flux:sidebar.nav>
+            @endcanany
+
+            <!-- Produksi -->
+            @canany(['production.dashboard.view', 'production.order.view', 'production.recipe.view'])
+            <flux:sidebar.nav>
+                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                    {{ __('PRODUKSI') }}
+                </div>
+                @can('production.order.view')
+                <flux:sidebar.item icon="wrench-screwdriver" :href="route('production.orders')" :current="request()->routeIs('production.orders*')" wire:navigate>
+                    {{ __('Kanban Produksi') }}
+                </flux:sidebar.item>
+                @endcan
+                @can('production.order.view')
+                <flux:sidebar.item icon="document-text" :href="route('production.recipes')" :current="request()->routeIs('production.recipes*')" wire:navigate>
+                    {{ __('Resep Produksi') }}
                 </flux:sidebar.item>
                 @endcan
             </flux:sidebar.nav>

@@ -55,6 +55,39 @@ class Item extends Model
                     ->withTimestamps();
     }
 
+    /**
+     * Calculate Available to Promise (ATP)
+     * ATP = Physical Stock + Incoming (WIP + PO) - Committed (Booking)
+     */
+    public function getATP()
+    {
+        // 1. Physical Stock
+        $totalStock = \Illuminate\Support\Facades\DB::table('item_warehouse')
+            ->where('item_id', $this->id)
+            ->sum('stock');
+
+        // 2. Incoming (WIP)
+        $wipQty = \Modules\Production\Models\ProductionOrder::where('item_id', $this->id)
+            ->whereNotIn('status', ['completed', 'archived', 'rejected'])
+            ->selectRaw('SUM(requested_qty - fulfilled_qty) as remaining')
+            ->value('remaining') ?? 0;
+
+        // 3. Incoming (Purchase Queue/Order)
+        $poQty = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $this->id)
+            ->whereNotIn('status', ['completed', 'rejected'])
+            ->sum('requested_qty') ?? 0;
+
+        // 4. Committed (Booking from Sales Order)
+        $bookingQty = \Modules\Sales\Models\SalesOrderItem::where('item_id', $this->id)
+            ->whereHas('salesOrder', function($q) {
+                $q->whereIn('status', ['approved', 'processing']);
+            })
+            ->sum('qty') ?? 0;
+
+        $atp = $totalStock + $wipQty + $poQty - $bookingQty;
+        return max(0, $atp);
+    }
+
     /** 
      * Riwayat Pergerakan Stok (Keluar/Masuk/Transfer)
      * untuk barang ini

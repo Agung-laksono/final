@@ -111,6 +111,23 @@ class RolePermissionSeeder extends Seeder
             'profile.view',
             'profile.update',
             'profile.delete',
+
+            // Modul Produksi
+            'production.dashboard.view',
+            'production.order.view',
+            'production.order.create',
+            'production.order.update',
+            'production.order.delete',
+            'production.recipe.view',
+            'production.recipe.create',
+            'production.recipe.update',
+            'production.recipe.delete',
+
+            // Permintaan Barang (Inventory Pivot)
+            'inventory.request.view',
+            'inventory.request.create',
+            'inventory.request.update',
+            'inventory.request.delete',
         ];
 
         foreach ($permissions as $permission) {
@@ -134,7 +151,8 @@ class RolePermissionSeeder extends Seeder
             'inventory.opname.view', 'inventory.opname.create', 'inventory.opname.update',
             'purchase.queue.view', // Gudang bisa melihat antrean
             'sales.order.view', 'sales.order.update', // Gudang butuh ini untuk memproses Fulfillment
-            // Gudang tidak punya hak delete apapun
+            'inventory.request.view', 'inventory.request.create', 'inventory.request.update', 'inventory.request.delete', // Gudang mengelola Kanban Permintaan Barang
+            // Gudang tidak punya hak delete apapun (kecuali inventory request)
         ]);
 
         $rolePurchasing = Role::firstOrCreate(['name' => 'Purchasing']);
@@ -185,6 +203,32 @@ class RolePermissionSeeder extends Seeder
         $roleMarketing->givePermissionTo([
             'inventory.view', 
             'sales.dashboard.view'
+        ]);
+
+        $roleTimProduksi = Role::firstOrCreate(['name' => 'Tim Produksi']);
+        $roleTimProduksi->givePermissionTo([
+            'production.dashboard.view',
+            'production.order.view',
+            'production.order.update', // Bisa update status produksi
+            'production.recipe.view', // Hanya bisa lihat resep
+            'inventory.view',
+            'inventory.item.view',
+        ]);
+
+        $roleKepalaProduksi = Role::firstOrCreate(['name' => 'Kepala Produksi']);
+        $roleKepalaProduksi->givePermissionTo([
+            'production.dashboard.view',
+            'production.order.view', 'production.order.create', 'production.order.update', 'production.order.delete',
+            'production.recipe.view', 'production.recipe.create', 'production.recipe.update', 'production.recipe.delete',
+            'inventory.view',
+            'inventory.item.view',
+        ]);
+
+        $roleShipping = Role::firstOrCreate(['name' => 'Shipping']);
+        $roleShipping->givePermissionTo([
+            'sales.order.view', 'sales.order.update', // Update status pengiriman
+            'inventory.view',
+            'inventory.transfer.view', 'inventory.transfer.update'
         ]);
 
         // Jadikan user pertama di sistem sebagai Super Admin

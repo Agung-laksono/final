@@ -1,5 +1,6 @@
 {
     "Inventory": true,
     "Purchase": true,
-    "Sales": true
+    "Sales": true,
+    "Production": true
 }
