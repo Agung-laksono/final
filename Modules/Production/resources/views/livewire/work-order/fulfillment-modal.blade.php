@@ -293,7 +293,7 @@ $save = function () {
                     }
                     $this->order->save();
                 } else {
-                    $this->order->status = 'in_production';
+                    $this->order->status = 'internal_production';
                     if ($this->notes) {
                         $this->order->notes = $this->order->notes . "\n[Fulfillment]: " . $this->notes;
                     }

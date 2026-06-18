@@ -10,35 +10,83 @@ state([
     'orderIds' => [],
     'vendor_id' => '',
     'vendor_name' => '',
+    'phase_type' => 'finishing',
     'notes' => '',
-    'costs' => [], // array keyed by order_id
+    'costs' => [], // array keyed by item_id
+    'global_cost' => null,
 ]);
 
-$orders = computed(function () {
+$groupedOrders = computed(function () {
     if (empty($this->orderIds)) return collect();
-    return ProductionOrder::with('item')->whereIn('id', $this->orderIds)->get();
+    $orders = ProductionOrder::with('item')->whereIn('id', $this->orderIds)->get();
+    
+    $groups = [];
+    foreach ($orders as $order) {
+        if (!isset($groups[$order->item_id])) {
+            $groups[$order->item_id] = [
+                'item' => $order->item,
+                'total_qty' => 0,
+                'orders' => []
+            ];
+        }
+        $groups[$order->item_id]['total_qty'] += $order->requested_qty;
+        $groups[$order->item_id]['orders'][] = $order;
+    }
+    
+    return $groups;
 });
 
 on(['open-maklon-modal' => function ($orderIds = []) {
-    $this->reset(['vendor_id', 'vendor_name', 'notes', 'costs']);
+    $this->reset(['vendor_id', 'vendor_name', 'phase_type', 'notes', 'costs', 'global_cost']);
     $this->orderIds = $orderIds;
     
-    foreach ($this->orderIds as $id) {
-        $this->costs[$id] = null;
+    $orders = ProductionOrder::whereIn('id', $this->orderIds)->get();
+    foreach ($orders as $order) {
+        $this->costs[$order->item_id] = null;
     }
     
     $this->show = true;
 }]);
+
+$distributeGlobalCost = function() {
+    $global = (float) $this->global_cost;
+    if ($global <= 0) return;
+    
+    $totalQtyAll = 0;
+    foreach ($this->groupedOrders as $group) {
+        $totalQtyAll += $group['total_qty'];
+    }
+    
+    if ($totalQtyAll > 0) {
+        $costPerUnit = $global / $totalQtyAll;
+        $newCosts = [];
+        foreach ($this->groupedOrders as $itemId => $group) {
+            $newCosts[$itemId] = round($costPerUnit * $group['total_qty']);
+        }
+        $this->costs = $newCosts;
+    }
+};
+
+$copyDown = function($fromItemId) {
+    $costToCopy = $this->costs[$fromItemId] ?? 0;
+    $newCosts = $this->costs;
+    foreach ($newCosts as $itemId => $val) {
+        if ($itemId != $fromItemId && empty($val)) {
+            $newCosts[$itemId] = $costToCopy;
+        }
+    }
+    $this->costs = $newCosts;
+};
 
 $save = function () {
     abort_unless(auth()->user()->can('production.order.update'), 403);
     
     $this->validate([
         'vendor_id' => 'required',
-        'costs.*' => 'required|numeric|gt:0'
+        'costs.*' => 'required|numeric|min:0'
     ], [
         'vendor_id.required' => 'Pilih vendor terlebih dahulu.',
-        'costs.*.gt' => 'Biaya tidak boleh Rp 0.'
+        'costs.*.numeric' => 'Biaya tidak valid.'
     ]);
 
     DB::transaction(function () {
@@ -61,27 +109,33 @@ $save = function () {
             'created_by' => auth()->id()
         ]);
 
-        $orders = ProductionOrder::whereIn('id', $this->orderIds)->get();
-        foreach ($orders as $order) {
-            $cost = $this->costs[$order->id] ?? 0;
-            
+        foreach ($this->groupedOrders as $itemId => $group) {
+            $groupCost = $this->costs[$itemId] ?? 0;
+            $groupTotalQty = max(1, $group['total_qty']);
+            $costPerUnit = $groupCost / $groupTotalQty;
+
             // Create PO Item
             $po->items()->create([
-                'item_id' => $order->item_id, // we use the finished good item id
-                'quantity' => $order->requested_qty,
-                'unit_price' => $cost / max(1, $order->requested_qty), // cost per item
-                'subtotal' => $cost,
-                'notes' => "Jasa Maklon PO Prod: " . $order->order_number
+                'item_id' => $itemId, // we use the finished good item id
+                'quantity' => $groupTotalQty,
+                'unit_price' => $costPerUnit, // cost per item
+                'subtotal' => $groupCost,
+                'notes' => "Jasa Maklon Fase: " . ucfirst($this->phase_type)
             ]);
 
-            // Update Production Order
-            $order->status = 'in_production';
-            $order->vendor_cost = $cost;
-            $order->purchase_order_id = $po->id;
-            if ($this->notes) {
-                $order->notes = $order->notes . "\n[Maklon to " . $vendor->name . "]: " . $this->notes;
+            // Update Production Orders
+            foreach ($group['orders'] as $order) {
+                $orderCost = $costPerUnit * $order->requested_qty;
+                
+                $order->status = 'in_production';
+                $order->phase_type = $this->phase_type;
+                $order->vendor_cost = $orderCost;
+                $order->purchase_order_id = $po->id;
+                if ($this->notes) {
+                    $order->notes = $order->notes . "\n[Maklon to " . $vendor->name . "]: " . $this->notes;
+                }
+                $order->save();
             }
-            $order->save();
         }
     });
 
@@ -122,26 +176,44 @@ $handleVendorSelected = function ($vendorId) {
                 @enderror
             </div>
 
+            <div>
+                <flux:select wire:model="phase_type" label="Fase Pengerjaan">
+                    <option value="finishing">Finishing</option>
+                    <option value="jok">Jok (Upholstery)</option>
+                    <option value="rakit">Rakit (Assembly)</option>
+                </flux:select>
+            </div>
+
             <div class="mt-6 border-t border-zinc-200 dark:border-zinc-700 pt-4">
-                <flux:heading size="md" class="mb-3">Daftar Barang & Biaya Borongan</flux:heading>
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <flux:heading size="md">Daftar Barang & Biaya Borongan</flux:heading>
+                    <div class="w-full sm:w-72">
+                        <x-currency-input wire:model="global_cost" placeholder="Total Biaya Global..." class="!bg-yellow-50 dark:!bg-yellow-900/20" />
+                        <div class="mt-1 flex justify-end">
+                            <flux:button size="xs" variant="subtle" wire:click="distributeGlobalCost" icon="arrows-right-left">Bagi Rata Proporsional</flux:button>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="space-y-3">
-                    @foreach($this->orders as $order)
+                    @foreach($this->groupedOrders as $itemId => $group)
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-50 dark:bg-zinc-800/30 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700">
                             <div class="flex-1">
-                                <div class="font-bold text-sm">{{ $order->item->name }}</div>
-                                <div class="text-xs text-zinc-500 mt-0.5">{{ $order->order_number }} • Qty: {{ $order->requested_qty }}</div>
-                            </div>
-                            <div class="w-full sm:w-48 shrink-0 flex gap-2">
-                                <div class="relative flex-1">
-                                    <x-currency-input wire:model="costs.{{ $order->id }}" placeholder="0" />
-                                    <button type="button" wire:click="$dispatch('open-price-history', { itemId: {{ $order->item_id }} })" class="absolute right-2 top-2 text-zinc-400 hover:text-blue-500 transition-colors" title="Lihat Riwayat Harga">
-                                        <flux:icon.clock class="w-5 h-5" />
-                                    </button>
+                                <div class="font-bold text-sm">{{ $group['item']->name }}</div>
+                                <div class="text-xs text-zinc-500 mt-0.5">
+                                    Digabungkan dari {{ count($group['orders']) }} pesanan • Total Qty: <strong class="text-zinc-800 dark:text-zinc-200">{{ $group['total_qty'] }}</strong>
                                 </div>
                             </div>
+                            <div class="w-full sm:w-64 shrink-0 flex gap-2">
+                                <div class="relative flex-1">
+                                    <x-currency-input wire:model="costs.{{ $itemId }}" placeholder="0" />
+                                </div>
+                                <flux:button size="sm" variant="subtle" class="px-2 shrink-0" wire:click="copyDown({{ $itemId }})" tooltip="Salin harga ini ke item lain">
+                                    <flux:icon.document-duplicate class="w-4 h-4 text-zinc-400 hover:text-indigo-500" />
+                                </flux:button>
+                            </div>
                         </div>
-                        @error('costs.'.$order->id) <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                        @error('costs.'.$itemId) <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                     @endforeach
                 </div>
             </div>

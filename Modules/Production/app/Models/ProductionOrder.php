@@ -27,6 +27,11 @@ class ProductionOrder extends Model
         return $this->belongsTo(\App\Models\User::class, 'created_by');
     }
 
+    public function histories()
+    {
+        return $this->hasMany(ProductionOrderHistory::class);
+    }
+
     // protected static function newFactory(): ProductionOrderFactory
     // {
     //     // return ProductionOrderFactory::new();
