@@ -17,7 +17,6 @@
                 <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                     {{ __('INVENTORY') }}
                 </div>
-                </div>
                     <flux:sidebar.item icon="chart-pie" :href="route('inventory')" :current="request()->routeIs('inventory')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>

@@ -14,6 +14,7 @@ state([
     'notes' => '',
     'production_mode' => 'internal', // 'internal' or 'maklon'
     'items' => [], // Array of BOM items with inputs
+    'manualBarcode' => '',
 ]);
 
 $refreshItems = function() {
@@ -336,12 +337,18 @@ $save = function () {
             </div>
         </div>
         
-        <div class="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4 bg-zinc-100 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700">
-            <div class="text-sm text-zinc-600 dark:text-zinc-400 text-center sm:text-left">
-                Gunakan <strong>Scanner</strong> untuk memindai bahan, atau ketik manual.
+        <div class="mt-6 flex flex-col sm:flex-row justify-between items-center gap-3 bg-zinc-100 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700">
+            <div class="flex-1 w-full">
+                <flux:input 
+                    wire:model="manualBarcode" 
+                    x-on:keydown.enter="$dispatch('barcode-scanned', { code: $wire.manualBarcode }); $wire.manualBarcode = ''" 
+                    placeholder="Ketik kode barcode manual, lalu tekan Enter..." 
+                    icon="qr-code" 
+                />
             </div>
+            <div class="hidden sm:block text-xs font-bold text-zinc-400">ATAU</div>
             <flux:button type="button" x-on:click="Flux.modal('camera-scanner-modal').show(); window.dispatchEvent(new Event('camera-scanner-modal-opened'))" variant="filled" icon="camera" class="w-full sm:w-auto shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white border-none" tooltip="Gunakan Kamera HP">
-                Scanner Barcode
+                Scanner Kamera
             </flux:button>
         </div>
 

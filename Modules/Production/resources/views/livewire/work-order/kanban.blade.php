@@ -148,7 +148,7 @@ on(['maklon-po-created' => function () {
 
     <div class="flex justify-start gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)] snap-x custom-scrollbar">
         @foreach($columns as $statusKey => $column)
-            <div class="w-80 flex-shrink-0 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col h-full snap-center">
+            <div wire:key="kanban-column-{{ $statusKey }}" class="w-80 flex-shrink-0 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col h-full snap-center">
                 <div class="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-white dark:bg-zinc-900 rounded-t-xl">
                     <div class="flex items-center gap-2">
                         <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500"></div>
@@ -180,7 +180,7 @@ on(['maklon-po-created' => function () {
                         
                         @forelse($groupedByPo as $poId => $poOrders)
                             @php $po = $poOrders->first()->purchaseOrder; @endphp
-                            <div class="bg-zinc-100 dark:bg-zinc-800/40 rounded-xl p-2 border border-zinc-200 dark:border-zinc-700">
+                            <div wire:key="po-group-{{ $statusKey }}-{{ $poId }}" class="bg-zinc-100 dark:bg-zinc-800/40 rounded-xl p-2 border border-zinc-200 dark:border-zinc-700">
                                 @if($po)
                                 <div class="flex justify-between items-center px-2 py-1.5 mb-2 border-b border-zinc-200 dark:border-zinc-700">
                                     <div>
@@ -198,7 +198,9 @@ on(['maklon-po-created' => function () {
                                 
                                 <div class="space-y-2">
                                     @foreach($poOrders as $order)
-                                        @include('production::livewire.work-order.partials.kanban-card', ['order' => $order, 'statusKey' => $statusKey, 'viewModeMaklon' => $viewModeMaklon])
+                                        <div wire:key="card-grouped-{{ $order->id }}">
+                                            @include('production::livewire.work-order.partials.kanban-card', ['order' => $order, 'statusKey' => $statusKey, 'viewModeMaklon' => $viewModeMaklon])
+                                        </div>
                                     @endforeach
                                 </div>
                             </div>
@@ -209,7 +211,9 @@ on(['maklon-po-created' => function () {
                         @endforelse
                     @else
                         @forelse($this->orders[$statusKey] ?? [] as $order)
-                            @include('production::livewire.work-order.partials.kanban-card', ['order' => $order, 'statusKey' => $statusKey, 'viewModeMaklon' => $viewModeMaklon])
+                            <div wire:key="card-{{ $order->id }}">
+                                @include('production::livewire.work-order.partials.kanban-card', ['order' => $order, 'statusKey' => $statusKey, 'viewModeMaklon' => $viewModeMaklon])
+                            </div>
                         @empty
                             <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400">
                                 Kosong
@@ -228,6 +232,7 @@ on(['maklon-po-created' => function () {
     <livewire:work-order.finish-phase-modal />
     <livewire:work-order.vendor-cost-modal />
     <livewire:work-order.receiving-modal />
+    <livewire:work-order.po-print-modal />
     {{-- <livewire:work-order.groq-assistant /> --}}
     {{-- <livewire:work-order.claude-assistant /> --}}
 
