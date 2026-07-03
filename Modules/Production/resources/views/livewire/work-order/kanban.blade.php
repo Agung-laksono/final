@@ -33,11 +33,21 @@ $orders = computed(function () {
     
     $grouped = $query->get()->groupBy('status');
     
-    // Merge waiting_material ke dalam material_fulfillment
+    // Merge waiting_material dan material_issued ke dalam material_fulfillment
+    $fulfillment = $grouped['material_fulfillment'] ?? collect();
+    
     if (isset($grouped['waiting_material'])) {
-        $fulfillment = $grouped['material_fulfillment'] ?? collect();
-        $grouped['material_fulfillment'] = $fulfillment->merge($grouped['waiting_material'])->sortByDesc('created_at');
+        $fulfillment = $fulfillment->merge($grouped['waiting_material']);
         unset($grouped['waiting_material']);
+    }
+    
+    if (isset($grouped['material_issued'])) {
+        $fulfillment = $fulfillment->merge($grouped['material_issued']);
+        unset($grouped['material_issued']);
+    }
+    
+    if ($fulfillment->count() > 0) {
+        $grouped['material_fulfillment'] = $fulfillment->sortByDesc('created_at');
     }
     
     return $grouped;
@@ -172,23 +182,31 @@ on(['maklon-po-created' => function () {
                         
                         @forelse($groupedByPo as $poId => $poOrders)
                             @php $po = $poOrders->first()->purchaseOrder; @endphp
-                            <div wire:key="po-group-{{ $statusKey }}-{{ $poId }}" class="bg-zinc-100 dark:bg-zinc-800/40 rounded-xl p-2 border border-zinc-200 dark:border-zinc-700">
-                                @if($po)
-                                <div class="flex justify-between items-center px-2 py-1.5 mb-2 border-b border-zinc-200 dark:border-zinc-700">
+                            <div wire:key="po-group-{{ $statusKey }}-{{ $poId }}" class="bg-zinc-100 dark:bg-zinc-800/40 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700">
+                                <!-- Group Header -->
+                                <div class="bg-white/80 dark:bg-zinc-900/80 p-3 border-b border-blue-100 dark:border-blue-900/50 flex flex-col gap-2 sticky top-0 z-10 backdrop-blur-sm">
+                                <div class="flex justify-between items-start">
                                     <div>
-                                        <div class="font-bold text-sm text-zinc-800 dark:text-zinc-200 hover:text-blue-600 cursor-pointer flex items-center gap-1" wire:click="$dispatch('open-po-detail-modal', { poId: {{ $poId }} })">
-                                            <flux:icon.truck class="w-4 h-4" /> {{ $po->po_number }}
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <flux:icon.truck class="w-4 h-4 text-blue-500" />
+                                            <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100">{{ $po->po_number ?? 'Tanpa SPK' }}</span>
                                         </div>
-                                        <div class="text-xs text-zinc-500">{{ $po->vendor->name ?? 'Vendor' }} &middot; Rp {{ number_format($po->total_amount, 0, ',', '.') }}</div>
+                                        <div class="text-[10px] text-zinc-500 line-clamp-1 flex items-center gap-1">
+                                            <flux:icon.building-storefront class="w-3 h-3" />
+                                            {{ $po->vendor->name ?? 'Vendor Internal' }} - Rp {{ number_format($po->total_amount ?? 0, 0, ',', '.') }}
+                                        </div>
+                                    </div>
+                                    <div class="text-right flex flex-col items-end gap-1 shrink-0">
+                                        <span class="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-1.5 py-0.5 rounded font-semibold">{{ $poOrders->count() }} Barang</span>
+                                        <span class="text-[9px] text-zinc-500">{{ $po->order_date ? \Carbon\Carbon::parse($po->order_date)->format('d M') : '' }}</span>
                                     </div>
                                 </div>
-                                @else
-                                <div class="px-2 py-1.5 mb-2 border-b border-zinc-200 dark:border-zinc-700">
-                                    <div class="font-bold text-sm text-zinc-800 dark:text-zinc-200">Tanpa PO</div>
-                                </div>
-                                @endif
+                                <flux:button size="xs" variant="primary" class="w-full justify-center mt-1" wire:click="$dispatch('open-finish-phase-bulk-modal', { poId: {{ $poId }}, phase: 'maklon' })">
+                                    &#x2714; Selesaikan Semua (1 SPK)
+                                </flux:button>
+                            </div>
                                 
-                                <div class="space-y-2">
+                                <div class="p-2 space-y-2">
                                     @foreach($poOrders as $order)
                                         <div wire:key="card-grouped-{{ $order->id }}">
                                             @include('production::livewire.work-order.partials.kanban-card', ['order' => $order, 'statusKey' => $statusKey, 'viewModeMaklon' => $viewModeMaklon])
@@ -223,8 +241,8 @@ on(['maklon-po-created' => function () {
     <livewire:work-order.prod-detail-modal />
     <livewire:work-order.finish-phase-modal />
     <livewire:work-order.vendor-cost-modal />
-    <livewire:work-order.receiving-modal />
     <livewire:work-order.po-print-modal />
+    <livewire:work-order.material-receipt-modal />
     {{-- <livewire:work-order.groq-assistant /> --}}
     {{-- <livewire:work-order.claude-assistant /> --}}
 

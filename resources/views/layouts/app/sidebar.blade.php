@@ -50,6 +50,20 @@
                         {{ __('Permintaan Barang') }}
                     </flux:sidebar.item>
                     @endcan
+
+                    @can('inventory.stock.create')
+                    <flux:sidebar.item icon="arrow-right-end-on-rectangle" :href="route('inventory.dispatch')" :current="request()->routeIs('inventory.dispatch')" wire:navigate>
+                        {{ __('Alokasi Kedatangan') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item :href="route('inventory.production-receipts')" :current="request()->routeIs('inventory.production-receipts*')" wire:navigate>
+                        <x-slot:icon>
+                            <div class="relative">
+                                <flux:icon.arrow-down-tray class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                            </div>
+                        </x-slot:icon>
+                        {{ __('Penerimaan Fisik (QC)') }}
+                    </flux:sidebar.item>
+                    @endcan
                     @can('production.order.update')
                     <flux:sidebar.item icon="clipboard-document-check" :href="route('inventory.fulfillments')" :current="request()->routeIs('inventory.fulfillments')" wire:navigate>
                         {{ __('Pemenuhan Produksi') }}

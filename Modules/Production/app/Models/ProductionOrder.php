@@ -31,6 +31,11 @@ class ProductionOrder extends Model
     {
         return $this->hasMany(ProductionOrderHistory::class);
     }
+    
+    public function targetWarehouse()
+    {
+        return $this->belongsTo(\Modules\Inventory\Models\Warehouse::class, 'target_warehouse_id');
+    }
 
     public function getCompletedPhasesAttribute()
     {
