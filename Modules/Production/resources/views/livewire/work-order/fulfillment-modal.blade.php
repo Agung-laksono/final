@@ -20,11 +20,15 @@ state([
 $refreshItems = function() {
     if (!$this->order) return;
     
+    $inventoryService = app(\App\Services\InventoryService::class);
+    
+    $newItems = [];
+    $collisionDetected = false;
+
+    // We still need to map the deficit data back to the UI format.
+    // However, it's better to fetch recipe items directly for the UI state.
     $recipe = ProductionRecipe::with('items.item')->where('item_id', $this->order->item_id)->where('is_active', true)->first();
     if ($recipe) {
-        $newItems = [];
-        $collisionDetected = false;
-
         foreach ($recipe->items as $recipeItem) {
             $existing = null;
             foreach ($this->items as $oldItem) {
@@ -35,13 +39,14 @@ $refreshItems = function() {
             }
 
             $neededQty = $recipeItem->qty * $this->order->requested_qty;
-            $stock = DB::table('item_warehouse')->where('item_id', $recipeItem->item_id)->sum('stock');
+            $stock = DB::table('item_warehouse')->where('item_id', $recipeItem->item_id)->sum('stock') ?? 0;
             
-            $alreadyConsumed = DB::table('stock_movements')
+            // We use ABS here just in case old data has negative values from the previous bug.
+            $alreadyConsumed = abs(DB::table('stock_movements')
                 ->where('reference_number', $this->order->order_number)
                 ->where('item_id', $recipeItem->item_id)
                 ->where('type', 'out')
-                ->sum('quantity') ?? 0;
+                ->sum('quantity') ?? 0);
             
             $remainingNeeded = max(0, $neededQty - $alreadyConsumed);
             
@@ -219,6 +224,7 @@ $save = function () {
         $hasDeficit = false;
         
         DB::transaction(function () use (&$hasDeficit) {
+            $inventoryService = app(\App\Services\InventoryService::class);
             foreach ($this->items as $material) {
                 $inputQty = (int) $material['input_qty'];
                 $deficit = max(0, $material['remaining_needed'] - $inputQty);
@@ -234,16 +240,15 @@ $save = function () {
                             $labelModel->status = 'consumed';
                             $labelModel->notes = 'Dikonsumsi untuk Produksi: ' . $this->order->order_number;
                             $labelModel->save();
-                            StockMovement::create([
-                                'item_id' => $material['item_id'],
-                                'warehouse_id' => $sl['warehouse_id'],
-                                'type' => 'out',
-                                'quantity' => -1,
-                                'reference_number' => $this->order->order_number,
-                                'date' => now()->toDateString(),
-                                'notes' => 'Fulfillment bahan produksi. Label: ' . $sl['code'],
-                                'user_id' => auth()->id(),
-                            ]);
+                            
+                            $inventoryService->adjustStock(
+                                $material['item_id'],
+                                $sl['warehouse_id'],
+                                1, // Quantity
+                                'out', // Type
+                                $this->order->order_number, // Ref
+                                'Fulfillment bahan produksi. Label: ' . $sl['code'] // Notes
+                            );
                         }
                     } else {
                         $remainingToDeduct = $inputQty;
@@ -263,16 +268,15 @@ $save = function () {
                             if ($remainingToDeduct <= 0) break;
 
                             $deduct = min($wh->stock, $remainingToDeduct);
-                            StockMovement::create([
-                                'item_id' => $material['item_id'],
-                                'warehouse_id' => $wh->warehouse_id,
-                                'type' => 'out',
-                                'quantity' => -$deduct,
-                                'reference_number' => $this->order->order_number,
-                                'date' => now()->toDateString(),
-                                'notes' => 'Fulfillment bahan produksi.',
-                                'user_id' => auth()->id(),
-                            ]);
+                            
+                            $inventoryService->adjustStock(
+                                $material['item_id'],
+                                $wh->warehouse_id,
+                                $deduct, // Quantity
+                                'out', // Type
+                                $this->order->order_number, // Ref
+                                'Fulfillment bahan produksi.' // Notes
+                            );
 
                             $remainingToDeduct -= $deduct;
                         }

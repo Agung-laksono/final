@@ -68,48 +68,11 @@ $checkMaterialArrival = function ($orderId) {
     $po = ProductionOrder::find($orderId);
     if (!$po) return;
 
-    $recipe = \DB::table('production_recipes')->where('item_id', $po->item_id)->where('is_active', true)->first();
-    
-    // Jika tidak ada resep, langsung loloskan
-    if (!$recipe) {
-        $po->status = 'material_fulfillment';
-        $po->save();
-        $this->dispatch('status-updated');
-        \App\Events\KanbanUpdated::safeDispatch('production_order');
-        \Flux::toast('Lanjut ke Penyiapan Bahan.', variant: 'success');
-        return;
-    }
+    $inventoryService = app(\App\Services\InventoryService::class);
+    $validation = $inventoryService->validateMaterialAvailability($po);
 
-    $recipeItems = \DB::table('production_recipe_items')
-        ->join('items', 'production_recipe_items.item_id', '=', 'items.id')
-        ->where('production_recipe_id', $recipe->id)
-        ->select('production_recipe_items.*', 'items.name')
-        ->get();
-
-    $deficitItems = [];
-
-    foreach ($recipeItems as $ri) {
-        $needed = $ri->qty * $po->requested_qty;
-        
-        $alreadyConsumed = \DB::table('stock_movements')
-            ->where('reference_number', $po->order_number)
-            ->where('item_id', $ri->item_id)
-            ->where('type', 'out')
-            ->sum('quantity') ?? 0;
-            
-        $remainingNeeded = max(0, $needed - $alreadyConsumed);
-            
-        $stock = \DB::table('item_warehouse')
-            ->where('item_id', $ri->item_id)
-            ->sum('stock') ?? 0;
-
-        if ($stock < $remainingNeeded) {
-            $deficitItems[] = "{$ri->name} (Butuh: {$remainingNeeded}, Fisik: {$stock})";
-        }
-    }
-
-    if (count($deficitItems) > 0) {
-        $msg = "Bahan fisik di gudang masih kurang! " . implode(', ', $deficitItems);
+    if (!$validation['status']) {
+        $msg = "Bahan fisik di gudang masih kurang! " . implode(', ', $validation['deficit']);
         \Flux::toast($msg, variant: 'danger');
         return;
     }

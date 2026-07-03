@@ -89,6 +89,8 @@ $save = function () {
         $generatedLabelsCount = 0;
 
         DB::transaction(function () use ($totalQty, &$generatedLabelIds, &$generatedLabelsCount) {
+            $inventoryService = app(\App\Services\InventoryService::class);
+            
             // Update the production order
             $this->order->fulfilled_qty += $totalQty;
             if ($this->order->fulfilled_qty >= $this->order->requested_qty) {
@@ -100,39 +102,14 @@ $save = function () {
                 $qty = $dist['qty'];
                 $wh_id = $dist['warehouse_id'];
                 
-                // Insert into item_warehouse (update stock)
-                $existingStock = DB::table('item_warehouse')
-                    ->where('item_id', $this->order->item_id)
-                    ->where('warehouse_id', $wh_id)
-                    ->first();
-
-                if ($existingStock) {
-                    DB::table('item_warehouse')
-                        ->where('id', $existingStock->id)
-                        ->update(['stock' => $existingStock->stock + $qty, 'updated_at' => now()]);
-                } else {
-                    DB::table('item_warehouse')->insert([
-                        'item_id' => $this->order->item_id,
-                        'warehouse_id' => $wh_id,
-                        'stock' => $qty,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
-
-                // Create StockMovement history
-                StockMovement::create([
-                    'item_id' => $this->order->item_id,
-                    'warehouse_id' => $wh_id,
-                    'type' => 'in',
-                    'quantity' => $qty,
-                    'stock_before' => $existingStock ? $existingStock->stock : 0,
-                    'stock_after' => ($existingStock ? $existingStock->stock : 0) + $qty,
-                    'reference_number' => $this->order->order_number,
-                    'date' => now()->toDateString(),
-                    'notes' => 'Penerimaan hasil produksi. ' . $this->notes,
-                    'user_id' => auth()->id(),
-                ]);
+                $inventoryService->adjustStock(
+                    $this->order->item_id,
+                    $wh_id,
+                    $qty, // Quantity
+                    'in', // Type
+                    $this->order->order_number, // Ref
+                    'Penerimaan hasil produksi. ' . $this->notes // Notes
+                );
 
                 // Generate Labels if required
                 if ($this->order->item->requires_label) {

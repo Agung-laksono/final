@@ -32,6 +32,44 @@ class ProductionOrder extends Model
         return $this->hasMany(ProductionOrderHistory::class);
     }
 
+    public function getCompletedPhasesAttribute()
+    {
+        $completedPhases = [];
+        
+        if ($this->notes) {
+            if (preg_match_all('/\[History:\s*(.*?)\s*\|\s*(.*?)\]/', $this->notes, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $match) {
+                    $completedPhases[] = [
+                        'phase' => $match[1],
+                        'vendor' => $match[2],
+                    ];
+                }
+            }
+            if (preg_match_all('/\[Ex:\s*(.*?)\]/', $this->notes, $matchesEx)) {
+                foreach ($matchesEx[1] as $phase) {
+                    $completedPhases[] = [
+                        'phase' => $phase,
+                        'vendor' => 'Unknown',
+                    ];
+                }
+            }
+        }
+        
+        return $completedPhases;
+    }
+
+    public function getPhaseColorAttribute()
+    {
+        if (!$this->phase_type) return 'zinc';
+        
+        return match($this->phase_type) {
+            'finishing' => 'purple',
+            'jok' => 'blue',
+            'rakit' => 'amber',
+            default => 'zinc'
+        };
+    }
+
     // protected static function newFactory(): ProductionOrderFactory
     // {
     //     // return ProductionOrderFactory::new();

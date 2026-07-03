@@ -235,24 +235,16 @@ $save = function () {
                     
                     $remainingToDistribute -= $distQty;
 
-                    // 4. Update Inventory Stock Movement
                     $targetWarehouseId = $dist['warehouse_id'];
-
-                    $stockBefore = DB::table('item_warehouse')->where('item_id', $itemModel->id)->where('warehouse_id', $targetWarehouseId)->value('stock') ?? 0;
-                    $stockAfter = $stockBefore + $distQty;
-
-                    StockMovement::create([
-                        'item_id' => $itemModel->id,
-                        'warehouse_id' => $targetWarehouseId,
-                        'type' => 'in',
-                        'quantity' => $distQty,
-                        'stock_before' => $stockBefore,
-                        'stock_after' => $stockAfter,
-                        'reference_number' => $receipt->receipt_number,
-                        'date' => $this->receipt_date,
-                        'notes' => 'Penerimaan dari PO: ' . $this->purchaseOrder->po_number,
-                        'user_id' => auth()->id(),
-                    ]);
+                    $inventoryService = app(\App\Services\InventoryService::class);
+                    $inventoryService->adjustStock(
+                        $itemModel->id,
+                        $targetWarehouseId,
+                        $distQty,
+                        'in', // Type
+                        $receipt->receipt_number, // Ref
+                        'Penerimaan dari PO: ' . $this->purchaseOrder->po_number // Notes
+                    );
 
                     // 5. Generate Labels jika required
                     if ($inputItem['requires_label']) {
