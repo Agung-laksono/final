@@ -382,9 +382,12 @@ on([
         </flux:modal>
     </div>
     
+<div x-data="{ items: [] }" @update-request-items.window="items = $event.detail.items">
     <livewire:recipe.form-modal />
     <livewire:request.create-modal />
     <livewire:global.item-gallery-modal context="inventory" />
+    <livewire:global.item-form-modal />
+</div>
 </div>
 
 <style>

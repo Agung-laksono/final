@@ -337,4 +337,10 @@ new class extends Component {
             </div>
         </form>
     </flux:modal>
+
+    {{-- Komponen pendukung untuk Quick Add (agar otomatis terpanggil jika item-form-modal digunakan) --}}
+    <livewire:item-input.unit-form />
+    <livewire:item-input.type-form />
+    <livewire:item-input.category-form />
+    <livewire:item-input.sub-category-form />
 </div>

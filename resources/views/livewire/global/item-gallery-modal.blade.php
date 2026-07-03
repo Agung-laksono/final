@@ -187,7 +187,7 @@ new class extends Component {
                         </flux:dropdown>
 
                         @can('inventory.item.create')
-                        <flux:button wire:click="$dispatch('open-item-modal')" variant="primary" icon="plus" class="shrink-0">
+                        <flux:button x-on:click="$dispatch('open-item-modal')" variant="primary" icon="plus" class="shrink-0">
                             <span class="hidden md:inline">Barang Baru</span>
                         </flux:button>
                         @endcan

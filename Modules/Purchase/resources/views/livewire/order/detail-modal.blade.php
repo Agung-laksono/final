@@ -66,10 +66,16 @@ $getStatusBadge = function ($status) {
 
                 <!-- Info PO -->
                 <div class="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col justify-center">
-                    <div class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Catatan Pesanan</div>
-                    <div class="text-sm text-zinc-700 dark:text-zinc-300 italic">
-                        {{ $order->notes ?: 'Tidak ada catatan.' }}
-                    </div>
+                    <div class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Catatan Pesanan</div>
+                    @if($order->notes)
+                        <div class="text-sm text-zinc-700 dark:text-zinc-300 prose prose-sm max-w-none prose-img:rounded-xl">
+                            {!! $order->notes !!}
+                        </div>
+                    @else
+                        <div class="text-sm text-zinc-700 dark:text-zinc-300 italic">
+                            Tidak ada catatan.
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -90,12 +96,17 @@ $getStatusBadge = function ($status) {
                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                             @foreach($order->items as $item)
                                 <tr>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 align-top">
                                         <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->item->name }}</div>
-                                        <div class="text-xs font-mono text-zinc-500">{{ $item->item->code }}</div>
+                                        <div class="text-xs font-mono text-zinc-500 mb-1">{{ $item->item->code }}</div>
+                                        @if($item->notes)
+                                            <div class="mt-2 p-2 bg-white dark:bg-zinc-900/50 rounded border border-zinc-200 dark:border-zinc-700 prose prose-xs max-w-none prose-p:my-0 prose-img:rounded-lg">
+                                                {!! $item->notes !!}
+                                            </div>
+                                        @endif
                                     </td>
-                                    <td class="px-4 py-3 text-right">{{ number_format($item->quantity, 0, ',', '.') }}</td>
-                                    <td class="px-4 py-3 text-right">
+                                    <td class="px-4 py-3 text-right align-top">{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                    <td class="px-4 py-3 text-right align-top">
                                         @if($item->received_quantity >= $item->quantity)
                                             <span class="text-emerald-600 font-medium">{{ number_format($item->received_quantity, 0, ',', '.') }}</span>
                                         @elseif($item->received_quantity > 0)
@@ -104,8 +115,8 @@ $getStatusBadge = function ($status) {
                                             <span class="text-zinc-400">0</span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 text-right">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
-                                    <td class="px-4 py-3 text-right font-medium">Rp {{ number_format($item->quantity * $item->unit_price, 0, ',', '.') }}</td>
+                                    <td class="px-4 py-3 text-right align-top">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                                    <td class="px-4 py-3 text-right font-medium align-top">Rp {{ number_format($item->quantity * $item->unit_price, 0, ',', '.') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

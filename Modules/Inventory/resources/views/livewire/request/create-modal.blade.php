@@ -3,36 +3,63 @@
 use function Livewire\Volt\{state, on, computed};
 use Modules\Inventory\Models\InventoryRequest;
 use Modules\Inventory\Models\Item;
+use Illuminate\Support\Facades\Storage;
 
 state([
     'show' => false,
-    'item_id' => '',
-    'item_name' => '',
-    'requested_qty' => 1,
-    'notes' => '',
+    'items' => [], // Format: ['item_id' => item_id, 'name' => name, 'code' => code, 'image' => image, 'unit' => unit, 'qty' => 1, 'notes' => '']
 ]);
 
 on(['open-create-request-modal' => function () {
-    $this->reset(['item_id', 'item_name', 'requested_qty', 'notes']);
-    $this->item_id = '';
-    $this->item_name = '';
-    $this->requested_qty = 1;
+    $this->reset(['items']);
+    $this->items = [];
+    $this->dispatch('update-request-items', items: $this->items);
     $this->show = true;
 }]);
 
-$selectItem = function ($id) {
-    $this->item_id = $id;
-    $item = Item::find($id);
+$addItem = function ($id) {
+    // Cek apakah item sudah ada di keranjang
+    $exists = collect($this->items)->firstWhere('item_id', $id);
+    if ($exists) {
+        $this->items = collect($this->items)->map(function ($item) use ($id) {
+            if ($item['item_id'] == $id) {
+                $item['qty']++;
+            }
+            return $item;
+        })->toArray();
+        $this->dispatch('update-request-items', items: $this->items);
+        return;
+    }
+
+    $item = Item::with('unit')->find($id);
     if ($item) {
-        $this->item_name = $item->name . ' (' . $item->code . ')';
+        $this->items[] = [
+            'item_id' => $item->id,
+            'name' => $item->name,
+            'code' => $item->code,
+            'image' => $item->image,
+            'unit' => $item->unit ? $item->unit->name : 'unit',
+            'qty' => 1,
+            'notes' => '',
+        ];
+        $this->dispatch('update-request-items', items: $this->items);
     }
 };
 
+$removeItem = function ($index) {
+    unset($this->items[$index]);
+    $this->items = array_values($this->items); // reindex
+    $this->dispatch('update-request-items', items: $this->items);
+};
+
 $save = function () {
-    $validated = $this->validate([
-        'item_id' => 'required|exists:items,id',
-        'requested_qty' => 'required|numeric|min:1',
-        'notes' => 'nullable|string',
+    $this->validate([
+        'items' => 'required|array|min:1',
+        'items.*.item_id' => 'required|exists:items,id',
+        'items.*.qty' => 'required|numeric|min:1',
+        'items.*.notes' => 'nullable|string',
+    ], [
+        'items.required' => 'Keranjang permintaan tidak boleh kosong. Pilih minimal 1 barang dari galeri.',
     ]);
 
     $lastRequest = InventoryRequest::where('source_type', 'manual')
@@ -45,19 +72,29 @@ $save = function () {
         $lastNumber = (int) str_replace('REQ-M-', '', $lastRequest->reference_number);
         $nextNumber = $lastNumber + 1;
     }
-    $referenceNumber = 'REQ-M-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
-    InventoryRequest::create([
-        'item_id' => $this->item_id,
-        'source_type' => 'manual',
-        'reference_number' => $referenceNumber,
-        'requested_qty' => $this->requested_qty,
-        'notes' => $this->notes,
-        'status' => 'review',
-    ]);
+    foreach ($this->items as $cartItem) {
+        $referenceNumber = 'REQ-M-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        
+        InventoryRequest::create([
+            'item_id' => $cartItem['item_id'],
+            'source_type' => 'manual',
+            'reference_number' => $referenceNumber,
+            'requested_qty' => $cartItem['qty'],
+            'notes' => $cartItem['notes'],
+            'status' => 'review',
+        ]);
+        
+        $nextNumber++; // Increment untuk barang selanjutnya
+    }
 
     $this->dispatch('status-updated'); // Memanggil event agar kanban ter-refresh
     \App\Events\KanbanUpdated::safeDispatch('inventory_request');
+    
+    // Clear keranjang
+    $this->items = [];
+    $this->dispatch('update-request-items', items: $this->items);
+    
     $this->show = false;
     \Flux::toast('Permintaan barang berhasil dibuat dan langsung masuk antrean Peninjauan!', 'success');
 };
@@ -65,39 +102,97 @@ $save = function () {
 ?>
 
 <div>
-    <flux:modal wire:model="show" class="md:w-[500px]" wire:ignore.self>
+    <flux:modal wire:model="show" class="md:w-[650px]" wire:ignore.self>
         <div class="border-b border-zinc-200 dark:border-zinc-700 pb-4 mb-5">
             <flux:heading size="lg">Buat Permintaan Barang (Manual)</flux:heading>
-            <flux:subheading>Isi form ini untuk mengajukan permintaan barang baru ke Gudang.</flux:subheading>
+            <flux:subheading>Isi form ini untuk mengajukan permintaan barang ke Gudang. Anda dapat memilih beberapa barang sekaligus.</flux:subheading>
         </div>
 
-        <form wire:submit="save" class="space-y-5" @item-selected.window="$wire.selectItem($event.detail.item.item_id); setTimeout(() => { $flux.modal('gallery-modal').close() }, 50)">
-            <flux:field>
-                <flux:label>Barang (Item) <span class="text-red-500">*</span></flux:label>
-                <div class="flex items-center gap-2">
-                    <div class="flex-1">
-                        <flux:input wire:model="item_name" readonly placeholder="Klik Galeri untuk memilih barang &rarr;" class="bg-zinc-50 dark:bg-zinc-900" />
-                    </div>
-                    <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading" icon="squares-plus">Galeri</flux:button>
+        {{-- Menggunakan event listener di tingkat root form agar galeri bisa diakses berulang --}}
+        <form wire:submit="save" class="space-y-5" @item-selected.window="$wire.addItem($event.detail.item.item_id)">
+            
+            {{-- Tombol Galeri --}}
+            <div class="flex items-center justify-between">
+                <div class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Daftar Barang Diminta <span class="text-zinc-400 font-normal">({{ count($items) }} barang)</span>
                 </div>
-                <flux:error name="item_id" />
-            </flux:field>
+                <flux:button size="sm" variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading" icon="squares-plus">Tambah dari Galeri</flux:button>
+            </div>
 
-            <flux:field>
-                <flux:label>Jumlah Permintaan <span class="text-red-500">*</span></flux:label>
-                <flux:input type="number" wire:model="requested_qty" min="1" placeholder="Contoh: 50" />
-                <flux:error name="requested_qty" />
-            </flux:field>
+            @error('items')
+                <div class="text-red-500 text-sm mt-1 bg-red-50 dark:bg-red-900/30 p-2 rounded-lg border border-red-200 dark:border-red-800">
+                    {{ $message }}
+                </div>
+            @enderror
 
-            <flux:field>
-                <flux:label>Catatan (Opsional)</flux:label>
-                <flux:textarea wire:model="notes" placeholder="Misal: Butuh cepat untuk acara minggu depan..." rows="3"></flux:textarea>
-                <flux:error name="notes" />
-            </flux:field>
+            {{-- Keranjang / Daftar Barang --}}
+            <div class="bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-800 p-2 max-h-[50vh] overflow-y-auto space-y-3 custom-scrollbar">
+                @forelse($items as $index => $item)
+                    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 shadow-sm relative group flex flex-col gap-3">
+                        
+                        {{-- Tombol Hapus Pojok Kanan Atas --}}
+                        <div class="absolute top-2 right-2">
+                            <flux:button variant="subtle" size="sm" icon="trash" wire:click="removeItem({{ $index }})" class="text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 !px-2 !h-8 transition-colors rounded-full" tooltip="Hapus barang ini" />
+                        </div>
+
+                        {{-- Header Baris: Info Barang --}}
+                        <div class="flex gap-3 pr-10">
+                            {{-- Foto --}}
+                            <div class="w-14 h-14 shrink-0 bg-zinc-100 dark:bg-zinc-800 rounded-md border border-zinc-200 dark:border-zinc-700 overflow-hidden flex items-center justify-center">
+                                @if($item['image'])
+                                    <img src="{{ Storage::url($item['image']) }}" class="w-full h-full object-cover">
+                                @else
+                                    <flux:icon.cube class="w-6 h-6 text-zinc-400" />
+                                @endif
+                            </div>
+                            
+                            {{-- Detail --}}
+                            <div class="flex-1 flex flex-col justify-center">
+                                <h4 class="font-bold text-zinc-900 dark:text-zinc-100 text-sm leading-tight">{{ $item['name'] }}</h4>
+                                <div class="text-[11px] font-mono text-zinc-500 mt-0.5">{{ $item['code'] }}</div>
+                            </div>
+                        </div>
+
+                        {{-- Form Inputs (Qty & Notes) --}}
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                            <div class="sm:col-span-4">
+                                <flux:field>
+                                    <flux:label class="!text-xs">Jumlah</flux:label>
+                                    <div class="flex items-center">
+                                        <flux:input type="number" wire:model="items.{{ $index }}.qty" min="1" required class="rounded-r-none text-center" />
+                                        <div class="bg-zinc-100 dark:bg-zinc-800 border border-l-0 border-zinc-200 dark:border-zinc-700 px-3 py-2 rounded-r-lg text-sm text-zinc-600 dark:text-zinc-400 font-medium whitespace-nowrap">
+                                            {{ $item['unit'] }}
+                                        </div>
+                                    </div>
+                                    <flux:error name="items.{{ $index }}.qty" />
+                                </flux:field>
+                            </div>
+                            <div class="sm:col-span-8">
+                                <flux:field>
+                                    <flux:label class="!text-xs">Catatan / Alasan</flux:label>
+                                    <flux:input type="text" wire:model="items.{{ $index }}.notes" placeholder="Opsional (Misal: Butuh cepat...)" />
+                                    <flux:error name="items.{{ $index }}.notes" />
+                                </flux:field>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="text-center py-10">
+                        <div class="w-12 h-12 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <flux:icon.shopping-cart class="w-6 h-6 text-zinc-400" />
+                        </div>
+                        <h4 class="text-sm font-medium text-zinc-900 dark:text-zinc-100">Belum ada barang</h4>
+                        <p class="text-xs text-zinc-500 mt-1">Klik tombol "Tambah dari Galeri" untuk memulai.</p>
+                    </div>
+                @endforelse
+            </div>
 
             <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                 <flux:button wire:click="$set('show', false)">Batal</flux:button>
-                <flux:button variant="primary" type="submit">Simpan & Tinjau</flux:button>
+                <flux:button variant="primary" type="submit" icon="paper-airplane" x-data="{ submitting: false }" x-on:click="submitting = true; $wire.save().then(() => submitting = false)" x-bind:disabled="submitting">
+                    <span x-show="!submitting">Ajukan Permintaan</span>
+                    <span x-show="submitting">Memproses...</span>
+                </flux:button>
             </div>
         </form>
     </flux:modal>

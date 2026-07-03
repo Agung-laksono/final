@@ -25,6 +25,12 @@
 <!-- Library Cetak Label QR Code (Frontend) -->
 <script src="{{ asset('js/qrcode.min.js') }}"></script>
 
+<!-- PRE-LOAD TinyMCE Skin CSS: Harus dimuat di sini agar tidak ada CSS injection
+     saat runtime yang bisa memicu browser reflow dan merusak layout Kanban. -->
+<link rel="stylesheet" href="{{ asset('vendor/tinymce/skins/ui/oxide/skin.min.css') }}">
+<link rel="stylesheet" href="{{ asset('vendor/tinymce/skins/ui/oxide-dark/skin.min.css') }}">
+<link rel="stylesheet" href="{{ asset('vendor/tinymce/skins/ui/oxide/content.min.css') }}">
+
 @php
     $clarityId = Illuminate\Support\Facades\Cache::rememberForever('setting_clarity_id', function () {
         // Safe check in case the table doesn't exist yet during initial deployment

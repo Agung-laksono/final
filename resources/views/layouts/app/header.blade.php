@@ -80,5 +80,7 @@
         @endpersist
 
         @fluxScripts
+            <x-loading></x-loading>
+    
     </body>
 </html>

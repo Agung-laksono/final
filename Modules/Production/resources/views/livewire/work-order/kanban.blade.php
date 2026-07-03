@@ -8,7 +8,7 @@ title('Kanban Produksi');
 state([
     'columns' => [
         'material_fulfillment' => ['title' => 'Pemenuhan Bahan', 'color' => 'orange'],
-        'waiting_vendor' => ['title' => 'Antrean Proses', 'color' => 'cyan'],
+        'waiting_vendor' => ['title' => 'Antrean Maklon', 'color' => 'cyan'],
         'internal_production' => ['title' => 'Diproses Internal', 'color' => 'indigo'],
         'in_production' => ['title' => 'Diproses Vendor', 'color' => 'blue'],
         'receiving' => ['title' => 'Penerimaan Gudang', 'color' => 'purple'],
@@ -235,6 +235,7 @@ on(['maklon-po-created' => function () {
     <livewire:work-order.po-print-modal />
     {{-- <livewire:work-order.groq-assistant /> --}}
     {{-- <livewire:work-order.claude-assistant /> --}}
+
 
     <style>
         .custom-scrollbar::-webkit-scrollbar {

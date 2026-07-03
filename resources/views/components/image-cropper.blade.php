@@ -2,15 +2,18 @@
     'image' => null,
     'label' => 'Foto Barang (Crop Interaktif & Kompres WEBP)',
     'accept' => 'image/*',
-    'id' => null
+    'id' => null,
+    'mode' => 'box',
+    'nameModel' => null
 ])
 
 @php
     $wireModel = $attributes->wire('model')->value();
     $modalName = 'crop-modal-' . ($id ?? md5($wireModel ?? 'default'));
+    $nameModelValue = $nameModel ? "'{$nameModel}'" : 'null';
 @endphp
 
-<div x-data="window.imageCropperData('{{ $wireModel }}')" 
+<div x-data="window.imageCropperData('{{ $wireModel }}', {{ $nameModelValue }})" 
      x-init="$watch('isCropping', val => val ? Flux.modal('{{ $modalName }}').show() : Flux.modal('{{ $modalName }}').close())"
      @item-saved.window="resetCropper()"
      @reset-cropper.window="resetCropper()"
@@ -114,6 +117,14 @@
             </div>
         </div>
 
+        {{-- Nama File Kustom --}}
+        <div class="mt-4">
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-zinc-500 font-medium">Nama Gambar <span class="text-zinc-400 font-normal">(untuk mempermudah pencarian)</span></span>
+            </div>
+            <input type="text" x-model="customFileName" placeholder="Ketik nama gambar..." class="w-full text-sm border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all" maxlength="80">
+        </div>
+
         <div class="flex flex-col-reverse md:flex-row justify-between items-center gap-4 mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
             {{-- Info Asli -> Hasil Estimasi --}}
             <div class="flex items-center gap-3 text-xs w-full md:w-auto bg-zinc-100 dark:bg-zinc-800/50 p-2 rounded-lg px-3 border border-zinc-200 dark:border-zinc-800">
@@ -139,27 +150,35 @@
     {{-- Tampilan saat KOSONG (Belum Ada File) --}}
     @if (!$image)
     <div x-show="!originalFile && !isCropping" x-cloak class="w-full">
-        <div class="relative w-full aspect-square rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-center overflow-hidden bg-zinc-50 dark:bg-zinc-800/50 p-4">
-            
-            <div class="text-sm font-medium tracking-wider text-zinc-500 mb-6 text-center">Tambahkan Foto</div>
+        @if ($mode === 'button')
+            <label class="cursor-pointer flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors w-fit shadow-sm">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                {{ $label }}
+                <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="sr-only" />
+            </label>
+        @else
+            <div class="relative w-full aspect-square rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-center overflow-hidden bg-zinc-50 dark:bg-zinc-800/50 p-4">
+                
+                <div class="text-sm font-medium tracking-wider text-zinc-500 mb-6 text-center">Tambahkan Foto</div>
 
-            <div class="flex gap-4 w-full justify-center">
-                {{-- Tombol Kamera (Langsung Buka Kamera di HP) --}}
-                <div class="relative group cursor-pointer flex flex-col items-center justify-center p-3 w-[45%] max-w-[120px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm rounded-xl hover:border-blue-500 dark:hover:border-blue-400 transition-all">
-                    <flux:icon.camera class="w-8 h-8 mb-2 text-zinc-400 group-hover:text-blue-500 transition-colors" />
-                    <span class="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 text-center leading-tight">Buka<br>Kamera</span>
-                    <input type="file" x-ref="fileInputCamera" @change="handleFile" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Buka Kamera" />
-                </div>
+                <div class="flex gap-4 w-full justify-center">
+                    {{-- Tombol Kamera (Langsung Buka Kamera di HP) --}}
+                    <div class="relative group cursor-pointer flex flex-col items-center justify-center p-3 w-[45%] max-w-[120px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm rounded-xl hover:border-blue-500 dark:hover:border-blue-400 transition-all">
+                        <flux:icon.camera class="w-8 h-8 mb-2 text-zinc-400 group-hover:text-blue-500 transition-colors" />
+                        <span class="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 text-center leading-tight">Buka<br>Kamera</span>
+                        <input type="file" x-ref="fileInputCamera" @change="handleFile" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Buka Kamera" />
+                    </div>
 
-                {{-- Tombol Galeri / File --}}
-                <div class="relative group cursor-pointer flex flex-col items-center justify-center p-3 w-[45%] max-w-[120px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm rounded-xl hover:border-blue-500 dark:hover:border-blue-400 transition-all">
-                    <flux:icon.photo class="w-8 h-8 mb-2 text-zinc-400 group-hover:text-blue-500 transition-colors" />
-                    <span class="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 text-center leading-tight">Pilih dari<br>Galeri</span>
-                    <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Unggah Foto" />
+                    {{-- Tombol Galeri / File --}}
+                    <div class="relative group cursor-pointer flex flex-col items-center justify-center p-3 w-[45%] max-w-[120px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm rounded-xl hover:border-blue-500 dark:hover:border-blue-400 transition-all">
+                        <flux:icon.photo class="w-8 h-8 mb-2 text-zinc-400 group-hover:text-blue-500 transition-colors" />
+                        <span class="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 text-center leading-tight">Pilih dari<br>Galeri</span>
+                        <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Unggah Foto" />
+                    </div>
                 </div>
+                
             </div>
-            
-        </div>
+        @endif
         <div class="mt-1 flex justify-center">
             <flux:error :name="$wireModel" />
         </div>

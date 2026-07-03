@@ -130,7 +130,7 @@ $handleItemSelected = function ($itemData) {
 };
 ?>
 
-<div @item-selected.window="$wire.handleItemSelected($event.detail.item); setTimeout(() => { $flux.modal('gallery-modal').close() }, 50);">
+<div x-data="{ isRecipeOpen: @entangle('show') }" @item-selected.window="if(isRecipeOpen) { $wire.handleItemSelected($event.detail.item); setTimeout(() => { $flux.modal('gallery-modal').close() }, 50); }">
 <flux:modal wire:model="show" class="md:w-[700px] max-w-full">
     <div class="space-y-6">
         <div>

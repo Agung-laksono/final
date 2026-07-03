@@ -288,5 +288,7 @@
                 });
             });
         </script>
+            <x-loading>
+    </x-loading>
     </body>
 </html>

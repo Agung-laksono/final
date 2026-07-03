@@ -5,7 +5,7 @@ window.Html5QrcodeScanner = Html5QrcodeScanner;
 window.Html5Qrcode = Html5Qrcode;
 
 // Cropper-style Interactive Crop — Pure Alpine JS, Zero Library
-window.imageCropperData = (wireModel = 'image') => {
+window.imageCropperData = (wireModel = 'image', nameModel = null) => {
     return {
             isProcessing: false,
             isCropping: false,
@@ -16,6 +16,7 @@ window.imageCropperData = (wireModel = 'image') => {
             hasCropped: false,
             maxSize: 800,
             quality: 0.8,
+            customFileName: '',
 
             // Image state
             imgSrc: null,          // Raw original Base64
@@ -60,6 +61,13 @@ window.imageCropperData = (wireModel = 'image') => {
                     this.flipH = false;
                     this.flipV = false;
                     this.originalSize = this.originalFile.size;
+                    
+                    // Ambil nama file tanpa ekstensi untuk default customFileName
+                    let baseName = this.originalFile.name;
+                    const lastDot = baseName.lastIndexOf('.');
+                    if (lastDot > 0) baseName = baseName.substring(0, lastDot);
+                    this.customFileName = baseName;
+                    
                     this.startCrop();
                 }
             },
@@ -315,6 +323,12 @@ window.imageCropperData = (wireModel = 'image') => {
 
                 this.croppedImgSrc = dataUrl; // Simpan hasil crop untuk preview
                 this.$wire.set(wireModel, dataUrl);
+                if (nameModel && this.originalFile) {
+                    let finalName = this.customFileName.trim() ? this.customFileName.trim() : this.originalFile.name;
+                    // Pastikan ada ekstensi untuk proses pathinfo di Livewire (misal .jpg dummy jika tidak ada)
+                    if (!finalName.includes('.')) finalName += '.jpg';
+                    this.$wire.set(nameModel, finalName);
+                }
                 this.hasCropped = true;
                 this.isCropping = false;
                 this.isProcessing = false;
@@ -338,6 +352,11 @@ window.imageCropperData = (wireModel = 'image') => {
                 this.newSize = this.originalSize;
                 this.croppedImgSrc = this.imgSrc;
                 this.$wire.set(wireModel, this.imgSrc);
+                if (nameModel && this.originalFile) {
+                    let finalName = this.customFileName.trim() ? this.customFileName.trim() : this.originalFile.name;
+                    if (!finalName.includes('.')) finalName += '.jpg';
+                    this.$wire.set(nameModel, finalName);
+                }
                 this.hasCropped = true;
                 this.isCropping = false;
                 this.isProcessing = false;
@@ -353,6 +372,7 @@ window.imageCropperData = (wireModel = 'image') => {
                 this.imgSrc = null;
                 this.workingImgSrc = null;
                 this.croppedImgSrc = null;
+                this.customFileName = '';
                 this.rotation = 0;
                 this.flipH = false;
                 this.flipV = false;
