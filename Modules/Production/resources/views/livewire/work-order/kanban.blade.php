@@ -9,7 +9,6 @@ state([
     'columns' => [
         'material_fulfillment' => ['title' => 'Pemenuhan Bahan', 'color' => 'orange'],
         'waiting_vendor' => ['title' => 'Antrean Maklon', 'color' => 'cyan'],
-        'internal_production' => ['title' => 'Diproses Internal', 'color' => 'indigo'],
         'in_production' => ['title' => 'Diproses Vendor', 'color' => 'blue'],
         'receiving' => ['title' => 'Penerimaan Gudang', 'color' => 'purple'],
         'completed' => ['title' => 'Selesai', 'color' => 'emerald'],
@@ -73,56 +72,11 @@ $updateStatus = function ($orderId, $newStatus) {
     }
 };
 
-$checkMaterialArrival = function ($orderId) {
-    abort_unless(auth()->user()->can('production.order.update'), 403);
-    
-    $po = ProductionOrder::find($orderId);
-    if (!$po) return;
 
-    $inventoryService = app(\App\Services\InventoryService::class);
-    $validation = $inventoryService->validateMaterialAvailability($po);
 
-    if (!$validation['status']) {
-        $msg = "Fisik gudang kurang: " . implode(', ', $validation['deficit']);
-        $this->validationErrors[$orderId] = $msg;
-        return;
-    }
 
-    // Jika lengkap, hapus error jika ada
-    unset($this->validationErrors[$orderId]);
-    $po->status = 'material_fulfillment';
-    $po->save();
-    $this->dispatch('status-updated');
-    \App\Events\KanbanUpdated::safeDispatch('production_order');
-    \Flux::toast('Semua bahan fisik telah tervalidasi! Silakan masuk ke Penyiapan Bahan untuk memotong stok.', variant: 'success');
-};
 
-$acceptMaterial = function ($orderId) {
-    abort_unless(auth()->user()->can('production.order.update'), 403);
-    
-    $po = ProductionOrder::find($orderId);
-    if ($po) {
-        $po->status = $po->production_mode === 'maklon' ? 'waiting_vendor' : 'internal_production';
-        $po->save();
-        $this->dispatch('status-updated');
-        \App\Events\KanbanUpdated::safeDispatch('production_order');
-        \Flux::toast('Bahan divalidasi dan diterima. Pesanan masuk ke proses produksi.', variant: 'success');
-    }
-};
 
-$rerouteProduction = function ($orderId, $newMode) {
-    abort_unless(auth()->user()->can('production.order.update'), 403);
-    
-    $po = ProductionOrder::find($orderId);
-    if ($po) {
-        $po->production_mode = $newMode;
-        $po->status = $newMode === 'maklon' ? 'waiting_vendor' : 'internal_production';
-        $po->save();
-        $this->dispatch('status-updated');
-        \App\Events\KanbanUpdated::safeDispatch('production_order');
-        \Flux::toast("Rute berhasil dialihkan ke " . ucfirst($newMode) . ".", variant: 'success');
-    }
-};
 
 $toggleSelection = function ($orderId) {
     if (in_array($orderId, $this->selectedOrders)) {

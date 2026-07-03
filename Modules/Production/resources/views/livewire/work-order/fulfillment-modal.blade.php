@@ -458,7 +458,7 @@ $save = function () {
                 @if($hasIncompleteStockUsage)
                     <flux:button variant="primary" disabled class="flex-1 sm:flex-none opacity-50 cursor-not-allowed">Lengkapi Bahan</flux:button>
                 @elseif($hasStockDeficit)
-                    <flux:button variant="warning" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 sm:flex-none">Simpan & Tunggu Bahan</flux:button>
+                    <flux:button variant="danger" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 sm:flex-none">Simpan & Tunggu Bahan</flux:button>
                 @else
                     <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 sm:flex-none">Serahkan Bahan</flux:button>
                 @endif

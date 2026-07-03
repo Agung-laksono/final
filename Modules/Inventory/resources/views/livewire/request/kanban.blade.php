@@ -22,7 +22,6 @@ state([
     'woTargetRequestId' => null,
     'woTargetItemName' => '',
     'woTargetQty' => 1,
-    'woProductionMode' => 'maklon',
     'woNotes' => '',
 ]);
 
@@ -71,7 +70,6 @@ $openCreateWoModal = function ($requestId) {
         $this->woTargetRequestId = $req->id;
         $this->woTargetItemName = $req->item->name;
         $this->woTargetQty = $req->requested_qty;
-        $this->woProductionMode = 'maklon';
         $this->woNotes = '';
         \Flux::modal('create-wo-modal')->show();
     }
@@ -138,7 +136,6 @@ $confirmRouteToProduction = function () {
             'item_id' => $req->item_id,
             'requested_qty' => $this->woTargetQty,
             'reference_number' => $req->reference_number,
-            'production_mode' => $this->woProductionMode,
             'notes' => 'Dialihkan dari Pivot Gudang. Notes: ' . $this->woNotes . ($req->notes ? " | Ref: " . $req->notes : ""),
             'status' => $hasDeficit ? 'waiting_material' : 'material_fulfillment',
             'created_by' => auth()->id(),
@@ -413,10 +410,7 @@ on([
             <div class="space-y-5">
                 <flux:input wire:model="woTargetQty" type="number" min="1" label="Target Kuantitas" />
                 
-                <flux:radio.group wire:model="woProductionMode" label="Rute Produksi (Routing)" variant="segmented">
-                    <flux:radio value="internal" label="Internal (In-House)" />
-                    <flux:radio value="maklon" label="Vendor (Maklon / Eksternal)" />
-                </flux:radio.group>
+
                 
                 <flux:textarea wire:model="woNotes" label="Catatan Tambahan (Opsional)" placeholder="Catatan untuk tim produksi/gudang..." />
             </div>
