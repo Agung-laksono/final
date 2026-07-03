@@ -19,6 +19,11 @@ state([
     'search' => '',
     'promptItemId' => null,
     'transparent_columns' => false,
+    'woTargetRequestId' => null,
+    'woTargetItemName' => '',
+    'woTargetQty' => 1,
+    'woProductionMode' => 'maklon',
+    'woNotes' => '',
 ]);
 
 $requests = computed(function () {
@@ -58,10 +63,24 @@ $routeToPurchase = function ($requestId) {
     }
 };
 
-$routeToProduction = function ($requestId) {
+$openCreateWoModal = function ($requestId) {
     abort_unless(auth()->user()->can('inventory.request.update'), 403);
     
     $req = InventoryRequest::with('item')->find($requestId);
+    if ($req && $req->status !== 'routed') {
+        $this->woTargetRequestId = $req->id;
+        $this->woTargetItemName = $req->item->name;
+        $this->woTargetQty = $req->requested_qty;
+        $this->woProductionMode = 'maklon';
+        $this->woNotes = '';
+        \Flux::modal('create-wo-modal')->show();
+    }
+};
+
+$confirmRouteToProduction = function () {
+    abort_unless(auth()->user()->can('inventory.request.update'), 403);
+    
+    $req = InventoryRequest::with('item')->find($this->woTargetRequestId);
     if ($req && $req->status !== 'routed') {
         // Generate sequential PROD-0001 format
         $latestProd = ProductionOrder::orderBy('id', 'desc')->first();
@@ -75,6 +94,7 @@ $routeToProduction = function ($requestId) {
             
         if (!$recipe) {
             $this->promptItemId = $req->item_id;
+            \Flux::modal('create-wo-modal')->close();
             \Flux::modal('recipe-prompt')->show();
             return;
         }
@@ -89,7 +109,7 @@ $routeToProduction = function ($requestId) {
                 ->get();
                 
             foreach ($recipeItems as $ri) {
-                $needed = $ri->qty * $req->requested_qty;
+                $needed = $ri->qty * $this->woTargetQty; // Use modal qty
                 $stock = \Illuminate\Support\Facades\DB::table('item_warehouse')
                     ->where('item_id', $ri->item_id)
                     ->sum('stock') ?? 0;
@@ -116,9 +136,10 @@ $routeToProduction = function ($requestId) {
         ProductionOrder::create([
             'order_number' => $orderNumber,
             'item_id' => $req->item_id,
-            'requested_qty' => $req->requested_qty,
+            'requested_qty' => $this->woTargetQty,
             'reference_number' => $req->reference_number,
-            'notes' => 'Dialihkan dari Pivot Gudang. Notes: ' . $req->notes,
+            'production_mode' => $this->woProductionMode,
+            'notes' => 'Dialihkan dari Pivot Gudang. Notes: ' . $this->woNotes . ($req->notes ? " | Ref: " . $req->notes : ""),
             'status' => $hasDeficit ? 'waiting_material' : 'material_fulfillment',
             'created_by' => auth()->id(),
         ]);
@@ -131,6 +152,8 @@ $routeToProduction = function ($requestId) {
         \App\Events\KanbanUpdated::safeDispatch('inventory_request');
         \App\Events\KanbanUpdated::safeDispatch('production_order');
         
+        \Flux::modal('create-wo-modal')->close();
+
         if ($hasDeficit) {
             \Flux::toast('Dialihkan ke Produksi. PERINGATAN: Bahan baku kurang, tiket permohonan bahan telah diterbitkan otomatis!', variant: 'warning');
         } else {
@@ -234,7 +257,7 @@ on([
                     @forelse($this->requests[$statusKey] ?? [] as $req)
                         <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700">
                             <div class="flex justify-between items-start mb-2">
-                                <span class="text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">{{ $req->reference_number }}</span>
+                                <span wire:click="$dispatch('open-request-detail-modal', { requestId: {{ $req->id }} })" class="cursor-pointer text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors" title="Lihat Detail">{{ $req->reference_number }}</span>
                                 <flux:badge size="sm" color="{{ $req->item->type->name === 'Produk Jadi' ? 'purple' : 'blue' }}">{{ $req->item->type->name ?? 'Unknown' }}</flux:badge>
                             </div>
                             <div class="font-bold text-sm text-zinc-900 dark:text-white mb-1">{{ $req->item->name }}</div>
@@ -300,7 +323,7 @@ on([
                                         @endphp
                                         <div class="flex gap-2 w-full">
                                             @if($isProdukJadi)
-                                                <flux:button size="sm" variant="filled" icon="cog-8-tooth" wire:click="routeToProduction({{ $req->id }})" class="flex-1 !bg-purple-600 hover:!bg-purple-700 !text-white text-[11px]" title="Rekomendasi Utama">Produksi</flux:button>
+                                                <flux:button size="sm" variant="filled" icon="cog-8-tooth" wire:click="openCreateWoModal({{ $req->id }})" class="flex-1 !bg-purple-600 hover:!bg-purple-700 !text-white text-[11px]" title="Rekomendasi Utama">Produksi</flux:button>
                                                 <flux:dropdown>
                                                     <flux:button size="sm" variant="subtle" class="shrink-0 px-2" title="Opsi Lainnya"><flux:icon.ellipsis-vertical class="w-4 h-4" /></flux:button>
                                                     <flux:menu>
@@ -313,7 +336,7 @@ on([
                                                 <flux:dropdown>
                                                     <flux:button size="sm" variant="subtle" class="shrink-0 px-2" title="Opsi Lainnya"><flux:icon.ellipsis-vertical class="w-4 h-4" /></flux:button>
                                                     <flux:menu>
-                                                        <flux:menu.item icon="cog-8-tooth" wire:click="routeToProduction({{ $req->id }})">Produksi (Pengecualian)</flux:menu.item>
+                                                        <flux:menu.item icon="cog-8-tooth" wire:click="openCreateWoModal({{ $req->id }})">Produksi (Pengecualian)</flux:menu.item>
                                                         <flux:menu.item icon="x-mark" variant="danger" wire:click="reject({{ $req->id }})">Tolak Permintaan</flux:menu.item>
                                                     </flux:menu>
                                                 </flux:dropdown>
@@ -382,9 +405,33 @@ on([
         </flux:modal>
     </div>
     
+    <flux:modal name="create-wo-modal" class="md:w-[32rem]">
+        <div class="p-6">
+            <flux:heading size="xl" class="mb-4">Buat Perintah Kerja (WO)</flux:heading>
+            <p class="text-sm text-zinc-500 mb-6">Tentukan target produksi dan rute untuk <span class="font-bold text-zinc-900 dark:text-white">{{ $woTargetItemName }}</span>.</p>
+            
+            <div class="space-y-5">
+                <flux:input wire:model="woTargetQty" type="number" min="1" label="Target Kuantitas" />
+                
+                <flux:radio.group wire:model="woProductionMode" label="Rute Produksi (Routing)" variant="segmented">
+                    <flux:radio value="internal" label="Internal (In-House)" />
+                    <flux:radio value="maklon" label="Vendor (Maklon / Eksternal)" />
+                </flux:radio.group>
+                
+                <flux:textarea wire:model="woNotes" label="Catatan Tambahan (Opsional)" placeholder="Catatan untuk tim produksi/gudang..." />
+            </div>
+
+            <div class="flex justify-end gap-3 mt-8">
+                <flux:button variant="ghost" x-on:click="$flux.modal('create-wo-modal').close()">Batal</flux:button>
+                <flux:button variant="primary" wire:click="confirmRouteToProduction">Terbitkan WO</flux:button>
+            </div>
+        </div>
+    </flux:modal>
+    
 <div x-data="{ items: [] }" @update-request-items.window="items = $event.detail.items">
     <livewire:recipe.form-modal />
     <livewire:request.create-modal />
+    <livewire:request.request-detail-modal />
     <livewire:global.item-gallery-modal context="inventory" />
     <livewire:global.item-form-modal />
 </div>

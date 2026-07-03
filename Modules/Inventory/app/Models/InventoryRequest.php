@@ -19,6 +19,11 @@ class InventoryRequest extends Model
         return $this->belongsTo(User::class, 'routed_by');
     }
 
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function productionOrder()
     {
         return $this->hasOne(\Modules\Production\Models\ProductionOrder::class, 'reference_number', 'reference_number');

@@ -18,6 +18,7 @@ state([
     'search' => '',
     'selectedOrders' => [],
     'viewModeMaklon' => 'grouped', // 'grouped' or 'list'
+    'validationErrors' => [],
 ]);
 
 $orders = computed(function () {
@@ -72,17 +73,45 @@ $checkMaterialArrival = function ($orderId) {
     $validation = $inventoryService->validateMaterialAvailability($po);
 
     if (!$validation['status']) {
-        $msg = "Bahan fisik di gudang masih kurang! " . implode(', ', $validation['deficit']);
-        \Flux::toast($msg, variant: 'danger');
+        $msg = "Fisik gudang kurang: " . implode(', ', $validation['deficit']);
+        $this->validationErrors[$orderId] = $msg;
         return;
     }
 
-    // Jika lengkap
+    // Jika lengkap, hapus error jika ada
+    unset($this->validationErrors[$orderId]);
     $po->status = 'material_fulfillment';
     $po->save();
     $this->dispatch('status-updated');
     \App\Events\KanbanUpdated::safeDispatch('production_order');
     \Flux::toast('Semua bahan fisik telah tervalidasi! Silakan masuk ke Penyiapan Bahan untuk memotong stok.', variant: 'success');
+};
+
+$acceptMaterial = function ($orderId) {
+    abort_unless(auth()->user()->can('production.order.update'), 403);
+    
+    $po = ProductionOrder::find($orderId);
+    if ($po) {
+        $po->status = $po->production_mode === 'maklon' ? 'waiting_vendor' : 'internal_production';
+        $po->save();
+        $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('production_order');
+        \Flux::toast('Bahan divalidasi dan diterima. Pesanan masuk ke proses produksi.', variant: 'success');
+    }
+};
+
+$rerouteProduction = function ($orderId, $newMode) {
+    abort_unless(auth()->user()->can('production.order.update'), 403);
+    
+    $po = ProductionOrder::find($orderId);
+    if ($po) {
+        $po->production_mode = $newMode;
+        $po->status = $newMode === 'maklon' ? 'waiting_vendor' : 'internal_production';
+        $po->save();
+        $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('production_order');
+        \Flux::toast("Rute berhasil dialihkan ke " . ucfirst($newMode) . ".", variant: 'success');
+    }
 };
 
 $toggleSelection = function ($orderId) {

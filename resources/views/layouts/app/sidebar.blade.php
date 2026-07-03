@@ -50,6 +50,11 @@
                         {{ __('Permintaan Barang') }}
                     </flux:sidebar.item>
                     @endcan
+                    @can('production.order.update')
+                    <flux:sidebar.item icon="clipboard-document-check" :href="route('inventory.fulfillments')" :current="request()->routeIs('inventory.fulfillments')" wire:navigate>
+                        {{ __('Pemenuhan Produksi') }}
+                    </flux:sidebar.item>
+                    @endcan
                     @can('inventory.movement.view')
                     <flux:sidebar.item icon="clock" :href="route('inventory.movements')" :current="request()->routeIs('inventory.movements*')" wire:navigate>
                         {{ __('Riwayat Mutasi') }}

@@ -12,7 +12,6 @@ state([
     'orderId' => null,
     'order' => null,
     'notes' => '',
-    'production_mode' => 'internal', // 'internal' or 'maklon'
     'items' => [], // Array of BOM items with inputs
     'manualBarcode' => '',
 ]);
@@ -97,7 +96,6 @@ on(['open-fulfillment-modal' => function ($orderId) {
     $this->orderId = $orderId;
     $this->order = ProductionOrder::with('item')->find($orderId);
     $this->notes = '';
-    $this->production_mode = 'internal';
     $this->items = [];
     
     $this->refreshItems();
@@ -291,30 +289,18 @@ $save = function () {
                 }
                 $this->order->save();
             } else {
-                if ($this->production_mode === 'maklon') {
-                    $this->order->status = 'waiting_vendor';
-                    if ($this->notes) {
-                        $this->order->notes = $this->order->notes . "\n[Fulfillment]: " . $this->notes;
-                    }
-                    $this->order->save();
-                } else {
-                    $this->order->status = 'internal_production';
-                    if ($this->notes) {
-                        $this->order->notes = $this->order->notes . "\n[Fulfillment]: " . $this->notes;
-                    }
-                    $this->order->save();
+                $this->order->status = 'material_issued';
+                if ($this->notes) {
+                    $this->order->notes = $this->order->notes . "\n[Fulfillment]: " . $this->notes;
                 }
+                $this->order->save();
             }
         });
 
         if ($hasDeficit) {
             \Flux::toast('Pesanan masuk ke status Menunggu Bahan. Tiket permintaan pembelian sudah diterbitkan sebelumnya.', variant: 'warning');
         } else {
-            if ($this->production_mode === 'maklon') {
-                \Flux::toast('Semua bahan disiapkan. Pesanan masuk ke Antre Maklon.', variant: 'success');
-            } else {
-                \Flux::toast('Semua bahan disiapkan. Status menjadi Sedang Diproduksi (Internal).', variant: 'success');
-            }
+            \Flux::toast('Semua bahan disiapkan. Menunggu Validasi Produksi.', variant: 'success');
         }
 
         $this->dispatch('status-updated');
@@ -433,14 +419,6 @@ $save = function () {
         </div>
 
         @if(count($items) > 0)
-        <div class="mt-6 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
-            <flux:heading size="md" class="mb-3">Metode Produksi</flux:heading>
-            <flux:radio.group wire:model="production_mode" class="flex flex-col sm:flex-row gap-4">
-                <flux:radio value="internal" label="Produksi Internal (In-House)" />
-                <flux:radio value="maklon" label="Kirim ke Vendor (Maklon / Eksternal)" />
-            </flux:radio.group>
-        </div>
-
         <div class="mt-4">
             <flux:textarea wire:model="notes" label="Catatan (Opsional)" placeholder="Misal: Bahan baku kurang..." />
         </div>
@@ -472,7 +450,7 @@ $save = function () {
                 @elseif($hasStockDeficit)
                     Pesanan akan tetap di status <strong class="text-amber-600 dark:text-amber-500">Menunggu Bahan</strong> (Tiket pembelian telah diterbitkan).
                 @else
-                    Pesanan akan diteruskan ke proses produksi.
+                    Bahan siap diserahkan ke tim produksi.
                 @endif
             </span>
             <div class="flex gap-2 sm:gap-3 w-full sm:w-auto">
@@ -482,7 +460,7 @@ $save = function () {
                 @elseif($hasStockDeficit)
                     <flux:button variant="warning" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 sm:flex-none">Simpan & Tunggu Bahan</flux:button>
                 @else
-                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 sm:flex-none">Lanjut Produksi</flux:button>
+                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 sm:flex-none">Serahkan Bahan</flux:button>
                 @endif
             </div>
         </div>
