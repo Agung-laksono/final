@@ -30,4 +30,9 @@ class SalesPayment extends Model
     {
         return $this->belongsTo(\App\Models\User::class, 'verified_by');
     }
+
+    public function financeAccount()
+    {
+        return $this->belongsTo(\Modules\Finance\Models\FinanceAccount::class);
+    }
 }

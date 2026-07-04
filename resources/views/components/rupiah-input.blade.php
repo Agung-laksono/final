@@ -15,6 +15,12 @@
     } else {
         $inputClass .= 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 focus:ring-1 focus:ring-cyan-500 rounded-lg shadow-sm ';
     }
+
+    $inputAttributes = $attributes->filter(fn ($value, $key) => 
+        !str_starts_with($key, 'wire:model') && 
+        !str_starts_with($key, 'x-model') && 
+        !in_array($key, ['class', 'align', 'appearance'])
+    );
 @endphp
 
 <div x-data="{
@@ -63,7 +69,7 @@
         type="text" 
         :value="formatted"
         @input="onInput($event)"
-        {{ $attributes->except(['class', 'x-model', 'wire:model', 'align', 'appearance']) }}
+        {{ $inputAttributes }}
         class="{{ $inputClass }}" 
     />
 </div>

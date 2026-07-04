@@ -1,5 +1,5 @@
 <?php
-use function Livewire\Volt\{state, on, with, usesFileUploads};
+use function Livewire\Volt\{state, on, with, usesFileUploads, computed, updated};
 use Modules\Sales\Models\SalesOrder;
 use Modules\Sales\Models\SalesPayment;
 use Illuminate\Support\Facades\Storage;
@@ -13,10 +13,15 @@ state([
     
     'amount' => '',
     'payment_method' => 'transfer',
+    'finance_account_id' => '',
     'payment_date' => '',
     'proof' => null,
     'notes' => '',
 ]);
+
+$accounts = computed(function () {
+    return \Modules\Finance\Models\FinanceAccount::where('is_active', true)->get();
+});
 
 on(['open-payment-modal' => function ($orderId) {
     $this->orderId = $orderId;
@@ -28,22 +33,48 @@ on(['open-payment-modal' => function ($orderId) {
         $this->payment_date = now()->format('Y-m-d');
         $this->show = true;
     }
+    },
+    'echo:kanban.sales_order,KanbanUpdated' => function () {
+        if ($this->orderId) {
+            $this->order = SalesOrder::with('payments')->find($this->orderId);
+        }
+    }
+]);
+
+updated(['amount' => function ($value) {
+    if (!$this->order || empty($value)) return;
+
+    $terbayar = $this->order->payments()->whereIn('status', ['verified', 'pending'])->sum('amount');
+    $sisa = $this->order->total_amount - $terbayar;
+    
+    $this->validate(
+        ['amount' => 'numeric|max:' . max(0, $sisa)],
+        ['amount.max' => 'Nominal melebihi sisa tagihan (Maks: Rp ' . number_format(max(0, $sisa), 0, ',', '.') . ').']
+    );
 }]);
 
 $savePayment = function () {
     abort_unless(auth()->user()->can('sales.payment.create'), 403);
+    if (!$this->order) return;
+
+    $terbayar = $this->order->payments()->whereIn('status', ['verified', 'pending'])->sum('amount');
+    $sisa = $this->order->total_amount - $terbayar;
     
     $rules = [
-        'amount' => 'required|numeric|min:1',
+        'amount' => 'required|numeric|min:1|max:' . max(0, $sisa),
         'payment_method' => 'required|string',
+        'finance_account_id' => 'required|exists:finance_accounts,id',
         'payment_date' => 'required|date',
+        'proof' => 'required',
     ];
     
     if ($this->proof && !is_string($this->proof)) {
         $rules['proof'] = 'image|max:2048';
     }
     
-    $this->validate($rules);
+    $this->validate($rules, [
+        'amount.max' => 'Nominal melebihi sisa tagihan (Maks: Rp ' . number_format(max(0, $sisa), 0, ',', '.') . ').',
+    ]);
 
     if (!$this->order) return;
 
@@ -66,6 +97,7 @@ $savePayment = function () {
         'sales_order_id' => $this->order->id,
         'amount' => $this->amount,
         'payment_method' => $this->payment_method,
+        'finance_account_id' => $this->finance_account_id,
         'payment_date' => $this->payment_date,
         'proof_path' => $proofPath,
         'notes' => $this->notes,
@@ -73,6 +105,10 @@ $savePayment = function () {
         'status' => 'pending', // Menunggu validasi Finance
     ]);
 
+    \App\Events\PaymentSubmitted::safeDispatch('Pembayaran SO ' . $this->order->so_number . ' menunggu validasi');
+
+    $financeUsers = \App\Models\User::withPermissionOrSuperAdmin(['sales.payment.validate'])->get();
+    \Illuminate\Support\Facades\Notification::send($financeUsers, new \App\Notifications\PaymentSubmittedNotification($this->order->so_number, $this->amount, auth()->user(), 'sales'));
     \Flux::toast('Bukti pembayaran berhasil diunggah. Menunggu validasi Finance.', variant: 'success');
     
     $this->order->load('payments'); // Reload
@@ -84,6 +120,7 @@ $savePayment = function () {
     
     $this->dispatch('status-updated');
     $this->dispatch('reset-cropper');
+    $this->dispatch('payment-saved');
 };
 
 $verifyPayment = function ($paymentId) {
@@ -131,9 +168,13 @@ $rejectPayment = function ($paymentId) {
 
 ?>
 
-<flux:modal wire:model="show" class="w-full md:w-[40rem] md:max-w-2xl">
+<flux:modal wire:model="show" class="w-full md:w-[32rem] md:max-w-xl">
     @if($order)
-    <div class="p-4 sm:p-6">
+    @php
+        $terbayar = $order->payments()->whereIn('status', ['verified', 'pending'])->sum('amount');
+        $sisa = $order->total_amount - $terbayar;
+    @endphp
+    <div class="p-4 sm:p-6" x-data="{ showPreviewModal: false, previewImage: '', tab: '{{ $order && $order->payments()->count() === 0 && $sisa > 0 ? "form" : "history" }}' }" @payment-saved.window="tab = 'history'">
         <div class="flex items-start gap-4">
             <div class="flex-shrink-0 w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
                 <flux:icon.banknotes class="w-5 h-5" />
@@ -146,46 +187,59 @@ $rejectPayment = function ($paymentId) {
             </div>
         </div>
 
-        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {{-- Bagian Kiri: Form Input --}}
-            <div class="space-y-4">
-                @can('sales.payment.create')
+        <div class="mt-6" x-cloak>
+            <div class="flex gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-px mb-6 overflow-x-auto no-scrollbar">
+                <button type="button" @click="tab = 'history'" :class="tab === 'history' ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'" class="whitespace-nowrap px-4 py-2 border-b-2 font-bold text-sm transition-colors flex items-center gap-2">
+                    <flux:icon.clock class="w-4 h-4" />
+                    Riwayat Pembayaran
+                </button>
+                @if($sisa > 0)
+                <button type="button" @click="tab = 'form'" :class="tab === 'form' ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'" class="whitespace-nowrap px-4 py-2 border-b-2 font-bold text-sm transition-colors flex items-center gap-2">
+                    <flux:icon.plus-circle class="w-4 h-4" />
+                    Catat Pembayaran
+                </button>
+                @endif
+            </div>
+
+            @if($sisa > 0)
+                {{-- TAB: FORM INPUT --}}
+                <div x-show="tab === 'form'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-4">
+                    @can('sales.payment.create')
                     <div>
                         <flux:label class="mb-2">Nominal Bayar <span class="text-red-500">*</span></flux:label>
-                        <x-rupiah-input wire:model="amount" placeholder="Contoh: 5000000" required />
+                        <x-rupiah-input wire:model.live.debounce.300ms="amount" placeholder="Contoh: 5.000.000" required />
                         <flux:error name="amount" />
                     </div>
                     <div class="grid grid-cols-1 gap-4">
                         <flux:input type="date" wire:model="payment_date" label="Tanggal" required />
-                        <flux:select wire:model="payment_method" label="Metode">
-                            <option value="transfer">Transfer Bank</option>
-                            <option value="cash">Tunai (Cash)</option>
-                            <option value="credit_card">Kartu Kredit</option>
-                            <option value="qris">QRIS</option>
+                        <flux:select wire:model="finance_account_id" label="Rekening Tujuan (Kas)" placeholder="Pilih rekening tujuan..." required>
+                            @foreach($this->accounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->name }} ({{ $acc->type }})</option>
+                            @endforeach
                         </flux:select>
+                    </div>
+                    <div>
+                        <flux:error name="finance_account_id" />
                     </div>
                     
                     <div>
-                        <flux:label class="mb-2">Bukti Transfer (Opsional)</flux:label>
-                        <x-image-cropper id="payment-cropper" wire:model="proof" :image="$proof && is_string($proof) && !str_starts_with($proof, 'data:image') ? Storage::url($proof) : null" accept="image/*" />
-                        <flux:error name="proof" />
-                    </div>
-                    
-                    <flux:textarea wire:model="notes" label="Catatan" placeholder="Keterangan tambahan..." />
-                    
-                    <flux:button variant="primary" wire:click="savePayment" icon="arrow-up-tray" class="w-full">Unggah Bukti Bayar</flux:button>
-                @else
-                    <div class="flex flex-col items-center justify-center h-full text-center p-6 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl">
-                        <flux:icon.lock-closed class="w-8 h-8 text-zinc-400 mb-2" />
-                        <span class="text-sm text-zinc-500">Anda berada di mode Validasi (Finance).<br>Gunakan panel riwayat di sebelah kanan untuk memverifikasi pembayaran dari Sales.</span>
-                    </div>
-                @endcan
-            </div>
+                            <flux:label class="mb-2">Bukti Transfer <span class="text-red-500">*</span></flux:label>
+                            <x-image-cropper id="payment-cropper" wire:model="proof" :image="$proof && is_string($proof) && !str_starts_with($proof, 'data:image') ? Storage::url($proof) : null" accept="image/*" />
+                        </div>
+                        
+                        <flux:textarea wire:model="notes" label="Catatan" placeholder="Keterangan tambahan..." />
+                        <flux:button variant="primary" wire:click="savePayment" icon="arrow-up-tray" class="w-full">Unggah Bukti Bayar</flux:button>
+                    @else
+                        <div class="flex flex-col items-center justify-center h-full text-center p-6 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl">
+                            <flux:icon.lock-closed class="w-8 h-8 text-zinc-400 mb-2" />
+                            <span class="text-sm text-zinc-500">Anda berada di mode Validasi (Finance).<br>Gunakan panel riwayat di sebelah kanan untuk memverifikasi pembayaran dari Sales.</span>
+                        </div>
+                    @endcan
+                </div>
+            @endif
 
-            {{-- Bagian Kanan: Riwayat Pembayaran --}}
-            <div class="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200 mb-3">Riwayat Pembayaran</h3>
-                
+            {{-- TAB: RIWAYAT PEMBAYARAN --}}
+            <div x-show="tab === 'history'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
                 <div class="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                     @forelse($order->payments()->latest()->get() as $payment)
                         <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border {{ $payment->status === 'pending' ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/10' : 'border-zinc-100 dark:border-zinc-800' }} text-sm flex gap-3 relative overflow-hidden">
@@ -207,20 +261,13 @@ $rejectPayment = function ($paymentId) {
                                 </div>
                                 
                                 @if($payment->status === 'pending')
-                                    @can('sales.payment.validate')
-                                        <div class="flex gap-2 mt-3 pt-3 border-t border-amber-200 dark:border-amber-800">
-                                            <flux:button size="sm" variant="primary" wire:click="verifyPayment({{ $payment->id }})" class="w-full bg-emerald-600 hover:bg-emerald-700 border-none text-white text-xs">ACC / Valid</flux:button>
-                                            <flux:button size="sm" variant="danger" wire:click="rejectPayment({{ $payment->id }})" class="w-full text-xs">Tolak</flux:button>
-                                        </div>
-                                    @else
-                                        <div class="mt-2 text-[10px] italic text-amber-600 dark:text-amber-500">Menunggu pengecekan Finance...</div>
-                                    @endcan
+                                    <div class="mt-2 text-[10px] italic text-amber-600 dark:text-amber-500 border-t border-amber-200 dark:border-amber-800 pt-2">Menunggu pengecekan Finance...</div>
                                 @endif
                             </div>
                             @if($payment->proof_path)
-                                <a href="{{ Storage::url($payment->proof_path) }}" target="_blank" class="shrink-0 w-16 h-16 mt-2 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden hover:opacity-80 transition-opacity border border-zinc-200 dark:border-zinc-700" title="Lihat Bukti">
+                                <button type="button" @click="previewImage = '{{ Storage::url($payment->proof_path) }}'; showPreviewModal = true" class="shrink-0 w-16 h-16 mt-2 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden hover:opacity-80 transition-opacity border border-zinc-200 dark:border-zinc-700 focus:outline-none" title="Lihat Bukti">
                                     <img src="{{ Storage::url($payment->proof_path) }}" class="w-full h-full object-cover" />
-                                </a>
+                                </button>
                             @endif
                         </div>
                     @empty
@@ -229,18 +276,17 @@ $rejectPayment = function ($paymentId) {
                 </div>
                 
                 @php
-                    // Hitung hanya yang sudah diverifikasi
-                    $terbayar = $order->payments()->where('status', 'verified')->sum('amount');
-                    $sisa = $order->total_amount - $terbayar;
+                    $terbayarHistory = $order->payments()->where('status', 'verified')->sum('amount');
+                    $sisaHistory = $order->total_amount - $terbayarHistory;
                 @endphp
                 <div class="mt-4 pt-3 border-t border-zinc-200 dark:border-zinc-700 text-sm">
                     <div class="flex justify-between text-zinc-600 dark:text-zinc-400">
-                        <span>Telah Dibayar:</span>
-                        <span class="font-medium text-emerald-600 dark:text-emerald-400">Rp {{ number_format($terbayar, 0, ',', '.') }}</span>
+                        <span>Telah Dibayar (Tervalidasi):</span>
+                        <span class="font-medium text-emerald-600 dark:text-emerald-400">Rp {{ number_format($terbayarHistory, 0, ',', '.') }}</span>
                     </div>
                     <div class="flex justify-between mt-1 font-bold">
-                        <span class="text-zinc-800 dark:text-zinc-200">Sisa Tagihan:</span>
-                        <span class="{{ $sisa <= 0 ? 'text-zinc-400' : 'text-red-600 dark:text-red-400' }}">Rp {{ number_format(max(0, $sisa), 0, ',', '.') }}</span>
+                        <span class="text-zinc-800 dark:text-zinc-200">Sisa Tagihan (Belum Tervalidasi):</span>
+                        <span class="{{ $sisaHistory <= 0 ? 'text-zinc-400' : 'text-red-600 dark:text-red-400' }}">Rp {{ number_format(max(0, $sisaHistory), 0, ',', '.') }}</span>
                     </div>
                 </div>
             </div>
@@ -249,6 +295,18 @@ $rejectPayment = function ($paymentId) {
         <div class="mt-6 flex justify-end">
             <flux:button variant="ghost" wire:click="$set('show', false)">Tutup</flux:button>
         </div>
+
+        <!-- Alpine Preview Modal (Teleported outside flux:modal) -->
+        <template x-teleport="body">
+            <div x-show="showPreviewModal" style="display: none;" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm" @keydown.escape.window="showPreviewModal = false">
+                <div class="relative w-full max-w-4xl max-h-screen p-4 flex flex-col items-center justify-center" @click.outside="showPreviewModal = false">
+                    <button type="button" @click="showPreviewModal = false" class="absolute top-4 right-4 text-white hover:text-zinc-300 bg-black/50 rounded-full p-2 focus:outline-none transition-colors hover:bg-black/70">
+                        <flux:icon.x-mark class="w-6 h-6" />
+                    </button>
+                    <img :src="previewImage" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl">
+                </div>
+            </div>
+        </template>
     </div>
     @endif
 </flux:modal>

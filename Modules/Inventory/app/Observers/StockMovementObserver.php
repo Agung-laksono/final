@@ -5,6 +5,7 @@ namespace Modules\Inventory\Observers;
 use Modules\Inventory\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Cache;
 use App\Models\User;
 use App\Notifications\LowStockNotification;
 use App\Notifications\AbnormalMovementNotification;
@@ -59,7 +60,7 @@ class StockMovementObserver
             ]);
         }
 
-        // --- SISTEM NOTIFIKASI ---
+        // --- SISTEM NOTIFIKASI (dengan deduplication via Cache) ---
         $recipients = User::permission('inventory.notifikasi.view')
             ->orWhereHas('roles', fn($q) => $q->where('name', 'Super Admin'))
             ->get();
@@ -72,43 +73,64 @@ class StockMovementObserver
             : 'https://ui-avatars.com/api/?name=' . urlencode($userName) . '&color=FFFFFF&background=09090b';
 
         if ($recipients->isNotEmpty() && $item) {
+
             // 1. Deteksi Abnormal/Normal Movement
+            // THROTTLE: notifikasi gerakan per-item per-5-menit
+            // Mencegah spam saat scan massal (scan 20 barang = tetap 1 notifikasi)
             $type = $movement->quantity > 0 ? 'Masuk' : 'Keluar';
-            if (abs($movement->quantity) >= 10) {
-                Notification::send($recipients, new AbnormalMovementNotification($item, abs($movement->quantity), $type, $userName, $userAvatar));
-            } elseif (abs($movement->quantity) > 0) {
-                Notification::send($recipients, new \App\Notifications\NormalMovementNotification($item, abs($movement->quantity), $type, $userName, $userAvatar));
+            $notifType = abs($movement->quantity) >= 10 ? 'abnormal' : 'normal';
+            $movementCacheKey = "notif_movement_{$notifType}_{$movement->item_id}_{$type}";
+
+            if (!Cache::has($movementCacheKey)) {
+                // Tandai sudah dikirim, kunci selama 5 menit
+                Cache::put($movementCacheKey, true, now()->addMinutes(5));
+
+                if ($notifType === 'abnormal') {
+                    Notification::send($recipients, new AbnormalMovementNotification($item, abs($movement->quantity), $type, $userName, $userAvatar));
+                } elseif (abs($movement->quantity) > 0) {
+                    Notification::send($recipients, new \App\Notifications\NormalMovementNotification($item, abs($movement->quantity), $type, $userName, $userAvatar));
+                }
             }
+            // else: notifikasi diabaikan karena masih dalam jendela 5 menit yang sama
 
             // 2. Deteksi Low Stock (Hanya jika stok berkurang)
+            // THROTTLE: notifikasi low-stock per-item per-30-menit
+            // Mencegah notifikasi berulang setiap kali ada pengurangan stok kecil
             if ($movement->quantity < 0 && $item->min_stock > 0) {
                 $totalStock = DB::table('item_warehouse')
                     ->where('item_id', $movement->item_id)
                     ->sum('stock');
                     
                 if ($totalStock < $item->min_stock) {
-                    Notification::send($recipients, new LowStockNotification($item, $totalStock));
-                    
-                    // --- OTO-CREATE INVENTORY REQUEST ---
-                    $existingRequest = \Modules\Inventory\Models\InventoryRequest::where('item_id', $movement->item_id)
-                        ->whereIn('status', ['draft', 'review'])
-                        ->exists();
+                    $lowStockCacheKey = "notif_low_stock_{$movement->item_id}";
+
+                    if (!Cache::has($lowStockCacheKey)) {
+                        // Tandai sudah dikirim, kunci selama 30 menit
+                        Cache::put($lowStockCacheKey, true, now()->addMinutes(30));
+
+                        Notification::send($recipients, new LowStockNotification($item, $totalStock));
                         
-                    if (!$existingRequest) {
-                        $qtyToOrder = $item->max_stock > 0 
-                            ? max($item->max_stock - $totalStock, $item->min_stock)
-                            : $item->min_stock * 2;
+                        // --- OTO-CREATE INVENTORY REQUEST ---
+                        $existingRequest = \Modules\Inventory\Models\InventoryRequest::where('item_id', $movement->item_id)
+                            ->whereIn('status', ['draft', 'review'])
+                            ->exists();
                             
-                        \Modules\Inventory\Models\InventoryRequest::create([
-                            'item_id' => $movement->item_id,
-                            'source_type' => 'low_stock',
-                            'reference_number' => 'REQ-' . strtoupper(Str::random(6)),
-                            'requested_qty' => $qtyToOrder,
-                            'notes' => 'Sistem Otomatis: Stok menipis (' . $totalStock . ' dari batas minimal ' . $item->min_stock . ').',
-                            'status' => 'draft'
-                        ]);
-                        
-                        \App\Events\KanbanUpdated::safeDispatch('inventory_request');
+                        if (!$existingRequest) {
+                            $qtyToOrder = $item->max_stock > 0 
+                                ? max($item->max_stock - $totalStock, $item->min_stock)
+                                : $item->min_stock * 2;
+                                
+                            \Modules\Inventory\Models\InventoryRequest::create([
+                                'item_id' => $movement->item_id,
+                                'source_type' => 'low_stock',
+                                'reference_number' => 'REQ-' . strtoupper(Str::random(6)),
+                                'requested_qty' => $qtyToOrder,
+                                'notes' => 'Sistem Otomatis: Stok menipis (' . $totalStock . ' dari batas minimal ' . $item->min_stock . ').',
+                                'status' => 'draft'
+                            ]);
+                            
+                            \App\Events\KanbanUpdated::safeDispatch('inventory_request');
+                        }
                     }
                 }
             }

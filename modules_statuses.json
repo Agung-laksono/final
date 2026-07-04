@@ -2,5 +2,6 @@
     "Inventory": true,
     "Purchase": true,
     "Sales": true,
-    "Production": true
+    "Production": true,
+    "Finance": true
 }

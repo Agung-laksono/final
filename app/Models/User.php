@@ -55,4 +55,21 @@ class User extends Authenticatable implements PasskeyUser
     {
         return $this->avatar ? Storage::url($this->avatar) : null;
     }
+
+    /**
+     * Get users with specific permission or Super Admin role.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string|array $permissions
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeWithPermissionOrSuperAdmin($query, $permissions)
+    {
+        return $query->where(function ($q) use ($permissions) {
+            $q->permission($permissions)
+              ->orWhereHas('roles', function ($roleQuery) {
+                  $roleQuery->where('name', 'Super Admin');
+              });
+        });
+    }
 }

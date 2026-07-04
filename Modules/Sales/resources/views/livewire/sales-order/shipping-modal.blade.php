@@ -93,6 +93,20 @@ $saveShippingInfo = function () {
     
     if ($this->mark_as_shipped) {
         $this->order->status = 'shipping';
+        
+        // Update status barcode dari booked menjadi sold
+        $labelIds = \Modules\Sales\Models\SalesOrderFulfillment::where('sales_order_id', $this->order->id)
+            ->whereNotNull('item_label_id')
+            ->pluck('item_label_id');
+            
+        if ($labelIds->isNotEmpty()) {
+            $labels = \Modules\Inventory\Models\ItemLabel::whereIn('id', $labelIds)->where('status', 'booked')->get();
+            foreach($labels as $lbl) {
+                $lbl->status = 'sold';
+                $lbl->notes = $lbl->notes . "\n[Shipping]: Telah diserahkan ke Ekspedisi.";
+                $lbl->save();
+            }
+        }
     }
     
     $this->order->save();

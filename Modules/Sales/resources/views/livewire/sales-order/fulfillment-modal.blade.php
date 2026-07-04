@@ -1,184 +1,289 @@
 <?php
-use function Livewire\Volt\{state, on, computed};
+use function Livewire\Volt\{state, on};
 use Modules\Sales\Models\SalesOrder;
+use Modules\Inventory\Models\ItemLabel;
 use Modules\Sales\Models\SalesOrderFulfillment;
+use Illuminate\Support\Facades\DB;
 
 state([
     'show' => false,
     'orderId' => null,
     'order' => null,
-    'items' => [], // To track fulfillment progress
+    'notes' => '',
+    'items' => [], // Array of items with inputs
+    'manualBarcode' => '',
 ]);
 
-on(['open-fulfillment-modal' => function ($orderId) {
-    $this->orderId = $orderId;
-    $this->loadOrder();
-    $this->show = true;
-}]);
-
-$loadOrder = function() {
-    $this->order = SalesOrder::with(['customer', 'items.item', 'fulfillments'])->find($this->orderId);
-    if ($this->order) {
-        $this->items = $this->order->items->map(function ($item) {
-            $fulfilled = $this->order->fulfillments->where('sales_order_item_id', $item->id)->sum('scanned_qty');
-            return [
-                'id' => $item->id,
-                'item_id' => $item->item_id,
-                'name' => $item->item->name,
-                'code' => $item->item->code,
-                'requires_label' => (bool) $item->item->requires_label,
-                'ordered_qty' => $item->qty,
-                'fulfilled_qty' => $fulfilled,
-                'input_qty' => 0, // Default to 0 so scanning increments it
-                'scanned_labels' => [], // Array of label_codes and label ids
-            ];
-        })->toArray();
-    }
-};
-
-on(['barcode-scanned' => function ($code) {
-    if (!$this->show) return;
-    if (empty($code)) return;
-
-    // 1. Cek apakah ini label fisik
-    $label = \Modules\Inventory\Models\ItemLabel::where('label_code', $code)->first();
+$refreshItems = function() {
+    if (!$this->order) return;
     
-    if ($label) {
-        // Ini adalah scan label fisik yang spesifik
-        if ($label->status !== 'in_stock') {
-            \Flux::toast("Label {$code} tidak tersedia (Status: {$label->status})", variant: 'danger');
-            return;
-        }
+    $newItems = [];
+    $collisionDetected = false;
 
-        // Cari apakah item_id dari label ini ada di pesanan
-        $foundIndex = null;
-        foreach ($this->items as $index => $itemData) {
-            if ($itemData['item_id'] == $label->item_id) {
-                $foundIndex = $index;
+    foreach ($this->order->items as $orderItem) {
+        $existing = null;
+        foreach ($this->items as $oldItem) {
+            if ($oldItem['item_id'] === $orderItem->item_id) {
+                $existing = $oldItem;
                 break;
             }
         }
 
-        if ($foundIndex !== null) {
-            $itemData = $this->items[$foundIndex];
-            
-            // Cek double scan
-            if (in_array($label->id, array_column($itemData['scanned_labels'], 'id'))) {
-                \Flux::toast("Label {$code} sudah di-scan!", variant: 'warning');
-                return;
-            }
+        $neededQty = $orderItem->qty;
+        $stock = DB::table('item_warehouse')->where('item_id', $orderItem->item_id)->sum('stock') ?? 0;
+        
+        // Cek jika sudah pernah difulfill sebelumnya
+        $alreadyConsumed = abs(DB::table('stock_movements')
+            ->where('reference_number', $this->order->so_number)
+            ->where('item_id', $orderItem->item_id)
+            ->where('type', 'out')
+            ->sum('quantity') ?? 0);
+        
+        $remainingNeeded = max(0, $neededQty - $alreadyConsumed);
+        
+        $currentInputQty = $existing ? $existing['input_qty'] : 0;
+        $currentScanned = $existing ? $existing['scanned_labels'] : [];
 
-            $maxAllowed = $itemData['ordered_qty'] - $itemData['fulfilled_qty'];
-            if ($this->items[$foundIndex]['input_qty'] < $maxAllowed) {
-                $this->items[$foundIndex]['input_qty']++;
-                $this->items[$foundIndex]['scanned_labels'][] = [
-                    'id' => $label->id,
-                    'code' => $label->label_code
-                ];
-                \Flux::toast("Label {$code} OK!", variant: 'success');
-            } else {
-                \Flux::toast("Kuantitas {$itemData['name']} sudah penuh!", variant: 'warning');
+        if (!$orderItem->item->requires_label) {
+            if ($currentInputQty > $stock) {
+                $currentInputQty = 0;
+                $collisionDetected = true;
             }
         } else {
-            \Flux::toast("Barang dari label {$code} tidak ada di pesanan ini.", variant: 'danger');
+            if (count($currentScanned) > $stock) {
+                $currentScanned = [];
+                $currentInputQty = 0;
+                $collisionDetected = true;
+            }
         }
+        
+        $newItems[] = [
+            'so_item_id' => $orderItem->id,
+            'item_id' => $orderItem->item_id,
+            'name' => $orderItem->item->name,
+            'requires_label' => $orderItem->item->requires_label,
+            'needed' => $neededQty,
+            'already_consumed' => $alreadyConsumed,
+            'remaining_needed' => $remainingNeeded,
+            'stock' => $stock,
+            'input_qty' => $currentInputQty,
+            'scanned_labels' => $currentScanned,
+        ];
+    }
+    
+    $this->items = $newItems;
+
+    if ($collisionDetected && $this->show) {
+        \Flux::toast('PERINGATAN: Stok baru saja diambil pengguna lain! Input di-reset.', variant: 'danger');
+    }
+};
+
+on(['open-fulfillment-modal' => function ($orderId) {
+    $this->orderId = $orderId;
+    $this->order = SalesOrder::with('items.item')->find($orderId);
+    $this->notes = '';
+    $this->items = [];
+    
+    $this->refreshItems();
+    $this->show = true;
+}]);
+
+on(['echo:inventory,InventoryUpdated' => function () {
+    if ($this->show) {
+        $this->refreshItems();
+    }
+}]);
+
+on(['barcode-scanned' => function ($code) {
+    if (!$this->show) return;
+
+    $code = trim($code);
+    if (empty($code)) return;
+
+    $label = ItemLabel::with('item')->where('label_code', $code)->first();
+
+    if (!$label) {
+        \Flux::toast('Barcode tidak terdaftar.', variant: 'danger');
         return;
     }
 
-    // 2. Jika bukan label fisik, cek apakah ini barcode generic item
-    $foundIndex = null;
-    foreach ($this->items as $index => $itemData) {
-        if ($itemData['code'] === $code || $itemData['name'] === $code) {
-            $foundIndex = $index;
+    if ($label->status !== 'in_stock') {
+        \Flux::toast("Barcode {$code} tidak tersedia (status: {$label->status}).", variant: 'danger');
+        return;
+    }
+
+    $itemIndex = null;
+    foreach ($this->items as $idx => $material) {
+        if ($material['item_id'] === $label->item_id) {
+            $itemIndex = $idx;
             break;
         }
     }
 
-    if ($foundIndex !== null) {
-        $itemData = $this->items[$foundIndex];
-        
-        // Cek apakah item ini mewajibkan label fisik
-        if ($itemData['requires_label']) {
-            \Flux::toast("Barang {$itemData['name']} wajib di-scan per-label fisik unik!", variant: 'danger');
-            return;
-        }
-
-        $maxAllowed = $itemData['ordered_qty'] - $itemData['fulfilled_qty'];
-        if ($this->items[$foundIndex]['input_qty'] < $maxAllowed) {
-            $this->items[$foundIndex]['input_qty']++;
-            \Flux::toast("Scan OK: {$itemData['name']}", variant: 'success');
-        } else {
-            \Flux::toast("Kuantitas {$itemData['name']} sudah penuh!", variant: 'warning');
-        }
-    } else {
-        \Flux::toast("Barcode {$code} tidak dikenali atau tidak ada di pesanan.", variant: 'danger');
+    if ($itemIndex === null) {
+        \Flux::toast("Bahan {$label->item->name} tidak ada dalam pesanan ini.", variant: 'danger');
+        return;
     }
+
+    $material = $this->items[$itemIndex];
+
+    if (!$material['requires_label']) {
+        \Flux::toast("Bahan {$label->item->name} tidak membutuhkan scan barcode.", variant: 'warning');
+        return;
+    }
+
+    $alreadyScanned = collect($material['scanned_labels'])->contains('id', $label->id);
+    if ($alreadyScanned) {
+        \Flux::toast("Barcode {$code} sudah di-scan sebelumnya.", variant: 'warning');
+        return;
+    }
+
+    if ($material['input_qty'] >= $material['needed']) {
+        \Flux::toast("Kebutuhan bahan {$label->item->name} sudah terpenuhi.", variant: 'warning');
+        return;
+    }
+
+    $this->items[$itemIndex]['scanned_labels'][] = [
+        'id' => $label->id,
+        'code' => $label->label_code,
+        'warehouse_id' => $label->warehouse_id
+    ];
+    $this->items[$itemIndex]['input_qty']++;
+
+    \Flux::toast("Berhasil scan: {$label->item->name} ({$code})", variant: 'success');
 }]);
 
-$saveFulfillment = function () {
+$removeScannedLabel = function($itemIndex, $labelIndex) {
+    unset($this->items[$itemIndex]['scanned_labels'][$labelIndex]);
+    $this->items[$itemIndex]['scanned_labels'] = array_values($this->items[$itemIndex]['scanned_labels']);
+    $this->items[$itemIndex]['input_qty']--;
+};
+
+$save = function () {
     abort_unless(auth()->user()->can('sales.order.update'), 403);
     
     if (!$this->order) return;
 
-    $allFulfilled = true;
-    $labelsUpdated = false;
+    // Validation
+    foreach ($this->items as $material) {
+        $inputQty = (int) $material['input_qty'];
+        if ($inputQty < 0) {
+            \Flux::toast("Input kuantitas untuk {$material['name']} tidak valid.", variant: 'danger');
+            return;
+        }
+        if ($inputQty > $material['remaining_needed']) {
+            \Flux::toast("Kuantitas {$material['name']} melebihi sisa kekurangan.", variant: 'danger');
+            return;
+        }
+        if ($inputQty > $material['stock']) {
+            \Flux::toast("Stok {$material['name']} tidak mencukupi.", variant: 'danger');
+            return;
+        }
+        if ($material['requires_label'] && count($material['scanned_labels']) !== $inputQty) {
+            \Flux::toast("Jumlah scan barcode untuk {$material['name']} tidak sesuai.", variant: 'danger');
+            return;
+        }
+    }
 
-    foreach ($this->items as $itemData) {
-        $qtyToFulfill = (int) $itemData['input_qty'];
-        
-        if ($qtyToFulfill > 0) {
-            if (!empty($itemData['requires_label'])) {
-                // Item requires physical labels
-                foreach ($itemData['scanned_labels'] as $label) {
-                    SalesOrderFulfillment::create([
-                        'sales_order_id' => $this->order->id,
-                        'sales_order_item_id' => $itemData['id'],
-                        'item_id' => $itemData['item_id'],
-                        'item_label_id' => $label['id'],
-                        'scanned_qty' => 1,
-                        'scanned_by' => auth()->id(),
-                    ]);
-                    // Update label status
-                    \Modules\Inventory\Models\ItemLabel::where('id', $label['id'])->update(['status' => 'bokking']);
-                    $labelsUpdated = true;
+    $hasDeficit = false;
+    
+    DB::transaction(function () use (&$hasDeficit) {
+        $inventoryService = app(\App\Services\InventoryService::class);
+        foreach ($this->items as $material) {
+            $inputQty = (int) $material['input_qty'];
+            $deficit = max(0, $material['remaining_needed'] - $inputQty);
+            
+            if ($deficit > 0) {
+                $hasDeficit = true;
+            }
+
+            if ($inputQty > 0) {
+                if ($material['requires_label']) {
+                    foreach ($material['scanned_labels'] as $sl) {
+                        $labelModel = ItemLabel::find($sl['id']);
+                        $labelModel->status = 'booked'; // Set booked temporarily until shipping
+                        $labelModel->notes = 'Booked untuk SO: ' . $this->order->so_number;
+                        $labelModel->save();
+                        
+                        SalesOrderFulfillment::create([
+                            'sales_order_id' => $this->order->id,
+                            'sales_order_item_id' => $material['so_item_id'],
+                            'item_id' => $material['item_id'],
+                            'item_label_id' => $sl['id'],
+                            'scanned_qty' => 1,
+                            'scanned_by' => auth()->id()
+                        ]);
+
+                        $inventoryService->adjustStock(
+                            $material['item_id'],
+                            $sl['warehouse_id'],
+                            1,
+                            'out',
+                            $this->order->so_number,
+                            'Fulfillment SO. Label: ' . $sl['code']
+                        );
+                    }
+                } else {
+                    $remainingToDeduct = $inputQty;
+                    $warehouses = DB::table('item_warehouse')
+                        ->where('item_id', $material['item_id'])
+                        ->where('stock', '>', 0)
+                        ->orderBy('stock', 'desc')
+                        ->lockForUpdate()
+                        ->get();
+
+                    $totalStock = $warehouses->sum('stock');
+                    if ($totalStock < $remainingToDeduct) {
+                        throw new \Exception("Stok aktual tidak mencukupi.");
+                    }
+
+                    foreach ($warehouses as $wh) {
+                        if ($remainingToDeduct <= 0) break;
+                        $deduct = min($wh->stock, $remainingToDeduct);
+                        
+                        SalesOrderFulfillment::create([
+                            'sales_order_id' => $this->order->id,
+                            'sales_order_item_id' => $material['so_item_id'],
+                            'item_id' => $material['item_id'],
+                            'scanned_qty' => $deduct,
+                            'scanned_by' => auth()->id()
+                        ]);
+
+                        $inventoryService->adjustStock(
+                            $material['item_id'],
+                            $wh->warehouse_id,
+                            $deduct,
+                            'out',
+                            $this->order->so_number,
+                            'Fulfillment SO.'
+                        );
+                        $remainingToDeduct -= $deduct;
+                    }
                 }
-            } else {
-                // Generic item, no labels
-                SalesOrderFulfillment::create([
-                    'sales_order_id' => $this->order->id,
-                    'sales_order_item_id' => $itemData['id'],
-                    'item_id' => $itemData['item_id'],
-                    'scanned_qty' => $qtyToFulfill,
-                    'scanned_by' => auth()->id(),
-                ]);
             }
         }
-
-        // Cek apakah dengan ini sudah terpenuhi semua
-        if (($itemData['fulfilled_qty'] + $qtyToFulfill) < $itemData['ordered_qty']) {
-            $allFulfilled = false;
-        }
-    }
-
-    if ($labelsUpdated) {
-        \App\Events\InventoryUpdated::safeDispatch('Status fisik barang diperbarui (Fulfillment SO: ' . $this->order->so_number . ')');
-    }
-
-    if ($allFulfilled) {
+        
         $this->order->status = 'packing';
+        if ($this->notes) {
+            $this->order->notes = $this->order->notes . "\n[Fulfillment Note]: " . $this->notes;
+        }
+        if ($hasDeficit) {
+            $this->order->notes = $this->order->notes . "\n[WARNING]: Fulfillment Parsial (Tidak Lengkap).";
+        }
         $this->order->save();
-        \Flux::toast('Fulfillment selesai! Pesanan lanjut ke Packing.', variant: 'success');
-        $this->show = false;
-        $this->dispatch('status-updated');
-        \App\Events\KanbanUpdated::safeDispatch('sales_order');
-    } else {
-        \Flux::toast('Fulfillment parsial disimpan.', variant: 'success');
-        $this->loadOrder(); // Reload the data
-        $this->dispatch('status-updated');
-        \App\Events\KanbanUpdated::safeDispatch('sales_order');
-    }
-};
+    });
 
+    if ($hasDeficit) {
+        \Flux::toast('Fulfillment Parsial tersimpan! SO berlanjut ke tahap Packing dengan stok yang ada.', variant: 'warning');
+    } else {
+        \Flux::toast('Barang lengkap ditarik dari gudang. Siap untuk Di-Packing.', variant: 'success');
+    }
+
+    $this->dispatch('status-updated');
+    \App\Events\KanbanUpdated::safeDispatch('sales_order');
+    \App\Events\InventoryUpdated::safeDispatch('Fulfillment SO ' . $this->order->so_number . ' diproses');
+    $this->show = false;
+};
 ?>
 
 <div>
@@ -186,72 +291,119 @@ $saveFulfillment = function () {
     @if($order)
     <div class="p-4 sm:p-6">
         <div class="flex items-start gap-4">
-            <div class="flex-shrink-0 w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
-                <flux:icon.qr-code class="w-5 h-5" />
+            <div class="flex-shrink-0 w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+                <flux:icon.shopping-cart class="w-5 h-5" />
             </div>
             <div class="flex-1">
-                <flux:heading size="lg">Fulfillment Pesanan (Gudang)</flux:heading>
+                <flux:heading size="lg">Fulfillment Penjualan</flux:heading>
                 <flux:subheading class="mt-1 text-sm">
-                    SO <strong>{{ $order->so_number }}</strong> - Siapkan barang untuk <strong>{{ $order->customer->name }}</strong>.
+                    Ambil barang untuk SO <strong>{{ $order->so_number }}</strong> ({{ $order->customer_name }}).
                 </flux:subheading>
             </div>
         </div>
         
-        <div class="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4 bg-zinc-100 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700">
-            <div class="text-sm text-zinc-600 dark:text-zinc-400 text-center sm:text-left">
-                Gunakan <strong>Scanner</strong> untuk barang berlabel, atau ketik manual untuk barang umum.
+        <div class="mt-6 flex flex-col sm:flex-row justify-between items-center gap-3 bg-zinc-100 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700">
+            <div class="flex-1 w-full">
+                <flux:input 
+                    wire:model="manualBarcode" 
+                    x-on:keydown.enter="$dispatch('barcode-scanned', { code: $wire.manualBarcode }); $wire.manualBarcode = ''" 
+                    placeholder="Ketik kode barcode manual, lalu tekan Enter..." 
+                    icon="qr-code" 
+                />
             </div>
+            <div class="hidden sm:block text-xs font-bold text-zinc-400">ATAU</div>
             <flux:button type="button" x-on:click="Flux.modal('camera-scanner-modal').show(); window.dispatchEvent(new Event('camera-scanner-modal-opened'))" variant="filled" icon="camera" class="w-full sm:w-auto shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white border-none" tooltip="Gunakan Kamera HP">
-                Scanner Barcode
+                Scanner
             </flux:button>
         </div>
 
         <div class="mt-4 flex flex-col gap-3">
-            @foreach($items as $index => $item)
-                <div class="p-3 sm:p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 {{ $item['fulfilled_qty'] >= $item['ordered_qty'] ? 'bg-green-50/50 dark:bg-green-900/10' : 'bg-zinc-50 dark:bg-zinc-800/50' }}">
+            @forelse($items as $index => $item)
+                <div class="p-3 sm:p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 {{ $item['input_qty'] >= $item['remaining_needed'] ? 'bg-green-50/50 dark:bg-green-900/10' : 'bg-zinc-50 dark:bg-zinc-800/50' }}">
                     <div class="flex-1">
                         <div class="text-zinc-900 dark:text-zinc-100 font-medium text-base">
                             {{ $item['name'] }}
-                            @if($item['fulfilled_qty'] >= $item['ordered_qty'])
-                                <div class="inline-block ml-2"><flux:badge size="sm" color="green">Lengkap</flux:badge></div>
+                            @if($item['input_qty'] >= $item['remaining_needed'])
+                                <div class="inline-block ml-2"><flux:badge size="sm" color="green">Cukup</flux:badge></div>
                             @endif
                         </div>
-                        <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex gap-3">
-                            <div>Dipesan: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['ordered_qty'] }}</span></div>
-                            <div class="border-l border-zinc-300 dark:border-zinc-600 pl-3">Telah Siap: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['fulfilled_qty'] }}</span></div>
+                        <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex flex-wrap gap-3 items-center">
+                            <div>Pesanan: <span class="font-bold text-rose-600 dark:text-rose-500">{{ $item['remaining_needed'] }}</span> <span class="text-xs text-zinc-400">(Dari {{ $item['needed'] }})</span></div>
+                            <div class="border-l border-zinc-300 dark:border-zinc-600 pl-3">Tersedia di Gudang: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['stock'] }}</span></div>
                         </div>
                     </div>
                     
                     <div class="flex items-center gap-3 self-end sm:self-auto shrink-0 w-full sm:w-32 justify-between sm:justify-end mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-0 border-zinc-200 dark:border-zinc-700">
-                        <span class="text-sm font-medium text-zinc-600 dark:text-zinc-400 sm:hidden">Scan Baru / Input:</span>
-                        @if($item['fulfilled_qty'] < $item['ordered_qty'])
+                        <span class="text-sm font-medium text-zinc-600 dark:text-zinc-400 sm:hidden">Siap Kirim:</span>
+                        <div class="w-24 sm:w-full">
                             @if($item['requires_label'])
-                                <div class="font-bold text-2xl text-indigo-600 dark:text-indigo-400 text-center w-24 sm:w-full" title="Wajib dipindai menggunakan Scanner Kamera">
-                                    {{ $item['input_qty'] }}
+                                <div class="text-center font-bold text-xl text-indigo-600 dark:text-indigo-400">
+                                    {{ $item['input_qty'] }} <span class="text-xs text-zinc-500 font-normal">Scan</span>
                                 </div>
                             @else
-                                <div class="w-24 sm:w-full">
-                                    <flux:input type="number" wire:model="items.{{ $index }}.input_qty" min="0" max="{{ $item['ordered_qty'] - $item['fulfilled_qty'] }}" class="w-full text-center" />
-                                </div>
+                                @if($item['stock'] <= 0)
+                                    <div class="text-center text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 py-2 rounded-lg border border-red-100 dark:border-red-800">Kosong</div>
+                                @else
+                                    <flux:input type="number" wire:model.live="items.{{ $index }}.input_qty" min="0" max="{{ min($item['remaining_needed'], $item['stock']) }}" class="w-full text-center" />
+                                @endif
                             @endif
-                        @else
-                            <span class="text-zinc-400 italic font-medium w-24 sm:w-full text-right sm:text-center">Selesai</span>
-                        @endif
+                        </div>
                     </div>
                 </div>
-            @endforeach
+                @if($item['requires_label'] && count($item['scanned_labels']) > 0)
+                    <div class="mt-2 ml-2 pl-4 border-l-2 border-indigo-200 dark:border-indigo-900/50 flex flex-wrap gap-2">
+                        @foreach($item['scanned_labels'] as $labelIndex => $sl)
+                            <div class="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 text-xs px-2 py-1 rounded border border-indigo-100 dark:border-indigo-800/50">
+                                <flux:icon.qr-code class="w-3 h-3" />
+                                {{ $sl['code'] }}
+                                <button type="button" wire:click="removeScannedLabel({{ $index }}, {{ $labelIndex }})" class="ml-1 text-indigo-400 hover:text-red-500"><flux:icon.x-mark class="w-3 h-3" /></button>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            @empty
+                <div class="p-5 text-center text-zinc-500">Tidak ada barang.</div>
+            @endforelse
         </div>
+
+        @if(count($items) > 0)
+        <div class="mt-4">
+            <flux:textarea wire:model="notes" label="Catatan Tambahan" placeholder="Misal: Barang cacat, diganti stok lain..." />
+        </div>
+
+        @php
+            $hasStockDeficit = false;
+            $hasAnyInput = false;
+            
+            foreach($items as $item) {
+                if ($item['input_qty'] > 0) $hasAnyInput = true;
+                if ($item['remaining_needed'] > $item['input_qty']) {
+                    $hasStockDeficit = true;
+                }
+            }
+        @endphp
 
         <div class="mt-6 flex flex-col-reverse sm:flex-row justify-between items-center gap-4">
             <span class="text-xs text-zinc-500 text-center sm:text-left w-full sm:w-auto">
                 <flux:icon.information-circle class="inline w-4 h-4 mr-1 text-blue-500" />
-                Selesaikan semua item agar SO bisa lanjut ke Packing.
+                @if($hasStockDeficit)
+                    Pengiriman <strong class="text-amber-600 dark:text-amber-500">Parsial</strong>. Lanjutkan ke Packing dengan stok seadanya.
+                @else
+                    Semua barang lengkap dan siap di-Packing.
+                @endif
             </span>
             <div class="flex gap-2 sm:gap-3 w-full sm:w-auto">
                 <flux:button variant="ghost" wire:click="$set('show', false)" class="flex-1 sm:flex-none">Batal</flux:button>
-                <flux:button variant="primary" wire:click="saveFulfillment" icon="check" class="flex-1 sm:flex-none">Simpan</flux:button>
+                @if(!$hasAnyInput)
+                    <flux:button variant="primary" disabled class="flex-1 sm:flex-none opacity-50 cursor-not-allowed">Serahkan</flux:button>
+                @elseif($hasStockDeficit)
+                    <flux:button variant="warning" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 sm:flex-none">Serahkan Parsial</flux:button>
+                @else
+                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 sm:flex-none">Lengkap, Serahkan</flux:button>
+                @endif
             </div>
         </div>
+        @endif
     </div>
     @endif
 </flux:modal>

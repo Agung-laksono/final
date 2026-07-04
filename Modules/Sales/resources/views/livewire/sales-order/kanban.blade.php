@@ -1,6 +1,8 @@
 <?php
 use function Livewire\Volt\{state, layout, title, computed, on};
 use Modules\Sales\Models\SalesOrder;
+use Illuminate\Support\Facades\Cache;
+use App\Models\Setting;
 
 layout('layouts.app');
 title('Kanban Sales Order');
@@ -29,6 +31,7 @@ state([
     },
     'transparent_columns' => false,
     'search' => '',
+    'setting_version' => 0, // bumped saat setting berubah → paksa re-render
 ]);
 
 $orders = computed(function () {
@@ -68,37 +71,6 @@ $updateStatus = function ($orderId, $newStatus) {
     }
 };
 
-$markAsArrived = function ($orderId) {
-    abort_unless(auth()->user()->can('sales.order.update'), 403);
-    
-    $so = SalesOrder::find($orderId);
-    if ($so) {
-        $so->status = 'arrived';
-        $so->save();
-        
-        \Flux::toast('Barang sudah diterima pelanggan.', variant: 'success');
-        $this->dispatch('status-updated');
-        \App\Events\KanbanUpdated::safeDispatch('sales_order');
-    }
-};
-
-$markAsCompleted = function ($orderId) {
-    abort_unless(auth()->user()->can('sales.order.update') || auth()->user()->hasRole('Finance'), 403);
-    
-    $so = SalesOrder::find($orderId);
-    if ($so) {
-        $so->status = 'completed';
-        $so->save();
-        
-        // Di sini bisa ditambahkan logika pengurangan stok otomatis (mutasi keluar)
-        // secara formal di inventory system.
-        
-        \Flux::toast('Pesanan selesai!', variant: 'success');
-        $this->dispatch('status-updated');
-        \App\Events\KanbanUpdated::safeDispatch('sales_order');
-    }
-};
-
 $markAsArchived = function ($orderId) {
     abort_unless(auth()->user()->can('sales.order.update') || auth()->user()->hasRole('Finance'), 403);
     
@@ -113,11 +85,17 @@ $markAsArchived = function ($orderId) {
     }
 };
 
+// markAsCompleted closure has been moved to completed-modal.blade.php
+
 on([
     'status-updated' => function () {
         // Kosong saja, tujuannya hanya memancing re-render agar computed $orders dijalankan ulang
     },
-    'echo:kanban.sales_order,KanbanUpdated' => function () {}
+    'echo:kanban.sales_order,KanbanUpdated' => function () {},
+    'echo:settings,SettingUpdated' => function () {
+        Cache::forget('setting_gudang_handles_shipping');
+        $this->setting_version++;
+    },
 ]);
 
 ?>
@@ -235,7 +213,7 @@ on([
                                     
                                     $totalVerifiedPayment = $order->payments->where('status', 'verified')->sum('amount');
                                     $totalAmount = (float)$order->total_amount;
-                                    $paymentPercent = $totalAmount > 0 ? min(100, round(($totalVerifiedPayment / $totalAmount) * 100)) : 0;
+                                    $paymentPercent = $totalAmount > 0 ? ($totalVerifiedPayment >= $totalAmount ? 100 : floor(($totalVerifiedPayment / $totalAmount) * 100)) : 0;
                                 @endphp
                                 
                                 <div class="mt-3 space-y-2">
@@ -314,9 +292,11 @@ on([
                                     <flux:button size="sm" variant="subtle" icon="eye" class="h-6 w-6 p-0" title="Detail SO" wire:click.stop="$dispatch('open-detail-modal', { orderId: {{ $order->id }} })" />
                                     
                                     {{-- Tombol Pembayaran --}}
-                                    @canany(['sales.payment.create', 'sales.payment.validate'])
-                                        <flux:button size="sm" variant="subtle" icon="banknotes" class="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/50" title="Pembayaran" wire:click.stop="$dispatch('open-payment-modal', { orderId: {{ $order->id }} })" />
-                                    @endcanany
+                                    @if(!in_array($statusKey, ['completed', 'archived']))
+                                        @canany(['sales.payment.create', 'sales.payment.validate'])
+                                            <flux:button size="sm" variant="subtle" icon="banknotes" class="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/50" title="Pembayaran" wire:click.stop="$dispatch('open-payment-modal', { orderId: {{ $order->id }} })" />
+                                        @endcanany
+                                    @endif
                                     
                                     {{-- Tombol Aksi Spesifik --}}
                                     @if($statusKey === 'pending_approval')
@@ -328,31 +308,46 @@ on([
                                             <flux:button size="sm" variant="subtle" icon="qr-code" class="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50" title="Fulfillment Gudang" wire:click.stop="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })" />
                                         @endif
                                     @elseif($statusKey === 'packing')
-                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Gudang']))
-                                            @if(!$order->is_packed || auth()->user()->hasAnyRole(['Super Admin', 'Manager']))
-                                                <flux:button size="sm" variant="subtle" icon="archive-box" class="h-6 w-6 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/50" title="Input Detail Packing" wire:click.stop="$dispatch('open-packing-modal', { orderId: {{ $order->id }} })" />
-                                            @endif
-                                            
-                                            @if($order->is_packed)
-                                                <flux:button size="sm" variant="subtle" icon="truck" class="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/50" title="Kirim via Ekspedisi" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })" />
+                                        @php 
+                                            // Membaca setting_version agar Livewire tahu bagian ini bergantung pada state
+                                            $_sv = $setting_version;
+                                            $gudangHandlesShipping = \Illuminate\Support\Facades\Cache::remember('setting_gudang_handles_shipping', 3600, function () {
+                                                return \App\Models\Setting::where('key', 'gudang_handles_shipping')->value('value');
+                                            }) == '1';
+                                        @endphp
+                                        
+                                        @if($order->is_packed)
+                                            @if(!$gudangHandlesShipping)
+                                                @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Sales', 'Kepala Sales']))
+                                                    <flux:button size="sm" variant="subtle" icon="truck" class="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/50" title="Kirim via Ekspedisi" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })" />
+                                                @endif
                                             @endif
                                         @endif
                                     @elseif($statusKey === 'shipping')
-                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Sales']))
-                                            <flux:button size="sm" variant="subtle" icon="flag" class="h-6 w-6 p-0 text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/50" title="Tandai Barang Telah Sampai" wire:click.stop="markAsArrived({{ $order->id }})" />
+                                        @php 
+                                            // Membaca setting_version agar Livewire tahu bagian ini bergantung pada state
+                                            $_sv = $setting_version;
+                                            $gudangHandlesShipping = \Illuminate\Support\Facades\Cache::remember('setting_gudang_handles_shipping', 3600, function () {
+                                                return \App\Models\Setting::where('key', 'gudang_handles_shipping')->value('value');
+                                            }) == '1';
+                                        @endphp
+                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Sales', 'Kepala Sales']))
+                                            <flux:button size="sm" variant="subtle" icon="flag" class="h-6 w-6 p-0 text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-900/50" title="Tandai Barang Telah Sampai" wire:click.stop="$dispatch('open-arrived-modal', { orderId: {{ $order->id }} })" />
                                         @endif
                                         
-                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager']))
-                                            <flux:button size="sm" variant="subtle" icon="document-text" class="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50" title="Update Resi/Ekspedisi" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })" />
+                                        @if(!$gudangHandlesShipping)
+                                            @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Sales', 'Kepala Sales']))
+                                                <flux:button size="sm" variant="subtle" icon="document-text" class="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50" title="Update Resi/Ekspedisi" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })" />
+                                            @endif
                                         @endif
                                     @elseif($statusKey === 'arrived')
-                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Finance']))
-                                            <flux:button size="sm" variant="subtle" icon="check-badge" class="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/50" title="Tandai Selesai" wire:click.stop="markAsCompleted({{ $order->id }})" />
-                                        @endif
+                                        @can('sales.order.complete')
+                                            <flux:button size="sm" variant="subtle" icon="check-badge" class="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/50" title="Tandai Selesai" wire:click.stop="$dispatch('open-completed-modal', { orderId: {{ $order->id }} })" />
+                                        @endcan
                                     @elseif($statusKey === 'completed')
-                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Finance']))
+                                        @can('sales.order.complete')
                                             <flux:button size="sm" variant="subtle" icon="inbox-arrow-down" class="h-6 w-6 p-0 text-zinc-600 hover:text-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800" title="Arsipkan Pesanan" wire:click.stop="markAsArchived({{ $order->id }})" />
-                                        @endif
+                                        @endcan
                                     @endif
                                 </div>
                             </div>
@@ -367,12 +362,15 @@ on([
         @endforeach
     </div>
 
+    <!-- Modals -->
+    <livewire:sales-order.detail-modal />
     <livewire:sales-order.approval-modal />
+    <livewire:sales-order.payment-modal />
     <livewire:sales-order.fulfillment-modal />
     <livewire:sales-order.packing-modal />
     <livewire:sales-order.shipping-modal />
-    <livewire:sales-order.payment-modal />
-    <livewire:sales-order.detail-modal />
+    <livewire:sales-order.arrived-modal />
+    <livewire:sales-order.completed-modal />
     <livewire:global.vendor-gallery-modal />
     <livewire:global.vendor-form-modal />
 </div>

@@ -17,7 +17,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/inventory/fulfillments', 'fulfillments')->name('inventory.fulfillments')->middleware('permission:production.order.update');
     Volt::route('/inventory/production-receipts', 'production-receipts.index')->name('inventory.production-receipts')->middleware('permission:inventory.stock.create');
     Volt::route('/inventory/dispatch', 'dispatch.index')->name('inventory.dispatch')->middleware('permission:inventory.stock.create');
-    
+    Volt::route('/inventory/sales-deliveries', 'sales-deliveries.index')->name('inventory.sales-deliveries')->middleware('permission:inventory.view');
+
     // Route khusus cetak murni tanpa layout dashboard
     Volt::route('/inventory/print-labels', 'print-labels')->name('inventory.print-labels')->middleware('permission:inventory.item.view');
     
