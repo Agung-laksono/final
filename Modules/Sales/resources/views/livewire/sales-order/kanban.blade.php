@@ -100,42 +100,79 @@ on([
 
 ?>
 
-<div class="space-y-6">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div class="hidden md:block">
-            <flux:heading size="xl">Kanban Sales Order</flux:heading>
-            <flux:subheading>Atur dan pantau progres pesanan penjualan secara visual.</flux:subheading>
-        </div>
+<div class="kanban-root" x-data="{ isFullscreen: false, showHeader: true }" 
+     :class="isFullscreen ? 'fixed inset-0 z-[100] bg-zinc-50 dark:bg-zinc-950 p-0 lg:p-4 flex flex-col transition-all duration-300' : 'relative flex flex-col w-full'"
+     x-bind:style="isFullscreen ? '' : 'height: 100vh;'">
+    
+    <style>
+        /* Paksa hilangkan padding bawaan layout KHUSUS untuk halaman Kanban ini, 
+           serta ubah menjadi flex container agar tinggi bisa mengisi penuh 100% */
+        div:has(> .kanban-root) {
+            padding: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
+            height: 100% !important;
+            overflow: hidden !important;
+        }
         
-        <div class="flex items-center gap-3 w-full md:w-auto">
-            <div class="flex-1 min-w-0 md:w-64">
-                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari SO atau nama pelanggan..." />
+        /* Menyembunyikan scrollbar tapi tetap bisa digulir */
+        .hide-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scroll {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+     
+    {{-- Floating Show Header Button --}}
+    <div class="absolute top-2 right-2 sm:top-4 sm:right-6 z-[110]" x-show="!showHeader" x-transition x-cloak>
+        <flux:button variant="subtle" class="rounded-full shadow-lg bg-white/90 dark:bg-zinc-800/90 backdrop-blur border border-zinc-200 dark:border-zinc-700 w-10 h-10 p-0 flex items-center justify-center" @click="showHeader = true" title="Tampilkan Alat">
+            <flux:icon.chevron-down class="w-5 h-5 text-zinc-500" />
+        </flux:button>
+    </div>
+
+    {{-- Floating Controls (Full Width) --}}
+    <div class="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 z-[60] flex items-center justify-between gap-2 sm:gap-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md px-2 py-2 sm:px-4 sm:py-3 rounded-2xl shadow-sm border border-zinc-200/50 dark:border-zinc-800/50" x-show="showHeader" x-transition>
+        
+        <div class="flex-1 min-w-0 max-w-md">
+            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari SO atau nama pelanggan..." />
+        </div>
+
+        <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+            <div class="hidden sm:flex items-center mr-2" title="Mode Transparan">
+                <flux:switch wire:model.live="transparent_columns" label="Transparan" />
             </div>
 
-            <div class="flex items-center gap-3 shrink-0">
-                {{-- Toggle Transparan --}}
-                <div class="hidden sm:flex" title="Mode Transparan">
-                    <flux:switch wire:model.live="transparent_columns" label="Transparan" />
-                </div>
-                <div class="flex sm:hidden" title="Mode Transparan">
-                    <flux:switch wire:model.live="transparent_columns" />
-                </div>
+            <flux:button variant="subtle" class="px-2.5 sm:px-3 text-zinc-500 hover:text-indigo-600" title="Layar Penuh" @click="isFullscreen = !isFullscreen">
+                <flux:icon.arrows-pointing-out class="w-5 h-5" x-show="!isFullscreen" />
+                <flux:icon.arrows-pointing-in class="w-5 h-5 text-indigo-600" x-show="isFullscreen" x-cloak />
+            </flux:button>
 
-                @can('sales.order.create')
-                    {{-- Tombol Add --}}
-                    <flux:button variant="primary" icon="plus" href="{{ route('sales.orders.create') }}" wire:navigate class="px-3 sm:px-4 shrink-0">
-                        <span class="hidden sm:inline">Buat Pesanan Baru</span>
-                    </flux:button>
-                @endcan
-            </div>
+            <flux:button variant="subtle" class="px-2.5 sm:px-3 text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" title="Sembunyikan Alat" @click="showHeader = false">
+                <flux:icon.eye-slash class="w-5 h-5" />
+            </flux:button>
+
+            @can('sales.order.create')
+                <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1 sm:mx-2 hidden sm:block"></div>
+                <flux:button variant="primary" icon="plus" href="{{ route('sales.orders.create') }}" wire:navigate class="px-2.5 sm:px-4">
+                    <span class="hidden sm:inline">Buat Pesanan</span>
+                    <span class="sm:hidden">Buat</span>
+                </flux:button>
+            @endcan
         </div>
     </div>
 
     {{-- Kanban Board Area --}}
-    <div class="flex justify-start gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)] -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch">
-        @foreach($columns as $statusKey => $column)
+    <div class="flex-1 min-h-0 flex flex-col px-0 lg:px-6 transition-all duration-300"
+         :class="showHeader ? 'pt-16 sm:pt-20 lg:pt-24' : 'pt-2 lg:pt-6'">
+        <div class="flex-1 min-h-0 overflow-x-auto pb-2 lg:pb-4 snap-x snap-mandatory scroll-smooth custom-scrollbar">
+            <div class="flex justify-start gap-3 sm:gap-4 lg:gap-6 items-stretch min-w-max h-full px-2 lg:px-0">
+            @foreach($columns as $statusKey => $column)
             <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['completed', 'archived']) ? 'true' : 'false' }}).as('kanban-col-sales-{{ $statusKey }}-user-{{ auth()->id() }}') }"
-                 class="flex-shrink-0 h-full max-h-full rounded-xl flex flex-col transition-all duration-300 snap-center {{ $transparent_columns ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800' }}"
+                 style="height: 100%; display: flex; flex-direction: column;"
+                 class="flex-shrink-0 rounded-xl transition-all duration-300 snap-center {{ $transparent_columns ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800' }}"
                  :class="collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80'"
                  @click="if(collapsed) collapsed = false"
                  wire:key="column-{{ $statusKey }}">
@@ -157,7 +194,9 @@ on([
                 </div>
 
                 {{-- Column Items --}}
-                <div x-show="!collapsed" x-transition.opacity.duration.300ms class="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
+                <div x-show="!collapsed" x-transition.opacity.duration.300ms 
+                     class="flex-1 p-3 overflow-y-auto space-y-3"
+                     :class="$wire.transparent_columns ? 'hide-scroll' : 'custom-scrollbar'">
                     
                     {{-- Deskripsi Aktor --}}
                     <p class="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold mb-2">
@@ -303,10 +342,6 @@ on([
                                         @can('sales.approve.update')
                                             <flux:button size="sm" variant="subtle" icon="check-circle" class="h-6 w-6 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/50" title="Persetujuan" wire:click.stop="$dispatch('open-approval-modal', { orderId: {{ $order->id }} })" />
                                         @endcan
-                                    @elseif($statusKey === 'processing')
-                                        @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Gudang']))
-                                            <flux:button size="sm" variant="subtle" icon="qr-code" class="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50" title="Fulfillment Gudang" wire:click.stop="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })" />
-                                        @endif
                                     @elseif($statusKey === 'packing')
                                         @php 
                                             // Membaca setting_version agar Livewire tahu bagian ini bergantung pada state
@@ -360,6 +395,8 @@ on([
                 </div>
             </div>
         @endforeach
+            </div>
+        </div>
     </div>
 
     <!-- Modals -->
@@ -373,25 +410,25 @@ on([
     <livewire:sales-order.completed-modal />
     <livewire:global.vendor-gallery-modal />
     <livewire:global.vendor-form-modal />
-</div>
 
-<style>
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-        height: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background-color: #cbd5e1;
-        border-radius: 10px;
-    }
-    .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-        background-color: #334155;
-    }
-    .vertical-text {
-        writing-mode: vertical-rl;
-        transform: rotate(180deg);
-    }
-</style>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 10px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #334155;
+        }
+        .vertical-text {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+        }
+    </style>
+</div>
