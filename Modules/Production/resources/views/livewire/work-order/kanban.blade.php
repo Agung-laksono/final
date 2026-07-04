@@ -8,7 +8,7 @@ title('Kanban Produksi');
 state([
     'columns' => [
         'material_fulfillment' => ['title' => 'Pemenuhan Bahan', 'color' => 'orange'],
-        'waiting_vendor' => ['title' => 'Antrean Maklon', 'color' => 'cyan'],
+        'waiting_vendor' => ['title' => 'Antrean Vendor', 'color' => 'cyan'],
         'in_production' => ['title' => 'Diproses Vendor', 'color' => 'blue'],
         'receiving' => ['title' => 'Penerimaan Gudang', 'color' => 'purple'],
         'completed' => ['title' => 'Selesai', 'color' => 'emerald'],
@@ -112,7 +112,7 @@ on(['maklon-po-created' => function () {
                     </div>
                     <div class="flex items-center gap-2">
                         @if($statusKey === 'waiting_vendor' && count($this->selectedOrders) > 0)
-                            <flux:button size="sm" variant="primary" icon="plus" wire:click="$dispatch('open-maklon-modal', { orderIds: {{ json_encode($this->selectedOrders) }} })">Buat SPK Maklon</flux:button>
+                            <flux:button size="sm" variant="primary" icon="plus" wire:click="$dispatch('open-maklon-modal', { orderIds: {{ json_encode($this->selectedOrders) }} })">Buat SPK</flux:button>
                         @endif
                         @if($statusKey === 'in_production')
                             <div class="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg">
@@ -143,7 +143,14 @@ on(['maklon-po-created' => function () {
                                     <div>
                                         <div class="flex items-center gap-2 mb-1">
                                             <flux:icon.truck class="w-4 h-4 text-blue-500" />
-                                            <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100">{{ $po->po_number ?? 'Tanpa SPK' }}</span>
+                                            @if($po)
+                                                <button type="button" wire:click="$dispatch('open-po-detail-modal', { poId: {{ $po->id }} })" class="font-bold text-sm text-zinc-900 dark:text-zinc-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-1 group" title="Buka Detail SPK">
+                                                    {{ $po->po_number }}
+                                                    <flux:icon.arrow-top-right-on-square class="w-3.5 h-3.5 text-indigo-500 opacity-50 group-hover:opacity-100 transition-opacity" />
+                                                </button>
+                                            @else
+                                                <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100">Tanpa SPK</span>
+                                            @endif
                                         </div>
                                         <div class="text-[10px] text-zinc-500 line-clamp-1 flex items-center gap-1">
                                             <flux:icon.building-storefront class="w-3 h-3" />
