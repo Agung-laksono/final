@@ -34,6 +34,31 @@ $fetchCount = function () {
             $this->count = \Modules\Inventory\Models\InventoryRequest::where('status', 'draft')->count(); 
             $this->colorClass = 'bg-amber-500';
             break;
+            
+        // Module Aggregations
+        case 'module_inventory':
+            $this->count = \Modules\Inventory\Models\StockTransfer::where('status', 'in_transit')->count() +
+                           \Modules\Inventory\Models\InventoryRequest::where('status', 'draft')->count();
+            $this->colorClass = 'bg-amber-500';
+            break;
+        case 'module_purchase':
+            $this->count = \Modules\Purchase\Models\PurchaseQueue::where('status', 'pending_approval')->count() +
+                           \Modules\Purchase\Models\PurchaseOrder::whereIn('status', ['draft', 'on_delivery'])->count();
+            $this->colorClass = 'bg-sky-500';
+            break;
+        case 'module_sales':
+            if (auth()->user()->hasRole('Gudang') && !auth()->user()->hasAnyRole(['Super Admin', 'Manager', 'Sales'])) {
+                $this->count = \Modules\Sales\Models\SalesOrder::whereIn('status', ['processing', 'packing'])->count();
+                $this->colorClass = 'bg-emerald-500';
+            } else {
+                $this->count = \Modules\Sales\Models\SalesOrder::whereIn('status', ['pending_approval'])->count();
+                $this->colorClass = 'bg-emerald-500';
+            }
+            break;
+        case 'module_production':
+            $this->count = \Modules\Production\Models\ProductionOrder::whereIn('status', ['pending_approval', 'waiting_material'])->count();
+            $this->colorClass = 'bg-purple-500';
+            break;
     }
 };
 

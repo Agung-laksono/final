@@ -91,7 +91,7 @@
             @endcan
 
             <!-- Pembelian -->
-            @canany(['purchase.dashboard.view', 'purchase.queue.view', 'purchase.order.view', 'purchase.vendor.view'])
+            @can('purchase.dashboard.view')
             <flux:sidebar.nav>
                 <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                     {{ __('PEMBELIAN') }}
@@ -129,10 +129,10 @@
                 </flux:sidebar.item>
                 @endcan
             </flux:sidebar.nav>
-            @endcanany
+            @endcan
 
             <!-- Produksi -->
-            @canany(['production.dashboard.view', 'production.order.view', 'production.recipe.view'])
+            @can('production.dashboard.view')
             <flux:sidebar.nav>
                 <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                     {{ __('PRODUKSI') }}
@@ -154,10 +154,10 @@
                 </flux:sidebar.item>
                 @endcan
             </flux:sidebar.nav>
-            @endcanany
+            @endcan
 
             <!-- Penjualan -->
-            @canany(['sales.dashboard.view', 'sales.customer.view', 'sales.order.view'])
+            @can('sales.dashboard.view')
             <flux:sidebar.nav>
                 <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                     {{ __('PENJUALAN') }}
@@ -184,9 +184,10 @@
                 </flux:sidebar.item>
                 @endcan
             </flux:sidebar.nav>
-            @endcanany
+            @endcan
 
             <!-- Keuangan -->
+            @canany(['finance.dashboard.view', 'finance.inbox.view'])
             <flux:sidebar.nav>
                 <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                     {{ __('KEUANGAN') }}
@@ -198,6 +199,7 @@
                     {{ __('Validasi Transaksi') }}
                 </flux:sidebar.item>
             </flux:sidebar.nav>
+            @endcanany
 
             <flux:sidebar.nav class="mt-4">
                 <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>

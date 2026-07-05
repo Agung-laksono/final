@@ -100,19 +100,26 @@ on([
 
 ?>
 
-<div class="kanban-root" x-data="{ isFullscreen: false, showHeader: true }" 
-     :class="isFullscreen ? 'fixed inset-0 z-[100] bg-zinc-50 dark:bg-zinc-950 p-0 lg:p-4 flex flex-col transition-all duration-300' : 'relative flex flex-col w-full'"
-     x-bind:style="isFullscreen ? '' : 'height: 100vh;'">
+<div class="kanban-root relative flex flex-col w-full" 
+     x-data="{ 
+        showHeader: $persist(true).as('kanban-sales-header-user-{{ auth()->id() }}'),
+        transparent: $persist(false).as('kanban-sales-transparent-user-{{ auth()->id() }}')
+     }" 
+     style="height: 100vh; overflow: hidden;">
     
     <style>
         /* Paksa hilangkan padding bawaan layout KHUSUS untuk halaman Kanban ini, 
            serta ubah menjadi flex container agar tinggi bisa mengisi penuh 100% */
-        div:has(> .kanban-root) {
+        *:has(> .kanban-root), *:has(> div > .kanban-root) {
             padding: 0 !important;
             display: flex !important;
             flex-direction: column !important;
             min-height: 0 !important;
-            height: 100% !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            overflow: hidden !important;
+        }
+        body {
             overflow: hidden !important;
         }
         
@@ -142,17 +149,8 @@ on([
 
         <div class="flex items-center gap-1 sm:gap-2 shrink-0">
             <div class="hidden sm:flex items-center mr-2" title="Mode Transparan">
-                <flux:switch wire:model.live="transparent_columns" label="Transparan" />
+                <flux:switch x-model="transparent" label="Transparan" />
             </div>
-
-            <flux:button variant="subtle" class="px-2.5 sm:px-3 text-zinc-500 hover:text-indigo-600" title="Layar Penuh" @click="isFullscreen = !isFullscreen">
-                <flux:icon.arrows-pointing-out class="w-5 h-5" x-show="!isFullscreen" />
-                <flux:icon.arrows-pointing-in class="w-5 h-5 text-indigo-600" x-show="isFullscreen" x-cloak />
-            </flux:button>
-
-            <flux:button variant="subtle" class="px-2.5 sm:px-3 text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" title="Sembunyikan Alat" @click="showHeader = false">
-                <flux:icon.eye-slash class="w-5 h-5" />
-            </flux:button>
 
             @can('sales.order.create')
                 <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1 sm:mx-2 hidden sm:block"></div>
@@ -161,6 +159,10 @@ on([
                     <span class="sm:hidden">Buat</span>
                 </flux:button>
             @endcan
+
+            <flux:button variant="subtle" class="px-2.5 sm:px-3 text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 ml-1 sm:ml-2" title="Sembunyikan Alat" @click="showHeader = false">
+                <flux:icon.eye-slash class="w-5 h-5" />
+            </flux:button>
         </div>
     </div>
 
@@ -172,14 +174,14 @@ on([
             @foreach($columns as $statusKey => $column)
             <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['completed', 'archived']) ? 'true' : 'false' }}).as('kanban-col-sales-{{ $statusKey }}-user-{{ auth()->id() }}') }"
                  style="height: 100%; display: flex; flex-direction: column;"
-                 class="flex-shrink-0 rounded-xl transition-all duration-300 snap-center {{ $transparent_columns ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800' }}"
-                 :class="collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80'"
+                 class="flex-shrink-0 rounded-xl transition-all duration-300 snap-center"
+                 :class="(transparent ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80')"
                  @click="if(collapsed) collapsed = false"
                  wire:key="column-{{ $statusKey }}">
                 
                 {{-- Column Header --}}
-                <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300 {{ $transparent_columns ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800' }}"
-                     :class="collapsed ? 'flex-col gap-4 h-full pb-8' : ''">
+                <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300"
+                     :class="(transparent ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'flex-col gap-4 h-full pb-8' : '')">
                     <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
                         <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0"></div>
                         <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
@@ -196,7 +198,7 @@ on([
                 {{-- Column Items --}}
                 <div x-show="!collapsed" x-transition.opacity.duration.300ms 
                      class="flex-1 p-3 overflow-y-auto space-y-3"
-                     :class="$wire.transparent_columns ? 'hide-scroll' : 'custom-scrollbar'">
+                     :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
                     
                     {{-- Deskripsi Aktor --}}
                     <p class="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold mb-2">
@@ -431,4 +433,6 @@ on([
             transform: rotate(180deg);
         }
     </style>
+
+
 </div>

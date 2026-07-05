@@ -69,6 +69,10 @@ class RolePermissionSeeder extends Seeder
             'marketing.notifikasi.view',
             'admin.notifikasi.view',            
             
+            // Modul Finance
+            'finance.dashboard.view',
+            'finance.inbox.view',
+            
             // Modul Pembelian (Purchase)
             'purchase.dashboard.view',
             'purchase.queue.view',
@@ -155,6 +159,15 @@ class RolePermissionSeeder extends Seeder
             // Gudang tidak punya hak delete apapun (kecuali inventory request)
         ]);
 
+        $roleStafGudang = Role::firstOrCreate(['name' => 'Staf Gudang']);
+        $roleStafGudang->givePermissionTo([
+            'inventory.view',
+            'inventory.item.view', // Untuk melihat detail barang yang dikirim/dipenuhi
+            'production.order.update', // Akses Pemenuhan Produksi
+            'sales.order.view', // Akses melihat referensi pesanan
+            'sales.order.update', // Akses memproses Pengiriman Penjualan
+        ]);
+
         $rolePurchasing = Role::firstOrCreate(['name' => 'Purchasing']);
         $rolePurchasing->givePermissionTo([
             'purchase.dashboard.view',
@@ -194,6 +207,8 @@ class RolePermissionSeeder extends Seeder
             'sales.dashboard.view',
             'sales.order.view',
             'sales.payment.validate', // Finance yang berhak memvalidasi pembayaran
+            'finance.dashboard.view',
+            'finance.inbox.view',
             'finance.notifikasi.view',
             'inventory.view',
             'inventory.item.view',

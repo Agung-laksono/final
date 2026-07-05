@@ -89,48 +89,96 @@ on([
 
 ?>
 
-<div class="space-y-6">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div class="hidden md:block">
-            <flux:heading size="xl">Kanban Purchase Order (PO)</flux:heading>
-            <flux:subheading>Atur dan pantau progres dokumen pemesanan ke Supplier/Vendor secara visual.</flux:subheading>
-        </div>
+<div class="kanban-root relative flex flex-col w-full" 
+     x-data="{ 
+        showHeader: $persist(true).as('kanban-order-header-user-{{ auth()->id() }}'),
+        transparent: $persist(false).as('kanban-order-transparent-user-{{ auth()->id() }}')
+     }" 
+     style="height: 100vh; overflow: hidden;">
+    
+    <style>
+        /* Paksa hilangkan padding bawaan layout KHUSUS untuk halaman Kanban ini */
+        *:has(> .kanban-root), *:has(> div > .kanban-root) {
+            padding: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            overflow: hidden !important;
+        }
+        main[data-flux-main] {
+            padding: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            overflow: hidden !important;
+        }
+        body {
+            overflow: hidden !important;
+        }
         
-        <div class="flex items-center gap-3 w-full md:w-auto">
-            <div class="flex-1 min-w-0 md:w-64">
-                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari PO / Vendor..." />
+        /* Menyembunyikan scrollbar tapi tetap bisa digulir */
+        .hide-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+     
+    {{-- Floating Show Header Button --}}
+    <div class="absolute top-2 right-2 sm:top-4 sm:right-6 z-[110]" x-show="!showHeader" x-transition x-cloak>
+        <flux:button variant="subtle" class="rounded-full shadow-lg bg-white/90 dark:bg-zinc-800/90 backdrop-blur border border-zinc-200 dark:border-zinc-700 w-10 h-10 p-0 flex items-center justify-center" @click="showHeader = true" title="Tampilkan Alat">
+            <flux:icon.chevron-down class="w-5 h-5 text-zinc-500" />
+        </flux:button>
+    </div>
+
+    {{-- Floating Controls (Full Width) --}}
+    <div class="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 z-[60] flex items-center justify-between gap-2 sm:gap-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md px-2 py-2 sm:px-4 sm:py-3 rounded-2xl shadow-sm border border-zinc-200/50 dark:border-zinc-800/50" x-show="showHeader" x-transition>
+        
+        <div class="flex-1 min-w-0 max-w-md">
+            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari PO / Vendor..." />
+        </div>
+
+        <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+            <div class="hidden sm:flex items-center mr-2" title="Mode Transparan">
+                <flux:switch x-model="transparent" label="Transparan" />
             </div>
 
-            <div class="flex items-center gap-3 shrink-0">
-                {{-- Toggle Transparan --}}
-                <div class="hidden sm:flex" title="Mode Transparan">
-                    <flux:switch wire:model.live="transparent_columns" label="Transparan" />
-                </div>
-                <div class="flex sm:hidden" title="Mode Transparan">
-                    <flux:switch wire:model.live="transparent_columns" />
-                </div>
+            @can('purchase.create')
+                <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1 sm:mx-2 hidden sm:block"></div>
+                <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" class="px-2.5 sm:px-4 shrink-0" wire:navigate>
+                    <span class="hidden sm:inline">Buat PO</span>
+                    <span class="sm:hidden">Buat</span>
+                </flux:button>
+            @endcan
 
-                @can('purchase.create')
-                    {{-- Tombol Add --}}
-                    <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" class="px-3 sm:px-4 shrink-0" wire:navigate>
-                        <span class="hidden sm:inline">Buat PO Baru</span>
-                    </flux:button>
-                @endcan
-            </div>
+            <flux:button variant="subtle" class="px-2.5 sm:px-3 text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 ml-1 sm:ml-2" title="Sembunyikan Alat" @click="showHeader = false">
+                <flux:icon.eye-slash class="w-5 h-5" />
+            </flux:button>
         </div>
     </div>
 
     {{-- Kanban Board Area --}}
-    <div class="flex justify-start gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)] -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch">
+    <div class="flex-1 min-h-0 flex flex-col px-0 lg:px-6 transition-all duration-300"
+         :class="showHeader ? 'pt-16 sm:pt-20 lg:pt-24' : 'pt-2 lg:pt-6'">
+        <div class="flex-1 min-h-0 overflow-x-auto pb-2 lg:pb-4 snap-x snap-mandatory scroll-smooth custom-scrollbar">
+            <div class="flex justify-start gap-3 sm:gap-4 lg:gap-6 items-stretch min-w-max h-full px-2 lg:px-0">
         @foreach($columns as $statusKey => $column)
-            <div x-data="{ collapsed: {{ $statusKey === 'archived' ? 'true' : 'false' }} }"
-                 class="flex-shrink-0 h-full max-h-full rounded-xl flex flex-col transition-all duration-300 snap-center {{ $transparent_columns ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800' }}"
-                 :class="collapsed ? 'w-16' : 'w-80'"
+            <div x-data="{ collapsed: $persist({{ $statusKey === 'archived' ? 'true' : 'false' }}).as('kanban-col-order-{{ $statusKey }}-user-{{ auth()->id() }}') }"
+                 style="height: 100%; display: flex; flex-direction: column;"
+                 class="flex-shrink-0 rounded-xl transition-all duration-300 snap-center"
+                 :class="(transparent ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80')"
+                 @click="if(collapsed) collapsed = false"
                  wire:key="column-{{ $statusKey }}">
                 
                 {{-- Column Header --}}
-                <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300 {{ $transparent_columns ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800' }}"
-                     :class="collapsed ? 'flex-col gap-4' : ''">
+                <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300"
+                     :class="(transparent ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'flex-col gap-4 h-full pb-8' : '')">
                     <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
                         <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0"></div>
                         <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
@@ -138,16 +186,14 @@ on([
                     </div>
                     <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
                         <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
-                        @if($statusKey === 'archived')
-                            <button @click="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" title="Toggle Kolom Arsip">
-                                <flux:icon.arrows-right-left class="w-4 h-4" />
-                            </button>
-                        @endif
+                        <button @click.stop="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
+                            <flux:icon.arrows-right-left class="w-4 h-4" x-bind:class="collapsed ? 'rotate-90' : ''" />
+                        </button>
                     </div>
                 </div>
 
                 {{-- Column Items --}}
-                <div x-show="!collapsed" x-transition.opacity.duration.300ms class="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
+                <div x-show="!collapsed" x-transition.opacity.duration.300ms class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
                     @forelse($this->orders[$statusKey] ?? [] as $po)
                         <div wire:click="$dispatch('open-detail-modal', { orderId: {{ $po->id }} })"
                              class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative cursor-pointer">
@@ -226,6 +272,8 @@ on([
                 </div>
             </div>
         @endforeach
+            </div>
+        </div>
     </div>
 
     {{-- Confirm Archive Modal --}}
@@ -254,24 +302,23 @@ on([
     <livewire:order.detail-modal />
 
     <livewire:print-label-modal />
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 10px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #334155;
+        }
+        .vertical-text {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+        }
+    </style>
 </div>
-
-<style>
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background-color: #cbd5e1;
-        border-radius: 10px;
-    }
-    .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-        background-color: #334155;
-    }
-    .vertical-text {
-        writing-mode: vertical-rl;
-        transform: rotate(180deg);
-    }
-</style>

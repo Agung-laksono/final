@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'kepalasales@a.com', 'name' => 'Kepala Sales', 'role' => 'Kepala Sales'],
             ['email' => 'finance@a.com', 'name' => 'Finance User', 'role' => 'Finance'],
             ['email' => 'marketing@a.com', 'name' => 'Marketing User', 'role' => 'Marketing'],
+            ['email' => 'stafgudang@a.com', 'name' => 'Staf Gudang', 'role' => 'Staf Gudang'],
         ];
 
         foreach ($usersData as $data) {
