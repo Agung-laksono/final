@@ -4,9 +4,13 @@ namespace Modules\Inventory\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use App\Traits\UpdatesMenuBadges;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class InventoryRequest extends Model
 {
+    use HasFactory, UpdatesMenuBadges;
+
     protected $guarded = ['id'];
 
     public function item()

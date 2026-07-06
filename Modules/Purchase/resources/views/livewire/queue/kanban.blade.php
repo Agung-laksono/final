@@ -1,7 +1,9 @@
 <?php
-use function Livewire\Volt\{state, layout, title, computed, on};
+use function Livewire\Volt\{state, layout, title, computed, on, usesPagination};
 use Modules\Purchase\Models\PurchaseQueue;
 use Modules\Inventory\Models\Item;
+
+usesPagination(theme: 'tailwind');
 
 layout('layouts.app');
 title('Kanban Permintaan Pembelian');
@@ -17,7 +19,29 @@ state([
     ],
     'transparent_columns' => false,
     'search' => '',
+    'viewMode' => session('pq_view_mode', 'kanban'),
+    'sortBy' => 'created_at',
+    'sortDirection' => 'desc',
+    'perPage' => 15,
 ]);
+
+$loadMore = function () {
+    $this->perPage += 15;
+};
+
+$setViewMode = function ($mode) {
+    $this->viewMode = $mode;
+    session(['pq_view_mode' => $mode]);
+};
+
+$sort = function ($field) {
+    if ($this->sortBy === $field) {
+        $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        $this->sortBy = $field;
+        $this->sortDirection = 'asc';
+    }
+};
 
 $queues = computed(function () {
     $query = PurchaseQueue::with(['item', 'fulfillments.purchaseOrderItem.purchaseOrder.vendor'])->latest();
@@ -30,6 +54,22 @@ $queues = computed(function () {
     return $query->get()->groupBy(function($q) {
         return $q->status ?? 'approved';
     });
+});
+
+$tableQueues = computed(function () {
+    $query = PurchaseQueue::with(['item', 'creator', 'fulfillments.purchaseOrderItem.purchaseOrder.vendor'])
+        ->select('purchase_queues.*');
+        
+    if ($this->search) {
+        $query->whereHas('item', function($q) {
+            $q->where('name', 'like', '%' . $this->search . '%')
+              ->orWhere('code', 'like', '%' . $this->search . '%');
+        });
+    }
+    
+    $query->orderBy($this->sortBy, $this->sortDirection);
+    
+    return $query->paginate($this->perPage);
 });
 
 $updateStatus = function ($queueId, $newStatus) {
@@ -64,77 +104,25 @@ on(['status-updated' => function () {
 
 ?>
 
-<div class="kanban-root relative flex flex-col w-full" 
-     x-data="{ 
-        showHeader: $persist(true).as('kanban-queue-header-user-{{ auth()->id() }}'),
-        transparent: $persist(false).as('kanban-queue-transparent-user-{{ auth()->id() }}')
-     }" 
-     style="height: 100vh; overflow: hidden;">
-    
-    <style>
-        /* Paksa hilangkan padding bawaan layout KHUSUS untuk halaman Kanban ini */
-        *:has(> .kanban-root), *:has(> div > .kanban-root) {
-            padding: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 0 !important;
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-            overflow: hidden !important;
-        }
-        main[data-flux-main] {
-            padding: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 0 !important;
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-            overflow: hidden !important;
-        }
-        body {
-            overflow: hidden !important;
-        }
-        
-        /* Menyembunyikan scrollbar tapi tetap bisa digulir */
-        .hide-scroll::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scroll {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-    </style>
-     
-    {{-- Floating Show Header Button --}}
-    <div class="absolute top-2 right-2 sm:top-4 sm:right-6 z-[110]" x-show="!showHeader" x-transition x-cloak>
-        <flux:button variant="subtle" class="rounded-full shadow-lg bg-white/90 dark:bg-zinc-800/90 backdrop-blur border border-zinc-200 dark:border-zinc-700 w-10 h-10 p-0 flex items-center justify-center" @click="showHeader = true" title="Tampilkan Alat">
-            <flux:icon.chevron-down class="w-5 h-5 text-zinc-500" />
-        </flux:button>
-    </div>
-
-    {{-- Floating Controls (Full Width) --}}
-    <div class="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 z-[60] flex items-center justify-between gap-2 sm:gap-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md px-2 py-2 sm:px-4 sm:py-3 rounded-2xl shadow-sm border border-zinc-200/50 dark:border-zinc-800/50" x-show="showHeader" x-transition>
-        
-        <div class="flex-1 min-w-0 max-w-md">
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari nama atau kode barang..." />
-        </div>
-
-        <div class="flex items-center gap-1 sm:gap-2 shrink-0">
-            <div class="hidden sm:flex items-center mr-2" title="Mode Transparan">
-                <flux:switch x-model="transparent" label="Transparan" />
-            </div>
-
-            <flux:button variant="subtle" class="px-2.5 sm:px-3 text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 ml-1 sm:ml-2" title="Sembunyikan Alat" @click="showHeader = false">
-                <flux:icon.eye-slash class="w-5 h-5" />
-            </flux:button>
-        </div>
-    </div>
-
-    {{-- Kanban Board Area --}}
-    <div class="flex-1 min-h-0 flex flex-col px-0 lg:px-6 transition-all duration-300"
-         :class="showHeader ? 'pt-16 sm:pt-20 lg:pt-24' : 'pt-2 lg:pt-6'">
-        <div class="flex-1 min-h-0 overflow-x-auto pb-2 lg:pb-4 snap-x snap-mandatory scroll-smooth custom-scrollbar">
-            <div class="flex justify-start gap-3 sm:gap-4 lg:gap-6 items-stretch min-w-max h-full px-2 lg:px-0">
+<div class="w-full bg-transparent relative">
+    <div wire:key="view-kanban-wrapper" class="w-full h-full relative {{ $this->viewMode === 'kanban' ? 'flex flex-col' : 'hidden' }}">
+        <x-kanban.board 
+            componentId="purchase-queue"
+            searchModel="search"
+            searchPlaceholder="Cari nama atau kode barang...">
+            
+            <x-slot:actions>
+                <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">
+                    <button type="button" wire:key="kanban-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-2.5 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
+                        <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
+                    </button>
+                    <button type="button" wire:key="kanban-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-2.5 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
+                        <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
+                    </button>
+                </div>
+            </x-slot:actions>
         @foreach($columns as $statusKey => $column)
             <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['archived', 'rejected']) ? 'true' : 'false' }}).as('kanban-col-queue-{{ $statusKey }}-user-{{ auth()->id() }}') }"
                  style="height: 100%; display: flex; flex-direction: column;"
@@ -165,7 +153,7 @@ on(['status-updated' => function () {
                 </div>
 
                 {{-- Column Items --}}
-                <div x-show="!collapsed" x-transition.opacity.duration.300ms class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
+                <div x-show="!collapsed" x-transition.opacity.duration.300ms x-init="autoAnimate($el)" class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
                     @forelse($this->queues[$statusKey] ?? [] as $queue)
                             @php
                                 $sourceBadge = match($queue->source_type) {
@@ -186,8 +174,10 @@ on(['status-updated' => function () {
                                     ]
                                 };
                             @endphp
-
-                        <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative flex flex-col">
+                        <div wire:key="queue-{{ $queue->id }}" 
+                             @click="activeId = '{{ $queue->id }}'"
+                             x-show="processingId !== '{{ $queue->id }}'"
+                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative flex flex-col">
                             
                             {{-- Header Card --}}
                             <div class="flex justify-between items-start mb-3">
@@ -269,11 +259,176 @@ on(['status-updated' => function () {
                     @endforelse
                 </div>
             </div>
-        @endforeach
+            @endforeach
+    </x-kanban.board>
+    </div>
+
+    {{-- Table View --}}
+    <div wire:key="view-table-wrapper" class="w-full {{ $this->viewMode === 'table' ? 'block' : 'hidden' }}">
+        <div x-data="{ lastScroll: 0, show: true }"
+             @scroll.window="
+                let current = window.pageYOffset;
+                if (current > lastScroll && current > 100) { show = false; } 
+                else if (current < lastScroll) { show = true; }
+                lastScroll = current;
+             "
+             class="sticky top-0 z-40 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 mb-6 transition-all duration-300 transform shadow-sm"
+             :class="show ? 'translate-y-0' : '-translate-y-full'">
+            <div class="p-4 sm:px-6">
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <div class="w-full sm:flex-1 relative">
+                        <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari nama atau kode barang..." class="w-full" />
+                    </div>
+
+                    <div class="flex items-center gap-2 sm:gap-4 shrink-0 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                        <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">
+                            <button type="button" wire:key="table-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
+                                <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
+                                <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
+                            </button>
+                            <button type="button" wire:key="table-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
+                                <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
+                                <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
+        </div>
+
+        <div class="px-2 sm:px-6">
+            <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm mb-6">
+                <div class="overflow-x-auto min-h-[50vh]">
+                    <flux:table>
+                        <flux:table.columns>
+                            <flux:table.column sortable :sorted="$sortBy === 'id'" :direction="$sortDirection" wire:click="sort('id')">No. Antrean & Tanggal</flux:table.column>
+                            <flux:table.column>Barang</flux:table.column>
+                            <flux:table.column>Sumber & Vendor</flux:table.column>
+                            <flux:table.column sortable :sorted="$sortBy === 'requested_qty'" :direction="$sortDirection" wire:click="sort('requested_qty')">Qty</flux:table.column>
+                            <flux:table.column sortable :sorted="$sortBy === 'status'" :direction="$sortDirection" wire:click="sort('status')">Status</flux:table.column>
+                            <flux:table.column>Aksi</flux:table.column>
+                        </flux:table.columns>
+        
+                        <flux:table.rows>
+                            @forelse($this->tableQueues as $queue)
+                                @php
+                                    $sourceBadge = match($queue->source_type) {
+                                        'low_stock' => [
+                                            'color' => 'red',
+                                            'icon' => '<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+                                            'label' => 'Stok Menipis'
+                                        ],
+                                        'sales' => [
+                                            'color' => 'emerald',
+                                            'icon' => '<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>',
+                                            'label' => 'Pesanan Jual'
+                                        ],
+                                        default => [
+                                            'color' => 'zinc',
+                                            'icon' => '<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>',
+                                            'label' => 'Manual'
+                                        ]
+                                    };
+                                @endphp
+                                <flux:table.row :key="$queue->id" class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors">
+                                    <flux:table.cell>
+                                        <div class="pl-2 sm:pl-4">
+                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">#ANT-{{ str_pad($queue->id, 4, '0', STR_PAD_LEFT) }}</div>
+                                            <div class="text-xs text-zinc-500">{{ \Carbon\Carbon::parse($queue->created_at)->format('d M Y') }}</div>
+                                        </div>
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-md bg-zinc-100 overflow-hidden border border-zinc-200 shrink-0">
+                                                @if ($queue->item?->image)
+                                                    <img src="{{ asset('storage/' . $queue->item->image) }}" loading="lazy" class="w-full h-full object-cover">
+                                                @else
+                                                    <div class="w-full h-full flex items-center justify-center text-zinc-400">
+                                                        <flux:icon.photo class="w-5 h-5" />
+                                                    </div>
+                                                @endif
+                                            </div>
+                                            <div>
+                                                <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">{{ $queue->item->name ?? 'Barang Dihapus' }}</div>
+                                                <div class="text-[11px] text-zinc-500 flex items-center gap-1 mt-0.5">
+                                                    {{ $queue->item->code ?? '-' }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        <div>
+                                            <span class="inline-flex items-center rounded-md bg-{{ $sourceBadge['color'] }}-50 dark:bg-{{ $sourceBadge['color'] }}-500/10 px-2 py-0.5 text-[10px] font-semibold text-{{ $sourceBadge['color'] }}-600 dark:text-{{ $sourceBadge['color'] }}-400 ring-1 ring-inset ring-{{ $sourceBadge['color'] }}-500/20 mb-1">
+                                                {!! $sourceBadge['icon'] !!}
+                                                {{ $sourceBadge['label'] }}
+                                            </span>
+                                            
+                                            @if(in_array($queue->status, ['ordered', 'completed', 'archived']) && $queue->fulfillments->count() > 0)
+                                                @php
+                                                    $vendorName = $queue->fulfillments->first()->purchaseOrderItem->purchaseOrder->vendor->name ?? null;
+                                                @endphp
+                                                @if($vendorName)
+                                                    <div class="flex items-center gap-1 text-[11px] text-zinc-500">
+                                                        <flux:icon.building-storefront class="w-3 h-3" />
+                                                        <span class="truncate">{{ $vendorName }}</span>
+                                                    </div>
+                                                @endif
+                                            @endif
+                                        </div>
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        <div class="flex flex-col">
+                                            <div class="text-sm">Diminta: <span class="font-bold">{{ $queue->requested_qty }}</span></div>
+                                            @if($queue->approved_qty !== null && $queue->status !== 'rejected')
+                                                <div class="text-sm">Disetujui: <span class="font-bold text-{{ $queue->approved_qty < $queue->requested_qty ? 'amber' : ($queue->approved_qty > $queue->requested_qty ? 'blue' : 'emerald') }}-600">{{ $queue->approved_qty }}</span></div>
+                                            @endif
+                                            @if($queue->status === 'rejected')
+                                                <div class="text-sm">Disetujui: <span class="font-bold text-red-600">0</span></div>
+                                            @endif
+                                        </div>
+                                    </flux:table.cell>
+
+                                    <flux:table.cell>
+                                        @if(array_key_exists($queue->status, $columns))
+                                            @php $col = $columns[$queue->status]; @endphp
+                                            <flux:badge size="sm" color="{{ $col['color'] }}">{{ $col['title'] }}</flux:badge>
+                                        @else
+                                            <flux:badge size="sm" color="zinc">{{ $queue->status }}</flux:badge>
+                                        @endif
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        <div class="flex items-center justify-end gap-2 pr-2 sm:pr-4">
+                                            @if($queue->status === 'approved')
+                                                @can('purchase.queue.update')
+                                                    <flux:button size="sm" variant="subtle" icon="x-mark" class="h-8 p-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/50" title="Tolak Permintaan" wire:click.stop="rejectQueue({{ $queue->id }})" />
+                                                @endcan
+                                            @endif
+                                        </div>
+                                    </flux:table.cell>
+                                </flux:table.row>
+                            @empty
+                                <flux:table.row>
+                                    <flux:table.cell colspan="6">
+                                        <div class="flex flex-col items-center justify-center py-12 text-zinc-500">
+                                            <flux:icon.inbox class="w-12 h-12 mb-3 text-zinc-300" />
+                                            <p>Tidak ada antrean pembelian.</p>
+                                        </div>
+                                    </flux:table.cell>
+                                </flux:table.row>
+                            @endforelse
+                        </flux:table.rows>
+                    </flux:table>
+                </div>
+            </div>
+            <x-load-more :paginator="$this->tableQueues" item-name="Antrean" />
         </div>
     </div>
     
+
     <livewire:queue.consolidation-modal />
     <livewire:global.item-gallery-modal context="purchase" />
     <style>

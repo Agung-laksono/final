@@ -1,7 +1,7 @@
 <?php
 use function Livewire\Volt\layout;
 
-layout('layouts::app', ['title' => 'Pengelolaan Gudang']);
+layout('layouts.app', ['title' => 'Pengelolaan Gudang']);
 ?>
 
 <div>

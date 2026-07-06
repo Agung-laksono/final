@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class SalesPayment extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Traits\UpdatesMenuBadges;
 
     protected $guarded = ['id'];
 

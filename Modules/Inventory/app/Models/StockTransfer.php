@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class StockTransfer extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Traits\UpdatesMenuBadges;
 
     protected $guarded = ['id'];
 

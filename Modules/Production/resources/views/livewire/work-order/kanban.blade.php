@@ -1,6 +1,8 @@
 <?php
-use function Livewire\Volt\{state, layout, title, computed, on};
+use function Livewire\Volt\{state, layout, title, computed, on, usesPagination};
 use Modules\Production\Models\ProductionOrder;
+
+usesPagination(theme: 'tailwind');
 
 layout('layouts.app');
 title('Kanban Produksi');
@@ -19,7 +21,29 @@ state([
     'viewModeMaklon' => 'grouped', // 'grouped' or 'list'
     'validationErrors' => [],
     'transparent_columns' => false,
+    'viewMode' => session('prod_view_mode', 'kanban'),
+    'sortBy' => 'created_at',
+    'sortDirection' => 'desc',
+    'perPage' => 15,
 ]);
+
+$loadMore = function () {
+    $this->perPage += 15;
+};
+
+$setViewMode = function ($mode) {
+    $this->viewMode = $mode;
+    session(['prod_view_mode' => $mode]);
+};
+
+$sort = function ($field) {
+    if ($this->sortBy === $field) {
+        $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        $this->sortBy = $field;
+        $this->sortDirection = 'asc';
+    }
+};
 
 $orders = computed(function () {
     $query = ProductionOrder::with(['item', 'creator'])->latest();
@@ -51,6 +75,23 @@ $orders = computed(function () {
     }
     
     return $grouped;
+});
+
+$tableOrders = computed(function () {
+    $query = ProductionOrder::with(['item', 'creator', 'purchaseOrder.vendor'])
+        ->select('production_orders.*');
+        
+    if ($this->search) {
+        $query->where('order_number', 'like', '%' . $this->search . '%')
+              ->orWhere('reference_number', 'like', '%' . $this->search . '%')
+              ->orWhereHas('item', function($q) {
+                  $q->where('name', 'like', '%' . $this->search . '%');
+              });
+    }
+    
+    $query->orderBy($this->sortBy, $this->sortDirection);
+    
+    return $query->paginate($this->perPage);
 });
 
 on([
@@ -92,83 +133,32 @@ on(['maklon-po-created' => function () {
 }]);
 ?>
 
-<div class="kanban-root relative flex flex-col w-full" 
-     x-data="{ 
-        showHeader: $persist(true).as('kanban-prod-header-user-{{ auth()->id() }}'),
-        transparent: $persist(false).as('kanban-prod-transparent-user-{{ auth()->id() }}')
-     }" 
-     style="height: 100vh; overflow: hidden;">
-    
-    <style>
-        /* Paksa hilangkan padding bawaan layout KHUSUS untuk halaman Kanban ini */
-        *:has(> .kanban-root), *:has(> div > .kanban-root) {
-            padding: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 0 !important;
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-            overflow: hidden !important;
-        }
-        main[data-flux-main] {
-            padding: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 0 !important;
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-            overflow: hidden !important;
-        }
-        body {
-            overflow: hidden !important;
-        }
-        
-        /* Menyembunyikan scrollbar tapi tetap bisa digulir */
-        .hide-scroll::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scroll {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+<div class="w-full bg-transparent relative">
+    <div wire:key="view-kanban-wrapper" class="w-full h-full relative {{ $this->viewMode === 'kanban' ? 'flex flex-col' : 'hidden' }}">
+        <x-kanban.board 
+            componentId="production-order"
+            searchModel="search"
+            searchPlaceholder="Cari SPK atau produk...">
+            
+            <x-slot:actions>
+                <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">
+                    <button type="button" wire:key="kanban-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-2.5 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
+                        <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
+                    </button>
+                    <button type="button" wire:key="kanban-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-2.5 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
+                        <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
+                    </button>
+                </div>
+                <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1 sm:mx-2 hidden sm:block"></div>
 
-        .vertical-text {
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
-            transform: rotate(180deg);
-        }
-    </style>
-     
-    {{-- Floating Show Header Button --}}
-    <div class="absolute top-2 right-2 sm:top-4 sm:right-6 z-[110]" x-show="!showHeader" x-transition x-cloak>
-        <flux:button variant="subtle" class="rounded-full shadow-lg bg-white/90 dark:bg-zinc-800/90 backdrop-blur border border-zinc-200 dark:border-zinc-700 w-10 h-10 p-0 flex items-center justify-center" @click="showHeader = true" title="Tampilkan Alat">
-            <flux:icon.chevron-down class="w-5 h-5 text-zinc-500" />
-        </flux:button>
-    </div>
-
-    {{-- Floating Controls (Full Width) --}}
-    <div class="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 z-[60] flex items-center justify-between gap-2 sm:gap-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md px-2 py-2 sm:px-4 sm:py-3 rounded-2xl shadow-sm border border-zinc-200/50 dark:border-zinc-800/50" x-show="showHeader" x-transition>
-        
-        <div class="flex-1 min-w-0 max-w-md">
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari PO, Ref, atau Barang..." />
-        </div>
-
-        <div class="flex items-center gap-1 sm:gap-2 shrink-0">
-            <div class="hidden sm:flex items-center mr-2" title="Mode Transparan">
-                <flux:switch x-model="transparent" label="Transparan" />
-            </div>
-
-            <flux:button variant="subtle" class="px-2.5 sm:px-3 text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 ml-1 sm:ml-2" title="Sembunyikan Alat" @click="showHeader = false">
-                <flux:icon.eye-slash class="w-5 h-5" />
-            </flux:button>
-        </div>
-    </div>
-
-    {{-- Kanban Board Area --}}
-    <div class="flex-1 min-h-0 flex flex-col px-0 lg:px-6 transition-all duration-300"
-         :class="showHeader ? 'pt-16 sm:pt-20 lg:pt-24' : 'pt-2 lg:pt-6'">
-        <div class="flex-1 min-h-0 overflow-x-auto pb-2 lg:pb-4 snap-x snap-mandatory scroll-smooth custom-scrollbar">
-            <div class="flex justify-start gap-3 sm:gap-4 lg:gap-6 items-stretch min-w-max h-full px-2 lg:px-0">
+                {{-- Tombol AI Assistant --}}
+                <flux:button variant="primary" icon="sparkles" class="px-2.5 sm:px-4 shrink-0" wire:click="$dispatch('open-groq-assistant')">
+                    <span class="hidden sm:inline">Tanya AI</span>
+                    <span class="sm:hidden">AI</span>
+                </flux:button>
+            </x-slot:actions>
         @foreach($columns as $statusKey => $column)
             <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['completed', 'archived']) ? 'true' : 'false' }}).as('kanban-col-prod-{{ $statusKey }}-user-{{ auth()->id() }}') }"
                  style="height: 100%; display: flex; flex-direction: column;"
@@ -207,7 +197,7 @@ on(['maklon-po-created' => function () {
                     </div>
                 </div>
                 
-                <div x-show="!collapsed" x-transition.opacity.duration.300ms class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
+                <div x-show="!collapsed" x-transition.opacity.duration.300ms x-init="autoAnimate($el)" class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
                     @if($statusKey === 'in_production' && $viewModeMaklon === 'grouped')
                         @php
                             $groupedByPo = collect($this->orders[$statusKey] ?? [])->groupBy('purchase_order_id');
@@ -215,7 +205,9 @@ on(['maklon-po-created' => function () {
                         
                         @forelse($groupedByPo as $poId => $poOrders)
                             @php $po = $poOrders->first()->purchaseOrder; @endphp
-                            <div wire:key="po-group-{{ $statusKey }}-{{ $poId }}" class="bg-zinc-100 dark:bg-zinc-800/40 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700">
+                            <div wire:key="po-group-{{ $statusKey }}-{{ $poId }}" 
+                                 x-show="processingId !== 'po-{{ $poId }}'"
+                                 class="bg-zinc-100 dark:bg-zinc-800/40 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700">
                                 <!-- Group Header -->
                                 <div class="bg-white/80 dark:bg-zinc-900/80 p-3 border-b border-blue-100 dark:border-blue-900/50 flex flex-col gap-2 sticky top-0 z-10 backdrop-blur-sm">
                                 <div class="flex justify-between items-start">
@@ -241,7 +233,9 @@ on(['maklon-po-created' => function () {
                                         <span class="text-[9px] text-zinc-500">{{ $po->order_date ? \Carbon\Carbon::parse($po->order_date)->format('d M') : '' }}</span>
                                     </div>
                                 </div>
-                                <flux:button size="xs" variant="primary" class="w-full justify-center mt-1" wire:click="$dispatch('open-finish-phase-bulk-modal', { poId: {{ $poId }}, phase: 'maklon' })">
+                                <flux:button size="xs" variant="primary" class="w-full justify-center mt-1" 
+                                             @click="activeId = 'po-{{ $poId }}'"
+                                             wire:click="$dispatch('open-finish-phase-bulk-modal', { poId: {{ $poId }}, phase: 'maklon' })">
                                     &#x2714; Selesaikan Semua (1 SPK)
                                 </flux:button>
                             </div>
@@ -249,7 +243,12 @@ on(['maklon-po-created' => function () {
                                 <div class="p-2 space-y-2">
                                     @foreach($poOrders as $order)
                                         <div wire:key="card-grouped-{{ $order->id }}">
-                                            @include('production::livewire.work-order.partials.kanban-card', ['order' => $order, 'statusKey' => $statusKey, 'viewModeMaklon' => $viewModeMaklon])
+                                            @include('production::livewire.work-order.partials.kanban-card', [
+                                                'order' => $order, 
+                                                'statusKey' => $statusKey, 
+                                                'viewModeMaklon' => $viewModeMaklon,
+                                                'hideParentPo' => $poOrders->count() === 1 ? $poId : null
+                                            ])
                                         </div>
                                     @endforeach
                                 </div>
@@ -272,10 +271,137 @@ on(['maklon-po-created' => function () {
                     @endif
                 </div>
             </div>
-        @endforeach
+            @endforeach
+    </x-kanban.board>
+    </div>
+
+    {{-- Table View --}}
+    <div wire:key="view-table-wrapper" class="w-full {{ $this->viewMode === 'table' ? 'block' : 'hidden' }}">
+        <div x-data="{ lastScroll: 0, show: true }"
+             @scroll.window="
+                let current = window.pageYOffset;
+                if (current > lastScroll && current > 100) { show = false; } 
+                else if (current < lastScroll) { show = true; }
+                lastScroll = current;
+             "
+             class="sticky top-0 z-40 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 mb-6 transition-all duration-300 transform shadow-sm"
+             :class="show ? 'translate-y-0' : '-translate-y-full'">
+            <div class="p-4 sm:px-6">
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <div class="w-full sm:flex-1 relative">
+                        <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari SPK atau produk..." class="w-full" />
+                    </div>
+
+                    <div class="flex items-center gap-2 sm:gap-4 shrink-0 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                        <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">
+                            <button type="button" wire:key="table-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
+                                <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
+                                <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
+                            </button>
+                            <button type="button" wire:key="table-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
+                                <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
+                                <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
+                            </button>
+                        </div>
+                        
+                        <div class="w-px h-8 bg-zinc-200 dark:bg-zinc-700 shrink-0"></div>
+
+                        <flux:button variant="primary" icon="sparkles" class="shrink-0" wire:click="$dispatch('open-groq-assistant')">
+                            <span class="hidden sm:inline">Tanya AI</span>
+                            <span class="sm:hidden">AI</span>
+                        </flux:button>
+                    </div>
+                </div>
             </div>
         </div>
+
+        <div class="px-2 sm:px-6">
+            <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm mb-6">
+                <div class="overflow-x-auto min-h-[50vh]">
+                    <flux:table>
+                        <flux:table.columns>
+                            <flux:table.column sortable :sorted="$sortBy === 'order_number'" :direction="$sortDirection" wire:click="sort('order_number')">No. SPK / Ref</flux:table.column>
+                            <flux:table.column>Barang</flux:table.column>
+                            <flux:table.column sortable :sorted="$sortBy === 'created_at'" :direction="$sortDirection" wire:click="sort('created_at')">Tanggal & Pembuat</flux:table.column>
+                            <flux:table.column sortable :sorted="$sortBy === 'status'" :direction="$sortDirection" wire:click="sort('status')">Status</flux:table.column>
+                            <flux:table.column>Aksi</flux:table.column>
+                        </flux:table.columns>
+        
+                        <flux:table.rows>
+                            @forelse($this->tableOrders as $order)
+                                <flux:table.row :key="$order->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:click="$dispatch('open-prod-detail-modal', { orderId: {{ $order->id }} })">
+                                    <flux:table.cell>
+                                        <div class="pl-2 sm:pl-4">
+                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $order->order_number }}</div>
+                                            <div class="text-xs text-zinc-500">Ref: {{ $order->reference_number ?? '-' }}</div>
+                                        </div>
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-md bg-zinc-100 overflow-hidden border border-zinc-200 shrink-0">
+                                                @if ($order->item?->image)
+                                                    <img src="{{ asset('storage/' . $order->item->image) }}" loading="lazy" class="w-full h-full object-cover">
+                                                @else
+                                                    <div class="w-full h-full flex items-center justify-center text-zinc-400">
+                                                        <flux:icon.photo class="w-5 h-5" />
+                                                    </div>
+                                                @endif
+                                            </div>
+                                            <div>
+                                                <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">{{ $order->item->name ?? 'Barang Dihapus' }}</div>
+                                                <div class="text-[11px] text-zinc-500 flex items-center gap-1 mt-0.5">
+                                                    Target: <span class="font-bold text-zinc-700 dark:text-zinc-300">{{ $order->target_qty }} Unit</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        <div class="text-sm text-zinc-900 dark:text-zinc-100">{{ \Carbon\Carbon::parse($order->created_at)->format('d M Y') }}</div>
+                                        <div class="flex items-center gap-1 mt-1 text-[11px] text-zinc-500">
+                                            <flux:icon.user class="w-3 h-3" />
+                                            {{ explode(' ', $order->creator->name ?? '-')[0] }}
+                                        </div>
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        @if(array_key_exists($order->status, $columns))
+                                            @php $col = $columns[$order->status]; @endphp
+                                            <flux:badge size="sm" color="{{ $col['color'] }}">{{ $col['title'] }}</flux:badge>
+                                        @elseif($order->status === 'waiting_material' || $order->status === 'material_issued')
+                                            <flux:badge size="sm" color="orange">Pemenuhan Bahan</flux:badge>
+                                        @else
+                                            <flux:badge size="sm" color="zinc">{{ $order->status }}</flux:badge>
+                                        @endif
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        <div class="flex items-center justify-end gap-2 pr-2 sm:pr-4">
+                                            <flux:button size="sm" variant="subtle" icon="document-text" class="h-8 p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50" title="Detail Produksi" wire:click.stop="$dispatch('open-prod-detail-modal', { orderId: {{ $order->id }} })">Detail</flux:button>
+                                        </div>
+                                    </flux:table.cell>
+                                </flux:table.row>
+                            @empty
+                                <flux:table.row>
+                                    <flux:table.cell colspan="5">
+                                        <div class="flex flex-col items-center justify-center py-12 text-zinc-500">
+                                            <flux:icon.inbox class="w-12 h-12 mb-3 text-zinc-300" />
+                                            <p>Tidak ada data produksi.</p>
+                                        </div>
+                                    </flux:table.cell>
+                                </flux:table.row>
+                            @endforelse
+                        </flux:table.rows>
+                    </flux:table>
+                </div>
+            </div>
+            <x-load-more :paginator="$this->tableOrders" item-name="SPK" />
+        </div>
     </div>
+    
+
+    {{-- Modals remain unchanged --}}
 
     <livewire:work-order.fulfillment-modal />
     <livewire:work-order.maklon-modal />
@@ -287,7 +413,6 @@ on(['maklon-po-created' => function () {
     <livewire:work-order.material-receipt-modal />
     {{-- <livewire:work-order.groq-assistant /> --}}
     {{-- <livewire:work-order.claude-assistant /> --}}
-
 
     <style>
         .custom-scrollbar::-webkit-scrollbar {

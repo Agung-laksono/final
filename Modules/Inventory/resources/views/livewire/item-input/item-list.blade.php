@@ -1,8 +1,10 @@
 <?php
 
-use function Livewire\Volt\{state, on, with, usesPagination};
+use function Livewire\Volt\{state, on, with, usesPagination, layout};
 use Modules\Inventory\Models\Item;
 use Livewire\WithPagination;
+
+layout('layouts.app');
 
 usesPagination(theme: 'tailwind');
 

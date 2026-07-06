@@ -1,12 +1,14 @@
 <?php
 
-use function Livewire\Volt\{state, mount, with};
+use function Livewire\Volt\{state, mount, with, layout};
 use Modules\Inventory\Models\Item;
 use Modules\Inventory\Models\StockTransfer;
 use Modules\Inventory\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use App\Models\User;
+
+layout('layouts.app');
 
 with(function () {
     // 1. KPI Metrics

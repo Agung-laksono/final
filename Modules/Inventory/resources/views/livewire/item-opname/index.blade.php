@@ -9,7 +9,7 @@ use Modules\Inventory\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
 use Flux\Flux;
 
-layout('layouts::app', ['title' => 'Stock Opname']);
+layout('layouts.app', ['title' => 'Stock Opname']);
 
 state([
     'warehouses'       => fn () => Warehouse::orderBy('name')->get(),

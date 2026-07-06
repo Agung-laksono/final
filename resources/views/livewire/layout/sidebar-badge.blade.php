@@ -23,7 +23,7 @@ $fetchCount = function () {
             }
             break;
         case 'production_order':
-            $this->count = \Modules\Production\Models\ProductionOrder::whereIn('status', ['pending_approval', 'waiting_material'])->count();
+            $this->count = \Modules\Production\Models\ProductionOrder::whereIn('status', ['pending_approval', 'waiting_material', 'material_fulfillment'])->count();
             $this->colorClass = 'bg-rose-500';
             break;
         case 'inventory_transfer':
@@ -33,6 +33,12 @@ $fetchCount = function () {
         case 'inventory_request':
             $this->count = \Modules\Inventory\Models\InventoryRequest::where('status', 'draft')->count(); 
             $this->colorClass = 'bg-amber-500';
+            break;
+            
+        case 'finance_inbox':
+            $this->count = \Modules\Sales\Models\SalesPayment::where('status', 'pending')->count() +
+                           \Modules\Purchase\Models\PurchasePayment::where('status', 'pending')->count();
+            $this->colorClass = 'bg-rose-500';
             break;
             
         // Module Aggregations
@@ -56,8 +62,13 @@ $fetchCount = function () {
             }
             break;
         case 'module_production':
-            $this->count = \Modules\Production\Models\ProductionOrder::whereIn('status', ['pending_approval', 'waiting_material'])->count();
+            $this->count = \Modules\Production\Models\ProductionOrder::whereIn('status', ['pending_approval', 'waiting_material', 'material_fulfillment'])->count();
             $this->colorClass = 'bg-purple-500';
+            break;
+        case 'module_finance':
+            $this->count = \Modules\Sales\Models\SalesPayment::where('status', 'pending')->count() +
+                           \Modules\Purchase\Models\PurchasePayment::where('status', 'pending')->count();
+            $this->colorClass = 'bg-blue-500';
             break;
     }
 };
@@ -75,6 +86,12 @@ on([
         if (!isset($event['type']) || $event['type'] === $this->type) {
             $this->fetchCount();
         }
+    },
+    // Listen for global badge updates from the UpdatesMenuBadges trait
+    'echo:global-updates,.MenuBadgesUpdated' => function() {
+        $this->fetchCount();
+        // Request a refresh since fetchCount only updates internal state
+        $this->dispatch('$refresh');
     }
 ]);
 ?>

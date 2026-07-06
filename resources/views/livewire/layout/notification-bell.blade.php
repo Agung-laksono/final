@@ -31,6 +31,7 @@ $markAsRead = function ($notificationId) {
     if ($notification) {
         $notification->markAsRead();
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
+        \App\Livewire\Support\NotificationSync::syncToOthers(auth()->id(), $this->unreadCount);
     }
 };
 
@@ -39,6 +40,7 @@ $markAsReadAndRedirect = function ($notificationId, $url) {
     if ($notification) {
         $notification->markAsRead();
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
+        \App\Livewire\Support\NotificationSync::syncToOthers(auth()->id(), $this->unreadCount);
     }
     
     if ($url && $url !== '#') {
@@ -51,14 +53,21 @@ $markAllAsRead = function () {
     
     auth()->user()->unreadNotifications->markAsRead();
     $this->unreadCount = 0;
+    \App\Livewire\Support\NotificationSync::syncToOthers(auth()->id(), 0);
 };
 
-// Namun jika Pusher ada, kita bisa menggunakan Echo untuk mendengarkan event Notifikasi bawaan Laravel
+// Realtime update via Laravel Echo (Pusher/Reverb)
 on([
+    // Notifikasi baru masuk
     'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function () {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
         $this->js("document.getElementById('notif-sound').play().catch(() => {})");
-    }
+    },
+    // Tab lain menandai notifikasi sudah dibaca
+    'echo-private:App.Models.User.{authId},.NotificationsRead' => function ($event) {
+        $this->unreadCount = $event['unreadCount'];
+        $this->dispatch('$refresh');
+    },
 ]);
 
 with(fn () => [

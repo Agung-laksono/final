@@ -1,6 +1,8 @@
 <?php
-use function Livewire\Volt\{state, layout, title, computed, on};
+use function Livewire\Volt\{state, layout, title, computed, on, usesPagination};
 use Modules\Purchase\Models\PurchaseOrder;
+
+usesPagination(theme: 'tailwind');
 
 layout('layouts.app');
 title('Kanban Purchase Order (PO)');
@@ -15,10 +17,32 @@ state([
     ],
     'transparent_columns' => false,
     'search' => '',
+    'viewMode' => session('po_view_mode', 'kanban'),
+    'sortBy' => 'created_at',
+    'sortDirection' => 'desc',
+    'perPage' => 15,
     
     'order_to_archive' => null,
     'show_archive_modal' => false,
 ]);
+
+$loadMore = function () {
+    $this->perPage += 15;
+};
+
+$setViewMode = function ($mode) {
+    $this->viewMode = $mode;
+    session(['po_view_mode' => $mode]);
+};
+
+$sort = function ($field) {
+    if ($this->sortBy === $field) {
+        $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        $this->sortBy = $field;
+        $this->sortDirection = 'asc';
+    }
+};
 
 $orders = computed(function () {
     $query = PurchaseOrder::with('vendor')->latest();
@@ -31,6 +55,22 @@ $orders = computed(function () {
     return $query->get()->groupBy(function($po) {
         return $po->status ?? 'draft';
     });
+});
+
+$tableOrders = computed(function () {
+    $query = PurchaseOrder::with(['vendor', 'creator', 'items'])
+        ->select('purchase_orders.*');
+        
+    if ($this->search) {
+        $query->where('po_number', 'like', '%' . $this->search . '%')
+              ->orWhereHas('vendor', function($q) {
+                  $q->where('name', 'like', '%' . $this->search . '%');
+              });
+    }
+    
+    $query->orderBy($this->sortBy, $this->sortDirection);
+    
+    return $query->paginate($this->perPage);
 });
 
 $updateStatus = function ($orderId, $newStatus) {
@@ -89,85 +129,33 @@ on([
 
 ?>
 
-<div class="kanban-root relative flex flex-col w-full" 
-     x-data="{ 
-        showHeader: $persist(true).as('kanban-order-header-user-{{ auth()->id() }}'),
-        transparent: $persist(false).as('kanban-order-transparent-user-{{ auth()->id() }}')
-     }" 
-     style="height: 100vh; overflow: hidden;">
-    
-    <style>
-        /* Paksa hilangkan padding bawaan layout KHUSUS untuk halaman Kanban ini */
-        *:has(> .kanban-root), *:has(> div > .kanban-root) {
-            padding: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 0 !important;
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-            overflow: hidden !important;
-        }
-        main[data-flux-main] {
-            padding: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 0 !important;
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-            overflow: hidden !important;
-        }
-        body {
-            overflow: hidden !important;
-        }
-        
-        /* Menyembunyikan scrollbar tapi tetap bisa digulir */
-        .hide-scroll::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scroll {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-    </style>
-     
-    {{-- Floating Show Header Button --}}
-    <div class="absolute top-2 right-2 sm:top-4 sm:right-6 z-[110]" x-show="!showHeader" x-transition x-cloak>
-        <flux:button variant="subtle" class="rounded-full shadow-lg bg-white/90 dark:bg-zinc-800/90 backdrop-blur border border-zinc-200 dark:border-zinc-700 w-10 h-10 p-0 flex items-center justify-center" @click="showHeader = true" title="Tampilkan Alat">
-            <flux:icon.chevron-down class="w-5 h-5 text-zinc-500" />
-        </flux:button>
-    </div>
-
-    {{-- Floating Controls (Full Width) --}}
-    <div class="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-4 z-[60] flex items-center justify-between gap-2 sm:gap-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md px-2 py-2 sm:px-4 sm:py-3 rounded-2xl shadow-sm border border-zinc-200/50 dark:border-zinc-800/50" x-show="showHeader" x-transition>
-        
-        <div class="flex-1 min-w-0 max-w-md">
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari PO / Vendor..." />
-        </div>
-
-        <div class="flex items-center gap-1 sm:gap-2 shrink-0">
-            <div class="hidden sm:flex items-center mr-2" title="Mode Transparan">
-                <flux:switch x-model="transparent" label="Transparan" />
-            </div>
-
-            @can('purchase.create')
+<div class="w-full bg-transparent relative">
+    <div wire:key="view-kanban-wrapper" class="w-full h-full relative {{ $this->viewMode === 'kanban' ? 'flex flex-col' : 'hidden' }}">
+        <x-kanban.board 
+            componentId="purchase-order"
+            searchModel="search"
+            searchPlaceholder="Cari PO / Vendor...">
+            
+            <x-slot:actions>
+                <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">
+                    <button type="button" wire:key="kanban-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-2.5 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
+                        <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
+                    </button>
+                    <button type="button" wire:key="kanban-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-2.5 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
+                        <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
+                    </button>
+                </div>
                 <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1 sm:mx-2 hidden sm:block"></div>
-                <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" class="px-2.5 sm:px-4 shrink-0" wire:navigate>
-                    <span class="hidden sm:inline">Buat PO</span>
-                    <span class="sm:hidden">Buat</span>
-                </flux:button>
-            @endcan
 
-            <flux:button variant="subtle" class="px-2.5 sm:px-3 text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 ml-1 sm:ml-2" title="Sembunyikan Alat" @click="showHeader = false">
-                <flux:icon.eye-slash class="w-5 h-5" />
-            </flux:button>
-        </div>
-    </div>
-
-    {{-- Kanban Board Area --}}
-    <div class="flex-1 min-h-0 flex flex-col px-0 lg:px-6 transition-all duration-300"
-         :class="showHeader ? 'pt-16 sm:pt-20 lg:pt-24' : 'pt-2 lg:pt-6'">
-        <div class="flex-1 min-h-0 overflow-x-auto pb-2 lg:pb-4 snap-x snap-mandatory scroll-smooth custom-scrollbar">
-            <div class="flex justify-start gap-3 sm:gap-4 lg:gap-6 items-stretch min-w-max h-full px-2 lg:px-0">
+                @can('purchase.create')
+                    <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" class="px-2.5 sm:px-4 shrink-0" wire:navigate>
+                        <span class="hidden sm:inline">Buat PO</span>
+                        <span class="sm:hidden">Buat</span>
+                    </flux:button>
+                @endcan
+            </x-slot:actions>
         @foreach($columns as $statusKey => $column)
             <div x-data="{ collapsed: $persist({{ $statusKey === 'archived' ? 'true' : 'false' }}).as('kanban-col-order-{{ $statusKey }}-user-{{ auth()->id() }}') }"
                  style="height: 100%; display: flex; flex-direction: column;"
@@ -193,9 +181,11 @@ on([
                 </div>
 
                 {{-- Column Items --}}
-                <div x-show="!collapsed" x-transition.opacity.duration.300ms class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
+                <div x-show="!collapsed" x-transition.opacity.duration.300ms x-init="autoAnimate($el)" class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
                     @forelse($this->orders[$statusKey] ?? [] as $po)
-                        <div wire:click="$dispatch('open-detail-modal', { orderId: {{ $po->id }} })"
+                        <div wire:key="po-{{ $po->id }}" 
+                             @click="activeId = '{{ $po->id }}'; $dispatch('open-detail-modal', { orderId: {{ $po->id }} })"
+                             x-show="processingId !== '{{ $po->id }}'"
                              class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative cursor-pointer">
                             
                             {{-- Header Card --}}
@@ -271,11 +261,138 @@ on([
                     @endforelse
                 </div>
             </div>
-        @endforeach
-            </div>
-        </div>
+            @endforeach
+    </x-kanban.board>
     </div>
 
+    {{-- Table View --}}
+    <div wire:key="view-table-wrapper" class="w-full {{ $this->viewMode === 'table' ? 'block' : 'hidden' }}">
+        <div x-data="{ lastScroll: 0, show: true }"
+             @scroll.window="
+                let current = window.pageYOffset;
+                if (current > lastScroll && current > 100) { show = false; } 
+                else if (current < lastScroll) { show = true; }
+                lastScroll = current;
+             "
+             class="sticky top-0 z-40 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 mb-6 transition-all duration-300 transform shadow-sm"
+             :class="show ? 'translate-y-0' : '-translate-y-full'">
+            <div class="p-4 sm:px-6">
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <div class="w-full sm:flex-1 relative">
+                        <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari PO / Vendor..." class="w-full" />
+                    </div>
+
+                    <div class="flex items-center gap-2 sm:gap-4 shrink-0 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                        <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">
+                            <button type="button" wire:key="table-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
+                                <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
+                                <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
+                            </button>
+                            <button type="button" wire:key="table-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
+                                <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
+                                <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
+                            </button>
+                        </div>
+                        
+                        <div class="w-px h-8 bg-zinc-200 dark:bg-zinc-700 shrink-0"></div>
+
+                        @can('purchase.create')
+                            <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" wire:navigate class="shrink-0">
+                                <span class="hidden sm:inline">Buat PO</span>
+                                <span class="sm:hidden">Buat</span>
+                            </flux:button>
+                        @endcan
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-2 sm:px-6">
+            <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm mb-6">
+                <div class="overflow-x-auto min-h-[50vh]">
+                    <flux:table>
+                        <flux:table.columns>
+                            <flux:table.column sortable :sorted="$sortBy === 'po_number'" :direction="$sortDirection" wire:click="sort('po_number')">No. PO & Tanggal</flux:table.column>
+                            <flux:table.column>Vendor</flux:table.column>
+                            <flux:table.column sortable :sorted="$sortBy === 'total_amount'" :direction="$sortDirection" wire:click="sort('total_amount')">Total & Pajak</flux:table.column>
+                            <flux:table.column sortable :sorted="$sortBy === 'status'" :direction="$sortDirection" wire:click="sort('status')">Status</flux:table.column>
+                            <flux:table.column>Aksi</flux:table.column>
+                        </flux:table.columns>
+        
+                        <flux:table.rows>
+                            @forelse($this->tableOrders as $order)
+                                <flux:table.row :key="$order->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:click="$dispatch('open-detail-modal', { orderId: {{ $order->id }} })">
+                                    <flux:table.cell>
+                                        <div class="pl-2 sm:pl-4">
+                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $order->po_number }}</div>
+                                            <div class="text-xs text-zinc-500">{{ \Carbon\Carbon::parse($order->order_date)->format('d M Y') }}</div>
+                                        </div>
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        <div class="flex items-center gap-3">
+                                            <flux:avatar src="{{ $order->vendor?->image ? Storage::url($order->vendor->image) : '' }}" fallback="{{ substr($order->vendor?->name ?? '?', 0, 2) }}" size="sm" />
+                                            <div>
+                                                <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $order->vendor?->name ?? 'Vendor Terhapus' }}</div>
+                                                <div class="text-[11px] text-zinc-500 flex items-center gap-1 mt-0.5">
+                                                    <flux:icon.user class="w-3 h-3" />
+                                                    {{ explode(' ', $order->creator->name ?? '-')[0] }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        <div class="font-bold text-zinc-900 dark:text-zinc-100">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</div>
+                                        <div class="flex items-center gap-2 mt-1">
+                                            <div class="text-[10px] text-zinc-500">{{ $order->items->sum('qty') }} Item</div>
+                                            @if($order->pajak)
+                                                <flux:badge size="sm" color="amber">Tax</flux:badge>
+                                            @endif
+                                        </div>
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        @if(array_key_exists($order->status, $columns))
+                                            @php $col = $columns[$order->status]; @endphp
+                                            <flux:badge size="sm" color="{{ $col['color'] }}">{{ $col['title'] }}</flux:badge>
+                                        @else
+                                            <flux:badge size="sm" color="zinc">{{ $order->status }}</flux:badge>
+                                        @endif
+                                    </flux:table.cell>
+                                    
+                                    <flux:table.cell>
+                                        <div class="flex items-center justify-end gap-2 pr-2 sm:pr-4">
+                                            @if(in_array($order->status, ['processing', 'partially_received']))
+                                                @can('purchase.order.update')
+                                                    <flux:button size="sm" variant="subtle" icon="cube" class="h-8 p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50" title="Terima Barang" wire:click.stop="$dispatch('open-receipt-modal', { orderId: {{ $order->id }} })">Terima</flux:button>
+                                                @endcan
+                                            @elseif($order->status === 'completed')
+                                                @can('purchase.order.update')
+                                                    <flux:button size="sm" variant="subtle" icon="archive-box" class="h-8 p-2 text-zinc-600 hover:text-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800" title="Arsipkan PO" wire:click.stop="confirmArchive({{ $order->id }})">Arsip</flux:button>
+                                                @endcan
+                                            @endif
+                                        </div>
+                                    </flux:table.cell>
+                                </flux:table.row>
+                            @empty
+                                <flux:table.row>
+                                    <flux:table.cell colspan="5">
+                                        <div class="flex flex-col items-center justify-center py-12 text-zinc-500">
+                                            <flux:icon.inbox class="w-12 h-12 mb-3 text-zinc-300" />
+                                            <p>Tidak ada purchase order.</p>
+                                        </div>
+                                    </flux:table.cell>
+                                </flux:table.row>
+                            @endforelse
+                        </flux:table.rows>
+                    </flux:table>
+                </div>
+            </div>
+            <x-load-more :paginator="$this->tableOrders" item-name="PO" />
+        </div>
+    </div>
+    
     {{-- Confirm Archive Modal --}}
     <flux:modal wire:model="show_archive_modal" class="min-w-[22rem]">
         <div class="p-6">

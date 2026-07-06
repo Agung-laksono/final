@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PurchaseQueue extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Traits\UpdatesMenuBadges;
 
     /**
      * The attributes that are mass assignable.

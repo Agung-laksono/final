@@ -10,9 +10,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Volt::route('customers', 'customer.customer-list')->name('customers.index');
         });
         
-        // Order Routes (Kanban)
+        // Order Routes
         Route::middleware(['permission:sales.order.view'])->group(function () {
-            Volt::route('orders/kanban', 'sales-order.kanban')->name('orders.kanban');
+            Volt::route('orders', 'sales-order.index')->name('orders.index');
         });
         
         // Order Create Route

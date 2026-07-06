@@ -1,6 +1,8 @@
 <?php
-use function Livewire\Volt\{state, computed, on, usesPagination};
+use function Livewire\Volt\{state, computed, on, usesPagination, layout};
 use Modules\Sales\Models\Customer;
+
+layout('layouts.app');
 
 usesPagination();
 state(['search' => '']);

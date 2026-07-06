@@ -4,6 +4,7 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-800">
+    @include('layouts.app.global-loader')
         <flux:sidebar sticky collapsible class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 transition-all duration-300 ease-in-out !z-[999]">
             <flux:sidebar.header>
                 <x-app-logo :sidebar="true" href="#" wire:navigate />
@@ -14,24 +15,22 @@
             <!-- Inventory -->
              @can('inventory.view')
             <flux:sidebar.nav>
-                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                    {{ __('INVENTORY') }}
-                </div>
-                    <flux:sidebar.item icon="chart-pie" :href="route('inventory')" :current="request()->routeIs('inventory')" wire:navigate>
+                <flux:navlist.group heading="{{ __('INVENTORY') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
+                    <flux:sidebar.item icon="chart-pie" :href="route('inventory')" :current="request()->routeIs('inventory')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
                     @can('inventory.item.view')
-                    <flux:sidebar.item icon="cube" :href="route('inventory.items')" :current="request()->routeIs('inventory.items')" wire:navigate>
+                    <flux:sidebar.item icon="cube" :href="route('inventory.items')" :current="request()->routeIs('inventory.items')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         {{ __('Barang') }}
                     </flux:sidebar.item>
                     @endcan
                     @can('inventory.warehouse.view')
-                    <flux:sidebar.item icon="building-storefront" :href="route('inventory.warehouses')" :current="request()->routeIs('inventory.warehouses')" wire:navigate>
+                    <flux:sidebar.item icon="building-storefront" :href="route('inventory.warehouses')" :current="request()->routeIs('inventory.warehouses')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         {{ __('Gudang') }}
                     </flux:sidebar.item>
                     @endcan
                     @can('inventory.transfer.view')
-                    <flux:sidebar.item :href="route('inventory.transfers')" :current="request()->routeIs('inventory.transfers*')" wire:navigate>
+                    <flux:sidebar.item :href="route('inventory.transfers')" :current="request()->routeIs('inventory.transfers*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         <x-slot:icon>
                             <div class="relative">
                                 <flux:icon.arrows-right-left class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
@@ -40,7 +39,7 @@
                         </x-slot:icon>
                         {{ __('Transfer Barang') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item :href="route('inventory.requests')" :current="request()->routeIs('inventory.requests*')" wire:navigate>
+                    <flux:sidebar.item :href="route('inventory.requests')" :current="request()->routeIs('inventory.requests*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         <x-slot:icon>
                             <div class="relative">
                                 <flux:icon.inbox-arrow-down class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
@@ -52,10 +51,10 @@
                     @endcan
 
                     @can('inventory.stock.create')
-                    <flux:sidebar.item icon="arrow-right-end-on-rectangle" :href="route('inventory.dispatch')" :current="request()->routeIs('inventory.dispatch')" wire:navigate>
+                    <flux:sidebar.item icon="arrow-right-end-on-rectangle" :href="route('inventory.dispatch')" :current="request()->routeIs('inventory.dispatch')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         {{ __('Alokasi Kedatangan') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item :href="route('inventory.production-receipts')" :current="request()->routeIs('inventory.production-receipts*')" wire:navigate>
+                    <flux:sidebar.item :href="route('inventory.production-receipts')" :current="request()->routeIs('inventory.production-receipts*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         <x-slot:icon>
                             <div class="relative">
                                 <flux:icon.arrow-down-tray class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
@@ -65,145 +64,138 @@
                     </flux:sidebar.item>
                     @endcan
                     @can('production.order.update')
-                    <flux:sidebar.item icon="clipboard-document-check" :href="route('inventory.fulfillments')" :current="request()->routeIs('inventory.fulfillments')" wire:navigate>
+                    <flux:sidebar.item icon="clipboard-document-check" :href="route('inventory.fulfillments')" :current="request()->routeIs('inventory.fulfillments')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         {{ __('Pemenuhan Produksi') }}
                     </flux:sidebar.item>
                     @endcan
                     @can('inventory.view')
-                    <flux:sidebar.item icon="truck" :href="route('inventory.sales-deliveries')" :current="request()->routeIs('inventory.sales-deliveries')" wire:navigate>
+                    <flux:sidebar.item icon="truck" :href="route('inventory.sales-deliveries')" :current="request()->routeIs('inventory.sales-deliveries')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         {{ __('Pengiriman Penjualan') }}
                     </flux:sidebar.item>
                     @endcan
                     @can('inventory.movement.view')
-                    <flux:sidebar.item icon="clock" :href="route('inventory.movements')" :current="request()->routeIs('inventory.movements*')" wire:navigate>
+                    <flux:sidebar.item icon="clock" :href="route('inventory.movements')" :current="request()->routeIs('inventory.movements*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         {{ __('Riwayat Mutasi') }}
                     </flux:sidebar.item>
                     @endcan
                     @can('inventory.opname.view')
-                    <flux:sidebar.item icon="adjustments-horizontal" :href="route('inventory.stock-opname')" :current="request()->routeIs('inventory.stock-opname')" wire:navigate>
+                    <flux:sidebar.item icon="adjustments-horizontal" :href="route('inventory.stock-opname')" :current="request()->routeIs('inventory.stock-opname')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         {{ __('Opname') }}
                     </flux:sidebar.item>
                     @endcan
-                    <flux:sidebar.item icon="cog-6-tooth" :href="route('settings.index')" :current="request()->routeIs('settings.*') || request()->routeIs('profile.*') || request()->routeIs('security.*') || request()->routeIs('appearance.*')" wire:navigate>
-                        {{ __('Pengaturan') }}
-                    </flux:sidebar.item>
+                </flux:navlist.group>
             </flux:sidebar.nav>
             @endcan
 
             <!-- Pembelian -->
             @can('purchase.dashboard.view')
             <flux:sidebar.nav>
-                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                    {{ __('PEMBELIAN') }}
-                </div>
-                @can('purchase.dashboard.view')
-                <flux:sidebar.item icon="shopping-cart" :href="route('purchase.index')" :current="request()->routeIs('purchase.index')" wire:navigate>
-                    {{ __('Dashboard Pembelian') }}
-                </flux:sidebar.item>
-                @endcan
-                @can('purchase.queue.view')
-                <flux:sidebar.item :href="route('purchase.queues.kanban')" :current="request()->routeIs('purchase.queues.*')" wire:navigate>
-                    <x-slot:icon>
-                        <div class="relative">
-                            <flux:icon.queue-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                            <livewire:layout.sidebar-badge type="purchase_queue" />
-                        </div>
-                    </x-slot:icon>
-                    {{ __('Kanban Permintaan') }}
-                </flux:sidebar.item>
-                @endcan
-                @can('purchase.order.view')
-                <flux:sidebar.item :href="route('purchase.orders.kanban')" :current="request()->routeIs('purchase.orders.*')" wire:navigate>
-                    <x-slot:icon>
-                        <div class="relative">
-                            <flux:icon.clipboard-document-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                            <livewire:layout.sidebar-badge type="purchase_order" />
-                        </div>
-                    </x-slot:icon>
-                    {{ __('Kanban PO') }}
-                </flux:sidebar.item>
-                @endcan
-                @can('purchase.vendor.view')
-                <flux:sidebar.item icon="building-office-2" :href="route('purchase.vendors.index')" :current="request()->routeIs('purchase.vendors.*')" wire:navigate>
-                    {{ __('Data Vendor') }}
-                </flux:sidebar.item>
-                @endcan
+                <flux:navlist.group heading="{{ __('PEMBELIAN') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
+                    @can('purchase.dashboard.view')
+                    <flux:sidebar.item icon="shopping-cart" :href="route('purchase.index')" :current="request()->routeIs('purchase.index')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        {{ __('Dashboard Pembelian') }}
+                    </flux:sidebar.item>
+                    @endcan
+                    @can('purchase.queue.view')
+                    <flux:sidebar.item :href="route('purchase.queues.kanban')" :current="request()->routeIs('purchase.queues.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        <x-slot:icon>
+                            <div class="relative">
+                                <flux:icon.queue-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                                <livewire:layout.sidebar-badge type="purchase_queue" />
+                            </div>
+                        </x-slot:icon>
+                        {{ __('Kanban Permintaan') }}
+                    </flux:sidebar.item>
+                    @endcan
+                    @can('purchase.order.view')
+                    <flux:sidebar.item :href="route('purchase.orders.kanban')" :current="request()->routeIs('purchase.orders.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        <x-slot:icon>
+                            <div class="relative">
+                                <flux:icon.clipboard-document-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                                <livewire:layout.sidebar-badge type="purchase_order" />
+                            </div>
+                        </x-slot:icon>
+                        {{ __('Kanban PO') }}
+                    </flux:sidebar.item>
+                    @endcan
+                    @can('purchase.vendor.view')
+                    <flux:sidebar.item icon="building-office-2" :href="route('purchase.vendors.index')" :current="request()->routeIs('purchase.vendors.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        {{ __('Data Vendor') }}
+                    </flux:sidebar.item>
+                    @endcan
+                </flux:navlist.group>
             </flux:sidebar.nav>
             @endcan
 
             <!-- Produksi -->
             @can('production.dashboard.view')
             <flux:sidebar.nav>
-                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                    {{ __('PRODUKSI') }}
-                </div>
-                @can('production.order.view')
-                <flux:sidebar.item :href="route('production.orders')" :current="request()->routeIs('production.orders*')" wire:navigate>
-                    <x-slot:icon>
-                        <div class="relative">
-                            <flux:icon.wrench-screwdriver class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                            <livewire:layout.sidebar-badge type="production_order" />
-                        </div>
-                    </x-slot:icon>
-                    {{ __('Kanban Produksi') }}
-                </flux:sidebar.item>
-                @endcan
-                @can('production.order.view')
-                <flux:sidebar.item icon="document-text" :href="route('production.recipes')" :current="request()->routeIs('production.recipes*')" wire:navigate>
-                    {{ __('Resep Produksi') }}
-                </flux:sidebar.item>
-                @endcan
+                <flux:navlist.group heading="{{ __('PRODUKSI') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
+                    @can('production.order.view')
+                    <flux:sidebar.item :href="route('production.orders')" :current="request()->routeIs('production.orders*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        <x-slot:icon>
+                            <div class="relative">
+                                <flux:icon.wrench-screwdriver class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                                <livewire:layout.sidebar-badge type="production_order" />
+                            </div>
+                        </x-slot:icon>
+                        {{ __('Kanban Produksi') }}
+                    </flux:sidebar.item>
+                    @endcan
+                    @can('production.order.view')
+                    <flux:sidebar.item icon="document-text" :href="route('production.recipes')" :current="request()->routeIs('production.recipes*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        {{ __('Resep Produksi') }}
+                    </flux:sidebar.item>
+                    @endcan
+                </flux:navlist.group>
             </flux:sidebar.nav>
             @endcan
 
             <!-- Penjualan -->
             @can('sales.dashboard.view')
             <flux:sidebar.nav>
-                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                    {{ __('PENJUALAN') }}
-                </div>
-                {{-- @can('sales.dashboard.view')
-                <flux:sidebar.item icon="presentation-chart-line" :href="route('sales.index')" :current="request()->routeIs('sales.index')" wire:navigate>
-                    {{ __('Dashboard Penjualan') }}
-                </flux:sidebar.item>
-                @endcan --}}
-                @can('sales.customer.view')
-                <flux:sidebar.item icon="user-group" :href="route('sales.customers.index')" :current="request()->routeIs('sales.customers.*')" wire:navigate>
-                    {{ __('Data Pelanggan') }}
-                </flux:sidebar.item>
-                @endcan
-                @can('sales.order.view')
-                <flux:sidebar.item :href="route('sales.orders.kanban')" :current="request()->routeIs('sales.orders.*')" wire:navigate>
-                    <x-slot:icon>
-                        <div class="relative">
-                            <flux:icon.clipboard-document-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                            <livewire:layout.sidebar-badge type="sales_order" />
-                        </div>
-                    </x-slot:icon>
-                    {{ __('Kanban Sales Order') }}
-                </flux:sidebar.item>
-                @endcan
+                <flux:navlist.group heading="{{ __('PENJUALAN') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
+                    @can('sales.customer.view')
+                    <flux:sidebar.item icon="user-group" :href="route('sales.customers.index')" :current="request()->routeIs('sales.customers.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        {{ __('Data Pelanggan') }}
+                    </flux:sidebar.item>
+                    @endcan
+                    @can('sales.order.view')
+                    <flux:sidebar.item :href="route('sales.orders.index')" :current="request()->routeIs('sales.orders.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        <x-slot:icon>
+                            <div class="relative">
+                                <flux:icon.clipboard-document-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                                <livewire:layout.sidebar-badge type="sales_order" />
+                            </div>
+                        </x-slot:icon>
+                        {{ __('Kanban Sales Order') }}
+                    </flux:sidebar.item>
+                    @endcan
+                </flux:navlist.group>
             </flux:sidebar.nav>
             @endcan
 
             <!-- Keuangan -->
             @canany(['finance.dashboard.view', 'finance.inbox.view'])
             <flux:sidebar.nav>
-                <div class="in-data-flux-sidebar-collapsed-desktop:hidden px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                    {{ __('KEUANGAN') }}
-                </div>
-                <flux:sidebar.item icon="banknotes" :href="route('finance.dashboard')" :current="request()->routeIs('finance.dashboard')" wire:navigate>
-                    {{ __('Buku Kas & Bank') }}
-                </flux:sidebar.item>
-                <flux:sidebar.item icon="inbox-arrow-down" :href="route('finance.inbox')" :current="request()->routeIs('finance.inbox')" wire:navigate>
-                    {{ __('Validasi Transaksi') }}
-                </flux:sidebar.item>
+                <flux:navlist.group heading="{{ __('KEUANGAN') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
+                    <flux:sidebar.item icon="banknotes" :href="route('finance.dashboard')" :current="request()->routeIs('finance.dashboard')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        {{ __('Buku Kas & Bank') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="inbox-arrow-down" :href="route('finance.inbox')" :current="request()->routeIs('finance.inbox')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        {{ __('Validasi Transaksi') }}
+                    </flux:sidebar.item>
+                </flux:navlist.group>
             </flux:sidebar.nav>
             @endcanany
 
             <flux:sidebar.nav class="mt-4">
-                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                     {{ __('Dashboard Utama') }}
+                </flux:sidebar.item>
+                
+                <flux:sidebar.item icon="cog-6-tooth" :href="route('settings.index')" :current="request()->routeIs('settings.*') || request()->routeIs('profile.*') || request()->routeIs('security.*') || request()->routeIs('appearance.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                    {{ __('Pengaturan') }}
                 </flux:sidebar.item>
             </flux:sidebar.nav>
             <flux:spacer />

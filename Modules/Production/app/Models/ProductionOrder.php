@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ProductionOrder extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Traits\UpdatesMenuBadges;
 
     protected $guarded = ['id'];
 

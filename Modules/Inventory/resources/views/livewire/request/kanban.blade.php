@@ -1,14 +1,17 @@
 <?php
-use function Livewire\Volt\{state, layout, title, computed, on};
+use function Livewire\Volt\{state, layout, title, computed, on, usesPagination, mount};
 use Modules\Inventory\Models\InventoryRequest;
 use Modules\Purchase\Models\PurchaseQueue;
 use Modules\Production\Models\ProductionOrder;
 use Illuminate\Support\Str;
 
+usesPagination(theme: 'tailwind');
+
 layout('layouts.app');
 title('Pivot Permintaan Barang');
 
 state([
+    'viewMode' => 'kanban',
     'columns' => [
         'draft' => ['title' => 'Permintaan Baru', 'color' => 'amber'],
         'review' => ['title' => 'Sedang Ditinjau', 'color' => 'blue'],
@@ -25,7 +28,34 @@ state([
     'woNotes' => '',
 ]);
 
+mount(function () {
+    $this->viewMode = session()->get('inventory_request_view_mode', 'kanban');
+});
+
+$updatedViewMode = function ($value) {
+    session()->put('inventory_request_view_mode', $value);
+};
+
+$tableRequests = computed(function () {
+    if ($this->viewMode !== 'table') {
+        return null;
+    }
+    
+    $query = InventoryRequest::with(['item', 'item.type', 'productionOrder', 'purchaseQueue'])->latest();
+    if ($this->search) {
+        $query->where('reference_number', 'like', '%' . $this->search . '%')
+              ->orWhereHas('item', function($q) {
+                  $q->where('name', 'like', '%' . $this->search . '%');
+              });
+    }
+    return $query->paginate(15);
+});
+
 $requests = computed(function () {
+    if ($this->viewMode !== 'kanban') {
+        return [];
+    }
+    
     $query = InventoryRequest::with(['item', 'item.type', 'productionOrder', 'purchaseQueue'])->latest();
     if ($this->search) {
         $query->where('reference_number', 'like', '%' . $this->search . '%')
@@ -197,197 +227,267 @@ on([
 ]);
 ?>
 
-<div class="space-y-6">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <flux:heading size="xl">Pivot Permintaan Barang</flux:heading>
-            <flux:subheading>Hub pusat penentuan alur defisit barang (Beli vs Produksi).</flux:subheading>
-        </div>
-        <div class="flex items-center gap-3 w-full md:w-auto">
-            <div class="flex-1 min-w-0 md:w-64">
-                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari barang atau ref..." />
-            </div>
-            <div class="flex items-center gap-3 shrink-0">
-                {{-- Toggle Transparan --}}
-                <div class="hidden sm:flex" title="Mode Transparan">
-                    <flux:switch wire:model.live="transparent_columns" label="Transparan" />
-                </div>
-                <div class="flex sm:hidden" title="Mode Transparan">
-                    <flux:switch wire:model.live="transparent_columns" />
-                </div>
-
-                @can('inventory.request.create')
-                    <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-create-request-modal')" class="shrink-0">
-                        <span class="hidden sm:inline">Buat Permintaan</span>
-                    </flux:button>
-                @endcan
-            </div>
-        </div>
-    </div>
-
-    <div class="flex justify-start gap-6 overflow-x-auto pb-4 h-[calc(100vh-12rem)] -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch">
-        @foreach($columns as $statusKey => $column)
-            <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['archived', 'rejected']) ? 'true' : 'false' }}).as('kanban-col-inv-{{ $statusKey }}-user-{{ auth()->id() }}') }"
-                 class="flex-shrink-0 h-full max-h-full rounded-xl flex flex-col transition-all duration-300 snap-center {{ $this->transparent_columns ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800' }}"
-                 :class="collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80'"
-                 @click="if(collapsed) collapsed = false"
-                 wire:key="column-{{ $statusKey }}">
-                
-                {{-- Column Header --}}
-                <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300 {{ $this->transparent_columns ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800' }}"
-                     :class="collapsed ? 'flex-col gap-4 h-full pb-8' : ''">
-                    <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
-                        <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0"></div>
-                        <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
-                            :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
+<div>
+<x-kanban.board componentId="inventory_request" :viewMode="$viewMode" title="Pivot Permintaan Barang" subtitle="Hub pusat penentuan alur defisit barang (Beli vs Produksi).">
+    
+    <x-slot:header_actions>
+        @can('inventory.request.create')
+            <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-create-request-modal')" class="shrink-0">
+                <span class="hidden sm:inline">Buat Permintaan</span>
+            </flux:button>
+        @endcan
+    </x-slot:header_actions>
+    
+    <x-slot:kanban_layout>
+        <div class="flex justify-start gap-6 overflow-x-auto pb-4 h-full -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch">
+            @foreach($columns as $statusKey => $column)
+                <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['archived', 'rejected']) ? 'true' : 'false' }}).as('kanban-col-inv-{{ $statusKey }}-user-{{ auth()->id() }}') }"
+                     class="flex-shrink-0 h-full max-h-full rounded-xl flex flex-col transition-all duration-300 snap-center"
+                     :class="(transparent ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80')"
+                     @click="if(collapsed) collapsed = false"
+                     wire:key="column-{{ $statusKey }}">
+                    
+                    {{-- Column Header --}}
+                    <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300"
+                         :class="(transparent ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'flex-col gap-4 h-full pb-8' : '')">
+                        <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
+                            <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0"></div>
+                            <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
+                                :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
+                        </div>
+                        <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
+                            <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->requests[$statusKey] ?? []) }}</flux:badge>
+                            <button @click.stop="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
+                                <flux:icon.arrows-right-left class="w-4 h-4" x-bind:class="collapsed ? 'rotate-90' : ''" />
+                            </button>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
-                        <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->requests[$statusKey] ?? []) }}</flux:badge>
-                        <button @click.stop="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
-                            <flux:icon.arrows-right-left class="w-4 h-4" x-bind:class="collapsed ? 'rotate-90' : ''" />
-                        </button>
-                    </div>
-                </div>
-                
-                {{-- Column Items --}}
-                <div x-show="!collapsed" x-transition.opacity.duration.300ms class="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar">
-                    @forelse($this->requests[$statusKey] ?? [] as $req)
-                        <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700">
-                            <div class="flex justify-between items-start mb-2">
-                                <span wire:click="$dispatch('open-request-detail-modal', { requestId: {{ $req->id }} })" class="cursor-pointer text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors" title="Lihat Detail">{{ $req->reference_number }}</span>
-                                <flux:badge size="sm" color="{{ $req->item->type->name === 'Produk Jadi' ? 'purple' : 'blue' }}">{{ $req->item->type->name ?? 'Unknown' }}</flux:badge>
-                            </div>
-                            <div class="font-bold text-sm text-zinc-900 dark:text-white mb-1">{{ $req->item->name }}</div>
-                            <div class="text-sm text-zinc-600 dark:text-zinc-400 mb-3">Butuh: <span class="font-bold text-red-600">{{ $req->requested_qty }}</span> {{ $req->item->unit->name ?? 'pcs' }}</div>
-                            
-                            @if($req->notes)
-                                <div class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded mb-3">{{ $req->notes }}</div>
-                            @endif
+                    
+                    {{-- Column Items --}}
+                    <div x-show="!collapsed" x-transition.opacity.duration.300ms x-init="autoAnimate($el)" class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
+                        @forelse($this->requests[$statusKey] ?? [] as $req)
+                            <div wire:key="req-{{ $req->id }}" @click="activeId = '{{ $req->id }}'" x-show="processingId !== '{{ $req->id }}'" class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span wire:click="$dispatch('open-request-detail-modal', { requestId: {{ $req->id }} })" class="cursor-pointer text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors" title="Lihat Detail">{{ $req->reference_number }}</span>
+                                    <flux:badge size="sm" color="{{ $req->item->type->name === 'Produk Jadi' ? 'purple' : 'blue' }}">{{ $req->item->type->name ?? 'Unknown' }}</flux:badge>
+                                </div>
+                                <div class="font-bold text-sm text-zinc-900 dark:text-white mb-1">{{ $req->item->name }}</div>
+                                <div class="text-sm text-zinc-600 dark:text-zinc-400 mb-3">Butuh: <span class="font-bold text-red-600">{{ $req->requested_qty }}</span> {{ $req->item->unit->name ?? 'pcs' }}</div>
+                                
+                                @if($req->notes)
+                                    <div class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded mb-3">{{ $req->notes }}</div>
+                                @endif
 
-                            @if(in_array($statusKey, ['draft', 'review']))
-                                {{-- Mini Dashboard (Pipeline Stock) --}}
-                                @php
-                                    $stats = $req->item->getInventoryStats();
-                                @endphp
-                                <div class="grid grid-cols-2 gap-2 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-700/50">
-                                    <div class="flex flex-col justify-start" title="Stok aktual di gudang saat ini">
-                                        <span class="text-[9px] text-zinc-500 uppercase font-bold tracking-wider mb-0.5">Stok Fisik</span>
-                                        <span class="text-sm font-black text-zinc-800 dark:text-zinc-200 leading-none mb-1">{{ $stats['physical'] }} <span class="text-[10px] font-medium text-zinc-400">{{ $req->item->unit->name ?? 'pcs' }}</span></span>
-                                        @if(isset($stats['warehouse_details']) && count($stats['warehouse_details']) > 0)
-                                            <div class="flex flex-col gap-0.5 mt-0.5">
-                                                @foreach($stats['warehouse_details'] as $wh)
-                                                    @if($wh['stock'] > 0)
-                                                        <span class="text-[8px] text-zinc-500 leading-tight flex items-center gap-1">
-                                                            <div class="w-1 h-1 rounded-full bg-zinc-300"></div>
-                                                            <span class="truncate max-w-[60px]" title="{{ $wh['name'] }}">{{ $wh['name'] }}</span>: <span class="font-bold text-zinc-700 dark:text-zinc-300">{{ $wh['stock'] }}</span>
-                                                        </span>
-                                                    @endif
-                                                @endforeach
+                                @if(in_array($statusKey, ['draft', 'review']))
+                                    {{-- Mini Dashboard (Pipeline Stock) --}}
+                                    @php
+                                        $stats = $req->item->getInventoryStats();
+                                    @endphp
+                                    <div class="grid grid-cols-2 gap-2 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-700/50">
+                                        <div class="flex flex-col justify-start" title="Stok aktual di gudang saat ini">
+                                            <span class="text-[9px] text-zinc-500 uppercase font-bold tracking-wider mb-0.5">Stok Fisik</span>
+                                            <span class="text-sm font-black text-zinc-800 dark:text-zinc-200 leading-none mb-1">{{ $stats['physical'] }} <span class="text-[10px] font-medium text-zinc-400">{{ $req->item->unit->name ?? 'pcs' }}</span></span>
+                                            @if(isset($stats['warehouse_details']) && count($stats['warehouse_details']) > 0)
+                                                <div class="flex flex-col gap-0.5 mt-0.5">
+                                                    @foreach($stats['warehouse_details'] as $wh)
+                                                        @if($wh['stock'] > 0)
+                                                            <span class="text-[8px] text-zinc-500 leading-tight flex items-center gap-1">
+                                                                <div class="w-1 h-1 rounded-full bg-zinc-300"></div>
+                                                                <span class="truncate max-w-[60px]" title="{{ $wh['name'] }}">{{ $wh['name'] }}</span>: <span class="font-bold text-zinc-700 dark:text-zinc-300">{{ $wh['stock'] }}</span>
+                                                            </span>
+                                                        @endif
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="flex flex-col" title="Jumlah yang sedang diproduksi (WIP)">
+                                            <span class="text-[9px] text-purple-500 uppercase font-bold tracking-wider mb-0.5">Produksi</span>
+                                            <span class="text-sm font-black text-purple-600 dark:text-purple-400">{{ $stats['production'] }} <span class="text-[10px] font-medium text-purple-400/70">{{ $req->item->unit->name ?? 'pcs' }}</span></span>
+                                        </div>
+                                        <div class="flex flex-col" title="Jumlah yang sedang antre untuk dibeli (belum PO)">
+                                            <span class="text-[9px] text-amber-500 uppercase font-bold tracking-wider mb-0.5">Antre Beli</span>
+                                            <span class="text-sm font-black text-amber-600 dark:text-amber-400">{{ $stats['purchase_queue'] }} <span class="text-[10px] font-medium text-amber-400/70">{{ $req->item->unit->name ?? 'pcs' }}</span></span>
+                                        </div>
+                                        <div class="flex flex-col" title="Jumlah yang sudah dipesan ke Vendor (sudah PO)">
+                                            <span class="text-[9px] text-blue-500 uppercase font-bold tracking-wider mb-0.5">Sedang Beli</span>
+                                            <span class="text-sm font-black text-blue-600 dark:text-blue-400">{{ $stats['purchase_order'] }} <span class="text-[10px] font-medium text-blue-400/70">{{ $req->item->unit->name ?? 'pcs' }}</span></span>
+                                        </div>
+                                        @if($stats['sales_committed'] > 0)
+                                            <div class="flex flex-col col-span-2 pt-2 mt-1 border-t border-zinc-200 dark:border-zinc-700/50" title="Pesanan Pelanggan yang sedang menunggu barang ini">
+                                                <span class="text-[9px] text-rose-500 uppercase font-bold tracking-wider mb-0.5">Kebutuhan / Pesanan Penjualan</span>
+                                                <span class="text-sm font-black text-rose-600 dark:text-rose-400">{{ $stats['sales_committed'] }} <span class="text-[10px] font-medium text-rose-400/70">{{ $req->item->unit->name ?? 'pcs' }}</span></span>
                                             </div>
                                         @endif
                                     </div>
-                                    <div class="flex flex-col" title="Jumlah yang sedang diproduksi (WIP)">
-                                        <span class="text-[9px] text-purple-500 uppercase font-bold tracking-wider mb-0.5">Produksi</span>
-                                        <span class="text-sm font-black text-purple-600 dark:text-purple-400">{{ $stats['production'] }} <span class="text-[10px] font-medium text-purple-400/70">{{ $req->item->unit->name ?? 'pcs' }}</span></span>
-                                    </div>
-                                    <div class="flex flex-col" title="Jumlah yang sedang antre untuk dibeli (belum PO)">
-                                        <span class="text-[9px] text-amber-500 uppercase font-bold tracking-wider mb-0.5">Antre Beli</span>
-                                        <span class="text-sm font-black text-amber-600 dark:text-amber-400">{{ $stats['purchase_queue'] }} <span class="text-[10px] font-medium text-amber-400/70">{{ $req->item->unit->name ?? 'pcs' }}</span></span>
-                                    </div>
-                                    <div class="flex flex-col" title="Jumlah yang sudah dipesan ke Vendor (sudah PO)">
-                                        <span class="text-[9px] text-blue-500 uppercase font-bold tracking-wider mb-0.5">Sedang Beli</span>
-                                        <span class="text-sm font-black text-blue-600 dark:text-blue-400">{{ $stats['purchase_order'] }} <span class="text-[10px] font-medium text-blue-400/70">{{ $req->item->unit->name ?? 'pcs' }}</span></span>
-                                    </div>
-                                    @if($stats['sales_committed'] > 0)
-                                        <div class="flex flex-col col-span-2 pt-2 mt-1 border-t border-zinc-200 dark:border-zinc-700/50" title="Pesanan Pelanggan yang sedang menunggu barang ini">
-                                            <span class="text-[9px] text-rose-500 uppercase font-bold tracking-wider mb-0.5">Kebutuhan / Pesanan Penjualan</span>
-                                            <span class="text-sm font-black text-rose-600 dark:text-rose-400">{{ $stats['sales_committed'] }} <span class="text-[10px] font-medium text-rose-400/70">{{ $req->item->unit->name ?? 'pcs' }}</span></span>
-                                        </div>
-                                    @endif
-                                </div>
-                            @endif
+                                @endif
 
-                            @if($statusKey !== 'routed' && $statusKey !== 'rejected')
-                                <div class="flex flex-col gap-2 mt-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                                    @if($statusKey === 'draft')
-                                        <div class="flex gap-2 w-full">
-                                            <flux:button size="sm" variant="subtle" wire:click="review({{ $req->id }})" class="flex-1">Mulai Tinjau</flux:button>
-                                            <flux:button size="sm" variant="danger" wire:click="reject({{ $req->id }})" class="flex-1">Tolak</flux:button>
-                                        </div>
-                                    @elseif($statusKey === 'review')
-                                        @php
-                                            $isProdukJadi = strtolower($req->item->type->name ?? '') === 'produk jadi';
-                                        @endphp
-                                        <div class="flex gap-2 w-full">
-                                            @if($isProdukJadi)
-                                                <flux:button size="sm" variant="filled" icon="cog-8-tooth" wire:click="openCreateWoModal({{ $req->id }})" class="flex-1 !bg-purple-600 hover:!bg-purple-700 !text-white text-[11px]" title="Rekomendasi Utama">Produksi</flux:button>
-                                                <flux:dropdown>
-                                                    <flux:button size="sm" variant="subtle" class="shrink-0 px-2" title="Opsi Lainnya"><flux:icon.ellipsis-vertical class="w-4 h-4" /></flux:button>
-                                                    <flux:menu>
-                                                        <flux:menu.item icon="shopping-cart" wire:click="routeToPurchase({{ $req->id }})">Beli (Pengecualian)</flux:menu.item>
-                                                        <flux:menu.item icon="x-mark" variant="danger" wire:click="reject({{ $req->id }})">Tolak Permintaan</flux:menu.item>
-                                                    </flux:menu>
-                                                </flux:dropdown>
-                                            @else
-                                                <flux:button size="sm" variant="primary" icon="shopping-cart" wire:click="routeToPurchase({{ $req->id }})" class="flex-1 text-[11px]" title="Rekomendasi Utama">Beli</flux:button>
-                                                <flux:dropdown>
-                                                    <flux:button size="sm" variant="subtle" class="shrink-0 px-2" title="Opsi Lainnya"><flux:icon.ellipsis-vertical class="w-4 h-4" /></flux:button>
-                                                    <flux:menu>
-                                                        <flux:menu.item icon="cog-8-tooth" wire:click="openCreateWoModal({{ $req->id }})">Produksi (Pengecualian)</flux:menu.item>
-                                                        <flux:menu.item icon="x-mark" variant="danger" wire:click="reject({{ $req->id }})">Tolak Permintaan</flux:menu.item>
-                                                    </flux:menu>
-                                                </flux:dropdown>
-                                            @endif
-                                        </div>
-                                    @endif
-                                </div>
-                            @elseif($statusKey === 'routed')
-                                <div class="text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 p-2 rounded text-center mt-2 flex flex-col gap-1">
-                                    <span>Telah dialihkan ke: <strong>{{ strtoupper($req->routed_to) }}</strong></span>
-                                    @if($req->routed_to === 'production' && $req->productionOrder)
-                                        @php
-                                            $prodStatusMap = [
-                                                'waiting_material' => 'Antre Bahan',
-                                                'material_fulfillment' => 'Pemenuhan Bahan',
-                                                'waiting_vendor' => 'Antre Maklon',
-                                                'in_production' => 'Sedang Diproduksi',
-                                                'receiving' => 'Penerimaan Gudang',
-                                                'completed' => 'Selesai',
-                                                'archived' => 'Arsip'
-                                            ];
-                                            $liveStatus = $prodStatusMap[$req->productionOrder->status] ?? $req->productionOrder->status;
-                                        @endphp
-                                        <span class="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5 border-t border-emerald-200/50 dark:border-emerald-800/50 pt-1">(Status Pabrik: {{ $liveStatus }})</span>
-                                    @elseif($req->routed_to === 'purchase' && $req->purchaseQueue)
-                                        @php
-                                            $purchStatusMap = [
-                                                'pending_approval' => 'Menunggu Persetujuan',
-                                                'approved' => 'Antre PO',
-                                                'ordered' => 'Dipesan (PO)',
-                                                'rejected' => 'Ditolak'
-                                            ];
-                                            $liveStatus = $purchStatusMap[$req->purchaseQueue->status] ?? $req->purchaseQueue->status;
-                                        @endphp
-                                        <span class="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5 border-t border-emerald-200/50 dark:border-emerald-800/50 pt-1">(Status Beli: {{ $liveStatus }})</span>
-                                    @endif
-                                </div>
-                                <div class="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 w-full">
-                                    <flux:button size="xs" variant="subtle" wire:click="archive({{ $req->id }})" class="w-full !text-[10px]">Pindahkan ke Arsip</flux:button>
-                                </div>
-                            @endif
-                        </div>
-                    @empty
-                        <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
-                            Kosong
-                        </div>
-                    @endforelse
+                                @if($statusKey !== 'routed' && $statusKey !== 'rejected')
+                                    <div class="flex flex-col gap-2 mt-2 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                                        @if($statusKey === 'draft')
+                                            <div class="flex gap-2 w-full">
+                                                <flux:button size="sm" variant="subtle" wire:click="review({{ $req->id }})" class="flex-1">Mulai Tinjau</flux:button>
+                                                <flux:button size="sm" variant="danger" wire:click="reject({{ $req->id }})" class="flex-1">Tolak</flux:button>
+                                            </div>
+                                        @elseif($statusKey === 'review')
+                                            @php
+                                                $isProdukJadi = strtolower($req->item->type->name ?? '') === 'produk jadi';
+                                            @endphp
+                                            <div class="flex gap-2 w-full">
+                                                @if($isProdukJadi)
+                                                    <flux:button size="sm" variant="filled" icon="cog-8-tooth" wire:click="openCreateWoModal({{ $req->id }})" class="flex-1 !bg-purple-600 hover:!bg-purple-700 !text-white text-[11px]" title="Rekomendasi Utama">Produksi</flux:button>
+                                                    <flux:dropdown>
+                                                        <flux:button size="sm" variant="subtle" class="shrink-0 px-2" title="Opsi Lainnya"><flux:icon.ellipsis-vertical class="w-4 h-4" /></flux:button>
+                                                        <flux:menu>
+                                                            <flux:menu.item icon="shopping-cart" wire:click="routeToPurchase({{ $req->id }})">Beli (Pengecualian)</flux:menu.item>
+                                                            <flux:menu.item icon="x-mark" variant="danger" wire:click="reject({{ $req->id }})">Tolak Permintaan</flux:menu.item>
+                                                        </flux:menu>
+                                                    </flux:dropdown>
+                                                @else
+                                                    <flux:button size="sm" variant="primary" icon="shopping-cart" wire:click="routeToPurchase({{ $req->id }})" class="flex-1 text-[11px]" title="Rekomendasi Utama">Beli</flux:button>
+                                                    <flux:dropdown>
+                                                        <flux:button size="sm" variant="subtle" class="shrink-0 px-2" title="Opsi Lainnya"><flux:icon.ellipsis-vertical class="w-4 h-4" /></flux:button>
+                                                        <flux:menu>
+                                                            <flux:menu.item icon="cog-8-tooth" wire:click="openCreateWoModal({{ $req->id }})">Produksi (Pengecualian)</flux:menu.item>
+                                                            <flux:menu.item icon="x-mark" variant="danger" wire:click="reject({{ $req->id }})">Tolak Permintaan</flux:menu.item>
+                                                        </flux:menu>
+                                                    </flux:dropdown>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
+                                @elseif($statusKey === 'routed')
+                                    <div class="text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 p-2 rounded text-center mt-2 flex flex-col gap-1">
+                                        <span>Telah dialihkan ke: <strong>{{ strtoupper($req->routed_to) }}</strong></span>
+                                        @if($req->routed_to === 'production' && $req->productionOrder)
+                                            @php
+                                                $prodStatusMap = [
+                                                    'waiting_material' => 'Antre Bahan',
+                                                    'material_fulfillment' => 'Pemenuhan Bahan',
+                                                    'waiting_vendor' => 'Antre Maklon',
+                                                    'in_production' => 'Sedang Diproduksi',
+                                                    'receiving' => 'Penerimaan Gudang',
+                                                    'completed' => 'Selesai',
+                                                    'archived' => 'Arsip'
+                                                ];
+                                                $liveStatus = $prodStatusMap[$req->productionOrder->status] ?? $req->productionOrder->status;
+                                            @endphp
+                                            <span class="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5 border-t border-emerald-200/50 dark:border-emerald-800/50 pt-1">(Status Pabrik: {{ $liveStatus }})</span>
+                                        @elseif($req->routed_to === 'purchase' && $req->purchaseQueue)
+                                            @php
+                                                $purchStatusMap = [
+                                                    'pending_approval' => 'Menunggu Persetujuan',
+                                                    'approved' => 'Antre PO',
+                                                    'ordered' => 'Dipesan (PO)',
+                                                    'rejected' => 'Ditolak'
+                                                ];
+                                                $liveStatus = $purchStatusMap[$req->purchaseQueue->status] ?? $req->purchaseQueue->status;
+                                            @endphp
+                                            <span class="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 mt-0.5 border-t border-emerald-200/50 dark:border-emerald-800/50 pt-1">(Status Beli: {{ $liveStatus }})</span>
+                                        @endif
+                                    </div>
+                                    <div class="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 w-full">
+                                        <flux:button size="xs" variant="subtle" wire:click="archive({{ $req->id }})" class="w-full !text-[10px]">Pindahkan ke Arsip</flux:button>
+                                    </div>
+                                @endif
+                            </div>
+                        @empty
+                            <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
+                                Kosong
+                            </div>
+                        @endforelse
+                    </div>
                 </div>
-            </div>
-        @endforeach
-    </div>
+            @endforeach
+        </div>
+    </x-slot:kanban_layout>
 
-    <div>
-        <flux:modal name="recipe-prompt" class="md:w-[28rem]">
+    <x-slot:table_layout>
+        <div class="p-6">
+            <flux:table>
+                <flux:table.columns>
+                    <flux:table.column>Referensi</flux:table.column>
+                    <flux:table.column>Barang</flux:table.column>
+                    <flux:table.column>Kebutuhan</flux:table.column>
+                    <flux:table.column>Status</flux:table.column>
+                    <flux:table.column>Tindakan</flux:table.column>
+                </flux:table.columns>
+
+                <flux:table.rows>
+                    @if($this->tableRequests)
+                        @forelse($this->tableRequests as $req)
+                            <flux:table.row wire:key="row-{{ $req->id }}">
+                                <flux:table.cell>
+                                    <span wire:click="$dispatch('open-request-detail-modal', { requestId: {{ $req->id }} })" class="cursor-pointer text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors" title="Lihat Detail">{{ $req->reference_number }}</span>
+                                </flux:table.cell>
+                                <flux:table.cell>
+                                    <div class="font-medium text-zinc-900 dark:text-white">{{ $req->item->name }}</div>
+                                    <flux:badge size="sm" color="{{ $req->item->type->name === 'Produk Jadi' ? 'purple' : 'blue' }}">{{ $req->item->type->name ?? 'Unknown' }}</flux:badge>
+                                </flux:table.cell>
+                                <flux:table.cell>
+                                    <span class="font-bold text-red-600">{{ $req->requested_qty }}</span> <span class="text-xs text-zinc-500">{{ $req->item->unit->name ?? 'pcs' }}</span>
+                                </flux:table.cell>
+                                <flux:table.cell>
+                                    @php
+                                        $col = $columns[$req->status] ?? null;
+                                        $color = $col ? $col['color'] : 'zinc';
+                                    @endphp
+                                    <flux:badge size="sm" color="{{ $color }}">{{ $col['title'] ?? ucfirst($req->status) }}</flux:badge>
+                                    
+                                    @if($req->status === 'routed')
+                                        <div class="text-[10px] text-emerald-600 mt-1">Dialihkan: {{ strtoupper($req->routed_to) }}</div>
+                                    @endif
+                                </flux:table.cell>
+                                <flux:table.cell>
+                                    <div class="flex items-center gap-2">
+                                        @if($req->status === 'draft')
+                                            <flux:button size="sm" variant="subtle" wire:click="review({{ $req->id }})">Tinjau</flux:button>
+                                        @elseif($req->status === 'review')
+                                            @php
+                                                $isProdukJadi = strtolower($req->item->type->name ?? '') === 'produk jadi';
+                                            @endphp
+                                            @if($isProdukJadi)
+                                                <flux:button size="sm" variant="filled" class="!bg-purple-600 hover:!bg-purple-700 !text-white text-[11px]" wire:click="openCreateWoModal({{ $req->id }})">Produksi</flux:button>
+                                            @else
+                                                <flux:button size="sm" variant="primary" class="text-[11px]" wire:click="routeToPurchase({{ $req->id }})">Beli</flux:button>
+                                            @endif
+                                            
+                                            <flux:dropdown>
+                                                <flux:button size="sm" variant="subtle" class="px-2"><flux:icon.ellipsis-vertical class="w-4 h-4" /></flux:button>
+                                                <flux:menu>
+                                                    @if($isProdukJadi)
+                                                        <flux:menu.item icon="shopping-cart" wire:click="routeToPurchase({{ $req->id }})">Beli (Pengecualian)</flux:menu.item>
+                                                    @else
+                                                        <flux:menu.item icon="cog-8-tooth" wire:click="openCreateWoModal({{ $req->id }})">Produksi (Pengecualian)</flux:menu.item>
+                                                    @endif
+                                                    <flux:menu.item icon="x-mark" variant="danger" wire:click="reject({{ $req->id }})">Tolak</flux:menu.item>
+                                                </flux:menu>
+                                            </flux:dropdown>
+                                        @elseif($req->status === 'routed')
+                                            <flux:button size="sm" variant="subtle" wire:click="archive({{ $req->id }})">Arsipkan</flux:button>
+                                        @endif
+                                    </div>
+                                </flux:cell>
+                            </flux:row>
+                        @empty
+                            <flux:table.row>
+                                <flux:table.cell colspan="5" class="text-center text-zinc-500 py-8">Tidak ada data permintaan barang.</flux:table.cell>
+                            </flux:table.row>
+                        @endforelse
+                    @endif
+                </flux:table.rows>
+            </flux:table>
+            
+            @if($this->tableRequests && $this->tableRequests->hasPages())
+                <div class="mt-4">
+                    {{ $this->tableRequests->links() }}
+                </div>
+            @endif
+        </div>
+    </x-slot:table_layout>
+</x-kanban.board>
+
+<div>
+    <flux:modal name="recipe-prompt" class="md:w-[28rem]">
             <div class="p-6">
                 <div class="w-16 h-16 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mb-4 mx-auto">
                     <flux:icon.exclamation-triangle class="w-8 h-8" />
@@ -450,3 +550,4 @@ on([
         transform: rotate(180deg);
     }
 </style>
+</div>
