@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Warehouse extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Traits\ScopedToWarehouse;
+
+    public const WAREHOUSE_SCOPE_COLUMN = 'id';
 
     protected $guarded = ['id'];
 
@@ -63,5 +65,13 @@ class Warehouse extends Model
     public function stockAdjustments()
     {
         return $this->hasMany(StockAdjustment::class);
+    }
+
+    /**
+     * Staf yang ditugaskan ke gudang ini
+     */
+    public function users()
+    {
+        return $this->belongsToMany(\App\Models\User::class, 'user_warehouse')->withTimestamps();
     }
 }

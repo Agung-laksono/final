@@ -158,7 +158,7 @@
 
             <div class="flex justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
                 <flux:modal.close>
-                    <flux:button variant="ghost">Tutup</flux:button>
+                    <flux:button variant="ghost"> Tutup </flux:button>
                 </flux:modal.close>
             </div>
         </div>
@@ -239,7 +239,7 @@
 
             <div class="flex justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
                 <flux:modal.close>
-                    <flux:button variant="ghost">Tutup</flux:button>
+                    <flux:button variant="ghost"> Tutup </flux:button>
                 </flux:modal.close>
             </div>
         </div>

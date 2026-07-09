@@ -71,7 +71,7 @@ $save = function () {
         </div>
 
         <div class="flex items-center gap-4 pt-4">
-            <flux:button variant="primary" type="submit">Simpan Pengaturan</flux:button>
+            <flux:button icon="check" variant="primary" type="submit"> Simpan Peng </flux:button>
             <flux:text class="text-sm">Perubahan akan langsung diterapkan ke seluruh aplikasi.</flux:text>
         </div>
     </form>

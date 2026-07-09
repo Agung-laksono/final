@@ -115,9 +115,9 @@ $save = function () {
                 <div class="flex mt-6 gap-2">
                     <flux:spacer />
                     <flux:modal.close>
-                        <flux:button variant="ghost">Batal</flux:button>
+                        <flux:button variant="ghost"> Batal </flux:button>
                     </flux:modal.close>
-                    <flux:button wire:click="save" variant="primary">Simpan Perubahan</flux:button>
+                    <flux:button icon="check" wire:click="save" variant="primary"> Simpan P </flux:button>
                 </div>
             </div>
         </flux:modal>

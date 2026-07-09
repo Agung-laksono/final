@@ -393,7 +393,7 @@ $save = function () {
                 @endif
             </span>
             <div class="flex gap-2 sm:gap-3 w-full sm:w-auto">
-                <flux:button variant="ghost" wire:click="$set('show', false)" class="flex-1 sm:flex-none">Batal</flux:button>
+                <flux:button variant="ghost" wire:click="$set('show', false)" class="flex-1 sm:flex-none"> Batal </flux:button>
                 @if(!$hasAnyInput)
                     <flux:button variant="primary" disabled class="flex-1 sm:flex-none opacity-50 cursor-not-allowed">Serahkan</flux:button>
                 @elseif($hasStockDeficit)

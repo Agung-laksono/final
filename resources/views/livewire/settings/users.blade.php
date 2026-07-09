@@ -158,7 +158,7 @@ on(['role-updated' => function () {
             <div class="flex mt-6 gap-2">
                 <flux:spacer />
                 <flux:modal.close>
-                    <flux:button variant="ghost">Batal</flux:button>
+                    <flux:button variant="ghost"> Batal </flux:button>
                 </flux:modal.close>
                 <flux:button type="submit" variant="primary">Daftarkan</flux:button>
             </div>

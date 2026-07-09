@@ -17,7 +17,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         
         // Order Create Route
         Route::middleware(['permission:sales.order.create'])->group(function () {
-            Volt::route('orders/create', 'sales-order.create')->name('orders.create');
+            Volt::route('orders/create/{id?}', 'sales-order.create')->name('orders.create');
         });
     });
 });

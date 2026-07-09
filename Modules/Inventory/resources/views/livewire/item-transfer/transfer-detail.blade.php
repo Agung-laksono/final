@@ -155,7 +155,7 @@ $printTransfer = function () {
                 </div>
                 <div class="flex gap-2">
                     <flux:modal.close>
-                        <flux:button variant="ghost" icon="x-mark">Tutup</flux:button>
+                        <flux:button variant="ghost" icon="x-mark"> Tutup </flux:button>
                     </flux:modal.close>
                 </div>
             </div>

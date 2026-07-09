@@ -26,10 +26,15 @@ class RolePermissionSeeder extends Seeder
         // Buat Permissions Dasar (Hierarki 3-Bagian untuk Inventory)
         $permissions = [
             // Kunci Utama Modul
+            'inventory.dashboard.view',
             'inventory.view',
             'inventory.create', // Master data dasar (opsional)
             'inventory.update',
             'inventory.delete',
+            
+            // Sub-Menu: Stok (Penerimaan / Alokasi)
+            'inventory.dispatch.view',
+            'inventory.receipt.view',
 
             // Sub-Menu: Barang
             'inventory.item.view',
@@ -72,6 +77,29 @@ class RolePermissionSeeder extends Seeder
             // Modul Finance
             'finance.dashboard.view',
             'finance.inbox.view',
+            'finance.inbox.create',
+            'finance.inbox.update',
+            'finance.inbox.delete',
+
+            'finance.accounts.view',
+            'finance.accounts.create',
+            'finance.accounts.update',
+            'finance.accounts.delete',
+
+            'finance.categories.view',
+            'finance.categories.create',
+            'finance.categories.update',
+            'finance.categories.delete',
+
+            'finance.ledger.view',
+            'finance.ledger.create',
+            'finance.ledger.update',
+            'finance.ledger.delete',
+
+            'finance.transfers.view',
+            'finance.transfers.create',
+            'finance.transfers.update',
+            'finance.transfers.delete',
             
             // Modul Pembelian (Purchase)
             'purchase.dashboard.view',
@@ -106,6 +134,9 @@ class RolePermissionSeeder extends Seeder
             'sales.payment.validate', // Finance bisa validasi pembayaran
 
             // Modul Pegawai / Settings
+            'settings.view', // Akses menu pengaturan aplikasi
+            'dashboard.main.view', // Akses halaman home/dashboard utama
+            
             'users.view',
             'users.create',
             'users.update',
@@ -132,6 +163,10 @@ class RolePermissionSeeder extends Seeder
             'inventory.request.create',
             'inventory.request.update',
             'inventory.request.delete',
+
+            // Fulfillment Gudang (Permission KHUSUS, terpisah dari Sales & Produksi)
+            'inventory.sales.delivery',        // Akses menu Pengiriman Penjualan (Gudang saja)
+            'inventory.production.fulfillment', // Akses menu Pemenuhan Produksi (Gudang saja)
         ];
 
         foreach ($permissions as $permission) {
@@ -143,107 +178,187 @@ class RolePermissionSeeder extends Seeder
         // Super Admin mendapatkan semua permission via Gate::before di AppServiceProvider
 
         $roleManager = Role::firstOrCreate(['name' => 'Manager']);
-        $roleManager->givePermissionTo(Permission::all()); // Manager dapat semua hak (tapi bisa disesuaikan nanti)
+        $roleManager->givePermissionTo(Permission::all());
 
-        $roleGudang = Role::firstOrCreate(['name' => 'Gudang']);
-        $roleGudang->givePermissionTo([
-            'inventory.view', // Kunci masuk
-            'inventory.item.view', 'inventory.item.create', 'inventory.item.update',
-            'inventory.warehouse.view',
-            'inventory.transfer.view', 'inventory.transfer.create', 'inventory.transfer.update',
+        // --- DIVISI GUDANG (Termasuk Shipping) ---
+        $roleKepalaGudang = Role::firstOrCreate(['name' => 'Kepala Gudang']);
+        $roleKepalaGudang->givePermissionTo([
+            'dashboard.main.view',
+            'inventory.dashboard.view', 'inventory.view', 'inventory.create', 'inventory.update', 'inventory.delete',
+            'inventory.dispatch.view', 'inventory.receipt.view',
+            'inventory.item.view', 'inventory.item.create', 'inventory.item.update', 'inventory.item.delete',
+            'inventory.warehouse.view', 'inventory.warehouse.create', 'inventory.warehouse.update', 'inventory.warehouse.delete',
+            'inventory.transfer.view', 'inventory.transfer.create', 'inventory.transfer.update', 'inventory.transfer.delete',
             'inventory.movement.view',
-            'inventory.opname.view', 'inventory.opname.create', 'inventory.opname.update',
-            'purchase.queue.view', // Gudang bisa melihat antrean
-            'sales.order.view', 'sales.order.update', // Gudang butuh ini untuk memproses Fulfillment
-            'inventory.request.view', 'inventory.request.create', 'inventory.request.update', 'inventory.request.delete', // Gudang mengelola Kanban Permintaan Barang
-            // Gudang tidak punya hak delete apapun (kecuali inventory request)
+            'inventory.opname.view', 'inventory.opname.create', 'inventory.opname.update', 'inventory.opname.delete',
+            'inventory.request.view', 'inventory.request.create', 'inventory.request.update', 'inventory.request.delete',
+            'inventory.sales.delivery', 'inventory.production.fulfillment',
+            'inventory.notifikasi.view',
+            'purchase.queue.view',
+            'sales.order.view',
         ]);
 
         $roleStafGudang = Role::firstOrCreate(['name' => 'Staf Gudang']);
         $roleStafGudang->givePermissionTo([
-            'inventory.view',
-            'inventory.item.view', // Untuk melihat detail barang yang dikirim/dipenuhi
-            'production.order.update', // Akses Pemenuhan Produksi
-            'sales.order.view', // Akses melihat referensi pesanan
-            'sales.order.update', // Akses memproses Pengiriman Penjualan
+            'dashboard.main.view',
+            'inventory.dashboard.view', 'inventory.view',
+            'inventory.receipt.view',
+            'inventory.item.view',
+            'inventory.warehouse.view',
+            'inventory.transfer.view', 'inventory.transfer.create', 'inventory.transfer.update',
+            'inventory.movement.view',
+            'inventory.opname.view', 'inventory.opname.create', 'inventory.opname.update',
+            'inventory.request.view', 'inventory.request.create', 'inventory.request.update',
+            'production.order.view',
+            'inventory.production.fulfillment', // Pemenuhan bahan baku produksi
+            'sales.order.view',
+            'inventory.sales.delivery',         // Pengiriman & pengemasan penjualan
         ]);
 
-        $rolePurchasing = Role::firstOrCreate(['name' => 'Purchasing']);
-        $rolePurchasing->givePermissionTo([
+        $roleStafGudangPPIC = Role::firstOrCreate(['name' => 'Staf Gudang PPIC']);
+        $roleStafGudangPPIC->givePermissionTo([
+            'dashboard.main.view',
+            'inventory.view',
+            'inventory.item.view',
+            'inventory.warehouse.view',
+            'inventory.request.view', 'inventory.request.create', 'inventory.request.update', 'inventory.request.delete',
+            'inventory.transfer.view', 'inventory.transfer.create', 'inventory.transfer.update',
+            'inventory.movement.view',
+            'inventory.dispatch.view',
+            'production.dashboard.view', 'production.order.view', 'production.order.create', 'production.order.update',
+            'production.recipe.view',
+        ]);
+
+        // Alias: Staf Gudang Fulfillment = sama dengan Staf Gudang (untuk kompatibilitas)
+        $roleStafGudangFulfillment = Role::firstOrCreate(['name' => 'Staf Gudang Fulfillment']);
+        $roleStafGudangFulfillment->givePermissionTo([
+            'dashboard.main.view',
+            'inventory.view',
+            'inventory.item.view',
+            'inventory.warehouse.view',
+            'inventory.receipt.view',
+            'inventory.request.view', 'inventory.request.update',
+            'inventory.movement.view',
+            'production.order.view',
+            'inventory.production.fulfillment', // Pemenuhan Produksi
+            'sales.order.view',
+            'inventory.sales.delivery',         // Pengiriman Penjualan
+        ]);
+
+        // --- DIVISI PURCHASING ---
+        $roleKepalaPurchasing = Role::firstOrCreate(['name' => 'Kepala Purchasing']);
+        $roleKepalaPurchasing->givePermissionTo([
+            'dashboard.main.view', 'settings.view',
             'purchase.dashboard.view',
             'purchase.queue.view', 'purchase.queue.create', 'purchase.queue.update', 'purchase.queue.delete',
+            'purchase.approve.view', 'purchase.approve.update', 'purchase.approve.delete', // Hak ACC
             'purchase.order.view', 'purchase.order.create', 'purchase.order.update', 'purchase.order.delete',
             'purchase.vendor.view', 'purchase.vendor.create', 'purchase.vendor.update', 'purchase.vendor.delete',
             'purchase.notifikasi.view',
-            'inventory.view',
-            'inventory.item.view',
-            'inventory.warehouse.view'
+            'inventory.view', 'inventory.item.view', 'inventory.warehouse.view'
         ]);
 
-        $roleSales = Role::firstOrCreate(['name' => 'Sales']);
-        $roleSales->givePermissionTo([
-            'sales.dashboard.view',
-            'sales.customer.view', 'sales.customer.create', 'sales.customer.update', 'sales.customer.delete',
-            'sales.order.view', 'sales.order.create', 'sales.order.update', 'sales.order.delete',
-            'sales.payment.create', // Sales bisa input bukti bayar
-            'inventory.view',
-            'inventory.item.view',
+        $roleStafPurchasing = Role::firstOrCreate(['name' => 'Staf Purchasing']);
+        $roleStafPurchasing->givePermissionTo([
+            'dashboard.main.view',
+            'purchase.dashboard.view',
+            'purchase.queue.view', 'purchase.queue.create', 'purchase.queue.update',
+            'purchase.order.view', 'purchase.order.create', 'purchase.order.update',
+            'purchase.vendor.view', 'purchase.vendor.create', 'purchase.vendor.update',
+            'purchase.notifikasi.view',
+            'inventory.view', 'inventory.item.view', 'inventory.warehouse.view'
         ]);
 
+        // --- DIVISI SALES ---
         $roleKepalaSales = Role::firstOrCreate(['name' => 'Kepala Sales']);
         $roleKepalaSales->givePermissionTo([
+            'dashboard.main.view', 'settings.view',
             'sales.dashboard.view',
             'sales.customer.view', 'sales.customer.create', 'sales.customer.update', 'sales.customer.delete',
             'sales.order.view', 'sales.order.create', 'sales.order.update', 'sales.order.delete',
-            'sales.approve.update', // Kepala Sales bisa approve (ACC) pesanan
-            'sales.payment.create', // Bisa input bukti bayar juga
+            'sales.approve.update', // Hak ACC Pesanan
+            'sales.payment.create', // Upload bukti bayar
             'sales.notifikasi.view',
-            'inventory.view',
-            'inventory.item.view',
+            'inventory.view', 'inventory.item.view'
         ]);
 
-        $roleFinance = Role::firstOrCreate(['name' => 'Finance']);
-        $roleFinance->givePermissionTo([
+        $roleStafSales = Role::firstOrCreate(['name' => 'Staf Sales']);
+        $roleStafSales->givePermissionTo([
+            'dashboard.main.view',
             'sales.dashboard.view',
-            'sales.order.view',
-            'sales.payment.validate', // Finance yang berhak memvalidasi pembayaran
+            'sales.customer.view', 'sales.customer.create', 'sales.customer.update',
+            'sales.order.view', 'sales.order.create', 'sales.order.update',
+            'sales.payment.create',
+            'sales.notifikasi.view',
+            'inventory.view', 'inventory.item.view'
+        ]);
+
+        // --- DIVISI FINANCE ---
+        $roleKepalaFinance = Role::firstOrCreate(['name' => 'Kepala Finance']);
+        $roleKepalaFinance->givePermissionTo([
+            'dashboard.main.view', 'settings.view',
             'finance.dashboard.view',
-            'finance.inbox.view',
+            'finance.inbox.view', 'finance.inbox.create', 'finance.inbox.update', 'finance.inbox.delete',
+            'finance.accounts.view', 'finance.accounts.create', 'finance.accounts.update', 'finance.accounts.delete',
+            'finance.categories.view', 'finance.categories.create', 'finance.categories.update', 'finance.categories.delete',
+            'finance.ledger.view', 'finance.ledger.create', 'finance.ledger.update', 'finance.ledger.delete',
+            'finance.transfers.view', 'finance.transfers.create', 'finance.transfers.update', 'finance.transfers.delete',
+            'sales.payment.validate', // Hak validasi pembayaran sales
+            'sales.order.view',
             'finance.notifikasi.view',
-            'inventory.view',
-            'inventory.item.view',
+            'inventory.view', 'inventory.item.view'
         ]);
 
-        $roleMarketing = Role::firstOrCreate(['name' => 'Marketing']);
-        $roleMarketing->givePermissionTo([
-            'inventory.view', 
-            'sales.dashboard.view'
+        $roleStafFinance = Role::firstOrCreate(['name' => 'Staf Finance']);
+        $roleStafFinance->givePermissionTo([
+            'dashboard.main.view',
+            'finance.dashboard.view',
+            'finance.accounts.view',
+            'finance.categories.view',
+            'finance.ledger.view', 'finance.ledger.create',
+            'finance.transfers.view', 'finance.transfers.create', 'finance.transfers.update',
+            'finance.inbox.view', 'finance.inbox.update',
+            'sales.order.view',
+            'finance.notifikasi.view',
+            'inventory.view', 'inventory.item.view'
         ]);
 
-        $roleTimProduksi = Role::firstOrCreate(['name' => 'Tim Produksi']);
-        $roleTimProduksi->givePermissionTo([
-            'production.dashboard.view',
-            'production.order.view',
-            'production.order.update', // Bisa update status produksi
-            'production.recipe.view', // Hanya bisa lihat resep
-            'inventory.view',
-            'inventory.item.view',
-        ]);
-
+        // --- DIVISI PRODUKSI ---
         $roleKepalaProduksi = Role::firstOrCreate(['name' => 'Kepala Produksi']);
         $roleKepalaProduksi->givePermissionTo([
+            'dashboard.main.view', 'settings.view',
             'production.dashboard.view',
             'production.order.view', 'production.order.create', 'production.order.update', 'production.order.delete',
             'production.recipe.view', 'production.recipe.create', 'production.recipe.update', 'production.recipe.delete',
-            'inventory.view',
-            'inventory.item.view',
+            'production.notifikasi.view',
+            'inventory.view', 'inventory.item.view'
         ]);
 
-        $roleShipping = Role::firstOrCreate(['name' => 'Shipping']);
-        $roleShipping->givePermissionTo([
-            'sales.order.view', 'sales.order.update', // Update status pengiriman
-            'inventory.view',
-            'inventory.transfer.view', 'inventory.transfer.update'
+        $roleStafProduksi = Role::firstOrCreate(['name' => 'Staf Produksi']);
+        $roleStafProduksi->givePermissionTo([
+            'dashboard.main.view',
+            'production.dashboard.view',
+            'production.order.view', 'production.order.update',
+            'production.recipe.view',
+            'production.notifikasi.view',
+            'inventory.view', 'inventory.item.view'
+        ]);
+
+        // --- DIVISI MARKETING ---
+        $roleKepalaMarketing = Role::firstOrCreate(['name' => 'Kepala Marketing']);
+        $roleKepalaMarketing->givePermissionTo([
+            'dashboard.main.view', 'settings.view',
+            'sales.dashboard.view',
+            'inventory.view', 'inventory.item.view',
+            'marketing.notifikasi.view',
+        ]);
+
+        $roleStafMarketing = Role::firstOrCreate(['name' => 'Staf Marketing']);
+        $roleStafMarketing->givePermissionTo([
+            'dashboard.main.view',
+            'sales.dashboard.view',
+            'inventory.view', 'inventory.item.view',
+            'marketing.notifikasi.view',
         ]);
 
         // Jadikan user pertama di sistem sebagai Super Admin

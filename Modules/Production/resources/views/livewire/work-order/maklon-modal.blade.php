@@ -425,7 +425,7 @@ $handleVendorSelected = function ($vendorId) {
                                     
                                     <!-- Action Button -->
                                     <div class="shrink-0 mt-1">
-                                        <flux:button size="sm" variant="subtle" icon="arrows-right-left" x-on:click="setTimeout(() => { $flux.modal('vendor-gallery-modal').show() }, 50)" class="shadow-sm !px-2.5">Ganti</flux:button>
+                                        <flux:button size="sm" variant="subtle" icon="users" x-on:click="setTimeout(() => { $flux.modal('vendor-gallery-modal').show() }, 50)" class="shadow-sm !px-2.5">Ganti</flux:button>
                                     </div>
                                 </div>
                                 
@@ -549,17 +549,13 @@ $handleVendorSelected = function ($vendorId) {
                                                 <div x-show="isRichText" x-cloak class="relative group" wire:click="openEditor('group_{{ $itemId }}')">
                                                     <div class="w-full min-h-[3rem] max-h-[8rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-2 bg-zinc-50 dark:bg-zinc-800/50 text-sm prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 cursor-pointer" x-html="$wire.item_notes['group_{{ $itemId }}']">
                                                     </div>
-                                                    <button type="button" class="absolute right-2 top-2 p-1.5 bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 border border-zinc-200 dark:border-zinc-700 rounded shadow-sm hover:bg-indigo-50 transition-colors" title="Edit Catatan Lengkap">
-                                                        <flux:icon.pencil-square class="w-3.5 h-3.5" />
-                                                    </button>
+                                                    <flux:button size="sm" variant="subtle" icon="pencil-square" class="absolute right-2 top-2 !px-1.5 !py-1.5" title="Edit Catatan Lengkap" />
                                                 </div>
 
                                                 <!-- Quick Note (Teks Biasa) -->
                                                 <div x-show="!isRichText" class="relative">
                                                     <flux:textarea wire:model="item_notes.group_{{ $itemId }}" placeholder="Catatan sederhana..." rows="2" />
-                                                    <button type="button" wire:click="openEditor('group_{{ $itemId }}')" class="absolute right-2 top-2 p-1 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-zinc-900 rounded" title="Buka Editor Lengkap">
-                                                        <flux:icon.arrows-pointing-out class="w-3.5 h-3.5" />
-                                                    </button>
+                                                    <flux:button size="sm" variant="subtle" icon="arrows-pointing-out" class="absolute right-2 top-2 !px-1.5 !py-1.5" wire:click="openEditor('group_{{ $itemId }}')"  title="Buka Editor Lengkap" />
                                                 </div>
                                             </div>
                                         </div>
@@ -604,9 +600,7 @@ $handleVendorSelected = function ($vendorId) {
                                                 <div x-show="isRichText" x-cloak class="relative group" wire:click="openEditor('single_{{ $order->id }}')">
                                                     <div class="w-full min-h-[3rem] max-h-[8rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-2 bg-zinc-50 dark:bg-zinc-800/50 text-sm prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 cursor-pointer" x-html="$wire.item_notes['single_{{ $order->id }}']">
                                                     </div>
-                                                    <button type="button" class="absolute right-2 top-2 p-1.5 bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 border border-zinc-200 dark:border-zinc-700 rounded shadow-sm hover:bg-indigo-50 transition-colors" title="Edit Catatan Lengkap">
-                                                        <flux:icon.pencil-square class="w-3.5 h-3.5" />
-                                                    </button>
+                                                    <flux:button size="sm" variant="subtle" icon="pencil-square" class="absolute right-2 top-2 !px-1.5 !py-1.5" title="Edit Catatan Lengkap" />
                                                 </div>
 
                                                 <!-- Quick Note (Teks Biasa) -->
@@ -699,9 +693,7 @@ $handleVendorSelected = function ($vendorId) {
                 <!-- Quick Note -->
                 <div x-show="!isRichText" class="relative">
                     <flux:textarea wire:model="notes" placeholder="Tulis instruksi atau catatan khusus vendor..." rows="3" />
-                    <button type="button" wire:click="openEditor('global')" class="absolute right-2 top-2 p-1 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-zinc-900 rounded" title="Buka Editor Lengkap">
-                        <flux:icon.arrows-pointing-out class="w-4 h-4" />
-                    </button>
+                    <flux:button size="sm" variant="subtle" icon="arrows-pointing-out" class="absolute right-2 top-2 !px-1.5 !py-1.5" wire:click="openEditor('global')"  title="Buka Editor Lengkap" />
                 </div>
             </div>
         </div>
@@ -711,7 +703,7 @@ $handleVendorSelected = function ($vendorId) {
 
                 <!-- STICKY FOOTER -->
                 <div class="p-4 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 shrink-0 flex justify-end gap-3 rounded-b-xl z-20">
-                    <flux:button variant="ghost" wire:click="$set('show', false)">Batal</flux:button>
+                    <flux:button variant="ghost" wire:click="$set('show', false)"> Batal </flux:button>
                     <flux:button variant="primary" wire:click="save" wire:loading.attr="disabled">
                         <span wire:loading.remove wire:target="save">Simpan & Buat Perintah Kerja</span>
                         <span wire:loading wire:target="save">Memproses...</span>
@@ -740,8 +732,8 @@ $handleVendorSelected = function ($vendorId) {
     </div>
 
     <div class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex justify-end gap-2 shrink-0">
-        <flux:button variant="ghost" wire:click="$dispatch('hide-maklon-editor')">Batal</flux:button>
-        <flux:button variant="primary" wire:click="saveEditor">Simpan Catatan</flux:button>
+        <flux:button variant="ghost" wire:click="$dispatch('hide-maklon-editor')"> Batal </flux:button>
+        <flux:button icon="check" variant="primary" wire:click="saveEditor"> Simpan C </flux:button>
     </div>
 </div> <!-- END PANEL 2 -->
 

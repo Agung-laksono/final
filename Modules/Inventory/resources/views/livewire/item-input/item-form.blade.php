@@ -109,7 +109,9 @@ $openModal = function ($id = null) {
 
                         <flux:table.cell>
                             <div class="flex flex-col gap-1.5 items-start">
-                                @if($i->is_active)
+                                @if(!$i->is_approved)
+                                    <flux:badge color="amber" size="sm" icon="clock">Menunggu</flux:badge>
+                                @elseif($i->is_active)
                                     <flux:badge color="green" size="sm" icon="check-circle">Aktif</flux:badge>
                                 @else
                                     <flux:badge color="red" size="sm" icon="x-circle">Non-aktif</flux:badge>

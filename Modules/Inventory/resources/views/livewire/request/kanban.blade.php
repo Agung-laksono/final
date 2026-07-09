@@ -257,9 +257,7 @@ on([
                         </div>
                         <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
                             <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->requests[$statusKey] ?? []) }}</flux:badge>
-                            <button @click.stop="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
-                                <flux:icon.arrows-right-left class="w-4 h-4" x-bind:class="collapsed ? 'rotate-90' : ''" />
-                            </button>
+                            <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" x-bind:icon="collapsed ? 'arrows-up-down' : 'arrows-right-left'" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'" />
                         </div>
                     </div>
                     
@@ -495,8 +493,8 @@ on([
                 <flux:heading size="xl" class="text-red-600 dark:text-red-400 mb-2 text-center">Resep (BOM) Belum Dibuat!</flux:heading>
                 <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-8 text-center">Barang ini belum memiliki resep (BOM) aktif di sistem. Sistem tidak bisa memecah dan menghitung bahan baku yang dibutuhkan tanpa adanya resep.</p>
                 <div class="flex gap-3">
-                    <flux:button variant="ghost" x-on:click="$flux.modal('recipe-prompt').close()" class="flex-1">Batal</flux:button>
-                    <flux:button variant="primary" icon="document-plus" x-on:click="$wire.dispatch('open-recipe-modal', { itemId: $wire.promptItemId }); $flux.modal('recipe-prompt').close()" class="flex-[2]">Buat Resep Sekarang</flux:button>
+                    <flux:button variant="ghost" x-on:click="$flux.modal('recipe-prompt').close()" class="flex-1"> Batal </flux:button>
+                    <flux:button variant="primary" icon="document-plus" x-on:click="$wire.dispatch('open-recipe-modal', { itemId: $wire.promptItemId }); $flux.modal('recipe-prompt').close()" class="flex-[2]"> Buat Resep Sekarang </flux:button>
                 </div>
             </div>
         </flux:modal>
@@ -516,7 +514,7 @@ on([
             </div>
 
             <div class="flex justify-end gap-3 mt-8">
-                <flux:button variant="ghost" x-on:click="$flux.modal('create-wo-modal').close()">Batal</flux:button>
+                <flux:button variant="ghost" x-on:click="$flux.modal('create-wo-modal').close()"> Batal </flux:button>
                 <flux:button variant="primary" wire:click="confirmRouteToProduction">Terbitkan WO</flux:button>
             </div>
         </div>

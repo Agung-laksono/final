@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ProductionOrder extends Model
 {
-    use HasFactory, \App\Traits\UpdatesMenuBadges;
+    use HasFactory, \App\Traits\UpdatesMenuBadges, \App\Traits\ScopedToWarehouse;
+
+    public const WAREHOUSE_SCOPE_COLUMN = 'target_warehouse_id';
 
     protected $guarded = ['id'];
 

@@ -9,11 +9,19 @@ state([
 ]);
 
 on(['open-detail-modal' => function ($orderId) {
+    $order = SalesOrder::find($orderId);
+    if (!$order) return;
+    
+    $isOwn = $order->created_by === auth()->id();
+    $isManagerial = auth()->user()->hasAnyRole(['Super Admin', 'Kepala Sales', 'Manager', 'Gudang', 'Shipping', 'Finance']);
+    if (!$isOwn && !$isManagerial) {
+        \Flux::toast('Anda tidak memiliki akses untuk melihat detail pesanan ini.', 'danger');
+        return;
+    }
+
     $this->orderId = $orderId;
     $this->order = SalesOrder::with(['customer', 'items.item', 'creator', 'payments', 'fulfillments'])->find($orderId);
-    if ($this->order) {
-        $this->show = true;
-    }
+    $this->show = true;
 }]);
 
 ?>

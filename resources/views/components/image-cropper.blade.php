@@ -140,7 +140,7 @@
             </div>
 
             <div class="flex justify-end gap-2 w-full md:w-auto flex-wrap">
-                <flux:button type="button" @click="cancelCrop()" variant="ghost">Batal</flux:button>
+                <flux:button type="button" @click="cancelCrop()" variant="ghost"> Batal </flux:button>
                 <flux:button type="button" @click="applyOriginal()" variant="outline" x-bind:disabled="isProcessing" title="Simpan tanpa crop & kompresi">Gunakan Asli</flux:button>
                 <flux:button type="button" @click="applyCrop()" variant="primary" x-bind:disabled="isProcessing">Terapkan & Simpan</flux:button>
             </div>

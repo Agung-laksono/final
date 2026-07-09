@@ -454,11 +454,11 @@ $save = function () {
                 @endif
             </span>
             <div class="flex gap-2 sm:gap-3 w-full sm:w-auto">
-                <flux:button variant="ghost" wire:click="$set('show', false)" class="flex-1 sm:flex-none">Batal</flux:button>
+                <flux:button variant="ghost" wire:click="$set('show', false)" class="flex-1 sm:flex-none"> Batal </flux:button>
                 @if($hasIncompleteStockUsage)
                     <flux:button variant="primary" disabled class="flex-1 sm:flex-none opacity-50 cursor-not-allowed">Lengkapi Bahan</flux:button>
                 @elseif($hasStockDeficit)
-                    <flux:button variant="danger" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 sm:flex-none">Simpan & Tunggu Bahan</flux:button>
+                    <flux:button variant="danger" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 sm:flex-none"> Simpan & Tunggu Bah </flux:button>
                 @else
                     <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 sm:flex-none">Serahkan Bahan</flux:button>
                 @endif
@@ -466,7 +466,7 @@ $save = function () {
         </div>
         @else
         <div class="mt-6 flex justify-end">
-            <flux:button variant="ghost" wire:click="$set('show', false)">Tutup</flux:button>
+            <flux:button variant="ghost" wire:click="$set('show', false)"> Tutup </flux:button>
         </div>
         @endif
     </div>

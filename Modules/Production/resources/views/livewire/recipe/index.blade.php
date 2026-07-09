@@ -58,7 +58,7 @@ on(['recipe-saved' => function () {
         </div>
         <div class="flex items-center gap-3 w-full md:w-auto">
             <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari Resep..." class="w-full md:w-64" />
-            <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-recipe-modal')">Buat Resep</flux:button>
+            <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-recipe-modal')"> Buat R </flux:button>
         </div>
     </div>
 

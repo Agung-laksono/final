@@ -57,7 +57,7 @@ new class extends Component {
                     placeholder="Cari nama, tipe, atau telepon customer..." 
                     class="flex-1" />
                 
-                <flux:button wire:click="$dispatch('open-customer-modal')" wire:loading.attr="disabled" variant="primary" icon="plus" class="shrink-0">
+                <flux:button wire:click="$dispatch('open-customer-modal')" wire:loading.attr="disabled" variant="primary" icon="users" class="shrink-0">
                     <span class="hidden md:inline">Customer Baru</span>
                 </flux:button>
             </div>

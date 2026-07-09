@@ -9,18 +9,24 @@ state([
     'userId' => null,
     'user' => null,
     'selectedRoles' => [],
+    'selectedWarehouses' => [],
 ]);
 
 $getAvailableRoles = function () {
     return Role::pluck('name')->toArray();
 };
 
+$getAvailableWarehouses = function () {
+    return \Modules\Inventory\Models\Warehouse::all();
+};
+
 on(['open-assign-role' => function (int $userId) {
     $this->userId = $userId;
-    $this->user = User::with('roles')->find($this->userId);
+    $this->user = User::with(['roles', 'warehouses'])->find($this->userId);
     
     if ($this->user) {
         $this->selectedRoles = $this->user->roles->pluck('name')->toArray();
+        $this->selectedWarehouses = $this->user->warehouses->pluck('id')->toArray();
         \Flux::modal('assign-role-modal')->show();
     }
 }]);
@@ -33,8 +39,9 @@ $save = function () {
     // Mencegah menghapus akses Super Admin jika itu akun terakhir, dll
     // Tapi untuk kesederhanaan, kita langsung sync:
     $this->user->syncRoles($this->selectedRoles);
+    $this->user->warehouses()->sync($this->selectedWarehouses);
     
-    \Flux::toast('Hak akses berhasil diperbarui!');
+    \Flux::toast('Hak akses & penugasan gudang berhasil diperbarui!');
     
     \Flux::modal('assign-role-modal')->close();
     $this->dispatch('role-updated');
@@ -45,9 +52,9 @@ $save = function () {
 <flux:modal name="assign-role-modal" class="md:w-96">
     <div class="space-y-6">
         <div>
-            <flux:heading size="lg">Ubah Hak Akses</flux:heading>
+            <flux:heading size="lg">Ubah Hak Akses & Lokasi</flux:heading>
             <flux:subheading>
-                Tentukan wewenang yang dimiliki oleh pegawai ini.
+                Tentukan wewenang dan wilayah Gudang yang dikelola.
             </flux:subheading>
         </div>
 
@@ -61,10 +68,22 @@ $save = function () {
             </div>
 
             <div class="space-y-4 pt-2">
-                <flux:checkbox.group wire:model="selectedRoles" label="Roles">
-                    @foreach($this->getAvailableRoles() as $role)
-                        <flux:checkbox :value="$role" :label="$role" />
-                    @endforeach
+                <flux:checkbox.group wire:model="selectedRoles" label="Jabatan (Role)">
+                    <div class="grid grid-cols-2 gap-2">
+                        @foreach($this->getAvailableRoles() as $role)
+                            <flux:checkbox :value="$role" :label="$role" />
+                        @endforeach
+                    </div>
+                </flux:checkbox.group>
+
+                <flux:separator variant="subtle" />
+
+                <flux:checkbox.group wire:model="selectedWarehouses" label="Penugasan Gudang">
+                    <div class="grid grid-cols-2 gap-2">
+                        @foreach($this->getAvailableWarehouses() as $wh)
+                            <flux:checkbox :value="$wh->id" :label="$wh->name" />
+                        @endforeach
+                    </div>
                 </flux:checkbox.group>
             </div>
         @endif
@@ -72,9 +91,9 @@ $save = function () {
         <div class="flex mt-6 gap-2">
             <flux:spacer />
             <flux:modal.close>
-                <flux:button variant="ghost">Batal</flux:button>
+                <flux:button variant="ghost"> Batal </flux:button>
             </flux:modal.close>
-            <flux:button wire:click="save" variant="primary">Simpan Perubahan</flux:button>
+            <flux:button icon="check" wire:click="save" variant="primary"> Simpan </flux:button>
         </div>
     </div>
 </flux:modal>

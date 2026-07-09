@@ -2,15 +2,30 @@
 
 use App\Models\User;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
+
+beforeEach(function () {
+    // Reset cached roles and permissions
+    app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
+    // Create permissions
+    Permission::findOrCreate('profile.view');
+    Permission::findOrCreate('profile.update');
+    Permission::findOrCreate('profile.delete');
+});
 
 test('profile page is displayed', function () {
-    $this->actingAs($user = User::factory()->create());
+    $user = User::factory()->create();
+    $user->givePermissionTo('profile.view');
+    $this->actingAs($user);
 
     $this->get(route('profile.edit'))->assertOk();
 });
 
 test('profile information can be updated', function () {
     $user = User::factory()->create();
+    $user->givePermissionTo(['profile.view', 'profile.update']);
 
     $this->actingAs($user);
 
@@ -30,6 +45,7 @@ test('profile information can be updated', function () {
 
 test('email verification status is unchanged when email address is unchanged', function () {
     $user = User::factory()->create();
+    $user->givePermissionTo(['profile.view', 'profile.update']);
 
     $this->actingAs($user);
 
@@ -45,6 +61,7 @@ test('email verification status is unchanged when email address is unchanged', f
 
 test('user can delete their account', function () {
     $user = User::factory()->create();
+    $user->givePermissionTo(['profile.view', 'profile.delete']);
 
     $this->actingAs($user);
 
@@ -62,6 +79,7 @@ test('user can delete their account', function () {
 
 test('correct password must be provided to delete account', function () {
     $user = User::factory()->create();
+    $user->givePermissionTo(['profile.view', 'profile.delete']);
 
     $this->actingAs($user);
 

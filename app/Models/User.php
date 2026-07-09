@@ -72,4 +72,12 @@ class User extends Authenticatable implements PasskeyUser
               });
         });
     }
+
+    /**
+     * Gudang dimana staf ini ditugaskan
+     */
+    public function warehouses()
+    {
+        return $this->belongsToMany(\Modules\Inventory\Models\Warehouse::class, 'user_warehouse')->withTimestamps();
+    }
 }

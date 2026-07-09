@@ -24,15 +24,23 @@ $accounts = computed(function () {
 });
 
 on(['open-payment-modal' => function ($orderId) {
+    $order = SalesOrder::find($orderId);
+    if (!$order) return;
+    
+    $isOwn = $order->created_by === auth()->id();
+    $isManagerial = auth()->user()->hasAnyRole(['Super Admin', 'Kepala Sales', 'Manager', 'Gudang', 'Shipping', 'Finance']);
+    if (!$isOwn && !$isManagerial) {
+        \Flux::toast('Anda tidak memiliki akses untuk transaksi pembayaran pesanan ini.', 'danger');
+        return;
+    }
+
     $this->orderId = $orderId;
     $this->order = SalesOrder::with('payments')->find($orderId);
-    if ($this->order) {
-        $this->amount = '';
-        $this->proof = null;
-        $this->notes = '';
-        $this->payment_date = now()->format('Y-m-d');
-        $this->show = true;
-    }
+    $this->amount = '';
+    $this->proof = null;
+    $this->notes = '';
+    $this->payment_date = now()->format('Y-m-d');
+    $this->show = true;
     },
     'echo:kanban.sales_order,KanbanUpdated' => function () {
         if ($this->orderId) {
@@ -108,7 +116,7 @@ $savePayment = function () {
     \App\Events\PaymentSubmitted::safeDispatch('Pembayaran SO ' . $this->order->so_number . ' menunggu validasi');
 
     $financeUsers = \App\Models\User::withPermissionOrSuperAdmin(['sales.payment.validate'])->get();
-    \Illuminate\Support\Facades\Notification::send($financeUsers, new \App\Notifications\PaymentSubmittedNotification($this->order->so_number, $this->amount, auth()->user(), 'sales'));
+    \Illuminate\Support\Facades\Notification::send($financeUsers, new \App\Notifications\PaymentSubmittedNotification($this->order->so_number, $this->amount, auth()->user(), 'sales', $this->payment_method, $this->order->customer->name ?? '-'));
     \Flux::toast('Bukti pembayaran berhasil diunggah. Menunggu validasi Finance.', variant: 'success');
     
     $this->order->load('payments'); // Reload
@@ -168,6 +176,7 @@ $rejectPayment = function ($paymentId) {
 
 ?>
 
+<div>
 <flux:modal wire:model="show" class="w-full md:w-[32rem] md:max-w-xl">
     @if($order)
     @php
@@ -262,10 +271,15 @@ $rejectPayment = function ($paymentId) {
                                 
                                 @if($payment->status === 'pending')
                                     <div class="mt-2 text-[10px] italic text-amber-600 dark:text-amber-500 border-t border-amber-200 dark:border-amber-800 pt-2">Menunggu pengecekan Finance...</div>
+                                @elseif($payment->status === 'rejected' && $payment->rejection_reason)
+                                    <div class="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-900/50">
+                                        <strong class="block mb-0.5">Alasan Penolakan:</strong>
+                                        {{ $payment->rejection_reason }}
+                                    </div>
                                 @endif
                             </div>
                             @if($payment->proof_path)
-                                <button type="button" @click="previewImage = '{{ Storage::url($payment->proof_path) }}'; showPreviewModal = true" class="shrink-0 w-16 h-16 mt-2 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden hover:opacity-80 transition-opacity border border-zinc-200 dark:border-zinc-700 focus:outline-none" title="Lihat Bukti">
+                                <button type="button" @click="$dispatch('preview-image', '{{ Storage::url($payment->proof_path) }}')" class="shrink-0 w-16 h-16 mt-2 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden hover:opacity-80 transition-opacity border border-zinc-200 dark:border-zinc-700 focus:outline-none" title="Lihat Bukti">
                                     <img src="{{ Storage::url($payment->proof_path) }}" class="w-full h-full object-cover" />
                                 </button>
                             @endif
@@ -293,20 +307,18 @@ $rejectPayment = function ($paymentId) {
         </div>
 
         <div class="mt-6 flex justify-end">
-            <flux:button variant="ghost" wire:click="$set('show', false)">Tutup</flux:button>
+            <flux:button variant="ghost" wire:click="$set('show', false)"> Tutup </flux:button>
         </div>
-
-        <!-- Alpine Preview Modal (Teleported outside flux:modal) -->
-        <template x-teleport="body">
-            <div x-show="showPreviewModal" style="display: none;" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm" @keydown.escape.window="showPreviewModal = false">
-                <div class="relative w-full max-w-4xl max-h-screen p-4 flex flex-col items-center justify-center" @click.outside="showPreviewModal = false">
-                    <button type="button" @click="showPreviewModal = false" class="absolute top-4 right-4 text-white hover:text-zinc-300 bg-black/50 rounded-full p-2 focus:outline-none transition-colors hover:bg-black/70">
-                        <flux:icon.x-mark class="w-6 h-6" />
-                    </button>
-                    <img :src="previewImage" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl">
-                </div>
-            </div>
-        </template>
     </div>
     @endif
 </flux:modal>
+
+<flux:modal name="preview-modal" class="w-full max-w-4xl p-0 bg-transparent shadow-none border-none">
+    <div x-data="{ previewImage: '' }" @preview-image.window="previewImage = $event.detail; $flux.modal('preview-modal').show()" class="relative flex flex-col items-center justify-center p-4">
+        <button type="button" @click="$flux.modal('preview-modal').close()" class="absolute top-0 right-0 text-white hover:text-zinc-300 bg-black/50 rounded-full p-2 focus:outline-none transition-colors hover:bg-black/70 z-10">
+            <flux:icon.x-mark class="w-6 h-6" />
+        </button>
+        <img :src="previewImage" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl">
+    </div>
+</flux:modal>
+</div>

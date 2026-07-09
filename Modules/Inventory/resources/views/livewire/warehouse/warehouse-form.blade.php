@@ -14,7 +14,14 @@ state([
     'address' => '',
     'image' => null,
     'existingImage' => null,
+    'assignedStaff' => [],
 ]);
+
+$staffList = \Livewire\Volt\computed(function () {
+    return \App\Models\User::whereHas('roles', function ($q) {
+        $q->where('name', 'like', '%Gudang%')->orWhereIn('name', ['Super Admin', 'Manager']);
+    })->get();
+});
 
 $resetForm = function () {
     $this->warehouseId = null;
@@ -23,18 +30,20 @@ $resetForm = function () {
     $this->address = '';
     $this->image = null;
     $this->existingImage = null;
+    $this->assignedStaff = [];
     $this->resetValidation();
 };
 
 on(['open-warehouse-form' => function ($id = null) {
     $this->resetForm();
     if ($id) {
-        $warehouse = Warehouse::findOrFail($id);
+        $warehouse = Warehouse::with('users')->findOrFail($id);
         $this->warehouseId = $warehouse->id;
         $this->code = $warehouse->code;
         $this->name = $warehouse->name;
         $this->address = $warehouse->address;
         $this->existingImage = $warehouse->image;
+        $this->assignedStaff = $warehouse->users->pluck('id')->toArray();
     }
     // Paksa reset state cropper setiap kali modal dibuka
     $this->dispatch('reset-cropper'); 
@@ -77,7 +86,7 @@ $save = function () {
         ]);
         $message = 'Gudang berhasil diperbarui.';
     } else {
-        Warehouse::create([
+        $warehouse = Warehouse::create([
             'name' => $this->name,
             'code' => $this->code,
             'address' => $this->address,
@@ -85,6 +94,9 @@ $save = function () {
         ]);
         $message = 'Gudang baru berhasil ditambahkan.';
     }
+    
+    // Sync Staff
+    $warehouse->users()->sync($this->assignedStaff);
 
     $this->dispatch('warehouse-saved');
     $this->dispatch('reset-cropper'); // Bersihkan cropper setelah simpan
@@ -133,6 +145,17 @@ on(['delete-warehouse' => function ($data) {
                     <flux:input wire:model="name" label="Nama Gudang" placeholder="Contoh: Gudang Pusat" required />
                 </div>
 
+                {{-- Staf Gudang --}}
+                <div class="mt-4">
+                    <flux:checkbox.group wire:model="assignedStaff" label="Staf & Penanggung Jawab Gudang" description="Pilih staf yang bertugas mengelola dan mengkonfirmasi penerimaan barang di gudang ini.">
+                        @forelse($this->staffList as $staff)
+                            <flux:checkbox value="{{ $staff->id }}" label="{{ $staff->name }} ({{ $staff->roles->first()?->name ?? 'Staf' }})" />
+                        @empty
+                            <div class="text-sm text-zinc-500 italic">Belum ada user dengan role Gudang/Staf Gudang.</div>
+                        @endforelse
+                    </flux:checkbox.group>
+                </div>
+
                 {{-- Alamat --}}
                 <flux:textarea wire:model="address" label="Alamat Gudang" placeholder="Tuliskan alamat lengkap gudang (opsional)..." rows="3" />
 
@@ -140,9 +163,9 @@ on(['delete-warehouse' => function ($data) {
 
             <div class="flex justify-end gap-2 mt-2">
                 <flux:modal.close>
-                    <flux:button variant="ghost">Batal</flux:button>
+                    <flux:button variant="ghost"> Batal </flux:button>
                 </flux:modal.close>
-                <flux:button type="submit" variant="primary">Simpan Gudang</flux:button>
+                <flux:button icon="check" type="submit" variant="primary"> Simpan Gudang </flux:button>
             </div>
         </form>
     </flux:modal>

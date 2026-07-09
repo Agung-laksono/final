@@ -45,7 +45,26 @@ state([
 
 mount(function ($id = null) {
     if ($id) {
+        // --- KEAMANAN RELOAD & REFERER (Flash Token) ---
+        if (!session()->has('allow_edit_so_' . $id)) {
+            abort(403, 'Akses ditolak. Halaman ini hanya dapat diakses langsung melalui tombol Sesuaikan di Kanban Sales.');
+        }
+
         $po = SalesOrder::with(['items.item', 'customer'])->findOrFail($id);
+        
+        // --- KEAMANAN EDIT SO ---
+        // 1. Validasi Status: Hanya SO berstatus 'pending_approval' yang boleh diedit
+        if ($po->status !== 'pending_approval') {
+            abort(403, 'Pesanan yang sudah diproses atau disetujui tidak dapat diubah.');
+        }
+
+        // 2. Validasi Kepemilikan: Staf Sales biasa hanya boleh mengedit SO buatannya sendiri
+        if (auth()->user()->hasAnyRole(['Sales', 'Staf Sales']) && !auth()->user()->hasAnyRole(['Super Admin', 'Kepala Sales', 'Manager'])) {
+            if ($po->created_by !== auth()->id()) {
+                abort(403, 'Anda tidak diizinkan mengedit pesanan milik sales lain.');
+            }
+        }
+
         $this->order_id = $po->id;
         $this->so_number = $po->so_number;
         $this->customer_id = $po->customer_id;
@@ -68,7 +87,7 @@ mount(function ($id = null) {
 
         foreach ($po->items as $detail) {
             $hasHistory = \Modules\Sales\Models\SalesOrderItem::where('item_id', $detail->item_id)
-                ->whereHas('purchaseOrder', function($q) {
+                ->whereHas('salesOrder', function($q) {
                     $q->where('status', '!=', 'draft');
                 })->exists();
 
@@ -76,7 +95,7 @@ mount(function ($id = null) {
                 'id' => $detail->id,
                 'item_id' => $detail->item_id,
                 'name' => $detail->item->name ?? 'Unknown',
-                'qty' => $detail->quantity,
+                'qty' => $detail->qty,
                 'unit_price' => $detail->unit_price,
                 'subtotal' => $detail->subtotal,
                 'image' => $detail->item->image ?? null,
@@ -140,19 +159,19 @@ $loadMoreHistory = function () {
 
 $loadHistory = function () {
     $baseQuery = \Modules\Sales\Models\SalesOrderItem::where('item_id', $this->history_item_id)
-        ->whereHas('purchaseOrder', function($q) {
+        ->whereHas('salesOrder', function($q) {
             $q->where('status', '!=', 'draft');
         });
 
     $this->has_more_history = $baseQuery->count() > $this->history_limit;
 
-    $this->price_history = \Modules\Sales\Models\SalesOrderItem::with(['purchaseOrder.customer', 'item.unit'])
+    $this->price_history = \Modules\Sales\Models\SalesOrderItem::with(['salesOrder.customer', 'item.unit'])
         ->where('item_id', $this->history_item_id)
-        ->whereHas('purchaseOrder', function($q) {
+        ->whereHas('salesOrder', function($q) {
             $q->where('status', '!=', 'draft');
         })
         ->get()
-        ->sortByDesc(fn($poi) => $poi->purchaseOrder->order_date ?? '')
+        ->sortByDesc(fn($poi) => $poi->salesOrder->order_date ?? '')
         ->take($this->history_limit)
         ->values()
         ->toArray();
@@ -166,6 +185,20 @@ $viewPoDetail = function ($poId) {
 };
 
 $saveCart = function ($cartData) {
+    // --- KEAMANAN SIMPAN EDIT ---
+    if ($this->order_id) {
+        $poCheck = SalesOrder::find($this->order_id);
+        if (!$poCheck || $poCheck->status !== 'pending_approval') {
+            abort(403, 'Pesanan yang sudah diproses atau disetujui tidak dapat diubah.');
+        }
+        
+        if (auth()->user()->hasAnyRole(['Sales', 'Staf Sales']) && !auth()->user()->hasAnyRole(['Super Admin', 'Kepala Sales', 'Manager'])) {
+            if ($poCheck->created_by !== auth()->id()) {
+                abort(403, 'Anda tidak diizinkan mengedit pesanan milik sales lain.');
+            }
+        }
+    }
+
     $this->items = $cartData['items'] ?? [];
     $this->shipping_fee = $cartData['shipping_fee'] ?? 0;
     $this->discount = $cartData['discount'] ?? 0;
@@ -207,7 +240,9 @@ $saveCart = function ($cartData) {
                 'payment_status' => 'unpaid',
     ];
 
-    if (!$this->order_id) {
+    $isNew = !$this->order_id;
+
+    if ($isNew) {
         $data['created_by'] = auth()->id();
     }
 
@@ -235,13 +270,32 @@ $saveCart = function ($cartData) {
                 'notes' => $item['note'] ?? null, // Simpan ke DB
             ]
         );
+    }
 
+    if ($isNew && $po->status === 'pending_approval') {
+        $recipients = \App\Models\User::permission('sales.notifikasi.view')
+            ->orWhereHas('roles', function($q) { $q->where('name', 'Super Admin'); })
+            ->get();
+            
+        // Filter out the creator if they are also recipient
+        $recipients = $recipients->filter(fn($u) => $u->id !== auth()->id());
+        
+        \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\SalesOrderWaitingApprovalNotification($po, auth()->user()));
+    }
 
+    if (!$isNew) {
+        // Cek jika yang mengedit bukan pembuat SO
+        if ($po->created_by && $po->created_by !== auth()->id()) {
+            $creator = \App\Models\User::find($po->created_by);
+            if ($creator) {
+                $creator->notify(new \App\Notifications\SalesOrderRevisedNotification($po, auth()->user()));
+            }
+        }
     }
 
     \App\Events\KanbanUpdated::safeDispatch('sales_order');
     Flux::toast('Sales Order berhasil disimpan!', 'success');
-    $this->redirectRoute('sales.orders.index');
+    $this->redirect(route('sales.orders.index'), navigate: true);
 };
 ?>
 
@@ -261,6 +315,20 @@ $saveCart = function ($cartData) {
                 lastScroll = currentScroll;
              "
              class="lg:col-span-8 xl:col-span-8 space-y-6">
+             
+             @if ($errors->any())
+                 <div class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm border border-red-200 dark:border-red-800">
+                     <div class="font-bold flex items-center gap-2 mb-1">
+                         <flux:icon.exclamation-triangle class="w-4.5 h-4.5 shrink-0" />
+                         Gagal Menyimpan:
+                     </div>
+                     <ul class="list-disc pl-5 mt-1 space-y-0.5">
+                         @foreach ($errors->all() as $error)
+                             <li>{{ $error }}</li>
+                         @endforeach
+                     </ul>
+                 </div>
+             @endif
              
             {{-- Form Input Barang --}}
             <div class="flex flex-col relative">
@@ -609,7 +677,7 @@ $saveCart = function ($cartData) {
                             {{-- Tombol Galeri Customer --}}
                             <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('customer-gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
                                 <div class="flex items-center gap-2">
-                                    <flux:icon.squares-2x2 class="w-4 h-4" x-show="!loading" />
+                                    <flux:icon.users class="w-4 h-4" x-show="!loading" />
                                     <svg x-show="loading" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     <span class="hidden xl:block">Galeri</span>
                                 </div>
@@ -731,10 +799,10 @@ $saveCart = function ($cartData) {
             {{-- Tombol Aksi --}}
             <div class="sm:col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
                 <div class="flex gap-2 w-full">
-                    <flux:button variant="ghost" class="w-1/3" href="{{ route('sales.orders.index') }}" wire:loading.attr="disabled">Batal</flux:button>
-                    <flux:button variant="primary" class="w-2/3" icon="check" @click="submitCart()" x-bind:disabled="isSubmitting">
-                        <span x-show="!isSubmitting">Simpan PO</span>
-                        <span x-show="isSubmitting" class="flex items-center gap-2">
+                    <flux:button variant="ghost" class="w-1/3" href="{{ route('sales.orders.index') }}" wire:loading.attr="disabled" wire:navigate> Batal </flux:button>
+                    <flux:button variant="primary" class="w-2/3" @click="submitCart()" x-bind:disabled="isSubmitting">
+                        <span x-show="!isSubmitting" class="flex items-center gap-2"><flux:icon.check class="w-4 h-4" /> Simpan Sales Order</span>
+                        <span x-show="isSubmitting" class="flex items-center gap-2" wire:navigate>
                             <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                             Menyimpan...
                         </span>
@@ -849,6 +917,10 @@ $saveCart = function ($cartData) {
             async submitCart() {
                 if (this.isSubmitting) return;
                 this.isSubmitting = true;
+                
+                // Trigger the existing global loader by dispatching Livewire navigating event
+                document.dispatchEvent(new Event('livewire:navigating'));
+
                 try {
                     await this.$wire.saveCart({
                         items: this.items,
@@ -860,6 +932,8 @@ $saveCart = function ($cartData) {
                     });
                 } finally {
                     this.isSubmitting = false;
+                    // Hide the global loader if it fails or completes
+                    document.dispatchEvent(new Event('livewire:navigated'));
                 }
             },
             

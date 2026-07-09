@@ -257,7 +257,7 @@ new class extends Component {
             {{-- FOOTER --}}
             <div class="flex justify-end mt-8 pt-4 border-t border-zinc-200 dark:border-zinc-800 gap-2">
                 <flux:modal.close>
-                    <flux:button variant="ghost" class="w-full sm:w-auto">Batal</flux:button>
+                    <flux:button variant="ghost" class="w-full sm:w-auto"> Batal </flux:button>
                 </flux:modal.close>
                 <flux:button type="submit" variant="primary" wire:loading.attr="disabled" class="w-full sm:w-auto">
                     <span wire:loading.remove wire:target="save">{{ $customer_id ? 'Simpan Perubahan' : 'Simpan Pelanggan' }}</span>

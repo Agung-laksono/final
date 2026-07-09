@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class StockMovement extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Traits\ScopedToWarehouse;
 
     protected $guarded = ['id'];
 

@@ -56,7 +56,7 @@ on(['echo:purchase,OrderUpdated' => function () {}, 'echo:purchase,QueueUpdated'
                     <flux:button variant="ghost" icon="queue-list" :href="route('purchase.queues.kanban')" wire:navigate>Lihat Antrean</flux:button>
                 @endcan
                 @can('purchase.order.create')
-                    <flux:button variant="primary" icon="plus" :href="route('purchase.orders.create')" wire:navigate>Buat PO Baru</flux:button>
+                    <flux:button variant="primary" icon="plus" :href="route('purchase.orders.create')" wire:navigate> Buat PO B </flux:button>
                 @endcan
             </div>
         </div>

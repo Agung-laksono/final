@@ -174,9 +174,7 @@ on([
                     </div>
                     <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
                         <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
-                        <button @click.stop="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
-                            <flux:icon.arrows-right-left class="w-4 h-4" x-bind:class="collapsed ? 'rotate-90' : ''" />
-                        </button>
+                        <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" x-bind:icon="collapsed ? 'arrows-up-down' : 'arrows-right-left'" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'" />
                     </div>
                 </div>
 
@@ -237,9 +235,9 @@ on([
                                                 Terima Barang
                                             </flux:button>
                                         @else
-                                            <flux:button disabled class="w-full" icon="cube">
+                                            <flux:button disabled class="w-full" icon="cube"> 
                                                 Terima Barang
-                                            </flux:button>
+ </flux:button>
                                         @endcan
                                     </div>
                                 @endif
@@ -409,7 +407,7 @@ on([
             </div>
             
             <div class="mt-6 flex justify-end gap-3">
-                <flux:button variant="ghost" wire:click="$set('show_archive_modal', false)">Batal</flux:button>
+                <flux:button variant="ghost" wire:click="$set('show_archive_modal', false)"> Batal </flux:button>
                 <flux:button variant="primary" wire:click="archiveOrder">Ya, Arsipkan</flux:button>
             </div>
         </div>

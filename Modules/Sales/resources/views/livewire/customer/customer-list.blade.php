@@ -71,7 +71,7 @@ $delete = function ($id) {
             </div>
 
             @can('sales.customer.create')
-                <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-customer-modal')" class="px-3 sm:px-4 shrink-0">
+                <flux:button variant="primary" icon="users" wire:click="$dispatch('open-customer-modal')" class="px-3 sm:px-4 shrink-0">
                     <span class="hidden sm:inline">Tambah Pelanggan</span>
                 </flux:button>
             @endcan
@@ -192,7 +192,7 @@ $delete = function ($id) {
                 <h3 class="text-lg font-medium text-zinc-900 dark:text-zinc-100">Belum Ada Pelanggan</h3>
                 <p class="text-zinc-500 max-w-sm mt-1">Anda belum memiliki data pelanggan. Silakan tambah pelanggan baru untuk mulai berjualan.</p>
                 @can('sales.customer.create')
-                    <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-customer-modal')" class="mt-4">
+                    <flux:button variant="primary" icon="users" wire:click="$dispatch('open-customer-modal')" class="mt-4">
                         Tambah Pelanggan Baru
                     </flux:button>
                 @endcan

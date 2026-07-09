@@ -79,7 +79,7 @@ $proceedToPO = function () {
                 Terpilih: <span class="text-blue-600 dark:text-blue-400 font-bold" x-text="$wire.selected_queues.length"></span> tiket
             </div>
             <div class="flex gap-3">
-                <flux:button wire:click="$set('show', false)">Batal</flux:button>
+                <flux:button variant="ghost" wire:click="$set('show', false)"> Batal </flux:button>
                 <flux:button variant="primary" wire:click="proceedToPO" icon="arrow-right">Lanjut ke PO</flux:button>
             </div>
         </div>

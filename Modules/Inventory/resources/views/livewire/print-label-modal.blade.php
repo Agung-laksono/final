@@ -63,7 +63,7 @@ on(['open-print-labels' => function ($labelIds) {
                 ">
                 Cetak Label Sekarang
             </flux:button>
-            <flux:button wire:click="$set('show', false)">Tutup</flux:button>
+            <flux:button variant="ghost" wire:click="$set('show', false)"> Tutup </flux:button>
         </div>
 
         <div class="px-6 pb-6 sm:p-0">

@@ -185,15 +185,11 @@ on(['maklon-po-created' => function () {
                                 <button wire:click="$set('viewModeMaklon', 'grouped')" class="p-1 rounded-md text-xs {{ $viewModeMaklon === 'grouped' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white font-medium' : 'text-zinc-500 hover:text-zinc-700' }}" title="Mode Wadah">
                                     <flux:icon.rectangle-group class="w-4 h-4" />
                                 </button>
-                                <button wire:click="$set('viewModeMaklon', 'list')" class="p-1 rounded-md text-xs {{ $viewModeMaklon === 'list' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white font-medium' : 'text-zinc-500 hover:text-zinc-700' }}" title="Mode Eceran">
-                                    <flux:icon.list-bullet class="w-4 h-4" />
-                                </button>
+                                <flux:button size="sm" variant="subtle" icon="list-bullet" class="!px-1.5 !py-1.5" wire:click="$set('viewModeMaklon', 'list')" x-bind:class="$wire.viewModeMaklon === 'list' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500'" title="Mode Eceran" />
                             </div>
                         @endif
                         <flux:badge size="sm" class="shrink-0">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
-                        <button @click.stop="collapsed = !collapsed" class="text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
-                            <flux:icon.arrows-right-left class="w-4 h-4" x-bind:class="collapsed ? 'rotate-90' : ''" />
-                        </button>
+                        <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" x-bind:icon="collapsed ? 'arrows-up-down' : 'arrows-right-left'" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'" />
                     </div>
                 </div>
                 

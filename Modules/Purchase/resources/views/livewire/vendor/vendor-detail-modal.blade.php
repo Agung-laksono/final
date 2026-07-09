@@ -150,7 +150,7 @@ new class extends Component {
             
             <div class="pt-4 flex justify-end gap-2 border-t border-zinc-200 dark:border-zinc-800">
                 <flux:modal.close>
-                    <flux:button variant="ghost">Tutup</flux:button>
+                    <flux:button variant="ghost"> Tutup </flux:button>
                 </flux:modal.close>
                 <flux:button variant="primary" icon="pencil-square" wire:click="$dispatch('open-vendor-modal', { id: {{ $vendor->id }} })" x-on:click="$flux.modal('vendor-detail-modal').close()">
                     Edit Vendor

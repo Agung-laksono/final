@@ -188,7 +188,7 @@ $save = function () {
             </div>
 
             <div class="flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                <flux:button wire:click="$set('show', false)">Batal</flux:button>
+                <flux:button variant="ghost" wire:click="$set('show', false)"> Batal </flux:button>
                 <flux:button variant="primary" type="submit" icon="paper-airplane" x-data="{ submitting: false }" x-on:click="submitting = true; $wire.save().then(() => submitting = false)" x-bind:disabled="submitting">
                     <span x-show="!submitting">Ajukan Permintaan</span>
                     <span x-show="submitting">Memproses...</span>

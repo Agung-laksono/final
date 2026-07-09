@@ -693,7 +693,7 @@ $saveCart = function ($cartData) {
                             {{-- Tombol Galeri Vendor --}}
                             <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('vendor-gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
                                 <div class="flex items-center gap-2">
-                                    <flux:icon.squares-2x2 class="w-4 h-4" x-show="!loading" />
+                                    <flux:icon.users class="w-4 h-4" x-show="!loading" />
                                     <svg x-show="loading" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     <span class="hidden xl:block">Galeri</span>
                                 </div>
@@ -815,9 +815,9 @@ $saveCart = function ($cartData) {
             {{-- Tombol Aksi --}}
             <div class="sm:col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
                 <div class="flex gap-2 w-full">
-                    <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:loading.attr="disabled">Batal</flux:button>
-                    <flux:button variant="primary" class="w-2/3" icon="check" @click="submitCart()" x-bind:disabled="isSubmitting">
-                        <span x-show="!isSubmitting">Simpan PO</span>
+                    <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:loading.attr="disabled"> Batal </flux:button>
+                    <flux:button variant="primary" class="w-2/3" @click="submitCart()" x-bind:disabled="isSubmitting">
+                        <span x-show="!isSubmitting" class="flex items-center gap-2"><flux:icon.check class="w-4 h-4" /> Simpan PO</span>
                         <span x-show="isSubmitting" class="flex items-center gap-2">
                             <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                             Menyimpan...

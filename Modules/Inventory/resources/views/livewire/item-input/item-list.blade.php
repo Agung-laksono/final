@@ -171,9 +171,14 @@ $delete = function (Item $item) {
                             </flux:table.cell>
 
                             <flux:table.cell>
-                                <flux:badge color="{{ $item->is_active ? 'green' : 'zinc' }}" size="sm">
-                                    {{ $item->is_active ? 'Aktif' : 'Non-aktif' }}
-                                </flux:badge>
+                                @if (!$item->is_approved)
+                                    <flux:badge color="amber" size="sm">Menunggu Persetujuan</flux:badge>
+                                @else
+                                    <flux:badge color="{{ $item->is_active ? 'green' : 'zinc' }}" size="sm">
+                                        {{ $item->is_active ? 'Aktif' : 'Non-aktif' }}
+                                    </flux:badge>
+                                @endif
+                                
                                 @if ($item->requires_label)
                                     <flux:badge color="blue" size="sm" class="ml-1">Berlabel</flux:badge>
                                 @endif
@@ -198,9 +203,14 @@ $delete = function (Item $item) {
             <div class="grid grid-cols-2 @md:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5 @6xl:grid-cols-7 gap-4 mb-6">
             @forelse ($this->getItems() as $item)
                 <div x-on:dblclick="$dispatch('open-item-detail', { id: {{ $item->id }} })" class="relative bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden hover:scale-102 hover:border-blue-500/50 hover:shadow-lg transition-all cursor-pointer group flex flex-col">
-                @if (!$item->is_active)
+                @if (!$item->is_approved)
+                <div class="absolute z-2 top-0 w-full h-full bg-[#000000ba] flex flex-col items-center justify-center">
+                    <span class="text-bold text-amber-500 font-bold tracking-widest uppercase">MENUNGGU</span>
+                    <span class="text-white text-xs mt-1">PERSETUJUAN</span>
+                </div>
+                @elseif (!$item->is_active)
                 <div class="absolute z-2 top-0 w-full h-full bg-[#000000ba] flex items-center justify-center">
-                    <span class="text-bold text-white">NON ACTIVE</span>
+                    <span class="text-bold text-white tracking-widest font-bold">NON ACTIVE</span>
                 </div>
                 @endif
                     {{-- Gambar Atas (Mencolok) --}}

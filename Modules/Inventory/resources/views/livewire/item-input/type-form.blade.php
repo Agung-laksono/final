@@ -101,7 +101,7 @@ $delete = function (Type $type) {
             <flux:textarea wire:model="description" label="Deskripsi (Opsional)" placeholder="Penjelasan singkat tipe barang" />
             <div class="flex justify-end gap-2 mt-4">
                 <flux:modal.close>
-                    <flux:button variant="ghost">Batal</flux:button>
+                    <flux:button variant="ghost"> Batal </flux:button>
                 </flux:modal.close>
                 <flux:button type="submit" variant="primary">{{ $type_id ? 'Simpan Perubahan' : 'Tambahkan' }}</flux:button>
             </div>

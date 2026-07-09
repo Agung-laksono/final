@@ -137,7 +137,7 @@ $getStatusBadge = function ($status) {
             </div>
 
             <div class="flex justify-end gap-3 pt-4">
-                <flux:button wire:click="$set('show', false)">Tutup</flux:button>
+                <flux:button variant="ghost" wire:click="$set('show', false)"> Tutup </flux:button>
                 @if(in_array($order->status, ['processing', 'partially_received']))
                     <flux:button variant="primary" wire:click="$dispatch('open-receipt-modal', { orderId: {{ $order->id }} }); $set('show', false)">
                         📦 Terima Barang

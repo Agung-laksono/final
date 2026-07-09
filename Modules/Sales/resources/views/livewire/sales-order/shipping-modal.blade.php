@@ -203,7 +203,7 @@ $saveShippingInfo = function () {
                                 </div>
                             </div>
                         @else
-                            <flux:button variant="subtle" class="w-full justify-center border-dashed border-2 border-zinc-300 dark:border-zinc-600 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800" wire:click="setSelectingFor('courier'); $dispatchTo('global.vendor-gallery-modal', 'set-filter-type', { type: 'Ekspedisi', locked: true })" x-on:click="$flux.modal('vendor-gallery-modal').show()" icon="plus">
+                            <flux:button variant="subtle" class="w-full justify-center border-dashed border-2 border-zinc-300 dark:border-zinc-600 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800" wire:click="setSelectingFor('courier'); $dispatchTo('global.vendor-gallery-modal', 'set-filter-type', { type: 'Ekspedisi', locked: true })" x-on:click="$flux.modal('vendor-gallery-modal').show()" icon="users">
                                 Pilih Vendor Ekspedisi
                             </flux:button>
                         @endif
@@ -235,7 +235,7 @@ $saveShippingInfo = function () {
         </div>
         
         <div class="mt-6 flex justify-end gap-3">
-            <flux:button variant="ghost" wire:click="$set('show', false)">Batal</flux:button>
+            <flux:button variant="ghost" wire:click="$set('show', false)"> Batal </flux:button>
             <flux:button variant="primary" wire:click="saveShippingInfo" icon="paper-airplane">Kirim Pesanan</flux:button>
         </div>
     </div>

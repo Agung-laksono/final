@@ -90,6 +90,31 @@ $toggleActive = function () {
     Flux::toast("Barang berhasil $status.", variant: 'success');
 };
 
+$approveItem = function () {
+    \Illuminate\Support\Facades\Gate::authorize('inventory.item.update');
+    $this->item->update([
+        'is_approved' => true,
+        'is_active' => true
+    ]);
+    
+    $this->dispatch('item-updated'); 
+    
+    \App\Events\InventoryUpdated::safeDispatch('Barang ' . $this->item->code . ' telah disetujui');
+    
+    // Kirim notifikasi ke user pembuat (staf sales/purchasing dll)
+    if ($this->item->user_id) {
+        $creator = \App\Models\User::find($this->item->user_id);
+        if ($creator && $creator->id !== auth()->id()) {
+            $creator->notify(new \App\Notifications\ItemApprovedNotification($this->item, auth()->user()));
+        }
+    }
+    
+    // Kirim event update ke sistem menu badge
+    $this->dispatch('.MenuBadgesUpdated');
+    
+    Flux::toast("Barang berhasil disetujui dan diaktifkan.", variant: 'success');
+};
+
 $refreshItem = function () {
     if ($this->item) {
         $this->fetchData($this->item->id);
@@ -202,6 +227,15 @@ $saveInitialStock = function () {
                 {{-- Header Modal --}}
                 <div class="mb-2 flex items-center gap-3">
                     <flux:heading size="lg">Detail Barang</flux:heading>
+                    
+                    @if(!$item->is_approved)
+                        @can('inventory.item.update')
+                            <flux:button wire:click="approveItem" variant="primary" size="sm" icon="check" class="px-2 md:px-3">
+                                <span class="hidden md:inline">Setujui Barang</span>
+                            </flux:button>
+                        @endcan
+                    @endif
+                    
                     @can('inventory.item.update')
                         <flux:button wire:click="editItem" variant="outline" size="sm" icon="pencil-square" class="px-2 md:px-3">
                             <span class="hidden md:inline">Edit Data</span>
@@ -605,9 +639,9 @@ $saveInitialStock = function () {
                 
                 <div class="flex justify-end gap-2 mt-4">
                     <flux:modal.close>
-                        <flux:button variant="ghost">Batal</flux:button>
+                        <flux:button variant="ghost"> Batal </flux:button>
                     </flux:modal.close>
-                    <flux:button type="submit" variant="primary">Simpan Saldo</flux:button>
+                    <flux:button icon="check" type="submit" variant="primary"> Simpan Sald </flux:button>
                 </div>
             </form>
         </div>

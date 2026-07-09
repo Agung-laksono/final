@@ -97,7 +97,7 @@ $history = computed(function () {
         @endif
 
         <div class="flex justify-end pt-4">
-            <flux:button variant="ghost" wire:click="$set('show', false)">Tutup</flux:button>
+            <flux:button variant="ghost" wire:click="$set('show', false)"> Tutup </flux:button>
         </div>
     </div>
 </flux:modal>

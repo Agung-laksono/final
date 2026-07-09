@@ -124,7 +124,7 @@ $delete = function (SubCategory $subCategory) {
             <flux:input wire:model="name" label="Nama Sub Kategori" placeholder="Contoh: Laptop, Mouse" required />
             <div class="flex justify-end gap-2 mt-4">
                 <flux:modal.close>
-                    <flux:button variant="ghost">Batal</flux:button>
+                    <flux:button variant="ghost"> Batal </flux:button>
                 </flux:modal.close>
                 <flux:button type="submit" variant="primary">{{ $subcategory_id ? 'Simpan Perubahan' : 'Tambahkan' }}</flux:button>
             </div>

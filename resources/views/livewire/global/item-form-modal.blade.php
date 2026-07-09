@@ -229,6 +229,15 @@ new class extends Component {
                 \Illuminate\Support\Facades\Notification::send($recipients, $notification);
             }
         } else {
+            // Automatically require approval if created by non-warehouse users or outside inventory module
+            $isWarehouseUser = auth()->user()->hasRole('Gudang') || auth()->user()->hasRole('Super Admin');
+            if (!$this->isInventoryUrl || !$isWarehouseUser) {
+                $validated['is_approved'] = false;
+                $validated['is_active'] = false;
+            } else {
+                $validated['is_approved'] = true;
+            }
+
             $item = Item::create($validated);
             $actionType = 'ditambahkan';
 
@@ -329,7 +338,7 @@ new class extends Component {
                 </div>
                 <div class="flex gap-2 w-full sm:w-auto">
                     <flux:modal.close>
-                        <flux:button variant="ghost" class="w-full sm:w-auto">Batal</flux:button>
+                        <flux:button variant="ghost" class="w-full sm:w-auto"> Batal </flux:button>
                     </flux:modal.close>
                     <flux:button type="submit" variant="primary" class="w-full sm:w-auto">{{ $item_id ? 'Simpan Perubahan' : 'Simpan Barang' }}</flux:button>
 

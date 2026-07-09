@@ -33,12 +33,12 @@ class DatabaseSeeder extends Seeder
         // 3. Buat User untuk masing-masing Divisi / Role
         $usersData = [
             ['email' => 'manager@a.com', 'name' => 'Manager User', 'role' => 'Manager'],
-            ['email' => 'gudang@a.com', 'name' => 'Gudang User', 'role' => 'Gudang'],
-            ['email' => 'purchasing@a.com', 'name' => 'Purchasing User', 'role' => 'Purchasing'],
-            ['email' => 'sales@a.com', 'name' => 'Sales User', 'role' => 'Sales'],
+            ['email' => 'gudang@a.com', 'name' => 'Gudang User', 'role' => 'Kepala Gudang'],
+            ['email' => 'purchasing@a.com', 'name' => 'Purchasing User', 'role' => 'Kepala Purchasing'],
+            ['email' => 'sales@a.com', 'name' => 'Sales User', 'role' => 'Staf Sales'],
             ['email' => 'kepalasales@a.com', 'name' => 'Kepala Sales', 'role' => 'Kepala Sales'],
-            ['email' => 'finance@a.com', 'name' => 'Finance User', 'role' => 'Finance'],
-            ['email' => 'marketing@a.com', 'name' => 'Marketing User', 'role' => 'Marketing'],
+            ['email' => 'finance@a.com', 'name' => 'Finance User', 'role' => 'Kepala Finance'],
+            ['email' => 'marketing@a.com', 'name' => 'Marketing User', 'role' => 'Staf Marketing'],
             ['email' => 'stafgudang@a.com', 'name' => 'Staf Gudang', 'role' => 'Staf Gudang'],
         ];
 

@@ -111,7 +111,7 @@ $save = function () {
         </div>
 
         <div class="mt-8 flex justify-end gap-3">
-            <flux:button variant="ghost" wire:click="$set('show', false)">Batal</flux:button>
+            <flux:button variant="ghost" wire:click="$set('show', false)"> Batal </flux:button>
             <flux:button variant="primary" class="bg-purple-600 hover:bg-purple-700 text-white border-none" wire:click="save" wire:loading.attr="disabled" wire:target="save, packing_receipt">
                 <span wire:loading.remove wire:target="save">Tandai Selesai Packing</span>
                 <span wire:loading wire:target="save">Menyimpan...</span>

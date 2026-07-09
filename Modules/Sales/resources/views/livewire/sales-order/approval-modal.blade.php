@@ -56,6 +56,15 @@ $approve = function () {
         $this->order->status = 'processing';
         // Simpan catatan persetujuan jika diperlukan
         $this->order->save();
+
+        // Kirim notifikasi ke pembuat SO
+        if ($this->order->created_by) {
+            $creator = \App\Models\User::find($this->order->created_by);
+            if ($creator && $creator->id !== auth()->id()) {
+                $creator->notify(new \App\Notifications\SalesOrderStatusChangedNotification($this->order, auth()->user()));
+            }
+        }
+
         $this->dispatch('status-updated');
         \App\Events\KanbanUpdated::safeDispatch('sales_order');
         if ($hasDeficit) {
@@ -72,11 +81,25 @@ $reject = function () {
     if ($this->order) {
         $this->order->status = 'rejected';
         $this->order->save();
+
+        // Kirim notifikasi ke pembuat SO
+        if ($this->order->created_by) {
+            $creator = \App\Models\User::find($this->order->created_by);
+            if ($creator && $creator->id !== auth()->id()) {
+                $creator->notify(new \App\Notifications\SalesOrderStatusChangedNotification($this->order, auth()->user()));
+            }
+        }
+
         $this->dispatch('status-updated');
         \App\Events\KanbanUpdated::safeDispatch('sales_order');
         $this->show = false;
         \Flux::toast('Pesanan ditolak.', variant: 'danger');
     }
+};
+
+$redirectToEdit = function ($orderId) {
+    session()->flash('allow_edit_so_' . $orderId, true);
+    $this->redirect(route('sales.orders.create', $orderId), navigate: true);
 };
 
 ?>
@@ -129,7 +152,9 @@ $reject = function () {
         </div>
         
         <div class="mt-8 flex justify-end gap-3">
-            <flux:button variant="ghost" wire:click="$set('show', false)">Batal</flux:button>
+            @can('sales.order.create')
+                <flux:button variant="outline" icon="pencil" wire:click="redirectToEdit({{ $order->id }})">Sesuaikan</flux:button>
+            @endcan
             <flux:button variant="danger" wire:click="reject" icon="x-mark">Tolak Pesanan</flux:button>
             <flux:button variant="primary" wire:click="approve" icon="check">Setujui Pesanan</flux:button>
         </div>
