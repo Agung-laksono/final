@@ -293,6 +293,7 @@ new class extends Component {
         </div>
     </flux:modal>
 
+    @script
     <script>
         if (typeof window.playSelectSound === 'undefined') {
             // Gunakan satu AudioContext secara global agar tidak kena limit browser (max 6 context)
@@ -368,4 +369,5 @@ new class extends Component {
             }
         }
     </script>
+    @endscript
 </div>

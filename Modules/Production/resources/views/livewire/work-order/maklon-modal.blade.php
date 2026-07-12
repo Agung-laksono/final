@@ -545,17 +545,20 @@ $handleVendorSelected = function ($vendorId) {
                                                     return val.includes('<p>') || val.includes('<br>') || val.includes('<strong>') || val.includes('<em>') || val.includes('<img') || val.includes('<table') || val.includes('<ul') || val.includes('<ol');
                                                 }
                                             }">
+                                                <div class="flex justify-between items-center mb-2">
+                                                    <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">CATATAN ITEM</h3>
+                                                    <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" class="!px-2 h-7" wire:click="openEditor('group_{{ $itemId }}')" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
+                                                </div>
+
                                                 <!-- Jika terdeteksi HTML (Rich Text) -->
                                                 <div x-show="isRichText" x-cloak class="relative group" wire:click="openEditor('group_{{ $itemId }}')">
                                                     <div class="w-full min-h-[3rem] max-h-[8rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-2 bg-zinc-50 dark:bg-zinc-800/50 text-sm prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 cursor-pointer" x-html="$wire.item_notes['group_{{ $itemId }}']">
                                                     </div>
-                                                    <flux:button size="sm" variant="subtle" icon="pencil-square" class="absolute right-2 top-2 !px-1.5 !py-1.5" title="Edit Catatan Lengkap" />
                                                 </div>
 
                                                 <!-- Quick Note (Teks Biasa) -->
-                                                <div x-show="!isRichText" class="relative">
+                                                <div x-show="!isRichText">
                                                     <flux:textarea wire:model="item_notes.group_{{ $itemId }}" placeholder="Catatan sederhana..." rows="2" />
-                                                    <flux:button size="sm" variant="subtle" icon="arrows-pointing-out" class="absolute right-2 top-2 !px-1.5 !py-1.5" wire:click="openEditor('group_{{ $itemId }}')"  title="Buka Editor Lengkap" />
                                                 </div>
                                             </div>
                                         </div>
@@ -596,19 +599,20 @@ $handleVendorSelected = function ($vendorId) {
                                                     return val.includes('<p>') || val.includes('<br>') || val.includes('<strong>') || val.includes('<em>') || val.includes('<img') || val.includes('<table') || val.includes('<ul') || val.includes('<ol');
                                                 }
                                             }">
+                                                <div class="flex justify-between items-center mb-2">
+                                                    <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">CATATAN ITEM</h3>
+                                                    <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" class="!px-2 h-7" wire:click="openEditor('single_{{ $order->id }}')" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
+                                                </div>
+                                                
                                                 <!-- Jika terdeteksi HTML (Rich Text) -->
                                                 <div x-show="isRichText" x-cloak class="relative group" wire:click="openEditor('single_{{ $order->id }}')">
                                                     <div class="w-full min-h-[3rem] max-h-[8rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-2 bg-zinc-50 dark:bg-zinc-800/50 text-sm prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 cursor-pointer" x-html="$wire.item_notes['single_{{ $order->id }}']">
                                                     </div>
-                                                    <flux:button size="sm" variant="subtle" icon="pencil-square" class="absolute right-2 top-2 !px-1.5 !py-1.5" title="Edit Catatan Lengkap" />
                                                 </div>
 
                                                 <!-- Quick Note (Teks Biasa) -->
-                                                <div x-show="!isRichText" class="relative">
+                                                <div x-show="!isRichText">
                                                     <flux:textarea wire:model="item_notes.single_{{ $order->id }}" placeholder="Catatan sederhana..." rows="2" />
-                                                    <button type="button" wire:click="openEditor('single_{{ $order->id }}')" class="absolute right-2 top-2 p-1 text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-zinc-900 rounded" title="Buka Editor Lengkap">
-                                                        <flux:icon.arrows-pointing-out class="w-3.5 h-3.5" />
-                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -679,21 +683,18 @@ $handleVendorSelected = function ($vendorId) {
             }">
                 <div class="flex items-center justify-between mb-2">
                     <flux:label>Catatan Jasa (Global)</flux:label>
+                    <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" wire:click="openEditor('global')" class="!px-2 h-7" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
                 </div>
                 
                 <!-- Jika terdeteksi HTML -->
                 <div x-show="isRichText" x-cloak class="relative group" wire:click="openEditor('global')">
                     <div class="w-full min-h-[5rem] max-h-[12rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 bg-white dark:bg-zinc-900/50 text-sm prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 prose-img:rounded-xl cursor-pointer" x-html="$wire.notes">
                     </div>
-                    <button type="button" class="absolute right-3 top-3 p-2 bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm hover:bg-indigo-50 transition-colors" title="Buka Editor Lengkap">
-                        <flux:icon.pencil-square class="w-4 h-4" />
-                    </button>
                 </div>
                 
                 <!-- Quick Note -->
-                <div x-show="!isRichText" class="relative">
+                <div x-show="!isRichText">
                     <flux:textarea wire:model="notes" placeholder="Tulis instruksi atau catatan khusus vendor..." rows="3" />
-                    <flux:button size="sm" variant="subtle" icon="arrows-pointing-out" class="absolute right-2 top-2 !px-1.5 !py-1.5" wire:click="openEditor('global')"  title="Buka Editor Lengkap" />
                 </div>
             </div>
         </div>

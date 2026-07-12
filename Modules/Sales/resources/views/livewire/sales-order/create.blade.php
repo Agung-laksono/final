@@ -326,7 +326,8 @@ $saveCart = function ($cartData) {
                 }
                 lastScroll = currentScroll;
              "
-             class="lg:col-span-8 xl:col-span-8 space-y-6">
+             :class="items.length > 0 ? 'lg:col-span-8 xl:col-span-8' : 'lg:col-span-12 xl:col-span-12 max-w-4xl mx-auto w-full'"
+             class="space-y-6">
              
              @if ($errors->any())
                  <div class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm border border-red-200 dark:border-red-800">
@@ -408,7 +409,7 @@ $saveCart = function ($cartData) {
                 {{-- Daftar Barang Terpilih (Modern List) --}}
                 <div class="flex-1 space-y-4">
                     <template x-for="(item, index) in items" :key="index">
-                        <div class="relative flex flex-col sm:flex-row bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm transition-colors">
+                        <div class="relative flex flex-col sm:flex-row bg-blue-50/30 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-2xl shadow-sm transition-colors">
                             {{-- Delete Button (Top Left over Image) --}}
                             <div class="absolute top-2 left-2 sm:-top-3 sm:-left-3 z-10" x-show="!item.min_qty" x-cloak>
                                 <flux:button variant="primary" size="sm" icon="trash" @click="removeItem(index)" class="!rounded-full shadow-md hover:!bg-red-500 hover:!border-red-500 hover:scale-110 transition-all duration-200" />
@@ -449,9 +450,7 @@ $saveCart = function ($cartData) {
                                         }">
                                             <div class="flex justify-between items-center mb-4">
                                                 <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">CATATAN ITEM</h3>
-                                                <button type="button" @click="$dispatch('open-item-editor', { index: index }); open = false;" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
-                                                    <flux:icon.arrows-pointing-out class="w-3 h-3" /> Lengkap
-                                                </button>
+                                                <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" class="!px-2 h-7" @click="$dispatch('open-item-editor', { index: index }); open = false;" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
                                             </div>
                                             
                                             <!-- Jika terdeteksi HTML -->
@@ -610,22 +609,27 @@ $saveCart = function ($cartData) {
                         </div>
                     </template>
                     
-                    <div x-show="items.length === 0" x-cloak class="py-20 text-center flex flex-col items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-3xl bg-zinc-50/50 dark:bg-zinc-900/20">
-                        <div class="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mb-4">
-                            <flux:icon.shopping-cart class="w-8 h-8 text-zinc-400 dark:text-zinc-600" />
+                    <div x-show="items.length === 0" x-cloak class="py-24 text-center flex flex-col items-center justify-center border-2 border-dashed border-blue-200 dark:border-blue-800 rounded-3xl bg-blue-50/50 dark:bg-blue-900/10">
+                        <div class="w-24 h-24 bg-blue-100 dark:bg-blue-800/50 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                            <flux:icon.shopping-cart class="w-12 h-12 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <h3 class="text-lg font-medium text-zinc-900 dark:text-zinc-100">Keranjang Kosong</h3>
-                        <p class="text-sm text-zinc-500 mt-1 max-w-sm">Mulai ketik di kotak pencarian atau buka galeri untuk menambahkan barang ke PO ini.</p>
+                        <h3 class="text-2xl font-bold text-blue-900 dark:text-blue-100">Buat Penjualan Baru</h3>
+                        <p class="text-blue-600 dark:text-blue-400 mt-2 max-w-md">Keranjang penjualan masih kosong. Silakan cari barang atau pilih dari galeri untuk memulai transaksi.</p>
+                        
+                        <div class="mt-8 flex gap-4">
+                            <flux:button variant="primary" icon="squares-2x2" @click="$flux.modal('gallery-modal').show()">Buka Galeri</flux:button>
+                            <flux:button @click="setTimeout(() => Array.from(document.querySelectorAll('input')).find(i => i.placeholder && i.placeholder.includes('Ketik')).focus(), 100)" variant="subtle" icon="magnifying-glass">Cari Barang</flux:button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
         {{-- KOLOM KANAN: Ringkasan Biaya & Tombol (Lebar 4 kolom dari 12) --}}
-        <div class="lg:col-span-4 xl:col-span-4 sm:grid sm:grid-cols-2 sm:gap-4 md:grid-cols-1 md:gap-0 space-y-6 sticky top-6">
+        <div x-show="items.length > 0" x-cloak class="lg:col-span-4 xl:col-span-4 sm:grid sm:grid-cols-2 sm:gap-4 md:grid-cols-1 md:gap-0 space-y-6 sticky top-6">
 
             {{-- Informasi Dokumen --}}
-            <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6">
+            <div class="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-800/30 shadow-sm space-y-6">
                 
                 {{-- Tanggal Order --}}
                 <div>
@@ -699,7 +703,7 @@ $saveCart = function ($cartData) {
             </div>
 
             {{-- Informasi Pelanggan & Catatan --}}
-            <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6">
+            <div class="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-800/30 shadow-sm space-y-6">
 
                 {{-- Pilih Pelanggan --}}
                 <div>
@@ -794,27 +798,26 @@ $saveCart = function ($cartData) {
                         return val.includes('<p>') || val.includes('<br>') || val.includes('<strong>') || val.includes('<em>') || val.includes('<img') || val.includes('<table') || val.includes('<ul') || val.includes('<ol');
                     }
                 }">
-                    <flux:heading size="lg" class="mb-3">Catatan Khusus</flux:heading>
+                    <div class="flex justify-between items-center mb-3">
+                        <flux:heading size="lg">Catatan Khusus</flux:heading>
+                        <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" @click="$dispatch('open-global-editor')" class="!px-2 h-7" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
+                    </div>
                     
                     <!-- Jika terdeteksi HTML -->
                     <div x-show="isRichText" x-cloak class="relative group" @click="$dispatch('open-global-editor')">
                         <div class="w-full min-h-[5rem] max-h-[12rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 bg-white dark:bg-zinc-900/50 text-sm prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 prose-img:rounded-xl cursor-pointer" x-html="$wire.notes">
                         </div>
-                        <button type="button" class="absolute right-3 top-3 p-2 bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm hover:bg-indigo-50 transition-colors" title="Buka Editor Lengkap">
-                            <flux:icon.pencil-square class="w-4 h-4" />
-                        </button>
                     </div>
                     
                     <!-- Quick Note -->
-                    <div x-show="!isRichText" class="relative">
+                    <div x-show="!isRichText">
                         <flux:textarea wire:model="notes" rows="3" placeholder="Tulis catatan atau instruksi khusus untuk pesanan ini..." />
-                        <flux:button size="sm" variant="subtle" icon="arrows-pointing-out" class="absolute right-2 top-2 !px-1.5 !py-1.5" @click="$dispatch('open-global-editor')" title="Buka Editor Lengkap" />
                     </div>
                 </div>
             </div>
 
             {{-- Ringkasan Biaya --}}
-            <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+            <div class="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-800/30 shadow-sm">
                 <flux:heading size="lg" class="mb-4">Ringkasan Biaya</flux:heading>
                 
                 <div class="space-y-4">
