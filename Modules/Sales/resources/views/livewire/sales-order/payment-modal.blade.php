@@ -20,7 +20,43 @@ state([
 ]);
 
 $accounts = computed(function () {
-    return \Modules\Finance\Models\FinanceAccount::where('is_active', true)->get();
+    $query = \Modules\Finance\Models\FinanceAccount::where('is_active', true);
+    
+    $user = auth()->user();
+    $isSuperAdmin = $user->hasRole('Super Admin');
+    $isKepala     = $user->hasAnyRole(['Kepala Sales', 'Manager']);
+    $isFinance    = $user->hasAnyRole(['Kepala Finance', 'Staf Finance']);
+    
+    // Super Admin & Finance: semua rekening
+    if ($isSuperAdmin || $isFinance) {
+        return $query->get();
+    }
+    
+    // Kepala Sales: rekening sesuai brand dari SO yang sedang dibuka
+    if ($isKepala) {
+        if ($this->order && $this->order->brand_id) {
+            $brand = \App\Models\Brand::with('financeAccounts')->find($this->order->brand_id);
+            if ($brand && $brand->financeAccounts->isNotEmpty()) {
+                $query->whereIn('id', $brand->financeAccounts->pluck('id'));
+            }
+            // Jika brand SO tidak punya rekening, tampilkan semua
+        }
+        return $query->get();
+    }
+    
+    // Staf Sales biasa: rekening dari brand milik user
+    if ($user->brand_id) {
+        $brand = \App\Models\Brand::with('financeAccounts')->find($user->brand_id);
+        if ($brand && $brand->financeAccounts->isNotEmpty()) {
+            $query->whereIn('id', $brand->financeAccounts->pluck('id'));
+        } else {
+            $query->where('id', -1); // Tidak ada rekening di brand ini
+        }
+    } else {
+        $query->where('id', -1); // User tidak punya brand
+    }
+    
+    return $query->get();
 });
 
 on(['open-payment-modal' => function ($orderId) {
@@ -28,18 +64,25 @@ on(['open-payment-modal' => function ($orderId) {
     if (!$order) return;
     
     $isOwn = $order->created_by === auth()->id();
-    $isManagerial = auth()->user()->hasAnyRole(['Super Admin', 'Kepala Sales', 'Manager', 'Gudang', 'Shipping', 'Finance']);
+    $isManagerial = auth()->user()->hasAnyRole(['Super Admin', 'Kepala Sales', 'Manager', 'Kepala Gudang', 'Staf Gudang', 'Kepala Finance', 'Staf Finance']);
     if (!$isOwn && !$isManagerial) {
         \Flux::toast('Anda tidak memiliki akses untuk transaksi pembayaran pesanan ini.', 'danger');
         return;
     }
 
     $this->orderId = $orderId;
-    $this->order = SalesOrder::with('payments')->find($orderId);
+    $this->order = SalesOrder::with('payments', 'brand')->find($orderId);
     $this->amount = '';
     $this->proof = null;
     $this->notes = '';
     $this->payment_date = now()->format('Y-m-d');
+    
+    if ($this->accounts->count() == 1) {
+        $this->finance_account_id = $this->accounts->first()->id;
+    } else {
+        $this->finance_account_id = '';
+    }
+
     $this->show = true;
     },
     'echo:kanban.sales_order,KanbanUpdated' => function () {
@@ -223,7 +266,9 @@ $rejectPayment = function ($paymentId) {
                         <flux:input type="date" wire:model="payment_date" label="Tanggal" required />
                         <flux:select wire:model="finance_account_id" label="Rekening Tujuan (Kas)" placeholder="Pilih rekening tujuan..." required>
                             @foreach($this->accounts as $acc)
-                                <option value="{{ $acc->id }}">{{ $acc->name }} ({{ $acc->type }})</option>
+                                <option value="{{ $acc->id }}">
+                                    {{ $acc->name }} ({{ $acc->account_number ?: $acc->type }})
+                                </option>
                             @endforeach
                         </flux:select>
                     </div>
@@ -233,7 +278,7 @@ $rejectPayment = function ($paymentId) {
                     
                     <div>
                             <flux:label class="mb-2">Bukti Transfer <span class="text-red-500">*</span></flux:label>
-                            <x-image-cropper id="payment-cropper" wire:model="proof" :image="$proof && is_string($proof) && !str_starts_with($proof, 'data:image') ? Storage::url($proof) : null" accept="image/*" />
+                            <x-image-cropper id="payment-cropper" wire:model="proof" :image="$proof && is_string($proof) && !str_starts_with($proof, 'data:image') ? $proof : null" accept="image/*" />
                         </div>
                         
                         <flux:textarea wire:model="notes" label="Catatan" placeholder="Keterangan tambahan..." />

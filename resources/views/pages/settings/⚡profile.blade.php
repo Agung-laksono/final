@@ -130,7 +130,7 @@ new #[Title('Profile settings')] class extends Component {
             <div class="mb-4 max-w-xs">
                 <flux:label class="mb-2">{{ __('Profile Photo') }}</flux:label>
                 @can('profile.update')
-                    <x-image-cropper wire:model="photo" :image="auth()->user()->avatarUrl()" label="Foto Profil" />
+                    <x-image-cropper wire:model="photo" :image="auth()->user()->avatar" label="Foto Profil" />
                 @else
                     <flux:avatar :name="auth()->user()->name" :initials="auth()->user()->initials()" :src="auth()->user()->avatarUrl()" class="h-24 w-24 rounded-full object-cover ring-2 ring-zinc-200 dark:ring-zinc-700" />
                 @endcan

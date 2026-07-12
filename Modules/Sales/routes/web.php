@@ -19,5 +19,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware(['permission:sales.order.create'])->group(function () {
             Volt::route('orders/create/{id?}', 'sales-order.create')->name('orders.create');
         });
+        
+        // Invoice Route
+        Route::middleware(['permission:sales.order.view'])->group(function () {
+            Route::get('orders/{id}/invoice', [\Modules\Sales\Http\Controllers\InvoiceController::class, 'show'])->name('orders.invoice');
+        });
     });
 });

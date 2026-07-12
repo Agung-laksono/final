@@ -35,4 +35,9 @@ class SalesOrder extends Model
     {
         return $this->belongsTo(\App\Models\User::class, 'created_by');
     }
+
+    public function brand()
+    {
+        return $this->belongsTo(\App\Models\Brand::class);
+    }
 }

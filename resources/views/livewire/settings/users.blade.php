@@ -15,6 +15,13 @@ state([
     'newUserEmail' => '',
     'newUserPassword' => '',
     'newUserPasswordConfirmation' => '',
+    
+    // Edit User form state
+    'editUserId' => null,
+    'editUserName' => '',
+    'editUserEmail' => '',
+    'editUserPassword' => '',
+    'editUserPasswordConfirmation' => '',
 ]);
 
 $getUsers = function () {
@@ -48,13 +55,53 @@ $createUser = function () {
     
     $this->reset('newUserName', 'newUserEmail', 'newUserPassword', 'newUserPasswordConfirmation');
     
-    \Flux::toast('User baru berhasil didaftarkan!');
+    \Flux::toast('Pengguna berhasil didaftarkan!', variant: 'success');
     \Flux::modal('create-user-modal')->close();
+};
+
+$editUser = function ($id) {
+    abort_if(auth()->user()->cannot('users.update'), 403);
+    $user = User::findOrFail($id);
+    $this->editUserId = $user->id;
+    $this->editUserName = $user->name;
+    $this->editUserEmail = $user->email;
+    $this->editUserPassword = '';
+    $this->editUserPasswordConfirmation = '';
+    $this->resetValidation();
+    \Flux::modal('edit-user-modal')->show();
+};
+
+$updateUser = function () {
+    abort_if(auth()->user()->cannot('users.update'), 403);
+    $user = User::findOrFail($this->editUserId);
+
+    $rules = [
+        'editUserName' => 'required|string|max:255',
+        'editUserEmail' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+    ];
+
+    if (!empty($this->editUserPassword)) {
+        $rules['editUserPassword'] = 'required|string|min:8|same:editUserPasswordConfirmation';
+    }
+
+    $this->validate($rules);
+
+    $user->name = $this->editUserName;
+    $user->email = $this->editUserEmail;
+    
+    if (!empty($this->editUserPassword)) {
+        $user->password = \Illuminate\Support\Facades\Hash::make($this->editUserPassword);
+    }
+
+    $user->save();
+
+    \Flux::toast('Data pengguna berhasil diperbarui!', variant: 'success');
+    \Flux::modal('edit-user-modal')->close();
 };
 
 // Listener for when roles are updated
 on(['role-updated' => function () {
-    //
+    // Refresh list if needed
 }]);
 
 ?>
@@ -90,10 +137,15 @@ on(['role-updated' => function () {
                     <flux:table.row :key="$user->id">
                         <flux:table.cell>
                             <div class="flex items-center gap-3">
-                                <flux:avatar size="sm" :initials="$user->initials()" />
-                                <div class="flex flex-col">
-                                    <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $user->name }}</span>
-                                    <span class="text-xs text-zinc-500">{{ $user->email }}</span>
+                                <flux:avatar size="sm" :initials="$user->initials()" :src="$user->avatarUrl()" />
+                                <div class="flex items-center gap-2">
+                                    <div class="flex flex-col">
+                                        <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $user->name }}</span>
+                                        <span class="text-xs text-zinc-500">{{ $user->email }}</span>
+                                    </div>
+                                    @can('users.update')
+                                        <flux:button size="sm" x-on:click="$wire.editUser({{ $user->id }})" variant="subtle" icon="pencil-square" class="text-zinc-400 hover:text-zinc-700 px-2 h-7" />
+                                    @endcan
                                 </div>
                             </div>
                         </flux:table.cell>
@@ -161,6 +213,37 @@ on(['role-updated' => function () {
                     <flux:button variant="ghost"> Batal </flux:button>
                 </flux:modal.close>
                 <flux:button type="submit" variant="primary">Daftarkan</flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
+    {{-- Modal Edit User --}}
+    <flux:modal name="edit-user-modal" class="md:w-96">
+        <form wire:submit="updateUser" class="space-y-6">
+            <div>
+                <flux:heading size="lg">Edit Pengguna</flux:heading>
+                <flux:subheading>
+                    Ubah informasi dasar pengguna.
+                </flux:subheading>
+            </div>
+
+            <flux:input wire:model="editUserName" label="Nama Lengkap" required />
+            <flux:input wire:model="editUserEmail" type="email" label="Alamat Email" required />
+            
+            <div class="pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                <flux:label class="mb-2">Ubah Kata Sandi <span class="text-zinc-400 text-xs font-normal">(Kosongkan jika tidak ingin diubah)</span></flux:label>
+                <div class="space-y-4 mt-2">
+                    <flux:input wire:model="editUserPassword" type="password" placeholder="Kata sandi baru" viewable />
+                    <flux:input wire:model="editUserPasswordConfirmation" type="password" placeholder="Konfirmasi kata sandi baru" viewable />
+                </div>
+            </div>
+
+            <div class="flex mt-6 gap-2">
+                <flux:spacer />
+                <flux:modal.close>
+                    <flux:button variant="ghost"> Batal </flux:button>
+                </flux:modal.close>
+                <flux:button type="submit" variant="primary">Simpan Perubahan</flux:button>
             </div>
         </form>
     </flux:modal>

@@ -26,6 +26,7 @@ on(['open-detail-modal' => function ($orderId) {
 
 ?>
 
+<div>
 <flux:modal wire:model="show" class="w-full md:w-[50rem] md:max-w-4xl">
     @if($order)
     <div class="p-4 sm:p-6">
@@ -45,13 +46,43 @@ on(['open-detail-modal' => function ($orderId) {
                 </flux:heading>
                 <div class="mt-2 text-sm text-zinc-500 flex flex-wrap items-center gap-3">
                     <span class="flex items-center gap-1"><flux:icon.calendar class="w-4 h-4" /> {{ \Carbon\Carbon::parse($order->order_date)->format('d M Y') }}</span>
+                    @if($order->deadline)
+                        <span class="flex items-center gap-1 text-red-500"><flux:icon.clock class="w-4 h-4" /> Tenggat: {{ \Carbon\Carbon::parse($order->deadline)->format('d M Y') }}</span>
+                    @endif
                     <span class="flex items-center gap-1"><flux:icon.user class="w-4 h-4" /> Dibuat oleh {{ $order->creator->name ?? 'Sistem' }}</span>
                 </div>
             </div>
             
-            <div class="flex gap-2">
-                <flux:button variant="subtle" icon="printer">Cetak Nota</flux:button>
-                {{-- Double X button removed, flux:modal already provides one --}}
+            <div class="flex gap-2" x-data="{
+                printing: false,
+                printInvoice(url, filename) {
+                    if (this.printing) return;
+                    this.printing = true;
+                    
+                    const originalTitle = document.title;
+                    document.title = filename;
+
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = url;
+                    document.body.appendChild(iframe);
+                    iframe.onload = () => {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                        this.printing = false;
+                        
+                        // Kembalikan title asli setelah dialog print terbuka (Chrome langsung capture title)
+                        setTimeout(() => {
+                            document.title = originalTitle;
+                            document.body.removeChild(iframe);
+                        }, 5000);
+                    };
+                }
+            }">
+                <flux:button variant="subtle" icon="printer" x-on:click="printInvoice('{{ route('sales.orders.invoice', $order->id) }}', '{{ $order->so_number }} {{ addslashes($order->customer->name ?? '') }}')" x-bind:disabled="printing">
+                    <span x-show="!printing">Cetak Invoice</span>
+                    <span x-show="printing" style="display: none;">Menyiapkan Cetak...</span>
+                </flux:button>
             </div>
         </div>
 
@@ -111,6 +142,17 @@ on(['open-detail-modal' => function ($orderId) {
 
             {{-- Kolom Kanan: Daftar Barang & Logistik --}}
             <div class="lg:col-span-2 space-y-6">
+                
+                @if($order->notes)
+                {{-- Catatan --}}
+                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-xl text-amber-900 dark:text-amber-300">
+                    <h3 class="text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <flux:icon.document-text class="w-4 h-4" /> Catatan Khusus
+                    </h3>
+                    <p class="text-sm whitespace-pre-wrap">{{ $order->notes }}</p>
+                </div>
+                @endif
+                
                 {{-- Daftar Barang --}}
                 <div>
                     <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Daftar Pesanan</h3>
@@ -183,3 +225,4 @@ on(['open-detail-modal' => function ($orderId) {
     </div>
     @endif
 </flux:modal>
+</div>

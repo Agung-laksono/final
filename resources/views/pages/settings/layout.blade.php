@@ -11,6 +11,7 @@
             @endcan
             @role('Super Admin')
                 <flux:navlist.item :href="route('settings.integrations')" wire:navigate>{{ __('Integrations') }}</flux:navlist.item>
+                <flux:navlist.item :href="route('settings.brands')" wire:navigate>{{ __('Brands') }}</flux:navlist.item>
             @endrole
         </flux:navlist>
     </div>

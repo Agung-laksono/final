@@ -16,7 +16,7 @@ use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'avatar'])]
+#[Fillable(['name', 'email', 'password', 'avatar', 'brand_id'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -79,5 +79,13 @@ class User extends Authenticatable implements PasskeyUser
     public function warehouses()
     {
         return $this->belongsToMany(\Modules\Inventory\Models\Warehouse::class, 'user_warehouse')->withTimestamps();
+    }
+
+    /**
+     * Brand yang dipegang oleh staf ini
+     */
+    public function brand()
+    {
+        return $this->belongsTo(Brand::class);
     }
 }

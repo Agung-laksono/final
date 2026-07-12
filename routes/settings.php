@@ -27,5 +27,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['role:Super Admin'])->group(function () {
         \Livewire\Volt\Volt::route('settings/integrations', 'settings.integrations')->name('settings.integrations');
+        \Livewire\Volt\Volt::route('settings/brands', 'settings.brands')->name('settings.brands');
     });
 });

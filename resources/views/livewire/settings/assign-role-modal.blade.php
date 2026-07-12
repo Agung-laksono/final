@@ -10,6 +10,7 @@ state([
     'user' => null,
     'selectedRoles' => [],
     'selectedWarehouses' => [],
+    'selectedBrand' => null,
 ]);
 
 $getAvailableRoles = function () {
@@ -20,13 +21,18 @@ $getAvailableWarehouses = function () {
     return \Modules\Inventory\Models\Warehouse::all();
 };
 
+$getAvailableBrands = function () {
+    return \App\Models\Brand::all();
+};
+
 on(['open-assign-role' => function (int $userId) {
     $this->userId = $userId;
-    $this->user = User::with(['roles', 'warehouses'])->find($this->userId);
+    $this->user = User::with(['roles', 'warehouses', 'brand'])->find($this->userId);
     
     if ($this->user) {
         $this->selectedRoles = $this->user->roles->pluck('name')->toArray();
         $this->selectedWarehouses = $this->user->warehouses->pluck('id')->toArray();
+        $this->selectedBrand = $this->user->brand_id;
         \Flux::modal('assign-role-modal')->show();
     }
 }]);
@@ -40,8 +46,9 @@ $save = function () {
     // Tapi untuk kesederhanaan, kita langsung sync:
     $this->user->syncRoles($this->selectedRoles);
     $this->user->warehouses()->sync($this->selectedWarehouses);
+    $this->user->update(['brand_id' => $this->selectedBrand ?: null]);
     
-    \Flux::toast('Hak akses & penugasan gudang berhasil diperbarui!');
+    \Flux::toast('Hak akses & penugasan berhasil diperbarui!');
     
     \Flux::modal('assign-role-modal')->close();
     $this->dispatch('role-updated');
@@ -60,7 +67,7 @@ $save = function () {
 
         @if($user)
             <div class="flex items-center gap-3 p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700">
-                <flux:avatar size="sm" :initials="$user->initials()" />
+                <flux:avatar size="sm" :initials="$user->initials()" :src="$user->avatarUrl()" />
                 <div class="flex flex-col">
                     <span class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $user->name }}</span>
                     <span class="text-xs text-zinc-500">{{ $user->email }}</span>
@@ -85,6 +92,15 @@ $save = function () {
                         @endforeach
                     </div>
                 </flux:checkbox.group>
+
+                <flux:separator variant="subtle" />
+
+                <flux:select wire:model="selectedBrand" label="Penugasan Brand (Khusus Sales)">
+                    <option value="">-- Tidak Ada Brand --</option>
+                    @foreach($this->getAvailableBrands() as $brand)
+                        <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                    @endforeach
+                </flux:select>
             </div>
         @endif
 
