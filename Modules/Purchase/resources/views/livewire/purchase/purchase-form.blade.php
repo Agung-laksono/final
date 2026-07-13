@@ -443,7 +443,7 @@ $saveCart = function ($cartData) {
                             {{-- Content --}}
                             <div class="flex-1 flex flex-col p-4 sm:p-5 relative min-w-0">
                                 {{-- Floating Action Buttons on the Right --}}
-                                <div class="absolute bottom-4 right-4">
+                                <div class="absolute bottom-4 right-4" x-data="{ open: false }">
                                     <div x-data="{
                                         get isRichText() {
                                             const val = item.note || '';
@@ -451,10 +451,33 @@ $saveCart = function ($cartData) {
                                         }
                                     }">
                                         <div x-show="item.note" x-cloak>
-                                            <flux:button size="sm" icon="pencil-square" @click="$dispatch('open-item-editor', { index: index })" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
+                                            <flux:button size="sm" icon="pencil-square" @click="open = !open" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
                                         </div>
                                         <div x-show="!item.note">
-                                            <flux:button variant="primary" size="sm" icon="pencil-square" @click="$dispatch('open-item-editor', { index: index })" />
+                                            <flux:button variant="primary" size="sm" icon="pencil-square" @click="open = !open" />
+                                        </div>
+
+                                        <!-- Popover Catatan -->
+                                        <div x-show="open" x-transition @click.outside="open = false" style="display: none;" class="absolute right-0 bottom-full mb-2 w-64 sm:w-80 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl p-3 z-50">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">CATATAN ITEM</h3>
+                                                <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" class="!px-2 h-7" @click="open = false; $dispatch('open-item-editor', { index: index })" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
+                                            </div>
+                                            
+                                            <!-- Jika terdeteksi HTML (Rich Text) -->
+                                            <div x-show="isRichText" x-cloak class="relative group" @click="open = false; $dispatch('open-item-editor', { index: index })">
+                                                <div class="w-full min-h-[6rem] max-h-[12rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-2 bg-zinc-50 dark:bg-zinc-800/50 text-xs prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 cursor-pointer" x-html="item.note">
+                                                </div>
+                                                <div class="absolute inset-0 bg-black/5 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-white/90 dark:bg-zinc-800/90 px-2 py-1 rounded shadow-sm">Klik untuk edit full</span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Quick Note -->
+                                            <div x-show="!isRichText" class="bg-slate-50 dark:bg-zinc-800 rounded-xl p-3 shadow-inner border border-zinc-200 dark:border-zinc-700 focus-within:border-zinc-300 focus-within:ring-1 focus-within:ring-zinc-300 transition-colors">
+                                                <textarea x-model="item.note" class="w-full bg-transparent border-none focus:border-none focus:ring-0 outline-none focus:outline-none text-sm text-slate-700 dark:text-zinc-300 placeholder-slate-400 dark:placeholder-zinc-500 min-h-[120px] resize-none p-0" placeholder="Tulis catatan..."></textarea>
+                                            </div>
+
                                         </div>
                                     </div>
                                 </div>
@@ -1090,57 +1113,8 @@ $saveCart = function ($cartData) {
     </script>
 
     {{-- Panel Editor Rich Text --}}
-    <div x-show="showEditor"
-         x-transition.opacity.duration.200ms
-         :class="showEditor ? 'pointer-events-auto' : 'pointer-events-none'"
-         style="display: none;"
-         class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
-         @keydown.escape.window="showEditor = false">
+    <x-rich-editor-modal />
 
-        {{-- Backdrop --}}
-        <div x-show="showEditor"
-             x-transition.opacity.duration.300ms
-             class="absolute inset-0 bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm"
-             @click="showEditor = false"></div>
-
-        {{-- Modal --}}
-        <div x-show="showEditor"
-             x-transition:enter="ease-out duration-300"
-             x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-             x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
-             x-transition:leave="ease-in duration-200"
-             x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
-             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-             class="relative bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-[800px] h-[90vh] overflow-hidden flex flex-col">
-
-            {{-- Header --}}
-            <div class="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-white dark:bg-zinc-900 shrink-0">
-                <div>
-                    <h3 class="font-semibold text-lg text-zinc-800 dark:text-zinc-100 uppercase tracking-widest">EDITOR CATATAN</h3>
-                    <p class="text-[10px] text-zinc-400 tracking-wider uppercase mt-0.5">RICH TEXT MODE</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button type="button" @click="showEditor = false"
-                            class="text-zinc-400 hover:text-rose-500 transition-colors p-2 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/20">
-                        <flux:icon.x-mark class="w-5 h-5" />
-                    </button>
-                </div>
-            </div>
-
-            {{-- Rich Editor Body --}}
-            <div class="flex-1 relative p-2 sm:p-4 w-full max-w-full flex flex-col" wire:ignore>
-                <div class="flex-1 w-full max-w-full border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 shadow-sm flex flex-col">
-                    <x-rich-editor wire:model="tempNoteContent" height="100%" />
-                </div>
-            </div>
-
-            {{-- Footer --}}
-            <div class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex justify-end gap-2 shrink-0">
-                <flux:button variant="ghost" @click="showEditor = false"> Batal </flux:button>
-                <flux:button icon="check" variant="primary" @click="saveEditor()"> Simpan Catatan </flux:button>
-            </div>
-        </div>
-    </div>
 
     {{-- Template Modal untuk Rich Editor --}}
     <livewire:global.template-modal context="purchase" />
