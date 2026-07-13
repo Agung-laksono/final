@@ -100,3 +100,25 @@ select:focus[data-flux-control] {
 .tox-notifications-container {
     display: none !important;
 }
+
+/*
+ * Paksa semua elemen auxiliary TinyMCE (yang diinjeksikan ke <body>)
+ * ke position: fixed dengan dimensi 0 sehingga TIDAK pernah memperlebar halaman.
+ * Elemen popup/menu di dalamnya tetap visible karena overflow: visible.
+ */
+.tox-silver-sink,
+#tinymce-aux-container {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: visible !important;
+    pointer-events: none !important;
+    z-index: 999999 !important;
+}
+/* Aktifkan pointer events hanya pada elemen child yang aktif */
+.tox-silver-sink > *,
+#tinymce-aux-container > * {
+    pointer-events: auto !important;
+}

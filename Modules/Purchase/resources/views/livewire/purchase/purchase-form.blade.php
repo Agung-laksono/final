@@ -41,7 +41,6 @@ state([
     'expected_delivery_date' => null,
     'tempNoteContent' => '',
     'editingNoteIndex' => null,
-    'showEditor' => false,
     
     'source_queues' => [],
 ]);
@@ -949,6 +948,9 @@ $saveCart = function ($cartData) {
             pajak_persen: {{ (float) ($pajak_persen ?? 0) }},
             pajak_nominal: {{ (float) ($pajak_nominal ?? 0) }},
 
+            showEditor: false,
+            editingNoteIndex: null,
+
             get subtotal_amount() {
                 return this.items.reduce((sum, item) => sum + ((parseInt(item.qty) || 0) * (parseFloat(item.unit_price) || 0)), 0);
             },
@@ -1032,26 +1034,26 @@ $saveCart = function ($cartData) {
             },
 
             openItemEditor(index) {
-                this.$wire.editingNoteIndex = index;
-                this.$wire.tempNoteContent = this.items[index].note || '';
-                this.$wire.showEditor = true;
+                this.$wire.set('editingNoteIndex', index);
+                this.$wire.set('tempNoteContent', this.items[index].note || '');
+                this.showEditor = true;
             },
 
             openGlobalEditor() {
-                this.$wire.editingNoteIndex = 'global';
-                this.$wire.tempNoteContent = this.$wire.notes || '';
-                this.$wire.showEditor = true;
+                this.$wire.set('editingNoteIndex', 'global');
+                this.$wire.set('tempNoteContent', this.$wire.notes || '');
+                this.showEditor = true;
             },
 
             saveEditor() {
                 if (this.$wire.editingNoteIndex === 'global') {
-                    this.$wire.notes = this.$wire.tempNoteContent;
+                    this.$wire.set('notes', this.$wire.tempNoteContent);
                 } else if (this.$wire.editingNoteIndex !== null) {
                     this.items[this.$wire.editingNoteIndex].note = this.$wire.tempNoteContent;
                 }
-                this.$wire.showEditor = false;
-                this.$wire.editingNoteIndex = null;
-                this.$wire.tempNoteContent = '';
+                this.showEditor = false;
+                this.$wire.set('editingNoteIndex', null);
+                this.$wire.set('tempNoteContent', '');
             },
 
             isSubmitting: false,
@@ -1088,21 +1090,21 @@ $saveCart = function ($cartData) {
     </script>
 
     {{-- Panel Editor Rich Text --}}
-    <div x-show="$wire.showEditor"
+    <div x-show="showEditor"
          x-transition.opacity.duration.200ms
-         :class="$wire.showEditor ? 'pointer-events-auto' : 'pointer-events-none'"
+         :class="showEditor ? 'pointer-events-auto' : 'pointer-events-none'"
          style="display: none;"
          class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
-         @keydown.escape.window="$wire.showEditor = false">
+         @keydown.escape.window="showEditor = false">
 
         {{-- Backdrop --}}
-        <div x-show="$wire.showEditor"
+        <div x-show="showEditor"
              x-transition.opacity.duration.300ms
              class="absolute inset-0 bg-zinc-900/50 dark:bg-zinc-900/80 backdrop-blur-sm"
-             @click="$wire.showEditor = false"></div>
+             @click="showEditor = false"></div>
 
         {{-- Modal --}}
-        <div x-show="$wire.showEditor"
+        <div x-show="showEditor"
              x-transition:enter="ease-out duration-300"
              x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
              x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
@@ -1118,7 +1120,7 @@ $saveCart = function ($cartData) {
                     <p class="text-[10px] text-zinc-400 tracking-wider uppercase mt-0.5">RICH TEXT MODE</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button type="button" @click="$wire.showEditor = false"
+                    <button type="button" @click="showEditor = false"
                             class="text-zinc-400 hover:text-rose-500 transition-colors p-2 rounded-full hover:bg-rose-50 dark:hover:bg-rose-900/20">
                         <flux:icon.x-mark class="w-5 h-5" />
                     </button>
@@ -1134,7 +1136,7 @@ $saveCart = function ($cartData) {
 
             {{-- Footer --}}
             <div class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex justify-end gap-2 shrink-0">
-                <flux:button variant="ghost" @click="$wire.showEditor = false"> Batal </flux:button>
+                <flux:button variant="ghost" @click="showEditor = false"> Batal </flux:button>
                 <flux:button icon="check" variant="primary" @click="saveEditor()"> Simpan Catatan </flux:button>
             </div>
         </div>
