@@ -12,6 +12,7 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
     return {
             isProcessing: false,
             isCropping: false,
+            isDragging: false,
             originalFile: null,
             originalSize: 0,
             newSize: 0,
@@ -56,8 +57,21 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
 
             containerWidth: 400,
 
-            handleFile(event) {
-                this.originalFile = event.target.files[0];
+            async pickFile(mode = 'gallery') {
+                // Gunakan native file input langsung
+                if (mode === 'camera') {
+                    if (this.$refs.fileInputCamera) this.$refs.fileInputCamera.click();
+                    else if (this.$refs.fileInputServerCamera) this.$refs.fileInputServerCamera.click();
+                    else if (this.$refs.fileInputAltCamera) this.$refs.fileInputAltCamera.click();
+                } else {
+                    if (this.$refs.fileInputMain) this.$refs.fileInputMain.click();
+                    else if (this.$refs.fileInputAlt) this.$refs.fileInputAlt.click();
+                    else if (this.$refs.fileInputServer) this.$refs.fileInputServer.click();
+                }
+            },
+
+            processFile(file) {
+                this.originalFile = file;
                 if (this.originalFile) {
                     this.hasCropped = false;
                     this.rotation = 0;
@@ -73,6 +87,16 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
                     
                     this.startCrop();
                 }
+            },
+
+            handleFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.processFile(file);
+
+                // Reset input value agar bisa pilih file yang sama lagi
+                event.target.value = '';
             },
 
             setRatio(label) {

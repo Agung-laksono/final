@@ -18,7 +18,7 @@ new class extends Component {
     public $item_id = null;
     public $code = '';
     
-    #[Rule('required|string|max:255')]
+    #[Rule('required|string|max:100')]
     public $name = '';
     
     #[Rule('nullable|string')]
@@ -280,12 +280,13 @@ new class extends Component {
 
                     {{-- Nama Barang --}}
                     <div>
-                        <flux:input wire:model="name" label="Nama Barang" placeholder="Contoh: Kursi kamasutra" required />
+                        <flux:input wire:model="name" label="Nama Barang" placeholder="Contoh: Kursi Kayu Jati" required maxlength="100" />
+                        <span class="text-[11px] text-zinc-500 mt-1 block">Maksimal 100 karakter. Gunakan kolom spesifikasi untuk detail.</span>
                     </div>
 
-                    {{-- Deskripsi --}}
+                    {{-- Deskripsi / Spesifikasi --}}
                     <div>
-                        <flux:textarea wire:model="description" label="Deskripsi" placeholder="Keterangan tambahan tentang barang ini (opsional)" rows="3" />
+                        <flux:textarea wire:model="description" label="Spesifikasi / Deskripsi Lengkap" placeholder="Tuliskan spesifikasi lengkap, ukuran, atau keterangan tambahan barang ini..." rows="4" />
                     </div>
 
                     

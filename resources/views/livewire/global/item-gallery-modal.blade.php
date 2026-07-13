@@ -115,7 +115,7 @@ new class extends Component {
 <div>
     <flux:modal name="gallery-modal" class="md:max-w-4xl">
         <div class="space-y-4">
-            <div class="flex items-start">
+            <div class="hidden sm:flex items-start">
                 <div>
                     <flux:heading size="lg">Galeri Barang</flux:heading>
                     <flux:subheading>Cari dan pilih barang untuk dimasukkan ke Purchase Order.</flux:subheading>
@@ -123,35 +123,46 @@ new class extends Component {
             </div>
             
             {{-- Search & Filter Bar (Sticky) --}}
-            <div class="sticky -top-6 z-50 bg-white dark:bg-zinc-900 pb-2 pt-1 -mx-2 px-2">
-                <div class="flex flex-col sm:flex-row items-center gap-3 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                    <flux:input 
-                        wire:model.live.debounce.300ms="searchQuery" 
-                        icon="magnifying-glass" 
-                        placeholder="Cari nama atau kode barang..." 
-                        class="flex-1 w-full" />
+            <div x-data="{ searchActive: false, showHeader: true, lastScrollY: 0 }"
+                 x-init="
+                     document.addEventListener('scroll', (e) => {
+                         if (e.target.contains && e.target.contains($el)) {
+                             let currentScroll = e.target.scrollTop;
+                             if (currentScroll !== undefined) {
+                                 if (Math.abs(currentScroll - lastScrollY) > 10) {
+                                     showHeader = currentScroll < lastScrollY || currentScroll < 50;
+                                     lastScrollY = currentScroll;
+                                 }
+                             }
+                         }
+                     }, true);
+                 "
+                 class="sticky -top-6 z-50 bg-white dark:bg-zinc-900 pb-2 pt-1 -mx-2 px-2 transition-all duration-300"
+                 :class="showHeader ? 'translate-y-0 opacity-100' : '-translate-y-[120%] opacity-0 pointer-events-none'">
+                <div class="flex flex-row items-center gap-2 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 transition-all duration-300">
+                    <div class="flex-1 min-w-0" @focusin="searchActive = true" @focusout="setTimeout(() => searchActive = false, 200)">
+                        <flux:input 
+                            wire:model.live.debounce.300ms="searchQuery" 
+                            icon="magnifying-glass" 
+                            placeholder="Cari nama atau kode barang..." 
+                            class="w-full transition-all duration-300" />
+                    </div>
                         
-                    <div class="flex items-center gap-2 w-full sm:w-auto">
-                        <flux:select wire:model.live="typeId" placeholder="Semua Tipe Barang" class="w-full sm:w-40">
-                            <flux:select.option value="">Semua Tipe Barang</flux:select.option>
-                            @foreach($types as $type)
-                                <flux:select.option value="{{ $type->id }}">{{ $type->name }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
-                        
+                    <div class="flex items-center shrink-0 overflow-hidden transition-all duration-300 origin-right"
+                         :class="searchActive ? 'max-w-0 opacity-0 gap-0' : 'max-w-[300px] opacity-100 gap-1'">
                         <flux:dropdown>
-                            <flux:button variant="subtle" icon="adjustments-horizontal" class="shrink-0">
-                                <span class="hidden md:inline">Filter</span>
+                            <flux:button variant="subtle" icon="adjustments-horizontal" class="shrink-0 px-2 md:px-3">
+                                <span class="hidden md:inline ml-1">Filter</span>
                             </flux:button>
                             <flux:menu class="w-72 space-y-4 p-4">
                                 <div>
                                     <flux:heading size="sm" class="mb-2">Filter Lanjutan</flux:heading>
                                 </div>
                                 
-                                <flux:select wire:model.live="subCategoryId" placeholder="Semua Sub Kategori" :disabled="!$categoryId">
-                                    <flux:select.option value="">Semua Sub Kategori</flux:select.option>
-                                    @foreach($subCategories as $subCat)
-                                        <flux:select.option value="{{ $subCat->id }}">{{ $subCat->name }}</flux:select.option>
+                                <flux:select wire:model.live="typeId" placeholder="Semua Tipe Barang">
+                                    <flux:select.option value="">Semua Tipe Barang</flux:select.option>
+                                    @foreach($types as $type)
+                                        <flux:select.option value="{{ $type->id }}">{{ $type->name }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
 
@@ -159,6 +170,13 @@ new class extends Component {
                                     <flux:select.option value="">Semua Kategori</flux:select.option>
                                     @foreach($categories as $category)
                                         <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+
+                                <flux:select wire:model.live="subCategoryId" placeholder="Semua Sub Kategori" :disabled="!$categoryId">
+                                    <flux:select.option value="">Semua Sub Kategori</flux:select.option>
+                                    @foreach($subCategories as $subCat)
+                                        <flux:select.option value="{{ $subCat->id }}">{{ $subCat->name }}</flux:select.option>
                                     @endforeach
                                 </flux:select>
                                 
@@ -187,8 +205,8 @@ new class extends Component {
                         </flux:dropdown>
 
                         @can('inventory.item.create')
-                        <flux:button x-on:click="$dispatch('open-item-modal')" variant="primary" icon="plus" class="shrink-0">
-                            <span class="hidden md:inline">Barang Baru</span>
+                        <flux:button x-on:click="$dispatch('open-item-modal')" variant="primary" icon="plus" class="shrink-0 px-2 md:px-4">
+                            <span class="hidden md:inline ml-1">Barang Baru</span>
                         </flux:button>
                         @endcan
                     </div>

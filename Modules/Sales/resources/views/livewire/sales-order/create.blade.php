@@ -308,6 +308,7 @@ $saveCart = function ($cartData) {
 ?>
 
 <div class="xl:max-w-7xl xl:mx-auto" x-data="cartSystem()" 
+     @clear-cart.window="items = []; calculateTax();"
      @item-selected.window="addItem($event.detail.item)" 
      @customer-selected.window="$wire.selectCustomer($event.detail.customerId)"
      @open-item-editor.window="openItemEditor($event.detail.index)"
@@ -401,7 +402,7 @@ $saveCart = function ($cartData) {
                         <h3 class="text-sm font-bold text-zinc-700 dark:text-zinc-300">Total :</h3>
                         <span class="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 py-0.5 px-2.5 rounded-full text-xs font-semibold shadow-sm" x-text="items.length + ' Item'"></span>
                     </div>
-                    <flux:button size="sm" variant="subtle" icon="trash" @click="if(confirm('Hapus semua barang dari keranjang?')) { items = []; updateSubtotal(); }" class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 !px-2 !h-8 transition-colors">
+                    <flux:button size="sm" variant="subtle" icon="trash" @click="$flux.modal('confirm-clear-cart').show()" class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 !px-2 !h-8 transition-colors">
                         <span class="hidden sm:inline">All</span>
                     </flux:button>
                 </div>
@@ -953,6 +954,21 @@ $saveCart = function ($cartData) {
 
     {{-- Template Modal untuk Rich Editor --}}
     <livewire:global.template-modal context="sales" />
+
+    {{-- Modal Konfirmasi Hapus Semua --}}
+    <flux:modal name="confirm-clear-cart" class="min-w-[22rem]">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">Hapus Semua Barang?</flux:heading>
+                <flux:subheading>Seluruh item di keranjang akan dihapus. Tindakan ini tidak dapat dibatalkan.</flux:subheading>
+            </div>
+            <div class="flex gap-2">
+                <flux:spacer />
+                <flux:button variant="ghost" x-on:click="$flux.modal('confirm-clear-cart').close()">Batal</flux:button>
+                <flux:button variant="danger" x-on:click="$dispatch('clear-cart'); $flux.modal('confirm-clear-cart').close()">Hapus Semua</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 
 
     <script>

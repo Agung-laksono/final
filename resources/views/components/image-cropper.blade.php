@@ -17,7 +17,9 @@
      x-init="$watch('isCropping', val => val ? Flux.modal('{{ $modalName }}').show() : Flux.modal('{{ $modalName }}').close())"
      @item-saved.window="resetCropper()"
      @reset-cropper.window="resetCropper()"
-     class="relative">
+     class="relative w-full">
+
+
 
     {{-- Modal Crop (1 Langkah) --}}
     <flux:modal name="{{ $modalName }}" class="md:w-[48rem]" style="max-width: 95vw;" x-on:close="cancelCrop()">
@@ -151,29 +153,33 @@
     @if (!$image)
     <div x-show="!originalFile && !isCropping" x-cloak class="w-full">
         @if ($mode === 'button')
-            <label class="cursor-pointer flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors w-fit shadow-sm">
+            <button type="button" @click="pickFile('gallery')" class="cursor-pointer flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors w-fit shadow-sm">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 {{ $label }}
-                <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="sr-only" />
-            </label>
+                <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="hidden" />
+            </button>
         @else
-            <div class="relative w-full aspect-square rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-center overflow-hidden bg-zinc-50 dark:bg-zinc-800/50 p-4">
+            <div class="relative w-full aspect-square rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-center overflow-hidden bg-zinc-50 dark:bg-zinc-800/50 p-4 transition-colors"
+                 :class="isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''"
+                 @dragover.prevent="isDragging = true"
+                 @dragleave.prevent="isDragging = false"
+                 @drop.prevent="isDragging = false; if($event.dataTransfer.files.length) processFile($event.dataTransfer.files[0])">
                 
-                <div class="text-sm font-medium tracking-wider text-zinc-500 mb-6 text-center">Tambahkan Foto</div>
+                <div class="text-sm font-medium tracking-wider text-zinc-500 mb-6 text-center">Tambahkan / Drop Foto</div>
 
                 <div class="flex gap-4 w-full justify-center">
                     {{-- Tombol Kamera (Langsung Buka Kamera di HP) --}}
-                    <div class="relative group cursor-pointer flex flex-col items-center justify-center p-3 w-[45%] max-w-[120px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm rounded-xl hover:border-blue-500 dark:hover:border-blue-400 transition-all">
+                    <div @click="pickFile('camera')" class="relative group cursor-pointer flex flex-col items-center justify-center p-3 w-[45%] max-w-[120px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm rounded-xl hover:border-blue-500 dark:hover:border-blue-400 transition-all">
                         <flux:icon.camera class="w-8 h-8 mb-2 text-zinc-400 group-hover:text-blue-500 transition-colors" />
                         <span class="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 text-center leading-tight">Buka<br>Kamera</span>
-                        <input type="file" x-ref="fileInputCamera" @change="handleFile" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Buka Kamera" />
+                        <input type="file" x-ref="fileInputCamera" @change="handleFile" accept="image/*" capture="environment" class="hidden" title="Buka Kamera" />
                     </div>
 
                     {{-- Tombol Galeri / File --}}
-                    <div class="relative group cursor-pointer flex flex-col items-center justify-center p-3 w-[45%] max-w-[120px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm rounded-xl hover:border-blue-500 dark:hover:border-blue-400 transition-all">
+                    <div @click="pickFile('gallery')" class="relative group cursor-pointer flex flex-col items-center justify-center p-3 w-[45%] max-w-[120px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm rounded-xl hover:border-blue-500 dark:hover:border-blue-400 transition-all">
                         <flux:icon.photo class="w-8 h-8 mb-2 text-zinc-400 group-hover:text-blue-500 transition-colors" />
                         <span class="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 text-center leading-tight">Pilih dari<br>Galeri</span>
-                        <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Unggah Foto" />
+                        <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="hidden" title="Unggah Foto" />
                     </div>
                 </div>
                 
@@ -203,15 +209,15 @@
                 <button type="button" @click="removeImage()" class="flex items-center justify-center gap-1 hover:bg-red-50 hover:text-red-600 text-zinc-500 transition px-2 py-1.5 rounded-lg border border-transparent hover:border-red-200 shadow-sm" title="Hapus Foto">
                     <flux:icon.trash class="w-4 h-4" />
                 </button>
-                <div class="relative cursor-pointer flex items-center justify-center gap-1.5 hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1">
+                <div @click="pickFile('camera')" class="relative cursor-pointer flex items-center justify-center gap-1.5 hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1">
                     <flux:icon.camera class="w-4 h-4" />
                     <span class="text-[11px] font-semibold">Kamera</span>
-                    <input type="file" x-ref="fileInputAltCamera" @change="handleFile" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="Gunakan Kamera">
+                    <input type="file" x-ref="fileInputAltCamera" @change="handleFile" accept="image/*" capture="environment" class="hidden" title="Gunakan Kamera">
                 </div>
-                <div class="relative cursor-pointer flex items-center justify-center gap-1.5 hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1">
+                <div @click="pickFile('gallery')" class="relative cursor-pointer flex items-center justify-center gap-1.5 hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1">
                     <flux:icon.photo class="w-4 h-4" />
                     <span class="text-[11px] font-semibold">Galeri</span>
-                    <input type="file" x-ref="fileInputAlt" @change="handleFile" accept="{{ $accept }}" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="Pilih dari Galeri">
+                    <input type="file" x-ref="fileInputAlt" @change="handleFile" accept="{{ $accept }}" class="hidden" title="Pilih dari Galeri">
                 </div>
             </div>
         </div>
@@ -240,15 +246,15 @@
                 <button type="button" @click="removeImage()" class="flex items-center justify-center gap-1 hover:bg-red-50 hover:text-red-600 text-zinc-500 transition px-2 py-1.5 rounded-lg border border-transparent hover:border-red-200 shadow-sm" title="Hapus Foto">
                     <flux:icon.trash class="w-4 h-4" />
                 </button>
-                <div class="relative cursor-pointer flex items-center justify-center gap-1.5 hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1">
+                <div @click="pickFile('camera')" class="relative cursor-pointer flex items-center justify-center gap-1.5 hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1">
                     <flux:icon.camera class="w-4 h-4" />
                     <span class="text-[11px] font-semibold">Kamera</span>
-                    <input type="file" x-ref="fileInputServerCamera" @change="handleFile" accept="image/*" capture="environment" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="Gunakan Kamera">
+                    <input type="file" x-ref="fileInputServerCamera" @change="handleFile" accept="image/*" capture="environment" class="hidden" title="Gunakan Kamera">
                 </div>
-                <div class="relative cursor-pointer flex items-center justify-center gap-1.5 hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1">
+                <div @click="pickFile('gallery')" class="relative cursor-pointer flex items-center justify-center gap-1.5 hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1">
                     <flux:icon.photo class="w-4 h-4" />
                     <span class="text-[11px] font-semibold">Galeri</span>
-                    <input type="file" x-ref="fileInputServer" @change="handleFile" accept="{{ $accept }}" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="Pilih dari Galeri">
+                    <input type="file" x-ref="fileInputServer" @change="handleFile" accept="{{ $accept }}" class="hidden" title="Pilih dari Galeri">
                 </div>
             </div>
         </div>
