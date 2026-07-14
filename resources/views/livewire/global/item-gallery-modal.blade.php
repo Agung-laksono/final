@@ -45,9 +45,25 @@ new class extends Component {
         $this->resetPage();
     }
 
+    #[On('open-gallery')]
+    public function handleOpenGallery($context = 'inventory')
+    {
+        $this->context = $context;
+        
+        $type = null;
+        if ($context === 'purchase') {
+            $type = Type::where('name', 'like', '%bahan baku utama%')->first();
+        } elseif ($context === 'sales') {
+            $type = Type::where('name', 'like', '%produk jadi%')->first();
+        }
+        
+        $this->typeId = $type ? $type->id : '';
+        $this->resetPage();
+    }
+
     public function with()
     {
-        $query = Item::with(['category', 'subCategory', 'unit', 'warehouses']);
+        $query = Item::with(['category', 'subCategory', 'type', 'unit', 'warehouses']);
 
         if (strlen($this->searchQuery) >= 2) {
             $query->where(function($q) {
@@ -224,19 +240,19 @@ new class extends Component {
                 @forelse($galleryItems as $item)
                     <div @if($item->is_active) @click="playSelectSound(); $dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: '{{ addslashes($item->name) }}', code: '{{ $item->code ?? '0001' }}', unit_price: {{ $context === 'sales' ? ($item->selling_price ?? 0) : ($item->purchase_price ?? 0) }}, image: '{{ $item->image }}', has_history: {{ in_array($item->id, $itemsWithHistory) ? 'true' : 'false' }} } })" @endif
                          :class="$data.items?.find(i => i.item_id == {{ $item->id }}) ? 'border-cyan-600 ring-2 ring-cyan-600 shadow-lg scale-[1.02]' : 'border-zinc-200 dark:border-zinc-800 {{ $item->is_active ? 'hover:border-cyan-500/50 hover:shadow-lg hover:scale-[1.02]' : '' }}'"
-                         class="relative bg-white dark:bg-zinc-900 rounded-xl border overflow-hidden transition-all {{ $item->is_active ? 'cursor-pointer group' : 'cursor-not-allowed' }} flex flex-col h-full">
+                         class="relative bg-white dark:bg-zinc-900 rounded-xl overflow-hidden transition-all duration-300 {{ $item->is_active ? 'cursor-pointer group' : 'cursor-not-allowed' }} flex flex-col h-full border">
                         
                         {{-- NON ACTIVE Overlay --}}
                         @if (!$item->is_active)
-                        <div class="absolute z-20 top-0 w-full h-full bg-[#000000ba] flex items-center justify-center pointer-events-none">
-                            <span class="font-bold text-white tracking-widest text-sm">NON ACTIVE</span>
+                        <div class="absolute z-20 top-0 w-full h-full bg-black/60 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
+                            <div class="bg-rose-500 text-white px-3 py-1 rounded shadow-lg transform -rotate-12 font-black tracking-widest border-2 border-white text-xs">NON ACTIVE</div>
                         </div>
                         @endif
 
                         {{-- Selection Badge --}}
                         <template x-if="$data.items?.find(i => i.item_id == {{ $item->id }})">
-                            <div class="absolute top-2 right-2 bg-cyan-600 text-white text-xs font-extrabold px-2 py-1 rounded-md flex items-center gap-1 shadow-md z-30 pointer-events-none">
-                                <flux:icon.check-circle class="w-4 h-4" />
+                            <div class="absolute top-2 right-2 bg-cyan-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-md z-30 pointer-events-none border border-cyan-400/50">
+                                <flux:icon.check-circle class="w-3 h-3" />
                                 <span x-text="$data.items.find(i => i.item_id == {{ $item->id }}).qty + 'x'"></span>
                             </div>
                         </template>
@@ -244,54 +260,90 @@ new class extends Component {
                         {{-- Gambar Atas (Mencolok) --}}
                         <div class="relative w-full aspect-[4/3] bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-b border-zinc-100 dark:border-zinc-800/50">
                             @if ($item->image)
-                                <img src="{{ Storage::url($item->image) }}" loading="lazy" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                                <img x-data="{ loaded: false }" 
+                                     x-on:load="loaded = true" 
+                                     :class="loaded ? 'opacity-100' : 'opacity-0 scale-95'"
+                                     src="{{ Storage::url($item->image) }}" 
+                                     loading="lazy" 
+                                     decoding="async"
+                                     class="w-full h-full object-cover transition-all duration-700 group-hover:scale-110">
                             @else
-                                <div class="w-full h-full flex items-center justify-center text-zinc-300">
-                                    <flux:icon.photo class="w-10 h-10" />
+                                <div class="w-full h-full flex flex-col items-center justify-center text-zinc-300">
+                                    <flux:icon.photo class="w-10 h-10 mb-1 opacity-50" />
                                 </div>
+                                <div class="absolute inset-0" style="background-image: radial-gradient(circle, #e4e4e7 1px, transparent 1px); background-size: 10px 10px; opacity: 0.5;"></div>
                             @endif
+                            
+                            {{-- Badge Tipe Barang (Kiri Atas) --}}
+                            <div class="absolute top-2 left-2 flex z-10 pointer-events-none">
+                                @if ($item->type)
+                                    @php
+                                        $colors = [
+                                            'bahan baku utama' => 'bg-amber-600/90',
+                                            'bahan baku penolong' => 'bg-amber-500/90',
+                                            'produk jadi' => 'bg-emerald-600/90',
+                                            'barang setengah jadi' => 'bg-sky-500/90',
+                                            'jasa' => 'bg-purple-500/90',
+                                            'aset' => 'bg-slate-600/90',
+                                            'custom' => 'bg-rose-500/90',
+                                        ];
+                                        $typeName = strtolower($item->type->name);
+                                        $defaultColors = ['bg-indigo-500/90', 'bg-rose-500/90', 'bg-cyan-500/90', 'bg-teal-500/90', 'bg-fuchsia-500/90'];
+                                        $color = $colors[$typeName] ?? $defaultColors[$item->type->id % count($defaultColors)];
+                                    @endphp
+                                    <div class="{{ $color }} backdrop-blur-sm text-white rounded-md px-1.5 py-0.5 text-[7px] font-bold tracking-wider uppercase shadow-sm border border-white/20">
+                                        {{ $item->type->name }}
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                         
-                        {{-- Informasi Bawah --}}
-                        <div class="p-3 flex flex-col flex-1">
+                        {{-- Informasi Bawah (Jelas & Padat) --}}
+                        <div class="p-2.5 flex flex-col flex-1">
                             {{-- Kategori & Kode --}}
-                            <div class="flex justify-between items-center mb-1.5 gap-2">
-                                <span class="text-[8px] sm:text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest truncate">{{ $item->category?->name ?? 'Tanpa Kategori' }} / {{ $item->subCategory?->name ?? '-' }}</span>
-                                <span class="text-[9px] font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-600 dark:text-zinc-400 shrink-0 border border-zinc-200 dark:border-zinc-700/50">{{ $item->code }}</span>
-                            </div>
-                            
-                            {{-- Nama Barang --}}
-                            <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-[13px] leading-snug line-clamp-2 mb-3 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
-                                {{ $item->name }}
-                            </h3>
-                            
-                            {{-- Harga & Stok --}}
-                            <div class="mt-auto pt-2.5 border-t border-zinc-100 dark:border-zinc-800/50 flex justify-between items-end">
-                                <div class="flex flex-col">
-                                    @if($context === 'sales')
-                                        <span class="text-[10px] sm:text-[11px] font-medium text-emerald-500 mb-0.5">Harga Jual</span>
-                                        <span class="font-bold text-emerald-600 dark:text-emerald-400 text-[12px] sm:text-[14px] leading-none">Rp{{ number_format($item->selling_price ?? 0, 0, ',', '.') }}</span>
-                                    @elseif($context === 'purchase')
-                                        <span class="text-[10px] sm:text-[11px] font-medium text-zinc-500 mb-0.5">Harga Beli</span>
-                                        <span class="font-bold text-zinc-700 dark:text-zinc-300 text-[12px] sm:text-[14px] leading-none">Rp{{ number_format($item->purchase_price ?? 0, 0, ',', '.') }}</span>
-                                    @else
-                                        <span class="text-[10px] sm:text-[11px] font-medium text-zinc-400 mb-0.5">Harga
-                                            <span class="font-bold text-emerald-600 dark:text-emerald-400 leading-none"> jual</span> /
-                                            <span class="font-bold text-gray-600 dark:text-gray-400 leading-none"> beli</span>
-                                        </span>
-                                        <span class="flex flex-col sm:flex-row sm:items-baseline gap-1">
-                                            <span class="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] sm:text-xs leading-none">Rp{{ number_format($item->selling_price ?? 0, 0, ',', '.') }} <span class="hidden sm:inline">/</span></span>
-                                            <span class="font-bold text-gray-600 dark:text-gray-400 text-[9px] leading-none">Rp{{ number_format($item->purchase_price ?? 0, 0, ',', '.') }}</span>
-                                        </span>
+                            <div class="flex justify-between items-start mb-1.5 gap-2">
+                                <div class="flex flex-col overflow-hidden">
+                                    <span class="text-[7px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest truncate">{{ $item->category?->name ?? 'Tanpa Kategori' }}</span>
+                                    @if($item->subCategory)
+                                        <span class="text-[6px] font-semibold text-zinc-400/80 uppercase tracking-wider truncate">{{ $item->subCategory->name }}</span>
                                     @endif
                                 </div>
-                                
-                                <div class="flex flex-col items-end">
-                                    <span class="text-[9px] font-medium text-zinc-400 mb-0.5">Stok</span>
-                                    <div class="flex items-baseline gap-0.5">
-                                        <span class="font-bold text-zinc-800 dark:text-zinc-200 text-[14px] sm:text-[16px] leading-none">{{ $item->warehouses->sum('pivot.stock') }}</span>
-                                        <span class="text-[9px] text-zinc-500">{{ $item->unit?->name ?? '-' }}</span>
-                                    </div>
+                                <span class="text-[8px] font-mono font-medium text-zinc-400 dark:text-zinc-500 shrink-0 mt-0.5">{{ $item->code }}</span>
+                            </div>
+                            
+                            {{-- Nama Barang & Deskripsi --}}
+                            <div class="mb-2 flex-1 overflow-hidden">
+                                <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 text-[11px] leading-tight line-clamp-2 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors" title="{{ $item->name }}">
+                                    {{ $item->name }}
+                                </h3>
+                                @if($item->description)
+                                    <p class="text-[9px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-tight truncate" title="{{ $item->description }}">{{ $item->description }}</p>
+                                @endif
+                            </div>
+                            
+                            {{-- Harga & Stok --}}
+                            <div class="mt-auto flex items-end justify-between pt-1.5 border-t border-zinc-100/80 dark:border-zinc-800/50">
+                                <div class="flex flex-col gap-0.5">
+                                    @if($context === 'sales')
+                                        <div class="flex items-center" title="Harga Jual">
+                                            <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 leading-none">Rp{{ number_format($item->selling_price ?? 0, 0, ',', '.') }}</span>
+                                        </div>
+                                    @elseif($context === 'purchase')
+                                        <div class="flex items-center" title="Harga Beli">
+                                            <span class="text-[11px] font-bold text-zinc-600 dark:text-zinc-300 leading-none">Rp{{ number_format($item->purchase_price ?? 0, 0, ',', '.') }}</span>
+                                        </div>
+                                    @else
+                                        <div class="flex items-center" title="Harga Beli">
+                                            <span class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 leading-none">Rp{{ number_format($item->purchase_price ?? 0, 0, ',', '.') }}</span>
+                                        </div>
+                                        <div class="flex items-center" title="Harga Jual">
+                                            <span class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 leading-none">Rp{{ number_format($item->selling_price ?? 0, 0, ',', '.') }}</span>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="flex items-baseline gap-0.5 text-right pb-0.5">
+                                    <span class="font-bold text-zinc-700 dark:text-zinc-300 text-[13px] leading-none">{{ $item->warehouses->sum('pivot.stock') }}</span>
+                                    <span class="text-[8px] font-medium text-zinc-400 dark:text-zinc-500">{{ $item->unit?->name ?? '-' }}</span>
                                 </div>
                             </div>
                         </div>

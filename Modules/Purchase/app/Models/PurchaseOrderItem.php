@@ -14,6 +14,11 @@ class PurchaseOrderItem extends Model
      * The attributes that are mass assignable.
      */
     protected $guarded = ['id'];
+    
+    protected $casts = [
+        'custom_attributes' => 'array',
+        'custom_attachments' => 'array',
+    ];
 
     public function purchaseOrder()
     {

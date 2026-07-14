@@ -276,6 +276,8 @@ $saveCart = function ($cartData) {
                 'unit_price' => $item['unit_price'],
                 'subtotal' => $item['subtotal'],
                 'notes' => $item['note'] ?? null, // Simpan ke DB
+                'custom_attributes' => $item['custom_attributes'] ?? null,
+                'custom_attachments' => $item['custom_attachments'] ?? null,
             ]
         );
     }
@@ -387,7 +389,7 @@ $saveCart = function ($cartData) {
                     </div>
                     
                     {{-- Tombol Galeri Barang --}}
-                    <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
+                    <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; Livewire.dispatch('open-gallery', { context: 'sales' }); setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
                         <div class="flex items-center gap-2">
                             <flux:icon.squares-2x2 class="w-4 h-4" x-show="!loading" />
                             <svg x-show="loading" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -417,52 +419,81 @@ $saveCart = function ($cartData) {
                             </div>
 
                             {{-- Image Container (Top on Mobile, Left on Desktop) --}}
-                            <div class="w-full sm:w-32 h-32 sm:h-auto shrink-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center relative rounded-t-2xl sm:rounded-none sm:rounded-l-2xl overflow-hidden">
-                                <template x-if="item.image">
+                            <div class="w-full sm:w-32 h-32 sm:h-auto shrink-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center relative rounded-t-2xl sm:rounded-none sm:rounded-l-2xl overflow-hidden group">
+                                <template x-if="item.custom_attachments && item.custom_attachments.length > 0">
+                                    <img :src="'/storage/' + item.custom_attachments[0]" class="w-full h-full object-cover absolute inset-0">
+                                </template>
+                                <template x-if="!(item.custom_attachments && item.custom_attachments.length > 0) && item.image">
                                     <img :src="'/storage/' + item.image" class="w-full h-full object-cover absolute inset-0">
                                 </template>
-                                <template x-if="!item.image">
+                                <template x-if="!(item.custom_attachments && item.custom_attachments.length > 0) && !item.image">
                                     <flux:icon.cube class="w-10 h-10 text-zinc-300 dark:text-zinc-600" />
+                                </template>
+                                
+                                {{-- Custom Badge Overlay --}}
+                                <template x-if="(item.custom_attributes && item.custom_attributes.length > 0) || (item.custom_attachments && item.custom_attachments.length > 0)">
+                                    <div class="absolute bottom-0 left-0 w-full bg-emerald-500/95 text-emerald-50 text-[10px] font-bold text-center py-1 uppercase tracking-widest backdrop-blur-md shadow-sm border-t border-emerald-400/50">
+                                        Custom MTO
+                                    </div>
                                 </template>
                             </div>
 
                             {{-- Content --}}
                             <div class="flex-1 flex flex-col p-4 sm:p-5 relative min-w-0">
                                 {{-- Floating Action Buttons on the Right --}}
-                                <div class="absolute bottom-4 right-4" :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom' }">
-                                    {{-- Tombol Edit (Amber jika ada catatan, Primary jika kosong) --}}
-                                    <div x-show="item.note" x-cloak>
-                                        <flux:button size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
+                                <div class="absolute top-4 right-4 flex items-center gap-2">
+                                    <!-- Tombol Customizer -->
+                                    <div>
+                                        <flux:button 
+                                            size="sm" 
+                                            icon="adjustments-horizontal" 
+                                            @click="openItemCustomizer(index)" 
+                                            title="Sesuaikan (Custom Spesifikasi & Gambar)" 
+                                            x-bind:class="(item.custom_attributes && item.custom_attributes.length > 0) || (item.custom_attachments && item.custom_attachments.length > 0) ? '!bg-emerald-500 hover:!bg-emerald-600 !border-emerald-600 !text-white' : 'text-slate-400 hover:text-slate-600'"
+                                            x-bind:variant="(item.custom_attributes && item.custom_attributes.length > 0) || (item.custom_attachments && item.custom_attachments.length > 0) ? 'primary' : 'subtle'" 
+                                        />
                                     </div>
-                                    <div x-show="!item.note">
-                                        <flux:button variant="primary" size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" />
-                                    </div>
-                                    
-                                    {{-- Popover Quick Note / Rich Editor --}}
-                                    <div x-show="open" @click.away="open = false" x-transition 
-                                         class="absolute right-0 w-[calc(100vw-2rem)] sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 cursor-auto z-50" 
-                                         :class="placement === 'top' ? 'bottom-full mb-3 origin-bottom-right' : 'top-full mt-3 origin-top-right'"
-                                         style="display: none;">
-                                        <div x-data="{
-                                            get isRichText() {
-                                                const val = item.note || '';
-                                                return val.includes('<p>') || val.includes('<br>') || val.includes('<strong>') || val.includes('<em>') || val.includes('<img') || val.includes('<table') || val.includes('<ul') || val.includes('<ol');
-                                            }
-                                        }">
-                                            <div class="flex justify-between items-center mb-4">
-                                                <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">CATATAN ITEM</h3>
-                                                <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" class="!px-2 h-7" @click="$dispatch('open-item-editor', { index: index }); open = false;" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
-                                            </div>
-                                            
-                                            <!-- Jika terdeteksi HTML -->
-                                            <div x-show="isRichText" x-cloak class="relative group" @click="$dispatch('open-item-editor', { index: index }); open = false;">
-                                                <div class="w-full min-h-[6rem] max-h-[12rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-2 bg-zinc-50 dark:bg-zinc-800/50 text-xs prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 cursor-pointer" x-html="item.note">
+
+                                    <div :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom' }">
+                                        {{-- Tombol Edit (Amber jika ada catatan, Primary jika kosong) --}}
+                                        <div x-show="item.note" x-cloak>
+                                            <flux:button size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
+                                        </div>
+                                        <div x-show="!item.note">
+                                            <flux:button variant="subtle" size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="text-slate-400 hover:text-slate-600" />
+                                        </div>
+                                        
+                                        {{-- Popover Quick Note / Rich Editor --}}
+                                        <div x-show="open" @click.away="open = false" x-transition 
+                                             class="absolute right-0 w-[calc(100vw-2rem)] sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 cursor-auto z-50" 
+                                             :class="placement === 'top' ? 'bottom-full mb-3 origin-bottom-right' : 'top-full mt-3 origin-top-right'"
+                                             style="display: none;">
+                                            <div x-data="{
+                                                get isRichText() {
+                                                    const val = item.note || '';
+                                                    return val.includes('<p>') || val.includes('<br>') || val.includes('<strong>') || val.includes('<em>') || val.includes('<img') || val.includes('<table') || val.includes('<ul') || val.includes('<ol');
+                                                }
+                                            }">
+                                                <div class="flex justify-between items-center mb-4 gap-2">
+                                                    <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">CATATAN ITEM</h3>
+                                                    <div class="flex gap-1 shrink-0">
+                                                        <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" class="!px-2 h-7" @click="openItemEditor(index); open = false;" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            
-                                            <!-- Quick Note -->
-                                            <div x-show="!isRichText" class="bg-slate-50 dark:bg-zinc-800 rounded-xl p-3 shadow-inner border border-zinc-200 dark:border-zinc-700 focus-within:border-zinc-300 focus-within:ring-1 focus-within:ring-zinc-300 transition-colors">
-                                                <textarea x-model="item.note" class="w-full bg-transparent border-none focus:border-none focus:ring-0 outline-none focus:outline-none text-sm text-slate-700 dark:text-zinc-300 placeholder-slate-400 dark:placeholder-zinc-500 min-h-[120px] resize-none p-0" placeholder="Tulis catatan..."></textarea>
+                                                
+                                                <!-- Jika terdeteksi HTML -->
+                                                <div x-show="isRichText" x-cloak class="relative group" @click="openItemEditor(index); open = false;">
+                                                    <div class="w-full min-h-[6rem] max-h-[12rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-2 bg-zinc-50 dark:bg-zinc-800/50 text-xs prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 cursor-pointer" x-html="item.note">
+                                                    </div>
+                                                    <div class="absolute inset-0 bg-black/5 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                                        <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-white/90 dark:bg-zinc-800/90 px-2 py-1 rounded shadow-sm">Klik untuk edit full</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Quick Note -->
+                                                <div x-show="!isRichText" class="bg-slate-50 dark:bg-zinc-800 rounded-xl p-3 shadow-inner border border-zinc-200 dark:border-zinc-700 focus-within:border-zinc-300 focus-within:ring-1 focus-within:ring-zinc-300 transition-colors">
+                                                    <textarea x-model="item.note" class="w-full bg-transparent border-none focus:border-none focus:ring-0 outline-none focus:outline-none text-sm text-slate-700 dark:text-zinc-300 placeholder-slate-400 dark:placeholder-zinc-500 min-h-[120px] resize-none p-0" placeholder="Tulis catatan..."></textarea>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -470,13 +501,28 @@ $saveCart = function ($cartData) {
 
                                 {{-- Product Info --}}
                                 <div class="pr-10 sm:pr-12">
-                                    <h4 class="font-bold text-[#1a2b4c] dark:text-zinc-100 text-[14px] sm:text-[15px] leading-snug line-clamp-1 uppercase" x-text="item.name"></h4>
+                                    <h4 class="font-bold text-[#1a2b4c] dark:text-zinc-100 text-[14px] sm:text-[15px] leading-snug line-clamp-1 uppercase flex items-center gap-1.5 flex-wrap">
+                                        <span x-text="item.name"></span>
+                                        <template x-if="(item.custom_attributes && item.custom_attributes.length > 0) || (item.custom_attachments && item.custom_attachments.length > 0)">
+                                            <span class="inline-flex items-center gap-0.5 text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded shadow-sm">
+                                                <flux:icon.sparkles class="w-2.5 h-2.5 text-emerald-600" /> CUSTOM
+                                            </span>
+                                        </template>
+                                    </h4>
                                     <div class="text-[12px] sm:text-[13px] text-zinc-400 font-medium mt-0.5 sm:mt-1 uppercase" x-text="item.code || '0001'"></div>
                                     
-                                    {{-- Cuplikan Catatan (Opsi 1) --}}
-                                    <div x-show="item.note" x-cloak class="mt-1.5 sm:mt-2 flex items-start gap-1.5 text-[11px] sm:text-[12px] text-zinc-500 dark:text-zinc-400">
+                                    {{-- Custom Badges Preview --}}
+                                    <div x-show="item.custom_attributes && item.custom_attributes.length > 0" class="mt-1.5 flex flex-wrap gap-1">
+                                        <template x-for="attr in item.custom_attributes">
+                                            <span class="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-sm" x-text="attr.key + ': ' + attr.value"></span>
+                                        </template>
+                                    </div>
+                                    <div x-show="item.custom_attachments && item.custom_attachments.length > 0" class="mt-1 flex gap-1">
+                                        <flux:icon.photo class="w-3 h-3 text-amber-500" /> <span class="text-[10px] text-amber-600" x-text="item.custom_attachments.length + ' Gambar'"></span>
+                                    </div>
+                                    <div x-show="item.note && (!item.custom_attributes || item.custom_attributes.length === 0)" class="mt-1.5 sm:mt-2 flex items-start gap-1.5 text-[11px] sm:text-[12px] text-zinc-500 dark:text-zinc-400">
                                         <flux:icon.document-text class="w-3 h-3 sm:w-3.5 sm:h-3.5 mt-0.5 shrink-0 text-amber-500" />
-                                        <span class="italic line-clamp-2 leading-tight prose prose-xs prose-p:my-0" x-html="item.note"></span>
+                                        <span class="italic line-clamp-1 leading-tight prose prose-xs prose-p:my-0" x-html="item.note"></span>
                                     </div>
                                 </div>
 
@@ -618,7 +664,7 @@ $saveCart = function ($cartData) {
                         <p class="text-blue-600 dark:text-blue-400 mt-2 max-w-md">Keranjang penjualan masih kosong. Silakan cari barang atau pilih dari galeri untuk memulai transaksi.</p>
                         
                         <div class="mt-8 flex gap-4">
-                            <flux:button variant="primary" icon="squares-2x2" @click="$flux.modal('gallery-modal').show()">Buka Galeri</flux:button>
+                            <flux:button variant="primary" icon="squares-2x2" x-data="{ loading: false }" x-on:click="loading = true; Livewire.dispatch('open-gallery', { context: 'sales' }); setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)">Buka Galeri</flux:button>
                             <flux:button @click="setTimeout(() => Array.from(document.querySelectorAll('input')).find(i => i.placeholder && i.placeholder.includes('Ketik')).focus(), 100)" variant="subtle" icon="magnifying-glass">Cari Barang</flux:button>
                         </div>
                     </div>
@@ -951,6 +997,9 @@ $saveCart = function ($cartData) {
     {{-- Modal Tambah Barang dari komponen global --}}
     <livewire:global.item-form-modal />
     <livewire:customer.customer-form-modal />
+    
+    {{-- Modal Customizer Barang --}}
+    <livewire:global.item-customizer-modal />
 
     {{-- Template Modal untuk Rich Editor --}}
     <livewire:global.template-modal context="sales" />
@@ -992,9 +1041,19 @@ $saveCart = function ($cartData) {
             
             openItemEditor(index) {
                 this.editingNoteIndex = index;
-                // Set Livewire tempNoteContent to current item note, so TinyMCE loads it
                 this.$wire.set('tempNoteContent', this.items[index].note || '');
                 this.showEditor = true;
+            },
+            
+            openItemCustomizer(index) {
+                let itemData = {
+                    item_id: this.items[index].item_id,
+                    name: this.items[index].name,
+                    note: this.items[index].note || '',
+                    custom_attributes: this.items[index].custom_attributes || [],
+                    custom_attachments: this.items[index].custom_attachments || []
+                };
+                Livewire.dispatch('open-customizer', { index: index, itemData: itemData });
             },
             
             saveEditor() {
@@ -1080,6 +1139,8 @@ $saveCart = function ($cartData) {
                         subtotal: newItem.unit_price,
                         image: newItem.image,
                         note: '',
+                        custom_attributes: [],
+                        custom_attachments: [],
                         has_history: newItem.has_history
                     });
                     this.calculateTax();
@@ -1128,6 +1189,30 @@ $saveCart = function ($cartData) {
     } else {
         document.addEventListener('alpine:init', initSalesCart);
     }
+    
+    document.addEventListener('livewire:initialized', () => {
+        Livewire.on('customizer-saved', (data) => {
+            let detail = data[0];
+            let index = detail.index;
+            let cart = Alpine.$data(document.querySelector('[x-data="cartSystem()"]'));
+            if (cart && cart.items[index]) {
+                cart.items[index].note = detail.note;
+                cart.items[index].custom_attributes = detail.custom_attributes;
+                cart.items[index].custom_attachments = detail.custom_attachments;
+            }
+        });
+        
+        Livewire.on('add-variant-to-cart', (data) => {
+            let detail = data[0];
+            let cart = Alpine.$data(document.querySelector('[x-data="cartSystem()"]'));
+            if (cart) {
+                cart.addItem(detail.item);
+                // The newly added or updated item is now at index 0
+                cart.items[0].custom_attributes = detail.custom_attributes;
+                cart.items[0].custom_attachments = detail.custom_attachments;
+            }
+        });
+    });
     </script>
     
     @once

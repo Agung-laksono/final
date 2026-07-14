@@ -56,6 +56,15 @@ class Item extends Model
     }
 
     /**
+     * Varian Custom (Riwayat pesanan yang menggunakan spesifikasi custom)
+     */
+    public function customVariants()
+    {
+        return $this->hasMany(\Modules\Sales\Models\SalesOrderItem::class)
+                    ->whereNotNull('custom_attributes');
+    }
+
+    /**
      * Calculate Available to Promise (ATP)
      * ATP = Physical Stock + Incoming (WIP + PO) - Committed (Booking)
      */

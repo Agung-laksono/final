@@ -15,10 +15,20 @@ state([
     'initial_stock_warehouse_id' => '',
     'initial_stock_qty' => 1,
     'initial_stock_notes' => 'Saldo Awal',
+    'production' => 0,
+    'purchase_queue' => 0,
+    'purchase_order' => 0,
+    'sales_committed' => 0,
+    'atp' => 0,
 ]);
 
 $fetchData = function ($id) {
-    $this->item = Item::with(['category', 'subCategory', 'unit', 'type', 'warehouses'])->findOrFail($id);
+    $this->item = Item::with([
+        'category', 'subCategory', 'unit', 'type', 'warehouses',
+        'customVariants' => fn($q) => $q->with('salesOrder.customer')->latest('id')->limit(100)
+    ])
+        ->withCount('customVariants')
+        ->findOrFail($id);
     
     // Ambil data pergerakan stok
     $allMovements = clone StockMovement::with(['warehouse', 'user'])
@@ -32,22 +42,34 @@ $fetchData = function ($id) {
     $this->avg_out_per_day = round($this->out_this_month / max(1, now()->day), 1);
     
     $this->movements = $allMovements->take(50);
+    
+    // Fetch pipeline stats
+    $stats = $this->item->getInventoryStats();
+    $this->production = $stats['production'] ?? 0;
+    $this->purchase_queue = $stats['purchase_queue'] ?? 0;
+    $this->purchase_order = $stats['purchase_order'] ?? 0;
+    $this->sales_committed = $stats['sales_committed'] ?? 0;
+    $this->atp = $this->item->getATP();
 };
 
-$openModal = function ($id) {
+$openModal = function ($id, $tab = 'info') {
     $this->fetchData($id);
     
     $this->initial_stock_warehouse_id = '';
     $this->initial_stock_qty = 1;
     $this->initial_stock_notes = 'Saldo Awal';
-    $this->tab = 'info'; 
+    $this->tab = $tab; 
     
-    $this->dispatch('item-detail-modal-opened');
+    $this->dispatch('item-detail-modal-opened', ['tab' => $tab]);
     Flux::modal('item-detail-modal')->show();
 };
 
-on(['open-item-detail' => function ($id) {
-    $this->openModal($id);
+on(['open-item-detail' => function ($payload) {
+    if (is_array($payload)) {
+        $this->openModal($payload['id'], $payload['tab'] ?? 'info');
+    } else {
+        $this->openModal($payload);
+    }
 }]);
 
 $editItem = function () {
@@ -215,8 +237,8 @@ $saveInitialStock = function () {
                     $wire.refreshItem();
                 });
         }
-        $wire.on('item-detail-modal-opened', () => {
-            this.tab = 'info';
+        $wire.on('item-detail-modal-opened', (data) => {
+            this.tab = data && data.length > 0 && data[0].tab ? data[0].tab : 'info';
         });
     }
 }">
@@ -257,6 +279,11 @@ $saveInitialStock = function () {
                         <button type="button" @click="tab = 'history'" :class="tab === 'history' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'" class="pb-3 text-sm transition-colors">
                             Riwayat
                         </button>
+                        @if($item->custom_variants_count > 0)
+                        <button type="button" @click="tab = 'variants'" :class="tab === 'variants' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'" class="pb-3 text-sm transition-colors">
+                            Varian ({{ $item->custom_variants_count }})
+                        </button>
+                        @endif
                     </div>
 
                     <div x-show="tab === 'info'" x-cloak>
@@ -278,6 +305,79 @@ $saveInitialStock = function () {
                                             <div class="w-full h-full flex flex-col items-center justify-center text-zinc-400">
                                                 <flux:icon.photo class="w-12 h-12 mb-2" />
                                                 <span class="text-xs">Tak Ada Foto</span>
+                                            </div>
+                                        @endif
+
+                                        {{-- Mini Variants Carousel & Tooltip --}}
+                                        @if ($item->custom_variants_count > 0)
+                                            <div x-data="{ showTooltip: false }" 
+                                                 class="absolute bottom-2 left-2 z-50 right-2 flex items-center justify-between cursor-pointer pointer-events-auto"
+                                                 @mouseenter="showTooltip = true"
+                                                 @mouseleave="showTooltip = false"
+                                                 @click.stop="showTooltip = !showTooltip">
+                                                 
+                                                <div class="flex -space-x-1.5 overflow-hidden p-1 transition-transform hover:scale-105">
+                                                    @foreach($item->customVariants as $variant)
+                                                        @if(!empty($variant->custom_attachments))
+                                                            <img class="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover bg-white shadow-md" 
+                                                                 src="{{ asset('storage/' . $variant->custom_attachments[0]) }}" 
+                                                                 alt="Varian">
+                                                        @endif
+                                                    @endforeach
+                                                </div>
+                                                @if($item->custom_variants_count > count($item->customVariants))
+                                                    <span class="bg-black/50 text-white text-xs font-bold px-2 py-1 rounded backdrop-blur-sm shadow-sm transition-transform hover:scale-105">
+                                                        +{{ $item->custom_variants_count - count($item->customVariants) }}
+                                                    </span>
+                                                @endif
+                                                
+                                                {{-- Popover Overlay --}}
+                                                <div x-show="showTooltip" 
+                                                     x-transition:enter="transition ease-out duration-200"
+                                                     x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+                                                     x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                                     x-transition:leave="transition ease-in duration-150"
+                                                     x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                                     x-transition:leave-end="opacity-0 translate-y-2 scale-95"
+                                                     class="absolute bottom-12 left-0 w-72 bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden pointer-events-none"
+                                                     style="display: none; transform-origin: bottom left;">
+                                                     
+                                                    <div class="bg-indigo-600 px-4 py-2.5 text-white flex justify-between items-center">
+                                                        <div class="font-bold text-sm flex items-center gap-1.5">
+                                                            <flux:icon.swatch class="w-4 h-4" /> 
+                                                            Riwayat Varian
+                                                        </div>
+                                                        <div class="text-xs bg-indigo-800/50 px-2 py-0.5 rounded">{{ $item->custom_variants_count }} Total</div>
+                                                    </div>
+                                                    
+                                                    <div class="p-2 flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar">
+                                                        @foreach($item->customVariants as $variant)
+                                                            <div class="flex gap-3 p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-100 dark:border-zinc-700/50 shadow-sm">
+                                                                @if(!empty($variant->custom_attachments))
+                                                                    <img src="{{ asset('storage/' . $variant->custom_attachments[0]) }}" 
+                                                                         class="w-12 h-12 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm shrink-0 bg-white">
+                                                                @else
+                                                                    <div class="w-12 h-12 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700">
+                                                                        <flux:icon.photo class="w-5 h-5 text-zinc-400" />
+                                                                    </div>
+                                                                @endif
+                                                                <div class="flex-1 min-w-0 flex flex-col justify-center">
+                                                                    <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                                                                        {{ $variant->salesOrder?->customer?->name ?? 'Pelanggan Umum' }}
+                                                                    </div>
+                                                                    <div class="text-[10px] text-zinc-500 mb-1">
+                                                                        {{ $variant->created_at?->format('d M Y') ?? 'Tidak diketahui' }}
+                                                                    </div>
+                                                                    @if(!empty($variant->custom_attributes))
+                                                                        <div class="text-[10px] text-indigo-600 dark:text-indigo-400 truncate font-medium">
+                                                                            {{ collect($variant->custom_attributes)->map(fn($v, $k) => $k . ': ' . (is_array($v) ? implode(', ', $v) : $v))->implode(' | ') }}
+                                                                        </div>
+                                                                    @endif
+                                                                </div>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
                                             </div>
                                         @endif
                                     </div>
@@ -390,51 +490,108 @@ $saveInitialStock = function () {
 
                                 <flux:separator variant="subtle" />
 
-                                {{-- Dasbor Analitik (Mockup) --}}
+                                {{-- Dasbor Analitik (Realtime Pipeline) --}}
                                 <div>
                                     <h3 class="text-sm font-bold mb-3 text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
-                                        <flux:icon.chart-bar class="w-4 h-4 text-blue-500"/>
-                                        Statistik Pergerakan (Mockup)
+                                        <flux:icon.arrow-path-rounded-square class="w-4 h-4 text-blue-500"/>
+                                        Status Pipeline (Realtime)
                                     </h3>
                                     
-                                    <div class="grid grid-cols-3 gap-3 mb-4">
-                                        <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
-                                            <div class="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Masuk (Bln)</div>
-                                            <div class="text-lg font-bold text-zinc-900 dark:text-zinc-100">+{{ $in_this_month }}</div>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                        <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm flex flex-col justify-between">
+                                            <div class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Dalam Pembelian</div>
+                                            <div class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ $purchase_order + $purchase_queue }} <span class="text-[10px] font-normal text-zinc-400 ml-0.5">{{ $item->unit?->name }}</span></div>
                                         </div>
-                                        <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
-                                            <div class="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Keluar (Bln)</div>
-                                            <div class="text-lg font-bold text-zinc-900 dark:text-zinc-100">-{{ $out_this_month }}</div>
+                                        <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm flex flex-col justify-between">
+                                            <div class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Dalam Produksi</div>
+                                            <div class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ $production }} <span class="text-[10px] font-normal text-zinc-400 ml-0.5">{{ $item->unit?->name }}</span></div>
                                         </div>
-                                        <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
-                                            <div class="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Rata2 Keluar</div>
-                                            <div class="text-lg font-bold text-zinc-900 dark:text-zinc-100">{{ $avg_out_per_day }}/hr</div>
+                                        <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm flex flex-col justify-between">
+                                            <div class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Pesanan (Booking)</div>
+                                            <div class="text-lg font-bold text-rose-600 dark:text-rose-400">{{ $sales_committed }} <span class="text-[10px] font-normal text-zinc-400 ml-0.5">{{ $item->unit?->name }}</span></div>
+                                        </div>
+                                        <div class="bg-emerald-50 dark:bg-emerald-500/10 p-3 rounded-lg border border-emerald-200 dark:border-emerald-500/30 shadow-sm flex flex-col justify-between">
+                                            <div class="text-[9px] text-emerald-700 dark:text-emerald-400 uppercase tracking-wider font-bold mb-1" title="Available to Promise (Siap Jual)">Siap Jual (ATP)</div>
+                                            <div class="text-lg font-bold text-emerald-600 dark:text-emerald-400">{{ $atp }} <span class="text-[10px] font-normal text-emerald-500/70 ml-0.5">{{ $item->unit?->name }}</span></div>
                                         </div>
                                     </div>
-
-                                    <!-- Mockup Bar Chart -->
-                                    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 shadow-sm">
-                                        <div class="h-32 w-full flex items-end gap-1 px-1 relative border-b border-l border-zinc-200 dark:border-zinc-700 pb-1">
-                                            <div class="w-full bg-blue-500/30 hover:bg-blue-500/50 rounded-t-sm h-[30%] transition-colors"></div>
-                                            <div class="w-full bg-blue-500/40 hover:bg-blue-500/60 rounded-t-sm h-[45%] transition-colors"></div>
-                                            <div class="w-full bg-blue-500/50 hover:bg-blue-500/70 rounded-t-sm h-[20%] transition-colors"></div>
-                                            <div class="w-full bg-blue-500/60 hover:bg-blue-500/80 rounded-t-sm h-[60%] transition-colors"></div>
-                                            <div class="w-full bg-blue-500/70 hover:bg-blue-500/90 rounded-t-sm h-[80%] transition-colors"></div>
-                                            <div class="w-full bg-blue-500/80 hover:bg-blue-500 rounded-t-sm h-[55%] transition-colors"></div>
-                                            <div class="w-full bg-blue-600 hover:bg-blue-700 rounded-t-sm h-[90%] transition-colors"></div>
-                                        </div>
-                                        <div class="flex justify-between mt-2 text-[9px] font-medium text-zinc-400">
-                                            <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span>
-                                        </div>
+                                    
+                                    <div class="text-[10px] text-zinc-500 flex items-center gap-1.5 mb-6">
+                                        <flux:icon.information-circle class="w-3.5 h-3.5" />
+                                        <span><strong>ATP (Available to Promise)</strong> = Stok Fisik + Barang Masuk (Beli/Produksi) - Pesanan Keluar.</span>
                                     </div>
                                 </div>
 
-                                {{-- Tren Harga (Mockup) --}}
+                                {{-- Tren Harga (Real Data) --}}
+                                @php
+                                    // Fetch real price history
+                                    $histories = $item->priceHistories()->orderBy('created_at', 'asc')->get();
+                                    $dataPoints = [];
+                                    foreach ($histories as $h) {
+                                        $dataPoints[] = [
+                                            'purchase' => (float)$h->purchase_price,
+                                            'selling' => (float)$h->selling_price,
+                                            'date' => $h->created_at->format('d M y')
+                                        ];
+                                    }
+                                    // Append current state
+                                    $dataPoints[] = [
+                                        'purchase' => (float)$item->purchase_price,
+                                        'selling' => (float)$item->selling_price,
+                                        'date' => 'Saat Ini'
+                                    ];
+                                    
+                                    // Calculate SVG Coordinates
+                                    $count = count($dataPoints);
+                                    
+                                    // Find min/max for scaling
+                                    $allPrices = [];
+                                    foreach ($dataPoints as $dp) {
+                                        $allPrices[] = $dp['purchase'];
+                                        $allPrices[] = $dp['selling'];
+                                    }
+                                    $maxPrice = !empty($allPrices) ? max($allPrices) : 1;
+                                    $minPrice = !empty($allPrices) ? min($allPrices) : 0;
+                                    $padding = ($maxPrice - $minPrice) * 0.1; // 10% padding
+                                    $maxPrice += $padding;
+                                    $minPrice -= $padding;
+                                    if ($minPrice < 0) $minPrice = 0;
+                                    if ($maxPrice == $minPrice) $maxPrice = $minPrice + 1; // avoid div by 0
+                                    
+                                    $width = 100;
+                                    $height = 40;
+                                    
+                                    $purchasePath = '';
+                                    $sellingPath = '';
+                                    
+                                    if ($count > 1) {
+                                        foreach ($dataPoints as $i => $dp) {
+                                            $x = ($i / ($count - 1)) * $width;
+                                            // Y is inverted (0 is top, 40 is bottom)
+                                            $yP = $height - ((($dp['purchase'] - $minPrice) / ($maxPrice - $minPrice)) * $height);
+                                            $yS = $height - ((($dp['selling'] - $minPrice) / ($maxPrice - $minPrice)) * $height);
+                                            
+                                            $cmd = $i === 0 ? 'M' : 'L';
+                                            $purchasePath .= "$cmd$x,$yP ";
+                                            $sellingPath .= "$cmd$x,$yS ";
+                                        }
+                                    } else {
+                                        // Flat line if only 1 data point
+                                        $yP = $height - ((($dataPoints[0]['purchase'] - $minPrice) / ($maxPrice - $minPrice)) * $height);
+                                        $yS = $height - ((($dataPoints[0]['selling'] - $minPrice) / ($maxPrice - $minPrice)) * $height);
+                                        $purchasePath = "M0,$yP L100,$yP";
+                                        $sellingPath = "M0,$yS L100,$yS";
+                                    }
+                                    
+                                    // Polygon for selling gradient (fill under the line)
+                                    $sellingFill = str_starts_with($sellingPath, 'M') ? $sellingPath . " L100,$height L0,$height Z" : "M0,$height L100,$height Z";
+                                @endphp
+
                                 <div class="mt-2">
                                     <div class="flex items-center justify-between mb-3">
                                         <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
                                             <flux:icon.currency-dollar class="w-4 h-4 text-emerald-500"/>
-                                            Tren Harga (Mockup)
+                                            Tren Harga
                                         </h3>
                                         <div class="flex items-center gap-3 text-[10px] font-medium uppercase tracking-wider">
                                             <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500"></span> Beli</span>
@@ -442,27 +599,49 @@ $saveInitialStock = function () {
                                         </div>
                                     </div>
                                     
-                                    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 shadow-sm mb-4">
-                                        <!-- Mockup SVG Line Chart (Dual Line) -->
+                                    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg p-4 shadow-sm mb-4 relative group">
+                                        <!-- Real SVG Line Chart -->
                                         <div class="h-28 w-full relative">
-                                            <svg class="w-full h-full" viewBox="0 0 100 40" preserveAspectRatio="none">
-                                                <!-- Harga Beli (Orange) -->
-                                                <path d="M0,35 L15,30 L30,32 L45,20 L60,25 L75,10 L90,15 L100,5" fill="none" stroke="currentColor" class="text-orange-500" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
-                                                
-                                                <!-- Harga Jual (Emerald) - Higher than purchase -->
-                                                <path d="M0,25 L15,20 L30,22 L45,10 L60,15 L75,2 L90,5 L100,0" fill="none" stroke="currentColor" class="text-emerald-500" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-                                                <path d="M0,25 L15,20 L30,22 L45,10 L60,15 L75,2 L90,5 L100,0 L100,40 L0,40 Z" fill="url(#emerald-gradient)" class="opacity-10"/>
-                                                
+                                            <svg class="w-full h-full overflow-visible" viewBox="0 0 100 40" preserveAspectRatio="none">
                                                 <defs>
-                                                    <linearGradient id="emerald-gradient" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="0%" stop-color="#10b981" />
-                                                        <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
+                                                    <linearGradient id="real-emerald-gradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stop-color="#10b981" stop-opacity="0.3"></stop>
+                                                        <stop offset="100%" stop-color="#10b981" stop-opacity="0"></stop>
                                                     </linearGradient>
                                                 </defs>
+                                                
+                                                <!-- Grid Line (Midpoint) -->
+                                                <line x1="0" y1="20" x2="100" y2="20" stroke="currentColor" stroke-dasharray="2,2" class="text-zinc-200 dark:text-zinc-700" stroke-width="0.3"/>
+                                                
+                                                <!-- Harga Beli (Orange) -->
+                                                <path d="{{ $purchasePath }}" fill="none" stroke="currentColor" class="text-orange-500 transition-all duration-1000" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+                                                
+                                                <!-- Harga Jual (Emerald) -->
+                                                <path d="{{ $sellingPath }}" fill="none" stroke="currentColor" class="text-emerald-500 transition-all duration-1000" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+                                                
+                                                @if($count > 1)
+                                                <path d="{{ $sellingFill }}" fill="url(#real-emerald-gradient)" class="opacity-100 transition-all duration-1000"/>
+                                                @endif
                                             </svg>
+                                            <!-- Data Points Hover Tooltips -->
+                                            <div class="absolute inset-0 flex justify-between items-stretch">
+                                                @foreach($dataPoints as $i => $dp)
+                                                    <div class="flex-1 relative group/point cursor-crosshair">
+                                                        <!-- Invisible hover area -->
+                                                        <div class="absolute inset-0 z-10 hover:bg-zinc-100/30 dark:hover:bg-zinc-800/30 border-r border-zinc-100/50 dark:border-zinc-800/50 {{ $loop->last ? 'border-r-0' : '' }}"></div>
+                                                        <!-- Tooltip -->
+                                                        <div class="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[9px] px-2 py-1 rounded shadow-lg opacity-0 group-hover/point:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-20">
+                                                            <div class="font-bold text-zinc-300 border-b border-zinc-600 pb-0.5 mb-0.5">{{ $dp['date'] }}</div>
+                                                            <div class="text-emerald-400">Jual: Rp {{ number_format($dp['selling'], 0, ',', '.') }}</div>
+                                                            <div class="text-orange-400">Beli: Rp {{ number_format($dp['purchase'], 0, ',', '.') }}</div>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
                                         </div>
                                         <div class="flex justify-between mt-2 text-[9px] font-medium text-zinc-400">
-                                            <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>Mei</span><span>Jun</span>
+                                            <span>{{ $dataPoints[0]['date'] }}</span>
+                                            <span>{{ end($dataPoints)['date'] }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -567,16 +746,52 @@ $saveInitialStock = function () {
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="7" class="px-4 py-8 text-center text-zinc-500">
-                                                    Belum ada riwayat pergerakan stok untuk barang ini.
-                                                </td>
+                                                <td colspan="7" class="px-4 py-8 text-center text-zinc-500 italic">Belum ada riwayat mutasi stok.</td>
                                             </tr>
                                         @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
+                    
+                    @if($item->custom_variants_count > 0)
+                    <div x-show="tab === 'variants'" x-cloak>
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            @foreach($item->customVariants as $variant)
+                                <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                    <div class="aspect-square bg-zinc-100 dark:bg-zinc-800 relative">
+                                        @if(!empty($variant->custom_attachments))
+                                            <img src="{{ asset('storage/' . $variant->custom_attachments[0]) }}" class="w-full h-full object-cover">
+                                        @else
+                                            <div class="absolute inset-0 flex items-center justify-center">
+                                                <flux:icon.photo class="w-8 h-8 text-zinc-300" />
+                                            </div>
+                                        @endif
+                                        <div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] font-mono px-2 py-0.5 rounded">
+                                            {{ $variant->created_at->format('d M Y') }}
+                                        </div>
+                                    </div>
+                                    <div class="p-3">
+                                        <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate mb-1">
+                                            {{ $variant->salesOrder?->customer?->name ?? 'Pelanggan Umum' }}
+                                        </div>
+                                        @if(!empty($variant->custom_attributes))
+                                            <div class="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-3">
+                                                {{ collect($variant->custom_attributes)->map(fn($v, $k) => $k . ': ' . (is_array($v) ? implode(', ', $v) : $v))->implode(' | ') }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        @if($item->custom_variants_count > count($item->customVariants))
+                            <div class="mt-6 text-center text-sm text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 py-3 rounded-xl border border-zinc-100 dark:border-zinc-700/50">
+                                Menampilkan {{ count($item->customVariants) }} varian terbaru dari total {{ $item->custom_variants_count }} varian.
+                            </div>
+                        @endif
+                    </div>
+                    @endif
+
                 </div>
 
                 {{-- Footer Aksi --}}
