@@ -202,6 +202,37 @@
 
             <flux:sidebar.nav>
                 <flux:sidebar.item 
+                    class="cursor-pointer text-indigo-600 dark:text-indigo-400 font-medium"
+                    tooltip="Install Aplikasi"
+                    x-data="{ deferredPrompt: null, showInstall: false }"
+                    @beforeinstallprompt.window="
+                        $event.preventDefault();
+                        deferredPrompt = $event;
+                        showInstall = true;
+                    "
+                    @appinstalled.window="showInstall = false"
+                    x-show="showInstall"
+                    x-cloak
+                    x-on:click="
+                        if (deferredPrompt) {
+                            deferredPrompt.prompt();
+                            deferredPrompt.userChoice.then((choiceResult) => {
+                                if (choiceResult.outcome === 'accepted') {
+                                    showInstall = false;
+                                }
+                                deferredPrompt = null;
+                            });
+                        }
+                    "
+                >
+                    <x-slot:icon>
+                        <flux:icon.arrow-down-tray class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                    </x-slot:icon>
+
+                    <span>{{ __('Install Aplikasi') }}</span>
+                </flux:sidebar.item>
+
+                <flux:sidebar.item 
                     class="cursor-pointer"
                     tooltip="Layar Penuh"
                     x-data="{ isFullscreen: false }"

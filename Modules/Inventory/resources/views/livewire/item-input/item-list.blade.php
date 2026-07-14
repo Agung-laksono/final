@@ -1,7 +1,12 @@
 <?php
 
 use function Livewire\Volt\{state, on, with, usesPagination, layout};
+use Modules\Inventory\Models\Category;
+use Modules\Inventory\Models\SubCategory;
+use Modules\Inventory\Models\Type;
 use Modules\Inventory\Models\Item;
+use Modules\Inventory\Models\Warehouse;
+use App\Models\User;
 use Livewire\WithPagination;
 
 layout('layouts.app');
@@ -14,6 +19,23 @@ state([
     'sortBy' => 'created_at',
     'sortDirection' => 'desc',
     'perPage' => 24,
+    'filterType' => '',
+    'filterCategory' => '',
+    'filterSubCategory' => '',
+    'filterStock' => 'all', // all, available, empty
+    'filterStatus' => 'all', // active, inactive, all
+    'filterWarehouse' => '',
+    'filterCreator' => '',
+    'filterOrdered' => false,
+    'quickFilter' => 'all', // all, critical, wip, booked
+]);
+
+with(fn () => [
+    'types' => Type::all(),
+    'categories' => Category::all(),
+    'warehouses' => Warehouse::all(),
+    'users' => User::all(),
+    'subCategories' => SubCategory::when($this->filterCategory, fn($q) => $q->where('category_id', $this->filterCategory))->get(),
 ]);
 
 $loadMore = function () {
@@ -53,6 +75,57 @@ $getItems = function () {
         })
         ->when($this->sortBy, function ($query) {
             $query->orderBy($this->sortBy, $this->sortDirection);
+        })
+        ->when($this->filterType, function ($query) {
+            $query->where('type_id', $this->filterType);
+        })
+        ->when($this->filterCategory, function ($query) {
+            $query->where('category_id', $this->filterCategory);
+        })
+        ->when($this->filterSubCategory, function ($query) {
+            $query->where('sub_category_id', $this->filterSubCategory);
+        })
+        ->when($this->filterStock !== 'all', function ($query) {
+            if ($this->filterStock === 'available') {
+                $query->whereRaw('(SELECT COALESCE(SUM(stock), 0) FROM item_warehouse WHERE item_id = items.id) > 0');
+            } else {
+                $query->whereRaw('(SELECT COALESCE(SUM(stock), 0) FROM item_warehouse WHERE item_id = items.id) <= 0');
+            }
+        })
+        ->when($this->filterStatus !== 'all', function ($query) {
+            $query->where('is_active', $this->filterStatus === 'active');
+        })
+        ->when($this->filterWarehouse, function ($query) {
+            $query->whereHas('warehouses', function ($q) {
+                $q->where('warehouses.id', $this->filterWarehouse);
+            });
+        })
+        ->when($this->filterCreator, function ($query) {
+            $query->where('user_id', $this->filterCreator);
+        })
+        ->when($this->filterOrdered, function ($query) {
+            $query->has('customVariants');
+        })
+        ->when($this->quickFilter === 'critical', function ($query) {
+            $query->where('min_stock', '>', 0)
+                  ->whereRaw('(SELECT COALESCE(SUM(stock), 0) FROM item_warehouse WHERE item_id = items.id) <= items.min_stock');
+        })
+        ->when($this->quickFilter === 'wip', function ($query) {
+            $query->whereExists(function ($q) {
+                $q->select(\Illuminate\Support\Facades\DB::raw(1))
+                  ->from('production_orders')
+                  ->whereColumn('production_orders.item_id', 'items.id')
+                  ->whereNotIn('production_orders.status', ['completed', 'archived', 'rejected']);
+            });
+        })
+        ->when($this->quickFilter === 'booked', function ($query) {
+            $query->whereExists(function ($q) {
+                $q->select(\Illuminate\Support\Facades\DB::raw(1))
+                  ->from('sales_order_items')
+                  ->join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+                  ->whereColumn('sales_order_items.item_id', 'items.id')
+                  ->whereIn('sales_orders.status', ['approved', 'processing']);
+            });
         })
         ->paginate($this->perPage);
 };
@@ -107,23 +180,136 @@ $delete = function (Item $item) {
     }
 }">
     {{-- Smart Sticky Header --}}
-    <x-sticky-header class="flex flex-col sm:flex-row justify-end tab-y:justify-between items-start sm:items-center mb-6 gap-4">
-        <div class="hidden sm:block w-max">
-            <flux:heading size="lg">Pengelolaan Barang</flux:heading>
-            <flux:subheading>Daftar seluruh inventaris barang yang tersedia.</flux:subheading>
-        </div>
-        <div class="flex items-center tab-y:justify-between gap-3">
-            {{-- Search Bar --}}
-            <div class="w-full sm:w-64">
-                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari barang..." />
+    <x-sticky-header class="flex flex-col mb-6 gap-4">
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full">
+            <div class="hidden lg:block w-max">
+                <flux:heading size="lg">Pengelolaan Barang</flux:heading>
+                <flux:subheading>Daftar seluruh inventaris barang yang tersedia.</flux:subheading>
             </div>
+            
+            <div x-data="{ searchFocused: false }" class="flex items-center w-full lg:w-auto gap-2 sm:gap-3 flex-1 lg:flex-none">
+                {{-- Search Bar --}}
+                <div class="flex-1 w-full lg:w-64 transition-all duration-300 ease-out">
+                    <flux:input 
+                        x-on:focus="searchFocused = window.innerWidth < 1024" 
+                        x-on:blur="searchFocused = false"
+                        wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari barang..." />
+                </div>
 
-            <x-grid-or-table wire:model="viewMode" :mode="$viewMode" />
-            @can('inventory.item.create')
-                <flux:button wire:click="$dispatch('open-item-modal')" variant="primary" icon="plus">
-                    <span class="hidden md:inline">Barang</span>
-                </flux:button>
-            @endcan
+                {{-- Action Buttons --}}
+                <div class="flex items-center transition-all duration-300 ease-out origin-right overflow-hidden"
+                     :class="searchFocused ? 'max-w-0 opacity-0 scale-95 !gap-0' : 'max-w-[400px] opacity-100 scale-100 gap-2 sm:gap-3'">
+                    <flux:dropdown position="bottom" align="end">
+                        <flux:button icon="adjustments-horizontal" class="px-2 shrink-0" />
+                        <flux:menu class="!p-0 !border-0 !bg-transparent !shadow-none !w-[max-content] !min-w-0">
+                            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-2xl shadow-zinc-900/20 dark:shadow-black/50 rounded-2xl w-[90vw] sm:w-[450px] md:w-[580px] flex flex-col overflow-hidden">
+                                <div class="p-5 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+                                    {{-- Manager's Highlights (Smart Quick Filters) --}}
+                                    <div class="bg-zinc-50 dark:bg-zinc-800/30 rounded-xl p-3 border border-zinc-200 dark:border-zinc-700">
+                                        <div class="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Sorotan Pintar</div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <button wire:click="$set('quickFilter', 'all')" class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all border shadow-sm" :class="$wire.quickFilter === 'all' ? 'bg-zinc-800 text-white border-zinc-800 dark:bg-zinc-200 dark:text-zinc-800 dark:border-zinc-200' : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700 dark:hover:bg-zinc-700'">Semua</button>
+                                            
+                                            <button wire:click="$set('quickFilter', 'critical')" class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all border shadow-sm" :class="$wire.quickFilter === 'critical' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-600 border-rose-100 hover:bg-rose-50 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30 dark:hover:bg-rose-500/20'">🚨 Stok Kritis</button>
+                                            
+                                            <button wire:click="$set('quickFilter', 'wip')" class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all border shadow-sm" :class="$wire.quickFilter === 'wip' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-600 border-amber-100 hover:bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30 dark:hover:bg-amber-500/20'">🔨 Sedang Diproduksi</button>
+                                            
+                                            <button wire:click="$set('quickFilter', 'booked')" class="px-3 py-1.5 text-xs font-semibold rounded-full transition-all border shadow-sm" :class="$wire.quickFilter === 'booked' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-blue-600 border-blue-100 hover:bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/30 dark:hover:bg-blue-500/20'">🛒 Sedang Dipesan</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        {{-- Kategori & Tipe --}}
+                                        <div class="space-y-3">
+                                            <div class="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1 border-b border-zinc-100 dark:border-zinc-800 pb-1.5">Kategorisasi</div>
+                                            <flux:select wire:model.live="filterType" placeholder="Semua Tipe">
+                                                <flux:select.option value="">Semua Tipe</flux:select.option>
+                                                @foreach($types as $type)
+                                                    <flux:select.option value="{{ $type->id }}">{{ $type->name }}</flux:select.option>
+                                                @endforeach
+                                            </flux:select>
+                                            
+                                            <flux:select wire:model.live="filterCategory" placeholder="Semua Kategori">
+                                                <flux:select.option value="">Semua Kategori</flux:select.option>
+                                                @foreach($categories as $category)
+                                                    <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
+                                                @endforeach
+                                            </flux:select>
+                                            
+                                            <flux:select wire:model.live="filterSubCategory" placeholder="Semua Sub Kategori" :disabled="!$filterCategory">
+                                                <flux:select.option value="">Semua Sub Kategori</flux:select.option>
+                                                @foreach($subCategories as $subCategory)
+                                                    <flux:select.option value="{{ $subCategory->id }}">{{ $subCategory->name }}</flux:select.option>
+                                                @endforeach
+                                            </flux:select>
+                                        </div>
+                                        
+                                        <div class="flex flex-col gap-4">
+                                            {{-- Lokasi & Penginput --}}
+                                            <div class="space-y-3">
+                                                <div class="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-1 border-b border-zinc-100 dark:border-zinc-800 pb-1.5">Penyimpanan & Sistem</div>
+                                                
+                                                <flux:select wire:model.live="filterWarehouse" placeholder="Semua Gudang">
+                                                    <flux:select.option value="">Semua Gudang</flux:select.option>
+                                                    @foreach($warehouses as $warehouse)
+                                                        <flux:select.option value="{{ $warehouse->id }}">{{ $warehouse->name }}</flux:select.option>
+                                                    @endforeach
+                                                </flux:select>
+                                                
+                                                <flux:select wire:model.live="filterCreator" placeholder="Semua Penginput">
+                                                    <flux:select.option value="">Semua Penginput</flux:select.option>
+                                                    @foreach($users as $user)
+                                                        <flux:select.option value="{{ $user->id }}">{{ $user->name }}</flux:select.option>
+                                                    @endforeach
+                                                </flux:select>
+                                            </div>
+                                            
+                                            {{-- Radio Groups --}}
+                                            <div class="grid grid-cols-2 gap-4 bg-zinc-50 dark:bg-zinc-800/30 p-3 rounded-lg border border-zinc-100 dark:border-zinc-800">
+                                                <div>
+                                                    <flux:radio.group wire:model.live="filterStock" label="Ketersediaan">
+                                                        <div class="flex flex-col gap-2 mt-2">
+                                                            <flux:radio value="all" label="Semua" />
+                                                            <flux:radio value="available" label="Tersedia" />
+                                                            <flux:radio value="empty" label="Habis" />
+                                                        </div>
+                                                    </flux:radio.group>
+                                                </div>
+                                                <div>
+                                                    <flux:radio.group wire:model.live="filterStatus" label="Status Barang">
+                                                        <div class="flex flex-col gap-2 mt-2">
+                                                            <flux:radio value="active" label="Aktif" />
+                                                            <flux:radio value="inactive" label="Non-Aktif" />
+                                                            <flux:radio value="all" label="Semua" />
+                                                        </div>
+                                                    </flux:radio.group>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {{-- Footer Switch --}}
+                                <div class="flex items-center justify-between border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/30 p-4">
+                                    <div>
+                                        <div class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Pernah Dipesan/Dibeli</div>
+                                    </div>
+                                    <flux:switch wire:model.live="filterOrdered" />
+                                </div>
+                            </div>
+                        </flux:menu>
+                    </flux:dropdown>
+                    
+                    {{-- Switcher --}}
+                    <x-grid-or-table wire:model="viewMode" :mode="$viewMode" />
+                    
+                    @can('inventory.item.create')
+                        <flux:button wire:click="$dispatch('open-item-modal')" variant="primary" icon="plus" class="shrink-0">
+                            <span class="hidden sm:inline">Barang</span>
+                        </flux:button>
+                    @endcan
+                </div>
+            </div>
         </div>
     </x-sticky-header>
 
@@ -281,7 +467,8 @@ $delete = function (Item $item) {
                      x-data="{ loading: false, activeVariant: null }"
                      x-on:dblclick="loading = true; $wire.dispatch('open-item-detail', { id: {{ $item->id }} })"
                      x-on:item-detail-modal-opened.window="loading = false"
-                     class="group relative flex flex-col bg-white dark:bg-zinc-900 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-zinc-200/80 dark:border-zinc-800 hover:border-blue-500/30 dark:hover:border-blue-400/30 cursor-pointer hover:scale-[1.02]">
+                     @click.outside="activeVariant = null"
+                     class="group relative isolate z-0 flex flex-col bg-white dark:bg-zinc-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-zinc-200/80 dark:border-zinc-700 hover:border-blue-500/30 dark:hover:border-blue-400/30 cursor-pointer hover:scale-[1.02] {{ !$item->is_active ? 'opacity-80 grayscale-[0.4]' : '' }}">
                     
                     {{-- Loading Overlay --}}
                     <div x-show="loading" x-cloak class="absolute inset-0 bg-white/50 dark:bg-zinc-900/50 z-50 flex flex-col items-center justify-center backdrop-blur-sm rounded-xl">
@@ -290,43 +477,99 @@ $delete = function (Item $item) {
                     </div>
 
                     @if (!$item->is_approved)
-                    <div class="absolute z-2 top-0 w-full h-full bg-[#000000ba] flex flex-col items-center justify-center">
+                    <div class="absolute z-40 top-0 w-full h-full bg-[#000000ba] flex flex-col items-center justify-center">
                         <span class="text-bold text-amber-500 font-bold tracking-widest uppercase">MENUNGGU</span>
                         <span class="text-white text-xs mt-1">PERSETUJUAN</span>
                     </div>
-                    @elseif (!$item->is_active)
-                    <div class="absolute z-2 top-0 w-full h-full bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
-                        <div class="bg-rose-500 text-white px-3 py-1 rounded shadow-lg transform -rotate-12 font-black tracking-widest border-2 border-white">NON ACTIVE</div>
-                    </div>
                     @endif
                     
+                    @php
+                        // Group by the first image attachment to avoid identical avatars
+                        $groupedVariants = collect($item->customVariants)
+                            ->filter(fn($v) => !empty($v->custom_attachments))
+                            ->groupBy(fn($v) => $v->custom_attachments[0])
+                            ->take(4);
+                    @endphp
+                    
                     {{-- Gambar Atas (Mencolok) --}}
-                    <div class="relative w-full aspect-[4/3] bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-b border-zinc-100 dark:border-zinc-800/50">
-                        {{-- Image Swap System --}}
-                        <template x-if="activeVariant && activeVariant.image">
-                            <img :src="activeVariant.image" class="absolute inset-0 w-full h-full object-cover z-10 transition-all duration-300">
-                        </template>
-                        
+                    <div class="relative w-full aspect-[4/3] bg-zinc-100 dark:bg-zinc-900/50 overflow-hidden border-b border-zinc-100 dark:border-zinc-700">
+                        @if (!$item->is_active)
+                            <div class="absolute inset-0 z-20 bg-zinc-900/20 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
+                                <div class="bg-rose-600/90 text-white px-3 py-1 rounded shadow-md font-bold text-xs tracking-widest border border-rose-500/50 backdrop-blur-md">NON-AKTIF</div>
+                            </div>
+                        @endif
                         @if ($item->image)
                             <img x-data="{ loaded: false }" 
                                  x-init="if ($el.complete) loaded = true"
                                  @load="loaded = true" 
                                  :class="loaded ? 'opacity-100' : 'opacity-0 scale-95'"
-                                 src="{{ asset('storage/' . $item->image) }}" 
+                                 :src="activeVariant && activeVariant.image ? activeVariant.image : '{{ asset('storage/' . $item->image) }}'" 
+                                 @click.stop="$dispatch('open-lightbox', { url: activeVariant && activeVariant.image ? activeVariant.image : '{{ asset('storage/' . $item->image) }}' })"
                                  loading="lazy" 
                                  decoding="async"
-                                 class="w-full h-full object-cover transition-all duration-700 group-hover:scale-110">
+                                 class="w-full h-full object-cover transition-all duration-700 group-hover:scale-110 cursor-zoom-in">
                         @else
+                            <img x-show="activeVariant && activeVariant.image" x-cloak
+                                 :src="activeVariant ? activeVariant.image : ''"
+                                 @click.stop="$dispatch('open-lightbox', { url: activeVariant ? activeVariant.image : '' })"
+                                 class="absolute inset-0 w-full h-full object-cover z-10 transition-all duration-700 cursor-zoom-in">
+                                 
                             <div class="w-full h-full flex flex-col items-center justify-center text-zinc-300">
                                 <flux:icon.photo class="w-10 h-10 mb-1 opacity-50" />
                             </div>
                             <div class="absolute inset-0" style="background-image: radial-gradient(circle, #e4e4e7 1px, transparent 1px); background-size: 10px 10px; opacity: 0.5;"></div>
                         @endif
                         
-                        {{-- (Mini Variants Carousel has been moved to thumbnail slider below) --}}
+                        {{-- Watermark Label (Kiri Atas) --}}
+                        @if ($item->requires_label)
+                            <div class="absolute top-2 left-2 z-10 pointer-events-none opacity-70 border border-white/50 dark:border-zinc-700/50 rounded p-1 backdrop-blur-sm shadow-sm" title="Berlabel SN">
+                                <flux:icon.qr-code class="w-4 h-4 text-white drop-shadow-md" />
+                            </div>
+                        @endif
                         
-                        {{-- Badge Tipe Barang (Kiri Atas) --}}
-                        <div class="absolute top-2 left-2 flex flex-col gap-1.5 z-0 pointer-events-none">
+                        {{-- Thumbnail Slider (Bertumpuk Vertikal di Kanan Atas Gambar) --}}
+                        @php
+                            $groupedVariantsForSlider = $groupedVariants->take(5);
+                        @endphp
+                        @if($item->image || $groupedVariants->isNotEmpty())
+                            <div class="absolute right-1.5 md:right-2 top-1.5 md:top-2 bottom-1.5 md:bottom-2 flex flex-col gap-1 md:gap-2 overflow-y-auto custom-scrollbar snap-y z-10 items-end" style="scrollbar-width: none;">
+                                {{-- Thumbnail Variasi --}}
+                                @foreach($groupedVariantsForSlider as $imagePath => $group)
+                                    @php
+                                        $variant = $group->first();
+                                        $customer = $variant->salesOrder?->customer?->name;
+                                        
+                                        // Format attributes nicely, ignoring numeric keys
+                                        $attrs = !empty($variant->custom_attributes) ? collect($variant->custom_attributes)->map(function($v, $k) {
+                                            $valStr = is_array($v) ? implode(': ', $v) : $v;
+                                            return is_numeric($k) ? $valStr : $k . ': ' . $valStr;
+                                        })->implode(' | ') : '';
+                                        
+                                        $desc = [];
+                                        if ($customer) $desc[] = 'Pesanan: ' . $customer;
+                                        if ($attrs) $desc[] = $attrs;
+                                        
+                                        $variantData = [
+                                            'image' => asset('storage/' . $imagePath),
+                                            'description' => empty($desc) ? 'Varian tanpa detail' : implode(' • ', $desc)
+                                        ];
+                                    @endphp
+                                    <div @click="activeVariant = {{ json_encode($variantData) }}; $el.parentElement.scrollTo({ top: $el.offsetTop - $el.parentElement.clientHeight / 2 + $el.clientHeight / 2, behavior: 'smooth' })"
+                                         class="relative w-7 h-7 xl:w-8 xl:h-8 rounded md:rounded-lg border-2 shrink-0 overflow-hidden cursor-pointer snap-start transition-all bg-white/40 dark:bg-zinc-900/40 shadow-md backdrop-blur-md opacity-60 hover:opacity-100"
+                                         :class="activeVariant && activeVariant.image === '{{ $variantData['image'] }}' ? 'border-indigo-500' : 'border-white/80 dark:border-zinc-600/80 hover:border-white dark:hover:border-zinc-500'">
+                                        <img src="{{ $variantData['image'] }}" class="w-full h-full object-cover">
+                                    </div>
+                                @endforeach
+                                
+                                    {{-- Info Lebih Banyak dihapus sesuai permintaan --}}
+                                </div>
+                            @endif
+                    </div>
+                    
+                    {{-- Informasi Bawah (Jelas & Padat) --}}
+                    <div class="p-3 flex flex-col flex-1 relative">
+                        {{-- Badge Tipe Barang (Straddling Kiri Bawah) --}}
+                        <div class="absolute left-0 top-0 -translate-y-1/2 flex flex-row gap-1.5 z-10 pointer-events-none">
                             @if ($item->type)
                                 @php
                                     $colors = [
@@ -342,105 +585,51 @@ $delete = function (Item $item) {
                                     $defaultColors = ['bg-indigo-500/90', 'bg-rose-500/90', 'bg-cyan-500/90', 'bg-teal-500/90', 'bg-fuchsia-500/90'];
                                     $color = $colors[$typeName] ?? $defaultColors[$item->type->id % count($defaultColors)];
                                 @endphp
-                                <div class="w-max {{ $color }} backdrop-blur-sm text-white rounded-md px-1.5 py-0.5 text-[8px] font-bold tracking-wider uppercase shadow-sm border border-white/20">
+                                <div class="w-max {{ $color }} text-white rounded-md first:rounded-l-none first:border-l-0 px-1.5 py-0.5 text-[8px] font-bold tracking-wider uppercase shadow-sm border border-white/70 dark:border-zinc-800/80 backdrop-blur-sm">
                                     {{ $item->type->name }}
                                 </div>
                             @endif
-                            
-                            @if ($item->requires_label)
-                                <div class="w-max bg-blue-500/90 backdrop-blur-sm text-white rounded-md px-1.5 py-0.5 shadow-sm border border-white/20" title="Berlabel SN">
-                                    <flux:icon.qr-code class="w-3 h-3" />
-                                </div>
-                            @endif
                         </div>
                         
-                    </div>
-                    
-                    {{-- Thumbnail Slider (Bawah Gambar Utama) --}}
-                    @php
-                        // Group by the first image attachment to avoid identical avatars
-                        $groupedVariants = collect($item->customVariants)
-                            ->filter(fn($v) => !empty($v->custom_attachments))
-                            ->groupBy(fn($v) => $v->custom_attachments[0])
-                            ->take(4);
-                    @endphp
-                    @if($item->image || $groupedVariants->isNotEmpty())
-                        <div class="flex gap-2 p-3 pb-0 overflow-x-auto custom-scrollbar snap-x">
-                            {{-- Thumbnail Default (Original Image) --}}
-                            @if($item->image)
-                                <div @click="activeVariant = null" 
-                                     class="w-10 h-10 rounded-lg border-2 shrink-0 overflow-hidden cursor-pointer snap-start transition-colors bg-zinc-100"
-                                     :class="!activeVariant ? 'border-indigo-500 shadow-sm' : 'border-transparent hover:border-zinc-300'">
-                                    <img src="{{ asset('storage/' . $item->image) }}" class="w-full h-full object-cover">
-                                </div>
-                            @endif
+                        {{-- Judul, Meta & Deskripsi --}}
+                        <div class="mb-2 flex-1 overflow-hidden flex flex-col pt-0.5">
+                            {{-- Nama Barang --}}
+                            <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 text-[11px] md:text-xs lg:text-[13px] leading-tight truncate transition-colors" 
+                                title="{{ $item->name }}">
+                                {{ $item->name }}
+                            </h3>
                             
-                            {{-- Thumbnail Variasi --}}
-                            @foreach($groupedVariants as $imagePath => $group)
-                                @php
-                                    $variant = $group->first();
-                                    $count = $group->count();
-                                    $variantData = [
-                                        'image' => asset('storage/' . $imagePath),
-                                        'customer' => ($count > 1 ? "({$count} Varian Serupa) " : "") . ($variant->salesOrder?->customer?->name ?? 'Pelanggan Umum'),
-                                        'date' => $variant->created_at?->format('d M Y') ?? '',
-                                        'attributes' => !empty($variant->custom_attributes) ? collect($variant->custom_attributes)->map(fn($v, $k) => $k . ': ' . (is_array($v) ? implode(', ', $v) : $v))->implode(' | ') : ''
-                                    ];
-                                @endphp
-                                <div @click="activeVariant = {{ json_encode($variantData) }}"
-                                     class="relative w-10 h-10 rounded-lg border-2 shrink-0 overflow-hidden cursor-pointer snap-start transition-colors bg-zinc-100"
-                                     :class="activeVariant && activeVariant.image === '{{ $variantData['image'] }}' ? 'border-indigo-500 shadow-sm' : 'border-transparent hover:border-zinc-300'">
-                                    <img src="{{ $variantData['image'] }}" class="w-full h-full object-cover">
-                                    @if($count > 1)
-                                        <div class="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
-                                            <span class="text-white text-[9px] font-bold">+{{ $count - 1 }}</span>
-                                        </div>
+                            {{-- Kode & Kategori (Baris Super Rapat) --}}
+                            <div class="flex items-center gap-1 mt-0.5 overflow-hidden">
+                                <span class="text-[8px] sm:text-[9px] font-mono font-medium text-zinc-400 dark:text-zinc-500 shrink-0">
+                                    {{ $item->code }}
+                                </span>
+                                      
+                                <span class="text-zinc-300 dark:text-zinc-600 text-[6px] sm:text-[7px] shrink-0">&bull;</span>
+                                
+                                <div class="flex items-center gap-1 overflow-hidden">
+                                    <span class="text-[7px] sm:text-[8px] font-bold uppercase tracking-widest truncate text-zinc-400 dark:text-zinc-500">
+                                        {{ $item->category?->name ?? 'Tanpa Kategori' }}
+                                    </span>
+                                    
+                                    @if($item->subCategory)
+                                        <span class="text-zinc-300 dark:text-zinc-600 text-[6px] sm:text-[7px] shrink-0">&bull;</span>
+                                        <span class="text-[6px] sm:text-[7px] font-semibold text-zinc-400/80 uppercase tracking-wider truncate">
+                                            {{ $item->subCategory->name }}
+                                        </span>
                                     @endif
                                 </div>
-                            @endforeach
-                            
-                            {{-- Tombol Lihat Semua Varian --}}
-                            @if($item->custom_variants_count > 0)
-                                <div @click.stop="$wire.dispatch('open-item-detail', { id: {{ $item->id }}, tab: 'variants' })"
-                                     class="w-10 h-10 rounded-lg border-2 border-dashed border-zinc-200 hover:border-indigo-400 shrink-0 flex flex-col items-center justify-center cursor-pointer snap-start text-zinc-400 hover:text-indigo-500 transition-colors bg-zinc-50 hover:bg-indigo-50/50">
-                                    <flux:icon.ellipsis-horizontal class="w-4 h-4" />
-                                    <span class="text-[7px] font-bold mt-0.5">Semua</span>
-                                </div>
-                            @endif
-                        </div>
-                    @endif
-                    
-                    {{-- Informasi Bawah (Jelas & Padat) --}}
-                    <div class="p-3 flex flex-col flex-1">
-                        {{-- Kategori & Kode --}}
-                        <div class="flex justify-between items-start mb-1.5 gap-2">
-                            <div class="flex flex-col overflow-hidden">
-                                <span class="text-[8px] font-bold uppercase tracking-widest truncate transition-colors"
-                                      :class="activeVariant ? 'text-indigo-500' : 'text-zinc-400 dark:text-zinc-500'"
-                                      x-text="activeVariant ? 'Riwayat Varian' : '{{ addslashes($item->category?->name ?? 'Tanpa Kategori') }}'"></span>
-                                @if($item->subCategory)
-                                    <span class="text-[7px] font-semibold text-zinc-400/80 uppercase tracking-wider truncate"
-                                          x-show="!activeVariant">{{ $item->subCategory->name }}</span>
-                                @endif
                             </div>
-                            <span class="text-[9px] font-mono font-medium text-zinc-400 dark:text-zinc-500 shrink-0 mt-0.5"
-                                  x-text="activeVariant ? activeVariant.date : '{{ $item->code }}'"></span>
-                        </div>
-                        
-                        {{-- Nama Barang & Deskripsi --}}
-                        <div class="mb-2 flex-1 overflow-hidden">
-                            <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 text-[11px] leading-tight truncate transition-colors" 
-                                :title="activeVariant ? activeVariant.customer : '{{ addslashes($item->name) }}'"
-                                x-text="activeVariant ? activeVariant.customer : '{{ addslashes($item->name) }}'">
-                            </h3>
-                            <p class="text-[9px] mt-0.5 leading-tight truncate transition-colors" 
+                            
+                            {{-- Deskripsi --}}
+                            <p class="text-[9px] mt-0.5 leading-tight line-clamp-2 transition-colors" 
                                :class="activeVariant ? 'text-indigo-600 dark:text-indigo-400 font-medium' : 'text-zinc-500 dark:text-zinc-400'"
-                               :title="activeVariant ? activeVariant.attributes : '{{ addslashes($item->description) }}'"
-                               x-text="activeVariant ? activeVariant.attributes : '{{ addslashes($item->description) }}'"></p>
+                               :title="activeVariant ? activeVariant.description : '{{ addslashes($item->description) }}'"
+                               x-text="activeVariant ? activeVariant.description : '{{ addslashes($item->description) }}'"></p>
                         </div>
                         
                         {{-- Harga & Stok --}}
-                        <div class="mt-auto flex items-end justify-between pt-2 border-t border-zinc-100/80 dark:border-zinc-800/50">
+                        <div class="mt-auto flex items-end justify-between pt-2 border-t border-zinc-100/80 dark:border-zinc-700">
                             <div class="flex flex-col gap-0.5">
                                 <div class="flex items-center" title="Harga Beli">
                                     <span class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 leading-none">Rp{{ number_format($item->purchase_price, 0, ',', '.') }}</span>
@@ -471,8 +660,8 @@ $delete = function (Item $item) {
                             $atpColor = $atp > 0 ? 'text-emerald-500/90' : 'text-rose-500/90';
                             $badges[] = '<span title="Siap Jual (Available to Promise)" class="'.$atpColor.' font-bold">ATP: '.$atp.'</span>';
                         @endphp
-                        <div class="mt-1.5 flex flex-wrap items-center gap-1.5 text-[8px] font-medium text-zinc-400 dark:text-zinc-500 bg-zinc-50 dark:bg-zinc-800/30 px-1.5 py-0.5 rounded border border-zinc-100 dark:border-zinc-800/80">
-                            {!! implode(' <span class="text-zinc-300 dark:text-zinc-700">&bull;</span> ', $badges) !!}
+                        <div class="mt-1.5 flex flex-wrap items-center gap-1.5 text-[8px] font-medium text-zinc-400 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/50 px-1.5 py-0.5 rounded border border-zinc-100 dark:border-zinc-700">
+                            {!! implode(' <span class="text-zinc-300 dark:text-zinc-600">&bull;</span> ', $badges) !!}
                         </div>
                     </div>
                 </div>
@@ -492,4 +681,6 @@ $delete = function (Item $item) {
     {{-- Sisipkan Modal Form dan Detail --}}
     <livewire:item-input.item-detail />
     <livewire:global.item-variants-modal />
+    
+
 </div>

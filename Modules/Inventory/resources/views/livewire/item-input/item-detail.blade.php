@@ -67,6 +67,12 @@ $fetchData = function ($id) {
     $this->atp = $this->item->getATP();
 };
 
+$switchTab = function ($newTab) {
+    // Simulasi delay kecil untuk dev environment (hapus jika sudah jalan di production)
+    // sleep(1); 
+    $this->tab = $newTab;
+};
+
 $openModal = function ($id, $tab = null) {
     // Jika item yang sama sudah terbuka dan tab tidak dieksplisit, pertahankan tab saat ini
     if ($this->item && $this->item->id == $id && $tab === null) {
@@ -301,20 +307,24 @@ $saveInitialStock = function () {
                 {{-- Konten Utama dengan Tabs --}}
                 <div>
                     <div class="flex gap-6 border-b border-zinc-200 dark:border-zinc-700 mb-6 relative z-10">
-                        <button type="button" wire:click="$set('tab', 'info')" class="{{ $tab === 'info' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors">
+                        <button type="button" wire:click="switchTab('info')" wire:loading.attr="disabled" class="{{ $tab === 'info' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors flex items-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed">
                             Dasbor
+                            <flux:icon.arrow-path wire:loading wire:target="switchTab('info')" class="w-3.5 h-3.5 animate-spin text-zinc-400" />
                         </button>
                         @if($item->requires_label)
-                        <button type="button" wire:click="$set('tab', 'labels')" class="{{ $tab === 'labels' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors">
+                        <button type="button" wire:click="switchTab('labels')" wire:loading.attr="disabled" class="{{ $tab === 'labels' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors flex items-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed">
                             Serial
+                            <flux:icon.arrow-path wire:loading wire:target="switchTab('labels')" class="w-3.5 h-3.5 animate-spin text-zinc-400" />
                         </button>
                         @endif
-                        <button type="button" wire:click="$set('tab', 'history')" class="{{ $tab === 'history' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors">
+                        <button type="button" wire:click="switchTab('history')" wire:loading.attr="disabled" class="{{ $tab === 'history' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors flex items-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed">
                             Riwayat
+                            <flux:icon.arrow-path wire:loading wire:target="switchTab('history')" class="w-3.5 h-3.5 animate-spin text-zinc-400" />
                         </button>
                         @if($custom_variants_count > 0)
-                        <button type="button" wire:click="$set('tab', 'variants')" class="{{ $tab === 'variants' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors">
+                        <button type="button" wire:click="switchTab('variants')" wire:loading.attr="disabled" class="{{ $tab === 'variants' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors flex items-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed">
                             Varian ({{ $custom_variants_count }})
+                            <flux:icon.arrow-path wire:loading wire:target="switchTab('variants')" class="w-3.5 h-3.5 animate-spin text-zinc-400" />
                         </button>
                         @endif
                     </div>
@@ -794,7 +804,7 @@ $saveInitialStock = function () {
                     </div>
                     @endif
                     
-                    @if($tab === 'variants' && $item->custom_variants_count > 0)
+                    @if($tab === 'variants' && $custom_variants_count > 0)
                     <div>
                         <div class="flex justify-between items-center mb-4 bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-100 dark:border-zinc-700/50">
                             <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200">Riwayat Varian Kustom</h3>
@@ -852,9 +862,9 @@ $saveInitialStock = function () {
                                 </div>
                             @endforelse
                         </div>
-                        @if($item->custom_variants_count > count($this->customVariantsList) && count($this->customVariantsList) > 0)
+                        @if($custom_variants_count > count($this->customVariantsList) && count($this->customVariantsList) > 0)
                             <div class="mt-6 text-center text-sm text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 py-3 rounded-xl border border-zinc-100 dark:border-zinc-700/50">
-                                Menampilkan {{ count($this->customVariantsList) }} varian terbaru dari total {{ $item->custom_variants_count }} varian.
+                                Menampilkan {{ count($this->customVariantsList) }} varian terbaru dari total {{ $custom_variants_count }} varian.
                             </div>
                         @endif
                     </div>

@@ -10,11 +10,40 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
 <!-- PWA Meta Tags -->
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#18181b">
+<link rel="manifest" href="{{ route('pwa.manifest') }}">
+@php
+    $themeColors = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_theme_colors', function () {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return ['light' => '#ffffff', 'dark' => '#18181b'];
+        return [
+            'light' => \App\Models\Setting::where('key', 'pwa_theme_color_light')->value('value') ?? '#ffffff',
+            'dark'  => \App\Models\Setting::where('key', 'pwa_theme_color_dark')->value('value') ?? '#18181b'
+        ];
+    });
+@endphp
+<meta name="theme-color" id="meta-theme-color" content="{{ $themeColors['light'] }}">
+<script>
+    (function() {
+        const lightColor = '{{ $themeColors['light'] }}';
+        const darkColor = '{{ $themeColors['dark'] }}';
+        
+        function updateThemeColor() {
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('meta-theme-color').setAttribute('content', isDark ? darkColor : lightColor);
+        }
+
+        // Update when DOM is ready
+        document.addEventListener('DOMContentLoaded', updateThemeColor);
+        
+        // Observe changes to the 'dark' class on the html element
+        const observer = new MutationObserver(updateThemeColor);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        
+        // Initial run
+        updateThemeColor();
+    })();
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Inventory">
 
 @fonts

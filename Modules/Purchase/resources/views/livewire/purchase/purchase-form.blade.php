@@ -447,7 +447,7 @@ $saveCart = function ($cartData) {
 
                 {{-- Daftar Barang Terpilih (Modern List) --}}
                 <div class="flex-1 space-y-4">
-                    <template x-for="(item, index) in items" :key="index">
+                    <template x-for="(item, index) in items" :key="item.item_id">
                         <div class="relative flex flex-col sm:flex-row bg-emerald-50/30 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30 rounded-2xl shadow-sm transition-colors">
                             {{-- Delete Button (Top Left over Image) --}}
                             <div class="absolute top-2 left-2 sm:-top-3 sm:-left-3 z-10" x-show="!item.min_qty" x-cloak>
@@ -1107,11 +1107,17 @@ $saveCart = function ($cartData) {
             addItem(newItem) {
                 let existingIndex = this.items.findIndex(i => i.item_id == newItem.item_id);
                 if (existingIndex !== -1) {
-                    // Pindahkan item ke urutan paling atas (index 0)
-                    let item = this.items.splice(existingIndex, 1)[0];
-                    this.items.unshift(item);
-                    // Increment qty karena posisinya sekarang ada di index 0
-                    this.incrementQty(0);
+                    // Update qty
+                    this.items[existingIndex].qty = (parseInt(this.items[existingIndex].qty) || 0) + 1;
+                    this.updateItemSubtotal(existingIndex);
+                    
+                    // Force reactivity and move to top if needed
+                    let newItems = [...this.items];
+                    if (existingIndex > 0) {
+                        let item = newItems.splice(existingIndex, 1)[0];
+                        newItems.unshift(item);
+                    }
+                    this.items = newItems;
                 } else {
                     this.items.unshift({
                         id: null,

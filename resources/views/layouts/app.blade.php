@@ -16,3 +16,6 @@
         </flux:main>
     </x-layouts::app.sidebar>
 @endif
+
+{{-- Global Image Lightbox Component --}}
+<x-image-lightbox />

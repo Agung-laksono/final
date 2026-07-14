@@ -132,7 +132,7 @@ new class extends Component {
 ?>
 
 <div>
-    <flux:modal name="gallery-modal" class="md:max-w-4xl">
+    <flux:modal name="gallery-modal" class="md:max-w-4xl max-sm:!p-2 max-sm:!m-0 max-sm:w-full max-sm:h-full max-sm:max-w-none max-sm:max-h-[100dvh] max-sm:rounded-none">
         <div class="space-y-4">
             <div class="hidden sm:flex items-start">
                 <div>
@@ -232,16 +232,17 @@ new class extends Component {
                 </div>
             </div>
 
-            {{-- Loading State Indicator --}}
-            <div wire:loading wire:target="searchQuery" class="w-full text-center py-4">
-                <span class="text-sm text-zinc-500 flex items-center justify-center gap-2">
-                    <flux:icon.arrow-path class="w-4 h-4 animate-spin" /> Mencari barang...
-                </span>
+            <div wire:loading wire:target="searchQuery, categoryId, typeId, subCategoryId, stockFilter, statusFilter, historyFilter" class="col-span-full py-12">
+                <div class="flex flex-col items-center justify-center text-zinc-400">
+                    <flux:icon.arrow-path class="w-8 h-8 animate-spin mb-4" />
+                    <span class="text-sm">Memuat galeri...</span>
+                </div>
             </div>
 
             <div wire:loading.remove wire:target="searchQuery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
                 @forelse($galleryItems as $item)
-                    <div x-data="{ activeVariant: null }"
+                    <div wire:key="gallery-item-{{ $item->id }}"
+                         x-data="{ activeVariant: null }"
                          @if($item->is_active) @click="playSelectSound(); $dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: '{{ addslashes($item->name) }}', code: '{{ $item->code ?? '0001' }}', unit_price: {{ $context === 'sales' ? ($item->selling_price ?? 0) : ($item->purchase_price ?? 0) }}, image: '{{ $item->image }}', unit: '{{ $item->unit?->name ?? 'pcs' }}', has_history: {{ in_array($item->id, $itemsWithHistory) ? 'true' : 'false' }} } })" @endif
                          :class="$data.items?.find(i => i.item_id == {{ $item->id }}) ? 'border-cyan-600 ring-2 ring-cyan-600 shadow-lg scale-[1.02]' : 'border-zinc-200 dark:border-zinc-800 {{ $item->is_active ? 'hover:border-cyan-500/50 hover:shadow-lg hover:scale-[1.02]' : '' }}'"
                          class="relative bg-white dark:bg-zinc-900 rounded-xl overflow-hidden transition-all duration-300 {{ $item->is_active ? 'cursor-pointer group' : 'cursor-not-allowed' }} flex flex-col h-full border">
@@ -253,26 +254,45 @@ new class extends Component {
                         </div>
                         @endif
 
-                        {{-- Selection Badge --}}
+                        {{-- Selection Badge (Elegan & Bersih) --}}
                         <template x-if="$data.items?.find(i => i.item_id == {{ $item->id }})">
-                            <div class="absolute top-2 right-2 bg-cyan-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-md z-30 pointer-events-none border border-cyan-400/50">
-                                <flux:icon.check-circle class="w-3 h-3" />
-                                <span x-text="$data.items.find(i => i.item_id == {{ $item->id }}).qty + 'x'"></span>
+                            <div class="absolute inset-0 z-40 pointer-events-none flex items-center justify-center bg-white/30 dark:bg-black/30 backdrop-blur-[1px] rounded-xl transition-all">
+                                <div class="bg-cyan-600 text-white font-bold rounded-full flex items-center justify-center shadow-lg border border-white/40 dark:border-zinc-700/50 transition-all"
+                                     x-bind:class="($data.items?.find(i => i.item_id == {{ $item->id }})?.qty || 1) > 1 ? 'px-3 py-1 gap-1.5 text-xs' : 'w-8 h-8'">
+                                    <flux:icon.check-circle class="w-4 h-4" />
+                                    <span x-show="($data.items?.find(i => i.item_id == {{ $item->id }})?.qty || 1) > 1" 
+                                          x-text="($data.items?.find(i => i.item_id == {{ $item->id }})?.qty || 1) + 'x'"></span>
+                                </div>
                             </div>
                         </template>
 
+                        @php
+                            // Group by the first image attachment to avoid identical avatars
+                            $groupedVariants = collect($item->customVariants)
+                                ->filter(fn($v) => !empty($v->custom_attachments))
+                                ->groupBy(fn($v) => $v->custom_attachments[0])
+                                ->take(4);
+                        @endphp
+                        
                         {{-- Gambar Atas (Mencolok) --}}
-                        <div class="relative w-full aspect-[4/3] bg-zinc-100 dark:bg-zinc-800 overflow-hidden border-b border-zinc-100 dark:border-zinc-800/50">
+                        <div class="relative w-full aspect-[4/3] bg-zinc-100 dark:bg-zinc-900/50 overflow-hidden border-b border-zinc-100 dark:border-zinc-700">
                             {{-- Image Swap System --}}
                             <template x-if="activeVariant && activeVariant.image">
                                 <img :src="activeVariant.image" class="absolute inset-0 w-full h-full object-cover z-10 transition-all duration-300">
                             </template>
-                            
+
+                            @if (!$item->is_active)
+                                <div class="absolute inset-0 z-20 bg-zinc-900/20 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
+                                    <div class="bg-rose-600/90 text-white px-3 py-1 rounded shadow-md font-bold text-xs tracking-widest border border-rose-500/50 backdrop-blur-md">NON-AKTIF</div>
+                                </div>
+                            @endif
+
                             @if ($item->image)
                                 <img x-data="{ loaded: false }" 
-                                     x-on:load="loaded = true" 
+                                     x-init="if ($el.complete) loaded = true"
+                                     @load="loaded = true" 
                                      :class="loaded ? 'opacity-100' : 'opacity-0 scale-95'"
-                                     src="{{ Storage::url($item->image) }}" 
+                                     src="{{ asset('storage/' . $item->image) }}" 
                                      loading="lazy" 
                                      decoding="async"
                                      class="w-full h-full object-cover transition-all duration-700 group-hover:scale-110">
@@ -283,39 +303,53 @@ new class extends Component {
                                 <div class="absolute inset-0" style="background-image: radial-gradient(circle, #e4e4e7 1px, transparent 1px); background-size: 10px 10px; opacity: 0.5;"></div>
                             @endif
                             
-                            {{-- Mini Variants Carousel (Bawah Kiri) --}}
-                            @if ($item->custom_variants_count > 0)
-                                <div class="absolute bottom-2 left-2 z-50 right-2 flex items-center justify-between pointer-events-auto">
-                                    <div class="flex -space-x-1.5 overflow-hidden p-1">
-                                        @foreach($item->customVariants as $variant)
-                                            @php
-                                                $variantData = [
-                                                    'image' => !empty($variant->custom_attachments) ? asset('storage/' . $variant->custom_attachments[0]) : null,
-                                                    'customer' => $variant->salesOrder?->customer?->name ?? 'Pelanggan Umum',
-                                                    'date' => $variant->created_at?->format('d M Y') ?? '',
-                                                    'attributes' => !empty($variant->custom_attributes) ? collect($variant->custom_attributes)->map(fn($v, $k) => $k . ': ' . (is_array($v) ? implode(', ', $v) : $v))->implode(' | ') : ''
-                                                ];
-                                            @endphp
-                                            @if($variantData['image'])
-                                                <img @mouseenter="activeVariant = {{ json_encode($variantData) }}"
-                                                     @mouseleave="activeVariant = null"
-                                                     @click.stop="activeVariant = activeVariant ? null : {{ json_encode($variantData) }}"
-                                                     class="inline-block h-6 w-6 rounded-full ring-2 ring-white object-cover bg-white shadow-sm cursor-pointer transition-transform hover:scale-110 hover:z-10" 
-                                                     src="{{ $variantData['image'] }}" 
-                                                     alt="Varian">
-                                            @endif
-                                        @endforeach
-                                    </div>
-                                    @if($item->custom_variants_count > count($item->customVariants))
-                                        <div class="bg-black/50 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm shadow-sm pointer-events-auto">
-                                            +{{ $item->custom_variants_count - count($item->customVariants) }}
-                                        </div>
-                                    @endif
+                            {{-- Watermark Label (Kiri Atas) --}}
+                            @if ($item->requires_label)
+                                <div class="absolute top-2 left-2 z-10 pointer-events-none opacity-70 border border-white/50 dark:border-zinc-700/50 rounded p-1 backdrop-blur-sm shadow-sm" title="Berlabel SN">
+                                    <flux:icon.qr-code class="w-4 h-4 text-white drop-shadow-md" />
                                 </div>
                             @endif
                             
-                            {{-- Badge Tipe Barang (Kiri Atas) --}}
-                            <div class="absolute top-2 left-2 flex z-0">
+                            {{-- Thumbnail Slider (Bertumpuk Vertikal di Kanan Atas Gambar) --}}
+                            @if($item->image || $groupedVariants->isNotEmpty())
+                                <div class="absolute right-1.5 md:right-2 top-1.5 md:top-2 bottom-1.5 md:bottom-2 flex flex-col gap-1 md:gap-2 overflow-y-auto custom-scrollbar snap-y z-30 items-end pointer-events-auto" style="scrollbar-width: none;">
+                                    {{-- Thumbnail Variasi --}}
+                                    @foreach($groupedVariants as $imagePath => $group)
+                                        @php
+                                            $variant = $group->first();
+                                            $customer = $variant->salesOrder?->customer?->name;
+                                            
+                                            $attrs = !empty($variant->custom_attributes) ? collect($variant->custom_attributes)->map(function($v, $k) {
+                                                $valStr = is_array($v) ? implode(': ', $v) : $v;
+                                                return is_numeric($k) ? $valStr : $k . ': ' . $valStr;
+                                            })->implode(' | ') : '';
+                                            
+                                            $desc = [];
+                                            if ($customer) $desc[] = 'Pesanan: ' . $customer;
+                                            if ($attrs) $desc[] = $attrs;
+                                            
+                                            $variantData = [
+                                                'image' => asset('storage/' . $imagePath),
+                                                'description' => empty($desc) ? 'Varian tanpa detail' : implode(' • ', $desc),
+                                                'customer' => $customer ?? 'Pelanggan Umum',
+                                                'date' => $variant->created_at?->format('d M Y') ?? '',
+                                                'attributes' => $attrs
+                                            ];
+                                        @endphp
+                                        <div @click.stop="activeVariant = {{ json_encode($variantData) }}; $el.parentElement.scrollTo({ top: $el.offsetTop - $el.parentElement.clientHeight / 2 + $el.clientHeight / 2, behavior: 'smooth' })"
+                                             class="relative w-7 h-7 xl:w-8 xl:h-8 rounded md:rounded-lg border-2 shrink-0 overflow-hidden cursor-pointer snap-start transition-all bg-white/40 dark:bg-zinc-900/40 shadow-md backdrop-blur-md opacity-60 hover:opacity-100"
+                                             :class="activeVariant && activeVariant.image === '{{ $variantData['image'] }}' ? 'border-indigo-500' : 'border-white/80 dark:border-zinc-600/80 hover:border-white dark:hover:border-zinc-500'">
+                                            <img src="{{ $variantData['image'] }}" class="w-full h-full object-cover">
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                        
+                        {{-- Informasi Bawah (Jelas & Padat) --}}
+                        <div class="p-3 flex flex-col flex-1 relative">
+                            {{-- Badge Tipe Barang (Straddling Kiri Bawah) --}}
+                            <div class="absolute left-0 top-0 -translate-y-1/2 flex flex-row gap-1.5 z-10 pointer-events-none">
                                 @if ($item->type)
                                     @php
                                         $colors = [
@@ -331,52 +365,45 @@ new class extends Component {
                                         $defaultColors = ['bg-indigo-500/90', 'bg-rose-500/90', 'bg-cyan-500/90', 'bg-teal-500/90', 'bg-fuchsia-500/90'];
                                         $color = $colors[$typeName] ?? $defaultColors[$item->type->id % count($defaultColors)];
                                     @endphp
-                                    <div class="{{ $color }} backdrop-blur-sm text-white rounded-md px-1.5 py-0.5 text-[7px] font-bold tracking-wider uppercase shadow-sm border border-white/20">
+                                    <div class="w-max {{ $color }} text-white rounded-md first:rounded-l-none first:border-l-0 px-1.5 py-0.5 text-[8px] font-bold tracking-wider uppercase shadow-sm border border-white/70 dark:border-zinc-800/80 backdrop-blur-sm">
                                         {{ $item->type->name }}
                                     </div>
                                 @endif
                             </div>
                             
-                            {{-- Overlay Status Kanan --}}
-                            <div class="absolute top-2 right-2 flex gap-1.5 shadow-sm z-0">
-                                @if ($item->requires_label)
-                                    <div class="bg-blue-500/90 backdrop-blur-sm text-white rounded-md px-1.5 py-0.5" title="Berlabel SN">
-                                        <flux:icon.qr-code class="w-3 h-3" />
-                                    </div>
-                                @endif
-                                
-                                @if($item->custom_variants_count > 0)
-                                    <div class="bg-indigo-500/90 backdrop-blur-sm text-white rounded-md px-1.5 py-0.5 text-[7px] font-bold tracking-wider uppercase shadow-sm border border-white/20 flex items-center gap-1">
-                                        <flux:icon.swatch class="w-2 h-2" /> {{ $item->custom_variants_count }}
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                        
-                        {{-- Informasi Bawah (Jelas & Padat) --}}
-                        <div class="p-2.5 flex flex-col flex-1">
-                            {{-- Kategori & Kode --}}
-                            <div class="flex justify-between items-start mb-1.5 gap-2">
-                                <div class="flex flex-col overflow-hidden">
-                                    <span class="text-[7px] font-bold uppercase tracking-widest truncate transition-colors"
-                                          :class="activeVariant ? 'text-indigo-500' : 'text-zinc-400 dark:text-zinc-500'"
-                                          x-text="activeVariant ? 'Riwayat Varian' : '{{ addslashes($item->category?->name ?? 'Tanpa Kategori') }}'"></span>
-                                    @if($item->subCategory)
-                                        <span class="text-[6px] font-semibold text-zinc-400/80 uppercase tracking-wider truncate"
-                                              x-show="!activeVariant">{{ $item->subCategory->name }}</span>
-                                    @endif
-                                </div>
-                                <span class="text-[8px] font-mono font-medium text-zinc-400 dark:text-zinc-500 shrink-0 mt-0.5"
-                                      x-text="activeVariant ? activeVariant.date : '{{ $item->code }}'"></span>
-                            </div>
-                            
-                            {{-- Nama Barang & Deskripsi --}}
-                            <div class="mb-2 flex-1 overflow-hidden">
-                                <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 text-[11px] leading-tight truncate transition-colors" 
+                            {{-- Judul, Meta & Deskripsi --}}
+                            <div class="mb-2 flex-1 overflow-hidden flex flex-col pt-0.5">
+                                {{-- Nama Barang --}}
+                                <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 text-[11px] md:text-xs lg:text-[13px] leading-tight truncate transition-colors" 
                                     :title="activeVariant ? activeVariant.customer : '{{ addslashes($item->name) }}'"
                                     x-text="activeVariant ? activeVariant.customer : '{{ addslashes($item->name) }}'">
                                 </h3>
-                                <p class="text-[9px] mt-0.5 leading-tight truncate transition-colors" 
+                                
+                                {{-- Kode & Kategori (Baris Super Rapat) --}}
+                                <div class="flex items-center gap-1 mt-0.5 overflow-hidden">
+                                    <span class="text-[8px] sm:text-[9px] font-mono font-medium shrink-0 transition-colors"
+                                          :class="activeVariant ? 'text-indigo-500' : 'text-zinc-400 dark:text-zinc-500'"
+                                          x-text="activeVariant ? activeVariant.date : '{{ $item->code }}'">
+                                    </span>
+                                          
+                                    <span class="text-zinc-300 dark:text-zinc-600 text-[6px] sm:text-[7px] shrink-0">&bull;</span>
+                                    
+                                    <div class="flex items-center gap-1 overflow-hidden">
+                                        <span class="text-[7px] sm:text-[8px] font-bold uppercase tracking-widest truncate text-zinc-400 dark:text-zinc-500"
+                                              x-text="activeVariant ? 'Riwayat Varian' : '{{ addslashes($item->category?->name ?? 'Tanpa Kategori') }}'">
+                                        </span>
+                                        
+                                        @if($item->subCategory)
+                                            <span class="text-zinc-300 dark:text-zinc-600 text-[6px] sm:text-[7px] shrink-0" x-show="!activeVariant">&bull;</span>
+                                            <span class="text-[6px] sm:text-[7px] font-semibold text-zinc-400/80 uppercase tracking-wider truncate" x-show="!activeVariant">
+                                                {{ $item->subCategory->name }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                                
+                                {{-- Deskripsi / Atribut --}}
+                                <p class="text-[9px] mt-1 leading-tight truncate transition-colors" 
                                    :class="activeVariant ? 'text-indigo-600 dark:text-indigo-400 font-medium' : 'text-zinc-500 dark:text-zinc-400'"
                                    :title="activeVariant ? activeVariant.attributes : '{{ addslashes($item->description) }}'"
                                    x-text="activeVariant ? activeVariant.attributes : '{{ addslashes($item->description) }}'"></p>
@@ -421,6 +448,13 @@ new class extends Component {
             <div class="pt-2 border-t border-zinc-100 dark:border-zinc-800">
                 <x-load-more :paginator="$galleryItems" item-name="barang" />
             </div>
+        </div>
+
+        {{-- Floating Back Button (Mobile) --}}
+        <div class="sm:hidden sticky bottom-4 left-4 z-[100] w-max -mt-2">
+            <button @click="$flux.modal('gallery-modal').close()" class="w-14 h-14 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 active:scale-95 transition-all focus:outline-none">
+                <flux:icon.arrow-left stroke-width="2.5" class="w-6 h-6" />
+            </button>
         </div>
     </flux:modal>
 
