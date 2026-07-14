@@ -24,11 +24,31 @@ $refreshItems = function() {
     $newItems = [];
     $collisionDetected = false;
 
-    // We still need to map the deficit data back to the UI format.
-    // However, it's better to fetch recipe items directly for the UI state.
-    $recipe = ProductionRecipe::with('items.item')->where('item_id', $this->order->item_id)->where('is_active', true)->first();
-    if ($recipe) {
-        foreach ($recipe->items as $recipeItem) {
+    // Use Custom BOM if exists, else fallback to standard recipe
+    $recipeItems = collect();
+    
+    if (!empty($this->order->custom_bom)) {
+        $customItems = json_decode($this->order->custom_bom, true) ?? [];
+        foreach ($customItems as $c) {
+            $itemModel = \Modules\Inventory\Models\Item::find($c['item_id']);
+            if ($itemModel) {
+                // Mock an object to match the recipeItem structure
+                $recipeItems->push((object)[
+                    'item_id' => $c['item_id'],
+                    'qty' => $c['qty'], // Already unit qty
+                    'item' => $itemModel
+                ]);
+            }
+        }
+    } else {
+        $recipe = ProductionRecipe::with('items.item')->where('item_id', $this->order->item_id)->where('is_active', true)->first();
+        if ($recipe) {
+            $recipeItems = collect($recipe->items);
+        }
+    }
+
+    if ($recipeItems->isNotEmpty()) {
+        foreach ($recipeItems as $recipeItem) {
             $existing = null;
             foreach ($this->items as $oldItem) {
                 if ($oldItem['item_id'] === $recipeItem->item_id) {
@@ -73,6 +93,10 @@ $refreshItems = function() {
             $newItems[] = [
                 'item_id' => $recipeItem->item_id,
                 'name' => $recipeItem->item->name,
+                'code' => $recipeItem->item->code,
+                'unit' => $recipeItem->item->unit->name ?? 'pcs',
+                'image' => $recipeItem->item->image ?? null,
+                'custom_attachments' => $recipeItem->custom_attachments ?? [],
                 'requires_label' => $recipeItem->item->requires_label,
                 'needed' => $neededQty,
                 'already_consumed' => $alreadyConsumed,
@@ -247,6 +271,14 @@ $save = function () {
                                 $this->order->order_number, // Ref
                                 'Fulfillment bahan produksi. Label: ' . $sl['code'] // Notes
                             );
+                            
+                            // Kurangi alokasi
+                            \Illuminate\Support\Facades\DB::table('item_warehouse')
+                                ->where('item_id', $material['item_id'])
+                                ->where('allocated_qty', '>', 0)
+                                ->orderBy('allocated_qty', 'desc')
+                                ->limit(1)
+                                ->update(['allocated_qty' => \Illuminate\Support\Facades\DB::raw('GREATEST(0, allocated_qty - 1)')]);
                         }
                     } else {
                         $remainingToDeduct = $inputQty;
@@ -275,6 +307,14 @@ $save = function () {
                                 $this->order->order_number, // Ref
                                 'Fulfillment bahan produksi.' // Notes
                             );
+                            
+                            // Kurangi alokasi
+                            \Illuminate\Support\Facades\DB::table('item_warehouse')
+                                ->where('item_id', $material['item_id'])
+                                ->where('allocated_qty', '>', 0)
+                                ->orderBy('allocated_qty', 'desc')
+                                ->limit(1)
+                                ->update(['allocated_qty' => \Illuminate\Support\Facades\DB::raw('GREATEST(0, allocated_qty - ' . $deduct . ')')]);
 
                             $remainingToDeduct -= $deduct;
                         }
@@ -346,49 +386,72 @@ $save = function () {
             @if(count($items) > 0)
                 @foreach($items as $index => $item)
                     <div class="p-3 sm:p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 {{ $item['input_qty'] >= $item['needed'] ? 'bg-green-50/50 dark:bg-green-900/10' : 'bg-zinc-50 dark:bg-zinc-800/50' }}">
-                        <div class="flex-1">
-                            <div class="text-zinc-900 dark:text-zinc-100 font-medium text-base">
-                                {{ $item['name'] }}
-                                @if($item['input_qty'] >= $item['remaining_needed'])
-                                    <div class="inline-block ml-2"><flux:badge size="sm" color="green">Lengkap</flux:badge></div>
-                                @endif
-                            </div>
-                            <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex flex-wrap gap-3 items-center">
-                                <div>Sisa Kurang: <span class="font-bold text-rose-600 dark:text-rose-500">{{ $item['remaining_needed'] }}</span> <span class="text-xs text-zinc-400">(Telah Diambil: {{ $item['already_consumed'] }} / Total Butuh: {{ $item['needed'] }})</span></div>
-                                <div class="border-l border-zinc-300 dark:border-zinc-600 pl-3">Stok Fisik: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['stock'] }}</span></div>
-                                @if($item['request_status'] && $item['remaining_needed'] > 0)
-                                    <div class="border-l border-zinc-300 dark:border-zinc-600 pl-3">
-                                        Status Purchasing: 
-                                        @if($item['request_status'] === 'draft')
-                                            <span class="text-orange-500 font-medium">Dalam Antrean (Draft) &middot; {{ $item['request_qty'] }} dipesan</span>
-                                        @elseif($item['request_status'] === 'ordered')
-                                            <span class="text-blue-500 font-medium">Sedang Diperjalanan (Ordered) &middot; {{ $item['request_qty'] }} dipesan</span>
-                                        @elseif($item['request_status'] === 'completed')
-                                            <span class="text-green-500 font-medium">Selesai (Completed) &middot; {{ $item['request_qty'] }} diterima</span>
-                                        @else
-                                            <span class="text-zinc-500">{{ $item['request_status'] }} &middot; {{ $item['request_qty'] }} dipesan</span>
-                                        @endif
+                        <div class="flex-1 flex gap-3 min-w-0">
+                            @if(!empty($item['custom_attachments']))
+                                <div class="relative shrink-0 hidden sm:block">
+                                    <img src="{{ asset('storage/' . $item['custom_attachments'][0]) }}" class="w-12 h-12 rounded-lg object-cover bg-amber-100 ring-2 ring-amber-400 shadow-sm">
+                                    <div class="absolute -top-1 -right-1 bg-amber-500 text-white rounded-full p-0.5 shadow-sm">
+                                        <flux:icon.sparkles class="w-3 h-3" />
                                     </div>
-                                @endif
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-center gap-3 self-end sm:self-auto shrink-0 w-full sm:w-32 justify-between sm:justify-end mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-0 border-zinc-200 dark:border-zinc-700">
-                            <span class="text-sm font-medium text-zinc-600 dark:text-zinc-400 sm:hidden">Siap Diberikan:</span>
-                            <div class="w-24 sm:w-full">
-                                @if($item['requires_label'])
-                                    <div class="text-center font-bold text-xl text-indigo-600 dark:text-indigo-400">
-                                        {{ $item['input_qty'] }} <span class="text-xs text-zinc-500 font-normal">Scan</span>
-                                    </div>
-                                @else
-                                    @if($item['stock'] <= 0)
-                                        <div class="text-center text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 py-2 rounded-lg border border-red-100 dark:border-red-800">Kosong</div>
-                                    @else
-                                        <flux:input type="number" wire:model.live="items.{{ $index }}.input_qty" min="0" max="{{ min($item['remaining_needed'], $item['stock']) }}" class="w-full text-center" />
+                                </div>
+                            @elseif(!empty($item['image']))
+                                <img src="{{ Storage::url($item['image']) }}" class="w-12 h-12 rounded-lg object-cover bg-zinc-100 shrink-0 hidden sm:block">
+                            @else
+                                <div class="w-12 h-12 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0 hidden sm:block">
+                                    <flux:icon.cube class="w-6 h-6" />
+                                </div>
+                            @endif
+                            <div class="min-w-0 flex-1">
+                                <div class="text-zinc-900 dark:text-zinc-100 font-medium text-base flex flex-wrap items-center gap-2">
+                                    <span class="truncate">{{ $item['name'] }}</span>
+                                    <span class="text-[10px] text-zinc-500 font-mono hidden sm:inline-block">{{ $item['code'] ?? '-' }}</span>
+                                    @if(!empty($item['custom_attachments']))
+                                        <span class="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 uppercase tracking-wider font-semibold">Custom</span>
                                     @endif
-                                @endif
+                                    @if($item['input_qty'] >= $item['remaining_needed'])
+                                        <div class="inline-block"><flux:badge size="sm" color="green">Lengkap</flux:badge></div>
+                                    @endif
+                                </div>
+                                <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex flex-col sm:flex-row sm:flex-wrap gap-1 sm:gap-3 sm:items-center">
+                                    <div>Sisa Kurang: <span class="font-bold text-rose-600 dark:text-rose-500">{{ $item['remaining_needed'] }}</span> <span class="text-xs text-zinc-400">(Telah Diambil: {{ $item['already_consumed'] }} / Total Butuh: {{ $item['needed'] }})</span></div>
+                                    <div class="sm:border-l sm:border-zinc-300 sm:dark:border-zinc-600 sm:pl-3">Stok Fisik: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['stock'] }}</span></div>
+                                    @if($item['request_status'] && $item['remaining_needed'] > 0)
+                                        <div class="sm:border-l sm:border-zinc-300 sm:dark:border-zinc-600 sm:pl-3">
+                                            Status Purchasing: 
+                                            @if($item['request_status'] === 'draft')
+                                                <span class="text-orange-500 font-medium">Dalam Antrean (Draft) &middot; {{ $item['request_qty'] }} dipesan</span>
+                                            @elseif($item['request_status'] === 'ordered')
+                                                <span class="text-blue-500 font-medium">Sedang Diperjalanan (Ordered) &middot; {{ $item['request_qty'] }} dipesan</span>
+                                            @elseif($item['request_status'] === 'completed')
+                                                <span class="text-green-500 font-medium">Selesai (Completed) &middot; {{ $item['request_qty'] }} diterima</span>
+                                            @else
+                                                <span class="text-zinc-500">{{ $item['request_status'] }} &middot; {{ $item['request_qty'] }} dipesan</span>
+                                            @endif
+                                        </div>
+                                    @endif
+                                </div>
                             </div>
                         </div>
+                        <div class="flex items-center gap-3 self-end sm:self-auto shrink-0 w-full sm:w-auto justify-between sm:justify-end mt-3 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-0 border-zinc-200 dark:border-zinc-700">
+                            <span class="text-sm font-medium text-zinc-600 dark:text-zinc-400 sm:hidden">Siap Diberikan:</span>
+                            <div class="flex items-center gap-2">
+                                <div class="w-24">
+                                    @if($item['requires_label'])
+                                        <div class="text-center font-bold text-xl text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 py-1 rounded-lg border border-indigo-100 dark:border-indigo-800">
+                                            {{ $item['input_qty'] }} <span class="text-[10px] text-indigo-500 font-normal uppercase">Scan</span>
+                                        </div>
+                                    @else
+                                        @if($item['stock'] <= 0)
+                                            <div class="text-center text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 py-2 rounded-lg border border-red-100 dark:border-red-800">Kosong</div>
+                                        @else
+                                            <flux:input type="number" wire:model.blur="items.{{ $index }}.input_qty" min="0" max="{{ min($item['remaining_needed'], $item['stock']) }}" class="w-full text-center" />
+                                        @endif
+                                    @endif
+                                </div>
+                                <span class="text-xs text-zinc-500 font-medium w-10 truncate">{{ $item['unit'] ?? 'pcs' }}</span>
+                            </div>
+                        </div>
+                    </div>
                     </div>
                     @if($item['requires_label'] && count($item['scanned_labels']) > 0)
                         <div class="mt-2 ml-2 pl-4 border-l-2 border-indigo-200 dark:border-indigo-900/50 flex flex-wrap gap-2">
@@ -472,7 +535,4 @@ $save = function () {
     </div>
     @endif
 </flux:modal>
-
-<div x-data @barcode-scanned.window="$wire.dispatch('barcode-scanned', { code: $event.detail.code })"></div>
-<x-camera-scanner />
 </div>

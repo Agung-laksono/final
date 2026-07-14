@@ -45,7 +45,8 @@ $approve = function () {
                         'source_type' => 'sales',
                         'reference_number' => $this->order->so_number,
                         'requested_qty' => $deficit,
-                        'notes' => 'Defisit stok untuk pesanan pelanggan (ATP: ' . $atp . ', Dipesan: ' . $item->qty . ')',
+                        'notes' => 'Defisit stok untuk pesanan pelanggan (ATP: ' . $atp . ', Dipesan: ' . $item->qty . ')' . 
+                                   (!empty($item->custom_attributes) || !empty($item->custom_attachments) ? ' [CUSTOM]' : ''),
                         'status' => 'draft',
                     ]);
                     $hasDeficit = true;

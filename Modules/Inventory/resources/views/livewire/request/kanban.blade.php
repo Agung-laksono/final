@@ -79,6 +79,8 @@ $routeToPurchase = function ($requestId) {
             'approved_qty' => $req->requested_qty,
             'status' => 'approved',
             'notes' => 'Dialihkan dari Pivot Gudang. Ref: ' . $req->reference_number . '. Notes: ' . $req->notes,
+            'custom_attributes' => $req->custom_attributes,
+            'custom_attachments' => $req->custom_attachments,
         ]);
         
         $req->status = 'routed';
@@ -110,6 +112,12 @@ $confirmRouteToProduction = function () {
     
     $req = InventoryRequest::with('item')->find($this->woTargetRequestId);
     if ($req && $req->status !== 'routed') {
+        // Intercept Custom BOM for Make-To-Order
+        if (str_contains($req->notes ?? '', '[CUSTOM]')) {
+            \Flux::modal('create-wo-modal')->close();
+            $this->dispatch('open-custom-bom-modal', requestId: $req->id, qty: $this->woTargetQty);
+            return;
+        }
         // Generate sequential PROD-0001 format
         $latestProd = ProductionOrder::orderBy('id', 'desc')->first();
         $nextId = $latestProd ? $latestProd->id + 1 : 1000;
@@ -141,8 +149,30 @@ $confirmRouteToProduction = function () {
                 $stock = \Illuminate\Support\Facades\DB::table('item_warehouse')
                     ->where('item_id', $ri->item_id)
                     ->sum('stock') ?? 0;
-                    
-                $deficit = max(0, $needed - $stock);
+                $allocated = \Illuminate\Support\Facades\DB::table('item_warehouse')
+                    ->where('item_id', $ri->item_id)
+                    ->sum('allocated_qty') ?? 0;
+                
+                $atp = $stock - $allocated;
+                $deficit = max(0, $needed - $atp);
+                
+                // Reservasi stok (alokasi)
+                $updated = \Illuminate\Support\Facades\DB::table('item_warehouse')
+                    ->where('item_id', $ri->item_id)
+                    ->orderBy('stock', 'desc')
+                    ->limit(1)
+                    ->update(['allocated_qty' => \Illuminate\Support\Facades\DB::raw('allocated_qty + ' . $needed)]);
+
+                if (!$updated) {
+                    \Illuminate\Support\Facades\DB::table('item_warehouse')->insert([
+                        'item_id' => $ri->item_id,
+                        'warehouse_id' => 1, // Default warehouse
+                        'stock' => 0,
+                        'allocated_qty' => $needed,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
                 
                 if ($deficit > 0) {
                     $hasDeficit = true;
@@ -152,7 +182,7 @@ $confirmRouteToProduction = function () {
                         'source_type' => 'production',
                         'reference_number' => $orderNumber,
                         'requested_qty' => $deficit,
-                        'notes' => "Auto-Generated: Defisit bahan baku untuk {$orderNumber} (Produksi {$req->item->name}). Butuh: {$needed}, Fisik: {$stock}.",
+                        'notes' => "Auto-Generated: Defisit bahan baku untuk {$orderNumber} (Produksi {$req->item->name}). Butuh: {$needed}, ATP: {$atp} (Fisik: {$stock}, Dipesan: {$allocated}).",
                         'status' => 'draft',
                         'created_by' => auth()->id(),
                     ]);
@@ -239,7 +269,7 @@ on([
     </x-slot:header_actions>
     
     <x-slot:kanban_layout>
-        <div class="flex justify-start gap-6 overflow-x-auto pb-4 h-full -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch">
+        <div class="flex gap-6 overflow-x-auto pb-4 h-full -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch min-w-full w-max before:content-[''] before:m-auto after:content-[''] after:m-auto">
             @foreach($columns as $statusKey => $column)
                 <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['archived', 'rejected']) ? 'true' : 'false' }}).as('kanban-col-inv-{{ $statusKey }}-user-{{ auth()->id() }}') }"
                      class="flex-shrink-0 h-full max-h-full rounded-xl flex flex-col transition-all duration-300 snap-center"
@@ -257,23 +287,42 @@ on([
                         </div>
                         <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
                             <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->requests[$statusKey] ?? []) }}</flux:badge>
-                            <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" x-bind:icon="collapsed ? 'arrows-up-down' : 'arrows-right-left'" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'" />
+                            <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
+                                <flux:icon.arrows-up-down x-show="collapsed" class="w-4 h-4" />
+                                <flux:icon.arrows-right-left x-show="!collapsed" class="w-4 h-4" />
+                            </flux:button>
                         </div>
                     </div>
                     
                     {{-- Column Items --}}
-                    <div x-show="!collapsed" x-transition.opacity.duration.300ms x-init="autoAnimate($el)" class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
+                    <div x-show="!collapsed" x-transition.opacity.duration.300ms x-animate class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
                         @forelse($this->requests[$statusKey] ?? [] as $req)
-                            <div wire:key="req-{{ $req->id }}" @click="activeId = '{{ $req->id }}'" x-show="processingId !== '{{ $req->id }}'" class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700">
-                                <div class="flex justify-between items-start mb-2">
-                                    <span wire:click="$dispatch('open-request-detail-modal', { requestId: {{ $req->id }} })" class="cursor-pointer text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors" title="Lihat Detail">{{ $req->reference_number }}</span>
+                            @php
+                                $isCustom = str_contains($req->notes ?? '', '[CUSTOM]');
+                                $displayNotes = str_replace(' [CUSTOM]', '', $req->notes);
+                            @endphp
+                            <div wire:key="req-{{ $req->id }}" @click="activeId = '{{ $req->id }}'" x-show="processingId !== '{{ $req->id }}'" class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border transition-all duration-300 {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:border-amber-500 hover:shadow-amber-500/30' : 'border-zinc-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-500' }} relative overflow-hidden">
+                                @if($isCustom)
+                                    <div class="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-40 dark:opacity-20">
+                                        <div class="absolute inset-0 bg-gradient-to-bl from-amber-400 to-transparent"></div>
+                                    </div>
+                                @endif
+                                <div class="flex justify-between items-start mb-2 relative z-10">
+                                    <div class="flex flex-col gap-1.5">
+                                        <span wire:click="$dispatch('open-request-detail-modal', { requestId: {{ $req->id }} })" class="cursor-pointer text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors w-max" title="Lihat Detail">{{ $req->reference_number }}</span>
+                                        @if($isCustom)
+                                            <span class="text-[10px] font-black uppercase tracking-widest text-white bg-gradient-to-r from-amber-500 to-orange-500 px-2 py-0.5 rounded shadow-sm shadow-amber-500/40 flex items-center gap-1 w-max" title="Pesanan dengan permintaan spesifikasi khusus">
+                                                <flux:icon.sparkles class="w-3 h-3" /> Custom
+                                            </span>
+                                        @endif
+                                    </div>
                                     <flux:badge size="sm" color="{{ $req->item->type->name === 'Produk Jadi' ? 'purple' : 'blue' }}">{{ $req->item->type->name ?? 'Unknown' }}</flux:badge>
                                 </div>
-                                <div class="font-bold text-sm text-zinc-900 dark:text-white mb-1">{{ $req->item->name }}</div>
-                                <div class="text-sm text-zinc-600 dark:text-zinc-400 mb-3">Butuh: <span class="font-bold text-red-600">{{ $req->requested_qty }}</span> {{ $req->item->unit->name ?? 'pcs' }}</div>
+                                <div class="font-bold text-sm text-zinc-900 dark:text-white mb-1 relative z-10">{{ $req->item->name }}</div>
+                                <div class="text-sm text-zinc-600 dark:text-zinc-400 mb-3 relative z-10">Butuh: <span class="font-bold text-red-600">{{ $req->requested_qty }}</span> {{ $req->item->unit->name ?? 'pcs' }}</div>
                                 
-                                @if($req->notes)
-                                    <div class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded mb-3">{{ $req->notes }}</div>
+                                @if($displayNotes)
+                                    <div class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded mb-3 relative z-10">{{ $displayNotes }}</div>
                                 @endif
 
                                 @if(in_array($statusKey, ['draft', 'review']))
@@ -524,6 +573,7 @@ on([
     <livewire:recipe.form-modal />
     <livewire:request.create-modal />
     <livewire:request.request-detail-modal />
+    <livewire:request.custom-bom-modal />
     <livewire:global.item-gallery-modal context="inventory" />
     <livewire:global.item-form-modal />
 </div>

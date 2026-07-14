@@ -15,6 +15,11 @@ class PurchaseQueue extends Model
      */
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'custom_attributes' => 'array',
+        'custom_attachments' => 'array',
+    ];
+
     public function item()
     {
         return $this->belongsTo(\Modules\Inventory\Models\Item::class);

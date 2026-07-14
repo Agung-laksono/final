@@ -189,11 +189,14 @@ on(['maklon-po-created' => function () {
                             </div>
                         @endif
                         <flux:badge size="sm" class="shrink-0">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
-                        <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" x-bind:icon="collapsed ? 'arrows-up-down' : 'arrows-right-left'" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'" />
+                        <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
+                            <flux:icon.arrows-up-down x-show="collapsed" class="w-4 h-4" />
+                            <flux:icon.arrows-right-left x-show="!collapsed" class="w-4 h-4" />
+                        </flux:button>
                     </div>
                 </div>
                 
-                <div x-show="!collapsed" x-transition.opacity.duration.300ms x-init="autoAnimate($el)" class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
+                <div x-show="!collapsed" x-transition.opacity.duration.300ms x-animate class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
                     @if($statusKey === 'in_production' && $viewModeMaklon === 'grouped')
                         @php
                             $groupedByPo = collect($this->orders[$statusKey] ?? [])->groupBy('purchase_order_id');

@@ -81,14 +81,26 @@
                             }, 100);
                         });
                     });
+
+                    // Monitor visibility to auto-stop scanner when modal closes (e.g., click outside, press ESC)
+                    setInterval(() => {
+                        if (this.isScanning && this.scanner) {
+                            const reader = document.getElementById('reader');
+                            // Jika element tidak terlihat (modal tertutup)
+                            if (reader && reader.offsetParent === null) {
+                                this.stopScanner();
+                            }
+                        }
+                    }, 500);
                 },
 
                 getCameras() {
                     return window.Html5Qrcode.getCameras().then(devices => {
                         if (devices && devices.length) {
                             this.cameras = devices;
-                            // Default ke kamera terakhir (biasanya kamera belakang di HP)
-                            this.selectedCamera = devices[devices.length - 1].id;
+                            // Secara default biarkan null agar scanner menggunakan { facingMode: "environment" }
+                            // yang akan otomatis memilih kamera belakang utama bawaan OS/Browser.
+                            this.selectedCamera = ""; 
                         }
                     }).catch(err => {
                         console.error("Error getting cameras", err);

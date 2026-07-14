@@ -80,6 +80,7 @@ mount(function ($id = null) {
                 'id' => $detail->id,
                 'item_id' => $detail->item_id,
                 'name' => $detail->item->name ?? 'Unknown',
+                'code' => $detail->item->code ?? '-',
                 'qty' => $detail->quantity,
                 'unit_price' => $detail->unit_price,
                 'subtotal' => $detail->subtotal,
@@ -117,17 +118,26 @@ mount(function ($id = null) {
                         $q->where('status', '!=', 'draft');
                     })->exists();
 
+                $combinedNotes = $qGroup->map(function($q) use ($qGroup) {
+                    return $q->notes ? ($qGroup->count() > 1 ? "Ref #{$q->queue_number}: " : '') . $q->notes : null;
+                })->filter()->implode("<br>");
+                
+                $finalNote = $qGroup->count() > 1 ? '<strong>Gabungan ' . $qGroup->count() . ' tiket:</strong><br>' . $combinedNotes : $combinedNotes;
+
                 $this->items[] = [
                     'id' => null,
                     'item_id' => $itemId,
                     'name' => $item->name ?? 'Unknown',
+                    'code' => $item->code ?? '-',
                     'qty' => $totalQty,
                     'min_qty' => $totalQty,
                     'unit_price' => $price,
                     'subtotal' => $totalQty * $price,
                     'image' => $item->image ?? null,
-                    'note' => 'Gabungan dari ' . $qGroup->count() . ' tiket antrean',
+                    'note' => $finalNote,
                     'has_history' => $hasHistory,
+                    'custom_attributes' => $qGroup->first()->custom_attributes ?? [],
+                    'custom_attachments' => $qGroup->first()->custom_attachments ?? [],
                 ];
             }
         }
@@ -263,6 +273,14 @@ $saveCart = function ($cartData) {
     $subtotal = collect($this->items)->sum('subtotal');
     $grandTotal = $subtotal + (float)$this->ongkir - (float)$this->diskon_global + (float)$this->pajak_nominal;
 
+    $hasCustomItems = collect($this->items)->contains(function ($item) {
+        return (!empty($item['custom_attributes']) || !empty($item['custom_attachments']));
+    });
+    $finalNotes = $this->notes;
+    if ($hasCustomItems && !str_contains($finalNotes ?? '', '[CUSTOM]')) {
+        $finalNotes = trim(($finalNotes ?? '') . "\n\n[CUSTOM]");
+    }
+
     $data = [
         'po_number' => $this->po_number,
         'vendor_id' => $this->vendor_id,
@@ -273,7 +291,7 @@ $saveCart = function ($cartData) {
         'diskon_global' => $this->diskon_global,
         'pajak' => $this->pajak_nominal,
         'total_amount' => $grandTotal,
-        'notes' => $this->notes,
+        'notes' => $finalNotes,
     ];
 
     if (!$this->order_id) {
@@ -344,6 +362,7 @@ $saveCart = function ($cartData) {
      @clear-cart.window="items = []; calculateTax();"
      @item-selected.window="addItem($event.detail.item)" 
      @vendor-selected.window="$wire.selectVendor($event.detail.vendorId)"
+     @item-customized.window="items[$event.detail.index].note = $event.detail.itemData.note; items[$event.detail.index].custom_attributes = $event.detail.itemData.custom_attributes; items[$event.detail.index].custom_attachments = $event.detail.itemData.custom_attachments;"
      @open-item-editor.window="openItemEditor($event.detail.index)"
      @open-global-editor.window="openGlobalEditor()">
     
@@ -510,15 +529,17 @@ $saveCart = function ($cartData) {
 
                                 {{-- Product Info --}}
                                 <div class="pr-10 sm:pr-12">
-                                    <h4 class="font-bold text-[#1a2b4c] dark:text-zinc-100 text-[14px] sm:text-[15px] leading-snug line-clamp-1 uppercase flex items-center gap-1.5 flex-wrap">
+                                    <h4 class="font-bold text-[#1a2b4c] dark:text-zinc-100 text-[14px] sm:text-[15px] leading-snug line-clamp-1 uppercase flex items-center flex-wrap">
                                         <span x-text="item.name"></span>
-                                        <template x-if="(item.custom_attributes && item.custom_attributes.length > 0) || (item.custom_attachments && item.custom_attachments.length > 0)">
-                                            <span class="inline-flex items-center gap-0.5 text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded shadow-sm">
-                                                <flux:icon.sparkles class="w-2.5 h-2.5 text-emerald-600" /> CUSTOM
+                                        <template x-if="(item.custom_attributes && item.custom_attributes.length > 0) || (item.custom_attachments && item.custom_attachments.length > 0) || (item.note && item.note.toUpperCase().includes('[CUSTOM]'))">
+                                            <span class="inline-flex items-center gap-0.5 text-[9px] font-black bg-orange-500 text-white border border-orange-600 px-1.5 py-0.5 rounded shadow-sm relative -top-px ml-2">
+                                                <flux:icon.sparkles class="w-2.5 h-2.5 text-white" /> CUSTOM
                                             </span>
                                         </template>
                                     </h4>
-                                    <div class="text-[12px] sm:text-[13px] text-zinc-400 font-medium mt-0.5 sm:mt-1 uppercase" x-text="item.code || '0001'"></div>
+                                    <div class="text-[12px] sm:text-[13px] text-zinc-400 font-medium mt-0.5 sm:mt-1 uppercase flex items-center gap-2">
+                                        <span x-text="item.code || '-'"></span>
+                                    </div>
                                     
                                     {{-- Custom Badges Preview --}}
                                     <div x-show="item.custom_attributes && item.custom_attributes.length > 0" class="mt-1.5 flex flex-wrap gap-1">
@@ -539,10 +560,9 @@ $saveCart = function ($cartData) {
                                 <div class="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 pr-8 sm:pr-12">
                                     <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                                         {{-- Editable Price Input (Image 1 style) --}}
-                                        <div class="relative flex items-center flex-1 sm:w-40 min-w-0 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg" :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom', expanded: false }">
+                                        <div class="relative flex items-center flex-1 sm:w-40 min-w-0 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg" :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom', expanded: false }" x-init="$watch('item.unit_price', () => updateItemSubtotal(index))">
                                             <x-rupiah-input 
                                                 x-model="item.unit_price" 
-                                                @input="updateItemSubtotal(index)"
                                                 align="center" 
                                                 appearance="transparent" 
                                                 class="w-full pr-8" 
@@ -1176,35 +1196,54 @@ $saveCart = function ($cartData) {
         }));
     };
 
-    if (window.Alpine) {
-        initPurchaseCart();
-    } else {
-        document.addEventListener('alpine:init', initPurchaseCart);
+    if (!window.hasRegisteredPurchaseCart) {
+        window.hasRegisteredPurchaseCart = true;
+        if (window.Alpine) {
+            initPurchaseCart();
+        } else {
+            document.addEventListener('alpine:init', initPurchaseCart);
+        }
     }
     
-    document.addEventListener('livewire:initialized', () => {
-        Livewire.on('customizer-saved', (data) => {
-            let detail = data[0];
-            let index = detail.index;
-            let cart = Alpine.$data(document.querySelector('[x-data="cartSystem()"]'));
-            if (cart && cart.items[index]) {
-                cart.items[index].note = detail.note;
-                cart.items[index].custom_attributes = detail.custom_attributes;
-                cart.items[index].custom_attachments = detail.custom_attachments;
-            }
-        });
+    if (!window.hasSetupPurchaseListeners) {
+        window.hasSetupPurchaseListeners = true;
         
-        Livewire.on('add-variant-to-cart', (data) => {
-            let detail = data[0];
-            let cart = Alpine.$data(document.querySelector('[x-data="cartSystem()"]'));
-            if (cart) {
-                cart.addItem(detail.item);
-                // The newly added or updated item is now at index 0
-                cart.items[0].custom_attributes = detail.custom_attributes;
-                cart.items[0].custom_attachments = detail.custom_attachments;
-            }
-        });
-    });
+        let setupPurchaseListeners = () => {
+            Livewire.on('customizer-saved', (data) => {
+                let detail = data[0];
+                let index = detail.index;
+                let cartElement = document.querySelector('[x-data="cartSystem()"]');
+                if (cartElement) {
+                    let cart = Alpine.$data(cartElement);
+                    if (cart && cart.items[index]) {
+                        cart.items[index].note = detail.note;
+                        cart.items[index].custom_attributes = detail.custom_attributes;
+                        cart.items[index].custom_attachments = detail.custom_attachments;
+                    }
+                }
+            });
+            
+            Livewire.on('add-variant-to-cart', (data) => {
+                let detail = data[0];
+                let cartElement = document.querySelector('[x-data="cartSystem()"]');
+                if (cartElement) {
+                    let cart = Alpine.$data(cartElement);
+                    if (cart) {
+                        cart.addItem(detail.item);
+                        // The newly added or updated item is now at index 0
+                        cart.items[0].custom_attributes = detail.custom_attributes;
+                        cart.items[0].custom_attachments = detail.custom_attachments;
+                    }
+                }
+            });
+        };
+
+        if (window.Livewire) {
+            setupPurchaseListeners();
+        } else {
+            document.addEventListener('livewire:initialized', setupPurchaseListeners);
+        }
+    }
     </script>
 
     {{-- Panel Editor Rich Text --}}

@@ -1,6 +1,6 @@
 <?php
 
-use function Livewire\Volt\{state, on};
+use function Livewire\Volt\{state, on, computed};
 use Modules\Inventory\Models\Item;
 use Modules\Inventory\Models\StockMovement;
 use Flux\Flux;
@@ -20,15 +20,30 @@ state([
     'purchase_order' => 0,
     'sales_committed' => 0,
     'atp' => 0,
+    'groupVariants' => false,
+    'custom_variants_count' => 0, // Disimpan terpisah agar tidak hilang saat Livewire rehydration
 ]);
+
+$customVariantsList = computed(function () {
+    if (!$this->item) return collect();
+    
+    return \Modules\Sales\Models\SalesOrderItem::with('salesOrder.customer')
+        ->where('item_id', $this->item->id)
+        ->whereNotNull('custom_attributes')
+        ->latest('id')
+        ->limit(100)
+        ->get();
+});
 
 $fetchData = function ($id) {
     $this->item = Item::with([
-        'category', 'subCategory', 'unit', 'type', 'warehouses',
-        'customVariants' => fn($q) => $q->with('salesOrder.customer')->latest('id')->limit(100)
+        'category', 'subCategory', 'unit', 'type', 'warehouses'
     ])
         ->withCount('customVariants')
         ->findOrFail($id);
+    
+    // Simpan count secara terpisah sebagai integer — integer tidak kehilangan nilai saat Livewire rehydration
+    $this->custom_variants_count = (int) $this->item->custom_variants_count;
     
     // Ambil data pergerakan stok
     $allMovements = clone StockMovement::with(['warehouse', 'user'])
@@ -52,7 +67,14 @@ $fetchData = function ($id) {
     $this->atp = $this->item->getATP();
 };
 
-$openModal = function ($id, $tab = 'info') {
+$openModal = function ($id, $tab = null) {
+    // Jika item yang sama sudah terbuka dan tab tidak dieksplisit, pertahankan tab saat ini
+    if ($this->item && $this->item->id == $id && $tab === null) {
+        $tab = $this->tab;
+    } else {
+        $tab = $tab ?? 'info';
+    }
+    
     $this->fetchData($id);
     
     $this->initial_stock_warehouse_id = '';
@@ -64,11 +86,22 @@ $openModal = function ($id, $tab = 'info') {
     Flux::modal('item-detail-modal')->show();
 };
 
-on(['open-item-detail' => function ($payload) {
-    if (is_array($payload)) {
-        $this->openModal($payload['id'], $payload['tab'] ?? 'info');
+on(['open-item-detail' => function (...$args) {
+    // Tangani parameter dinamis dari $dispatch Alpine maupun $wire.dispatch
+    if (count($args) > 0 && is_array($args[0])) {
+        $id = $args[0]['id'] ?? null;
+        // Jika tab tidak dieksplisit dalam event, kirim null agar tab saat ini dipertahankan
+        $tab = array_key_exists('tab', $args[0]) ? $args[0]['tab'] : null;
+    } else if (isset($args['id'])) {
+        $id = $args['id'];
+        $tab = $args['tab'] ?? null;
     } else {
-        $this->openModal($payload);
+        $id = $args[0] ?? null;
+        $tab = $args[1] ?? null;
+    }
+    
+    if ($id) {
+        $this->openModal($id, $tab);
     }
 }]);
 
@@ -229,7 +262,7 @@ $saveInitialStock = function () {
 ?>
 
 <div x-data="{
-    tab: 'info',
+    activeTab: 'info',
     init() {
         if (window.Echo) {
             window.Echo.channel('inventory')
@@ -238,7 +271,7 @@ $saveInitialStock = function () {
                 });
         }
         $wire.on('item-detail-modal-opened', (data) => {
-            this.tab = data && data.length > 0 && data[0].tab ? data[0].tab : 'info';
+            this.activeTab = data && data.length > 0 && data[0].tab ? data[0].tab : 'info';
         });
     }
 }">
@@ -267,26 +300,27 @@ $saveInitialStock = function () {
 
                 {{-- Konten Utama dengan Tabs --}}
                 <div>
-                    <div class="flex gap-6 border-b border-zinc-200 dark:border-zinc-700 mb-6">
-                        <button type="button" @click="tab = 'info'" :class="tab === 'info' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'" class="pb-3 text-sm transition-colors">
+                    <div class="flex gap-6 border-b border-zinc-200 dark:border-zinc-700 mb-6 relative z-10">
+                        <button type="button" wire:click="$set('tab', 'info')" class="{{ $tab === 'info' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors">
                             Dasbor
                         </button>
                         @if($item->requires_label)
-                        <button type="button" @click="tab = 'labels'" :class="tab === 'labels' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'" class="pb-3 text-sm transition-colors">
+                        <button type="button" wire:click="$set('tab', 'labels')" class="{{ $tab === 'labels' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors">
                             Serial
                         </button>
                         @endif
-                        <button type="button" @click="tab = 'history'" :class="tab === 'history' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'" class="pb-3 text-sm transition-colors">
+                        <button type="button" wire:click="$set('tab', 'history')" class="{{ $tab === 'history' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors">
                             Riwayat
                         </button>
-                        @if($item->custom_variants_count > 0)
-                        <button type="button" @click="tab = 'variants'" :class="tab === 'variants' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'" class="pb-3 text-sm transition-colors">
-                            Varian ({{ $item->custom_variants_count }})
+                        @if($custom_variants_count > 0)
+                        <button type="button" wire:click="$set('tab', 'variants')" class="{{ $tab === 'variants' ? 'border-b-2 border-zinc-900 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100 font-medium' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300' }} pb-3 text-sm transition-colors">
+                            Varian ({{ $custom_variants_count }})
                         </button>
                         @endif
                     </div>
 
-                    <div x-show="tab === 'info'" x-cloak>
+                    @if($tab === 'info')
+                    <div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             
                             {{-- Kolom Kiri: Gambar & Stok Info --}}
@@ -686,12 +720,17 @@ $saveInitialStock = function () {
                             </div>
                         </div>
                     </div>
+                    @endif
 
-                    <div x-show="tab === 'labels'" x-cloak>
+                    @if($tab === 'labels')
+                    <div>
                         <livewire:item-input.item-label-list :item-id="$item->id" :wire:key="'label-list-' . $item->id" />
                     </div>
+                    @endif
+                    
                     <!-- Tab Riwayat Mutasi -->
-                    <div x-show="tab === 'history'" x-cloak>
+                    @if($tab === 'history')
+                    <div>
                         <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                             <div class="p-4 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 flex justify-between items-center">
                                 <h3 class="font-bold text-zinc-800 dark:text-zinc-200">Riwayat Mutasi Barang (50 Terakhir)</h3>
@@ -753,11 +792,30 @@ $saveInitialStock = function () {
                             </table>
                         </div>
                     </div>
+                    @endif
                     
-                    @if($item->custom_variants_count > 0)
-                    <div x-show="tab === 'variants'" x-cloak>
+                    @if($tab === 'variants' && $item->custom_variants_count > 0)
+                    <div>
+                        <div class="flex justify-between items-center mb-4 bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-xl border border-zinc-100 dark:border-zinc-700/50">
+                            <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-200">Riwayat Varian Kustom</h3>
+                            <flux:switch wire:model.live="groupVariants" label="Kelompokkan Duplikat" />
+                        </div>
+                        
+                        @php
+                            $displayVariants = $this->customVariantsList;
+                            if ($groupVariants) {
+                                $displayVariants = collect($this->customVariantsList)->groupBy(function($v) {
+                                    return md5(json_encode($v->custom_attributes) . json_encode($v->custom_attachments));
+                                })->map(function($group) {
+                                    $first = $group->first();
+                                    $first->duplicate_count = $group->count();
+                                    return $first;
+                                });
+                            }
+                        @endphp
+                        
                         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                            @foreach($item->customVariants as $variant)
+                            @forelse($displayVariants as $variant)
                                 <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
                                     <div class="aspect-square bg-zinc-100 dark:bg-zinc-800 relative">
                                         @if(!empty($variant->custom_attachments))
@@ -768,8 +826,13 @@ $saveInitialStock = function () {
                                             </div>
                                         @endif
                                         <div class="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] font-mono px-2 py-0.5 rounded">
-                                            {{ $variant->created_at->format('d M Y') }}
+                                            {{ $variant->created_at ? $variant->created_at->format('d M Y') : '' }}
                                         </div>
+                                        @if(isset($variant->duplicate_count) && $variant->duplicate_count > 1)
+                                            <div class="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
+                                                x{{ $variant->duplicate_count }}
+                                            </div>
+                                        @endif
                                     </div>
                                     <div class="p-3">
                                         <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate mb-1">
@@ -782,11 +845,16 @@ $saveInitialStock = function () {
                                         @endif
                                     </div>
                                 </div>
-                            @endforeach
+                            @empty
+                                <div class="col-span-full py-12 text-center text-zinc-500 bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
+                                    <flux:icon.cube class="w-8 h-8 mx-auto text-zinc-300 mb-3" />
+                                    <p class="font-medium text-zinc-600">Tidak ada data riwayat varian.</p>
+                                </div>
+                            @endforelse
                         </div>
-                        @if($item->custom_variants_count > count($item->customVariants))
+                        @if($item->custom_variants_count > count($this->customVariantsList) && count($this->customVariantsList) > 0)
                             <div class="mt-6 text-center text-sm text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 py-3 rounded-xl border border-zinc-100 dark:border-zinc-700/50">
-                                Menampilkan {{ count($item->customVariants) }} varian terbaru dari total {{ $item->custom_variants_count }} varian.
+                                Menampilkan {{ count($this->customVariantsList) }} varian terbaru dari total {{ $item->custom_variants_count }} varian.
                             </div>
                         @endif
                     </div>

@@ -323,40 +323,10 @@ $delete = function (Item $item) {
                             <div class="absolute inset-0" style="background-image: radial-gradient(circle, #e4e4e7 1px, transparent 1px); background-size: 10px 10px; opacity: 0.5;"></div>
                         @endif
                         
-                        {{-- Mini Variants Carousel (Bawah Kiri) --}}
-                        @if ($item->custom_variants_count > 0)
-                            <div class="absolute bottom-2 left-2 z-50 right-2 flex items-center justify-between pointer-events-auto">
-                                <div class="flex -space-x-1.5 overflow-hidden p-1">
-                                    @foreach($item->customVariants as $variant)
-                                        @php
-                                            $variantData = [
-                                                'image' => !empty($variant->custom_attachments) ? asset('storage/' . $variant->custom_attachments[0]) : null,
-                                                'customer' => $variant->salesOrder?->customer?->name ?? 'Pelanggan Umum',
-                                                'date' => $variant->created_at?->format('d M Y') ?? '',
-                                                'attributes' => !empty($variant->custom_attributes) ? collect($variant->custom_attributes)->map(fn($v, $k) => $k . ': ' . (is_array($v) ? implode(', ', $v) : $v))->implode(' | ') : ''
-                                            ];
-                                        @endphp
-                                        @if($variantData['image'])
-                                            <img @mouseenter="activeVariant = {{ json_encode($variantData) }}"
-                                                 @mouseleave="activeVariant = null"
-                                                 @click.stop="activeVariant = activeVariant ? null : {{ json_encode($variantData) }}"
-                                                 class="inline-block h-6 w-6 rounded-full ring-2 ring-white object-cover bg-white shadow-sm cursor-pointer transition-transform hover:scale-110 hover:z-10" 
-                                                 src="{{ $variantData['image'] }}" 
-                                                 alt="Varian">
-                                        @endif
-                                    @endforeach
-                                </div>
-                                @if($item->custom_variants_count > count($item->customVariants))
-                                    <button @click.stop="loading = true; $wire.dispatch('open-item-detail', { id: {{ $item->id }}, tab: 'variants' })"
-                                            class="bg-black/50 hover:bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm shadow-sm transition-all hover:scale-105 pointer-events-auto cursor-pointer">
-                                        +{{ $item->custom_variants_count - count($item->customVariants) }}
-                                    </button>
-                                @endif
-                            </div>
-                        @endif
+                        {{-- (Mini Variants Carousel has been moved to thumbnail slider below) --}}
                         
                         {{-- Badge Tipe Barang (Kiri Atas) --}}
-                        <div class="absolute top-2 left-2 flex z-0">
+                        <div class="absolute top-2 left-2 flex flex-col gap-1.5 z-0 pointer-events-none">
                             @if ($item->type)
                                 @php
                                     $colors = [
@@ -372,21 +342,73 @@ $delete = function (Item $item) {
                                     $defaultColors = ['bg-indigo-500/90', 'bg-rose-500/90', 'bg-cyan-500/90', 'bg-teal-500/90', 'bg-fuchsia-500/90'];
                                     $color = $colors[$typeName] ?? $defaultColors[$item->type->id % count($defaultColors)];
                                 @endphp
-                                <div class="{{ $color }} backdrop-blur-sm text-white rounded-md px-1.5 py-0.5 text-[8px] font-bold tracking-wider uppercase shadow-sm border border-white/20">
+                                <div class="w-max {{ $color }} backdrop-blur-sm text-white rounded-md px-1.5 py-0.5 text-[8px] font-bold tracking-wider uppercase shadow-sm border border-white/20">
                                     {{ $item->type->name }}
                                 </div>
                             @endif
-                        </div>
-                        
-                        {{-- Overlay Status Kanan --}}
-                        <div class="absolute top-2 right-2 flex gap-1.5 shadow-sm z-0">
+                            
                             @if ($item->requires_label)
-                                <div class="bg-blue-500/90 backdrop-blur-sm text-white rounded-md px-1.5 py-0.5" title="Berlabel SN">
+                                <div class="w-max bg-blue-500/90 backdrop-blur-sm text-white rounded-md px-1.5 py-0.5 shadow-sm border border-white/20" title="Berlabel SN">
                                     <flux:icon.qr-code class="w-3 h-3" />
                                 </div>
                             @endif
                         </div>
+                        
                     </div>
+                    
+                    {{-- Thumbnail Slider (Bawah Gambar Utama) --}}
+                    @php
+                        // Group by the first image attachment to avoid identical avatars
+                        $groupedVariants = collect($item->customVariants)
+                            ->filter(fn($v) => !empty($v->custom_attachments))
+                            ->groupBy(fn($v) => $v->custom_attachments[0])
+                            ->take(4);
+                    @endphp
+                    @if($item->image || $groupedVariants->isNotEmpty())
+                        <div class="flex gap-2 p-3 pb-0 overflow-x-auto custom-scrollbar snap-x">
+                            {{-- Thumbnail Default (Original Image) --}}
+                            @if($item->image)
+                                <div @click="activeVariant = null" 
+                                     class="w-10 h-10 rounded-lg border-2 shrink-0 overflow-hidden cursor-pointer snap-start transition-colors bg-zinc-100"
+                                     :class="!activeVariant ? 'border-indigo-500 shadow-sm' : 'border-transparent hover:border-zinc-300'">
+                                    <img src="{{ asset('storage/' . $item->image) }}" class="w-full h-full object-cover">
+                                </div>
+                            @endif
+                            
+                            {{-- Thumbnail Variasi --}}
+                            @foreach($groupedVariants as $imagePath => $group)
+                                @php
+                                    $variant = $group->first();
+                                    $count = $group->count();
+                                    $variantData = [
+                                        'image' => asset('storage/' . $imagePath),
+                                        'customer' => ($count > 1 ? "({$count} Varian Serupa) " : "") . ($variant->salesOrder?->customer?->name ?? 'Pelanggan Umum'),
+                                        'date' => $variant->created_at?->format('d M Y') ?? '',
+                                        'attributes' => !empty($variant->custom_attributes) ? collect($variant->custom_attributes)->map(fn($v, $k) => $k . ': ' . (is_array($v) ? implode(', ', $v) : $v))->implode(' | ') : ''
+                                    ];
+                                @endphp
+                                <div @click="activeVariant = {{ json_encode($variantData) }}"
+                                     class="relative w-10 h-10 rounded-lg border-2 shrink-0 overflow-hidden cursor-pointer snap-start transition-colors bg-zinc-100"
+                                     :class="activeVariant && activeVariant.image === '{{ $variantData['image'] }}' ? 'border-indigo-500 shadow-sm' : 'border-transparent hover:border-zinc-300'">
+                                    <img src="{{ $variantData['image'] }}" class="w-full h-full object-cover">
+                                    @if($count > 1)
+                                        <div class="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
+                                            <span class="text-white text-[9px] font-bold">+{{ $count - 1 }}</span>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
+                            
+                            {{-- Tombol Lihat Semua Varian --}}
+                            @if($item->custom_variants_count > 0)
+                                <div @click.stop="$wire.dispatch('open-item-detail', { id: {{ $item->id }}, tab: 'variants' })"
+                                     class="w-10 h-10 rounded-lg border-2 border-dashed border-zinc-200 hover:border-indigo-400 shrink-0 flex flex-col items-center justify-center cursor-pointer snap-start text-zinc-400 hover:text-indigo-500 transition-colors bg-zinc-50 hover:bg-indigo-50/50">
+                                    <flux:icon.ellipsis-horizontal class="w-4 h-4" />
+                                    <span class="text-[7px] font-bold mt-0.5">Semua</span>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
                     
                     {{-- Informasi Bawah (Jelas & Padat) --}}
                     <div class="p-3 flex flex-col flex-1">

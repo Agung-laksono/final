@@ -5,7 +5,16 @@ window.Html5QrcodeScanner = Html5QrcodeScanner;
 window.Html5Qrcode = Html5Qrcode;
 
 import autoAnimate from '@formkit/auto-animate';
-window.autoAnimate = autoAnimate;
+document.addEventListener('alpine:init', () => {
+    window.Alpine.directive('animate', (el) => {
+        const animation = autoAnimate(el);
+        if (el._x_cleanup) {
+            el._x_cleanup(() => {
+                if (animation) animation.disable();
+            });
+        }
+    });
+});
 
 // Cropper-style Interactive Crop — Pure Alpine JS, Zero Library
 window.imageCropperData = (wireModel = 'image', nameModel = null) => {

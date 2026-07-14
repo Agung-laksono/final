@@ -232,6 +232,14 @@ $saveCart = function ($cartData) {
     $subtotal = collect($this->items)->sum('subtotal');
     $grandTotal = $subtotal + (float)$this->shipping_fee - (float)$this->discount + (float)$this->tax;
 
+    $hasCustomItems = collect($this->items)->contains(function ($item) {
+        return (!empty($item['custom_attributes']) || !empty($item['custom_attachments']));
+    });
+
+    if ($hasCustomItems && !str_contains($this->notes, '[CUSTOM]')) {
+        $this->notes = '[CUSTOM] ' . $this->notes;
+    }
+
     $data = [
         'so_number' => $this->so_number,
         'customer_id' => $this->customer_id,
@@ -530,10 +538,9 @@ $saveCart = function ($cartData) {
                                 <div class="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 pr-8 sm:pr-12">
                                     <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                                         {{-- Editable Price Input (Image 1 style) --}}
-                                        <div class="relative flex items-center flex-1 sm:w-40 min-w-0 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg" :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom', expanded: false }">
+                                        <div class="relative flex items-center flex-1 sm:w-40 min-w-0 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg" :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom', expanded: false }" x-init="$watch('item.unit_price', () => updateItemSubtotal(index))">
                                             <x-rupiah-input 
                                                 x-model="item.unit_price" 
-                                                @input="updateItemSubtotal(index)"
                                                 align="center" 
                                                 appearance="transparent" 
                                                 class="w-full pr-8" 
@@ -1184,35 +1191,54 @@ $saveCart = function ($cartData) {
         }));
     };
 
-    if (window.Alpine) {
-        initSalesCart();
-    } else {
-        document.addEventListener('alpine:init', initSalesCart);
+    if (!window.hasRegisteredSalesCart) {
+        window.hasRegisteredSalesCart = true;
+        if (window.Alpine) {
+            initSalesCart();
+        } else {
+            document.addEventListener('alpine:init', initSalesCart);
+        }
     }
     
-    document.addEventListener('livewire:initialized', () => {
-        Livewire.on('customizer-saved', (data) => {
-            let detail = data[0];
-            let index = detail.index;
-            let cart = Alpine.$data(document.querySelector('[x-data="cartSystem()"]'));
-            if (cart && cart.items[index]) {
-                cart.items[index].note = detail.note;
-                cart.items[index].custom_attributes = detail.custom_attributes;
-                cart.items[index].custom_attachments = detail.custom_attachments;
-            }
-        });
+    if (!window.hasSetupSalesListeners) {
+        window.hasSetupSalesListeners = true;
         
-        Livewire.on('add-variant-to-cart', (data) => {
-            let detail = data[0];
-            let cart = Alpine.$data(document.querySelector('[x-data="cartSystem()"]'));
-            if (cart) {
-                cart.addItem(detail.item);
-                // The newly added or updated item is now at index 0
-                cart.items[0].custom_attributes = detail.custom_attributes;
-                cart.items[0].custom_attachments = detail.custom_attachments;
-            }
-        });
-    });
+        let setupSalesListeners = () => {
+            Livewire.on('customizer-saved', (data) => {
+                let detail = data[0];
+                let index = detail.index;
+                let cartElement = document.querySelector('[x-data="cartSystem()"]');
+                if (cartElement) {
+                    let cart = Alpine.$data(cartElement);
+                    if (cart && cart.items[index]) {
+                        cart.items[index].note = detail.note;
+                        cart.items[index].custom_attributes = detail.custom_attributes;
+                        cart.items[index].custom_attachments = detail.custom_attachments;
+                    }
+                }
+            });
+            
+            Livewire.on('add-variant-to-cart', (data) => {
+                let detail = data[0];
+                let cartElement = document.querySelector('[x-data="cartSystem()"]');
+                if (cartElement) {
+                    let cart = Alpine.$data(cartElement);
+                    if (cart) {
+                        cart.addItem(detail.item);
+                        // The newly added or updated item is now at index 0
+                        cart.items[0].custom_attributes = detail.custom_attributes;
+                        cart.items[0].custom_attachments = detail.custom_attachments;
+                    }
+                }
+            });
+        };
+
+        if (window.Livewire) {
+            setupSalesListeners();
+        } else {
+            document.addEventListener('livewire:initialized', setupSalesListeners);
+        }
+    }
     </script>
     
     @once

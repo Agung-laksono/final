@@ -174,23 +174,42 @@ on([
                     </div>
                     <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
                         <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
-                        <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" x-bind:icon="collapsed ? 'arrows-up-down' : 'arrows-right-left'" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'" />
+                        <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
+                            <flux:icon.arrows-up-down x-show="collapsed" class="w-4 h-4" />
+                            <flux:icon.arrows-right-left x-show="!collapsed" class="w-4 h-4" />
+                        </flux:button>
                     </div>
                 </div>
 
                 {{-- Column Items --}}
-                <div x-show="!collapsed" x-transition.opacity.duration.300ms x-init="autoAnimate($el)" class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
+                <div x-show="!collapsed" x-transition.opacity.duration.300ms x-animate class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
                     @forelse($this->orders[$statusKey] ?? [] as $po)
-                        <div wire:key="po-{{ $po->id }}" 
-                             @click="activeId = '{{ $po->id }}'; $dispatch('open-detail-modal', { orderId: {{ $po->id }} })"
-                             x-show="processingId !== '{{ $po->id }}'"
-                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group relative cursor-pointer">
-                            
-                            {{-- Header Card --}}
-                            <div class="flex justify-between items-start mb-3">
-                                <span class="font-mono text-xs font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 px-2 py-1 rounded-md">
-                                    {{ $po->po_number }}
-                                </span>
+                            @php
+                                $isCustom = str_contains($po->notes ?? '', '[CUSTOM]');
+                            @endphp
+                            <div wire:key="po-{{ $po->id }}" 
+                                 @click="activeId = '{{ $po->id }}'; $dispatch('open-detail-modal', { orderId: {{ $po->id }} })"
+                                 x-show="processingId !== '{{ $po->id }}'"
+                                 class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border transition-all duration-300 {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:-translate-y-1 hover:border-amber-500 hover:shadow-amber-500/30' : 'border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-'.$column['color'].'-400 dark:hover:border-'.$column['color'].'-500' }} group relative cursor-pointer overflow-hidden">
+                                
+                                @if($isCustom)
+                                    <div class="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-40 dark:opacity-20">
+                                        <div class="absolute inset-0 bg-gradient-to-bl from-amber-400 to-transparent"></div>
+                                    </div>
+                                @endif
+                                
+                                {{-- Header Card --}}
+                                <div class="flex justify-between items-start mb-3 relative z-10">
+                                    <div class="flex flex-col gap-1.5">
+                                        <span class="font-mono text-xs font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 px-2 py-1 rounded-md w-max">
+                                            {{ $po->po_number }}
+                                        </span>
+                                        @if($isCustom)
+                                            <span class="text-[10px] font-black text-amber-600 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5 w-max">
+                                                <flux:icon.sparkles class="w-2.5 h-2.5" /> CUSTOM
+                                            </span>
+                                        @endif
+                                    </div>
                                 <div class="flex items-center text-[10px] text-zinc-400 font-medium">
                                     @if($po->creator)
                                         <flux:avatar src="" fallback="{{ substr($po->creator->name, 0, 2) }}" size="xs" class="w-4 h-4 mr-1 text-[8px]" />

@@ -279,12 +279,12 @@ $save = function () {
         $totalPOItems = $this->purchaseOrder->items()->sum('quantity');
         $totalReceivedItems = $this->purchaseOrder->items()->sum('received_quantity');
         
-        // 6. Update PO Status
-        if ($totalReceivedItems >= $totalPOItems) {
-            $this->purchaseOrder->status = 'completed';
-            
-            // Sinkronisasi status tiket antrean menjadi 'completed' jika PO selesai
-            foreach ($this->purchaseOrder->items as $poItemModel) {
+        // 6. Sinkronisasi status tiket antrean per-Item
+        // Jika sebuah PO Item sudah diterima 100%, pindahkan tiket antreannya ke kolom 'completed'
+        foreach ($this->purchaseOrder->items as $poItemModel) {
+            // Muat ulang data terbaru karena baru diupdate di atas
+            $poItemModel->refresh();
+            if ($poItemModel->received_quantity >= $poItemModel->quantity) {
                 foreach ($poItemModel->queueFulfillments as $fulfillment) {
                     if ($fulfillment->purchaseQueue && in_array($fulfillment->purchaseQueue->status, ['approved', 'ordered'])) {
                         $fulfillment->purchaseQueue->status = 'completed';
@@ -292,6 +292,11 @@ $save = function () {
                     }
                 }
             }
+        }
+
+        // 7. Update Status PO secara keseluruhan
+        if ($totalReceivedItems >= $totalPOItems) {
+            $this->purchaseOrder->status = 'completed';
         } else {
             $this->purchaseOrder->status = 'partially_received';
         }
@@ -299,9 +304,63 @@ $save = function () {
 
         DB::commit();
 
+        // 8. Auto-Sweeper for Production Orders (Trigger Pindah Kolom)
+        // Scan semua WO yang masih Kekurangan Bahan untuk mengecek apakah stoknya sudah memenuhi sekarang
+        $waitingOrders = \Modules\Production\Models\ProductionOrder::where('status', 'waiting_material')->get();
+        $productionSweptCount = 0;
+        
+        foreach ($waitingOrders as $wOrder) {
+            $hasDeficit = false;
+            
+            $recipeItems = collect();
+            if (!empty($wOrder->custom_bom)) {
+                $customItems = json_decode($wOrder->custom_bom, true) ?? [];
+                foreach ($customItems as $c) {
+                    $recipeItems->push((object)[
+                        'item_id' => $c['item_id'],
+                        'qty' => $c['qty'],
+                    ]);
+                }
+            } else {
+                $recipe = \Modules\Production\Models\ProductionRecipe::with('items')->where('item_id', $wOrder->item_id)->where('is_active', true)->first();
+                if ($recipe) {
+                    $recipeItems = collect($recipe->items);
+                }
+            }
+            
+            foreach ($recipeItems as $ri) {
+                $needed = $ri->qty * $wOrder->requested_qty;
+                $stock = \Illuminate\Support\Facades\DB::table('item_warehouse')->where('item_id', $ri->item_id)->sum('stock') ?? 0;
+                
+                $alreadyConsumed = abs(\Illuminate\Support\Facades\DB::table('stock_movements')
+                    ->where('reference_number', $wOrder->order_number)
+                    ->where('item_id', $ri->item_id)
+                    ->where('type', 'out')
+                    ->sum('quantity') ?? 0);
+                    
+                $remainingNeeded = max(0, $needed - $alreadyConsumed);
+                
+                if ($remainingNeeded > $stock) {
+                    $hasDeficit = true;
+                    break;
+                }
+            }
+            
+            if (!$hasDeficit && $recipeItems->isNotEmpty()) {
+                $wOrder->status = 'material_fulfillment';
+                $wOrder->notes = $wOrder->notes . "\n[Auto-Sweeper " . date('d/m H:i') . "]: Stok telah terpenuhi dari penerimaan barang.";
+                $wOrder->save();
+                $productionSweptCount++;
+            }
+        }
+
         $this->show = false;
         $this->dispatch('status-updated'); // Refresh Kanban
         \App\Events\KanbanUpdated::safeDispatch('purchase_order');
+        
+        if ($productionSweptCount > 0) {
+            \App\Events\KanbanUpdated::safeDispatch('production_order');
+        }
         
         // Buka modal cetak label otomatis jika ada label yang digenerate
         if (count($generatedLabelIds) > 0) {
@@ -310,13 +369,18 @@ $save = function () {
         
         $msg = "Penerimaan barang berhasil disimpan.";
         if ($generatedLabelsCount > 0) {
-            $msg .= " $generatedLabelsCount Label Serial berhasil di-generate otomatis.";
+            $msg .= " $generatedLabelsCount Label Serial digenerate.";
         }
+        if ($productionSweptCount > 0) {
+            $msg .= " $productionSweptCount WO pindah ke Menunggu Penyerahan.";
+        }
+        
         \Flux::toast(
             heading: 'Berhasil',
             text: $msg,
             variant: 'success'
         );
+
 
     } catch (\Exception $e) {
         DB::rollBack();
