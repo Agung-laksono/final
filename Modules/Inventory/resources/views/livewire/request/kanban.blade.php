@@ -71,7 +71,7 @@ $routeToPurchase = function ($requestId) {
     
     $req = InventoryRequest::with('item')->find($requestId);
     if ($req && $req->status !== 'routed') {
-        PurchaseQueue::create([
+        $newQueue = PurchaseQueue::create([
             'item_id' => $req->item_id,
             'source_type' => 'inventory_request',
             'source_id' => $req->id,
@@ -82,6 +82,19 @@ $routeToPurchase = function ($requestId) {
             'custom_attributes' => $req->custom_attributes,
             'custom_attachments' => $req->custom_attachments,
         ]);
+        
+        // Kirim notifikasi ke semua staf purchasing dan Super Admin
+        $newQueue->load('item.unit');
+        $recipients = \App\Models\User::permission('purchase.queue.view')
+            ->orWhereHas('roles', function($q) { $q->where('name', 'Super Admin'); })
+            ->get();
+        
+        if ($recipients->isNotEmpty()) {
+            \Illuminate\Support\Facades\Notification::send(
+                $recipients,
+                new \App\Notifications\PurchaseQueueCreatedNotification($newQueue)
+            );
+        }
         
         $req->status = 'routed';
         $req->routed_to = 'purchase';

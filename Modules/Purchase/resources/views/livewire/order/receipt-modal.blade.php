@@ -395,66 +395,74 @@ $save = function () {
 
 ?>
 
-<flux:modal wire:model="show" class="w-full max-w-[950px] space-y-6">
-    @if($purchaseOrder)
-    <div>
-        <flux:heading size="lg">📦 Form Penerimaan Barang</flux:heading>
-        <flux:subheading>Terima barang fisik dari PO: <span class="font-bold text-zinc-900 dark:text-white">{{ $purchaseOrder->po_number }}</span></flux:subheading>
+<div>
+    <flux:modal wire:model="show" class="w-full md:w-[480px] space-y-3">
+        @if($purchaseOrder)
+        {{-- Header --}}
+    <div class="pb-2 border-b border-zinc-200 dark:border-zinc-700 pr-6">
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-bold text-zinc-800 dark:text-zinc-100">📦 Penerimaan Barang</span>
+            <span class="font-mono text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">{{ $purchaseOrder->po_number }}</span>
+        </div>
+        <div class="flex items-center justify-between mt-1">
+            <div class="text-[11px] text-zinc-400">{{ $purchaseOrder->vendor?->name ?? '-' }}</div>
+            <input wire:model="receipt_date" type="date" class="text-[11px] text-zinc-500 border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-0.5 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+        </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-4">
-        <flux:input wire:model="receipt_date" type="date" label="Tanggal Terima" />
-    </div>
-
-    <div class="space-y-4 mt-6">
+    {{-- Items --}}
+    <div class="space-y-2">
         @forelse($items as $index => $item)
-            <div class="p-4 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800/50 flex flex-col gap-4">
-                <div class="flex justify-between items-start gap-4">
-                    <div>
-                        <div class="font-medium text-zinc-900 dark:text-white">{{ $item['name'] }}</div>
-                        <div class="text-xs text-zinc-500 mb-1">{{ $item['code'] }}</div>
+            <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800/50 overflow-hidden">
+                {{-- Item Header --}}
+                <div class="flex justify-between items-center px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-100 dark:border-zinc-700">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <div class="min-w-0">
+                            <div class="font-semibold text-xs text-zinc-900 dark:text-white leading-snug truncate">{{ $item['name'] }}</div>
+                            <div class="font-mono text-[10px] text-zinc-400">{{ $item['code'] }}</div>
+                        </div>
                         @if($item['requires_label'])
-                            <flux:badge size="sm" color="indigo" class="mt-1">Auto-Label</flux:badge>
+                            <flux:badge size="sm" color="indigo" class="shrink-0 !text-[9px] !px-1 !py-0">Label</flux:badge>
                         @endif
                     </div>
-                    <div class="text-right whitespace-nowrap">
-                        <div class="text-xs text-zinc-500">Sisa / Pesan</div>
-                        <div class="font-bold text-sm text-zinc-900 dark:text-white">
-                            <span class="text-lg">{{ $item['remaining'] }}</span> / {{ $item['ordered'] }}
+                    <div class="text-right shrink-0 ml-3">
+                        <div class="text-[9px] text-zinc-400 uppercase tracking-wider">Sisa / Pesan</div>
+                        <div class="font-black text-sm text-zinc-900 dark:text-white leading-none">
+                            {{ $item['remaining'] }}<span class="text-xs font-normal text-zinc-400"> / {{ $item['ordered'] }}</span>
                         </div>
                         @if($item['received_past'] > 0)
-                            <div class="text-xs text-zinc-400 mt-1">Sdh: {{ $item['received_past'] }}</div>
+                            <div class="text-[9px] text-emerald-500">Sdh: {{ $item['received_past'] }}</div>
                         @endif
                     </div>
                 </div>
-                
+
+                {{-- Distribution --}}
                 @php
                     $currentTotal = collect($item['distributions'])->sum(fn($d) => (int)($d['qty'] ?? 0));
                     $whIds = collect($item['distributions'])->pluck('warehouse_id')->filter()->toArray();
                     $hasDuplicates = count($whIds) !== count(array_unique($whIds));
-                    $allDistributionsFilled = collect($item['distributions'])->every(fn($d) => !empty($d['warehouse_id']) && !empty($d['qty']) && (int)$d['qty'] > 0);
                 @endphp
-                <div class="pt-4 border-t border-zinc-100 dark:border-zinc-700/50 space-y-3">
+                <div class="px-3 py-2 space-y-1.5">
                     <div class="flex justify-between items-center">
-                        <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Distribusi Gudang</span>
-                        <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Distribusi Gudang</span>
+                        <div class="flex items-center gap-1">
                             @if($currentTotal > $item['remaining'])
-                                <span class="text-xs text-red-500 font-semibold bg-red-50 dark:bg-red-500/10 px-2 py-0.5 rounded border border-red-200 dark:border-red-500/20">Total melebihi sisa! ({{ $currentTotal }}/{{ $item['remaining'] }})</span>
+                                <span class="text-[9px] text-red-500 font-semibold bg-red-50 dark:bg-red-500/10 px-1.5 py-0.5 rounded">Melebihi sisa! ({{ $currentTotal }}/{{ $item['remaining'] }})</span>
                             @endif
                             @if($hasDuplicates)
-                                <span class="text-xs text-red-500 font-semibold bg-red-50 dark:bg-red-500/10 px-2 py-0.5 rounded border border-red-200 dark:border-red-500/20">Lokasi Gudang ganda!</span>
+                                <span class="text-[9px] text-red-500 font-semibold bg-red-50 dark:bg-red-500/10 px-1.5 py-0.5 rounded">Gudang ganda!</span>
                             @endif
                         </div>
                     </div>
-                    
+
                     @foreach($item['distributions'] as $distIndex => $dist)
                         @php
                             $isRowEmpty = empty($dist['qty']);
                             $isQuotaFull = $currentTotal >= $item['remaining'];
                             $shouldDisable = $isQuotaFull && $isRowEmpty;
                         @endphp
-                        <div id="dist-row-{{ $index }}-{{ $distIndex }}" 
-                             x-data="{ warehouseId: '{{ $dist['warehouse_id'] }}' }" 
+                        <div id="dist-row-{{ $index }}-{{ $distIndex }}"
+                             x-data="{ warehouseId: '{{ $dist['warehouse_id'] }}' }"
                              x-on:focusin="
                                  let dists = $wire.items[{{ $index }}].distributions;
                                  let cleaned = dists.filter((d, i) => {
@@ -465,56 +473,55 @@ $save = function () {
                                      $wire.items[{{ $index }}].distributions = cleaned;
                                  }
                              "
-                             class="flex gap-3 items-end opacity-100 transition-opacity duration-200 {{ $shouldDisable ? 'opacity-50 grayscale-[50%]' : '' }}">
+                             class="flex gap-2 items-start {{ $shouldDisable ? 'opacity-50 grayscale-[50%]' : '' }}">
                             <div class="flex-1">
-                                <flux:select 
-                                    wire:model.live="items.{{ $index }}.distributions.{{ $distIndex }}.warehouse_id" 
-                                    x-model="warehouseId" 
+                                <flux:select
+                                    wire:model.live="items.{{ $index }}.distributions.{{ $distIndex }}.warehouse_id"
+                                    x-model="warehouseId"
                                     @change="$nextTick(() => { setTimeout(() => { document.getElementById('qty-input-{{ $index }}-{{ $distIndex }}')?.focus(); }, 50) })"
-                                    class="w-full text-sm" 
+                                    class="w-full text-xs h-8"
                                     :disabled="$shouldDisable"
                                 >
                                     <option value="" disabled selected>Pilih Gudang...</option>
                                     @foreach($warehouses_list as $wh)
                                         <option value="{{ $wh->id }}" @disabled(in_array($wh->id, $whIds) && $wh->id != $dist['warehouse_id'])>
-                                            {{ $wh->name }} {{ in_array($wh->id, $whIds) && $wh->id != $dist['warehouse_id'] ? '(Sudah dipilih)' : '' }}
+                                            {{ $wh->name }} {{ in_array($wh->id, $whIds) && $wh->id != $dist['warehouse_id'] ? '(Terpakai)' : '' }}
                                         </option>
                                     @endforeach
                                 </flux:select>
                             </div>
-                            <div class="w-24 shrink-0" x-show="warehouseId" style="display: none;" x-transition.opacity.duration.300ms>
-                                <flux:input 
+                            <div class="w-28 shrink-0" x-show="warehouseId" style="display: none;" x-transition.opacity.duration.200ms>
+                                <flux:input
                                     id="qty-input-{{ $index }}-{{ $distIndex }}"
-                                    wire:model.live="items.{{ $index }}.distributions.{{ $distIndex }}.qty" 
-                                    type="number" 
+                                    wire:model.live="items.{{ $index }}.distributions.{{ $distIndex }}.qty"
+                                    type="number"
                                     min="0"
-                                    class="w-24 text-center text-sm"
+                                    class="w-28 text-center text-xs h-8"
                                     :disabled="$shouldDisable"
                                 />
                             </div>
                             @if(count($item['distributions']) > 1)
-                                <div class="pb-1">
-                                    <flux:button variant="danger" size="sm" icon="trash" wire:click="removeDistribution({{ $index }}, {{ $distIndex }})" class="!px-2" />
-                                </div>
+                                <flux:button variant="danger" size="sm" icon="trash" wire:click="removeDistribution({{ $index }}, {{ $distIndex }})" class="!px-1.5 !h-8 shrink-0" />
                             @endif
                         </div>
                     @endforeach
-                    
+
                     @if($currentTotal < $item['remaining'] && count($item['distributions']) < count($warehouses_list))
-                        <div>
-                            <flux:button variant="subtle" size="sm" icon="plus" wire:click="addDistribution({{ $index }})" class="w-full text-xs">Tambah Lokasi Gudang</flux:button>
-                        </div>
+                        <flux:button variant="subtle" size="sm" icon="plus" wire:click="addDistribution({{ $index }})" class="w-full text-[10px] h-7">
+                            Tambah Gudang
+                        </flux:button>
                     @endif
                 </div>
             </div>
         @empty
-            <div class="p-8 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl text-center text-zinc-500">
-                Semua barang pada PO ini sudah diterima sepenuhnya.
+            <div class="py-6 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-lg text-center text-xs text-zinc-500">
+                Semua barang sudah diterima sepenuhnya.
             </div>
         @endforelse
     </div>
 
-    <flux:textarea wire:model="notes" label="Catatan Penerimaan" placeholder="Tuliskan jika ada barang cacat atau kurang..." />
+    {{-- Notes --}}
+    <flux:textarea wire:model="notes" label="Catatan Penerimaan" placeholder="Tuliskan jika ada barang cacat atau kurang..." rows="2" class="text-xs" />
 
     @php
         $globalError = false;
@@ -522,44 +529,25 @@ $save = function () {
         foreach($items as $item) {
             $ct = 0;
             $whIds = [];
-            
             foreach ($item['distributions'] as $dist) {
                 $qty = (int)($dist['qty'] ?? 0);
                 $hasWh = !empty($dist['warehouse_id']);
-                
-                // Jika murni draf kosong (belum disentuh), abaikan saja.
-                // Ini wajar jika pengguna hanya ingin menerima sebagian barang di PO.
-                if (!$hasWh && $qty <= 0) {
-                    continue; 
-                }
-                
-                // Jika nanggung (gudang diisi tapi qty 0, atau qty diisi tapi gudang kosong), BLOCK!
-                if ($hasWh && $qty <= 0) {
-                    $globalError = true;
-                }
-                if (!$hasWh && $qty > 0) {
-                    $globalError = true;
-                }
-                
-                // Jika valid, hitung totalnya
-                if ($hasWh && $qty > 0) {
-                    $whIds[] = $dist['warehouse_id'];
-                    $ct += $qty;
-                }
+                if (!$hasWh && $qty <= 0) continue;
+                if ($hasWh && $qty <= 0) $globalError = true;
+                if (!$hasWh && $qty > 0) $globalError = true;
+                if ($hasWh && $qty > 0) { $whIds[] = $dist['warehouse_id']; $ct += $qty; }
             }
-            
             $globalTotal += $ct;
-            
-            if ($ct > $item['remaining'] || count($whIds) !== count(array_unique($whIds))) {
-                $globalError = true;
-            }
+            if ($ct > $item['remaining'] || count($whIds) !== count(array_unique($whIds))) $globalError = true;
         }
         $canSave = !$globalError && $globalTotal > 0;
     @endphp
 
-    <div class="flex justify-end gap-2 mt-6">
-        <flux:button wire:click="$set('show', false)" variant="ghost"> Batal </flux:button>
-        <flux:button icon="check" wire:click="save" variant="primary" :disabled="!$canSave"> Proses </flux:button>
+    <div class="flex justify-end gap-2 pt-1">
+        <flux:button size="sm" wire:click="$set('show', false)" variant="ghost">Batal</flux:button>
+        <flux:button size="sm" icon="check" wire:click="save" variant="primary" :disabled="!$canSave">Proses</flux:button>
     </div>
     @endif
 </flux:modal>
+
+

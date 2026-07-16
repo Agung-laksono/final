@@ -227,28 +227,52 @@ $rejectPayment = function ($paymentId) {
         $sisa = $order->total_amount - $terbayar;
     @endphp
     <div class="p-4 sm:p-6" x-data="{ showPreviewModal: false, previewImage: '', tab: '{{ $order && $order->payments()->count() === 0 && $sisa > 0 ? "form" : "history" }}' }" @payment-saved.window="tab = 'history'">
-        <div class="flex items-start gap-4">
-            <div class="flex-shrink-0 w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
-                <flux:icon.banknotes class="w-5 h-5" />
+        <div class="flex items-start gap-3 sm:gap-4">
+            <div class="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                <flux:icon.banknotes class="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div class="flex-1">
-                <flux:heading size="lg">Pembayaran SO <strong>{{ $order->so_number }}</strong></flux:heading>
-                <flux:subheading class="mt-1 text-sm">
-                    Total Tagihan: <strong>Rp {{ number_format($order->total_amount, 0, ',', '.') }}</strong>
-                </flux:subheading>
+                <flux:heading size="lg" class="text-base sm:text-lg leading-tight sm:leading-normal">Pembayaran SO <strong>{{ $order->so_number }}</strong></flux:heading>
+                <div class="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-3 sm:gap-4">
+                    <flux:subheading class="!mt-0 text-xs sm:text-sm">
+                        Total Tagihan: <strong>Rp {{ number_format($order->total_amount, 0, ',', '.') }}</strong>
+                    </flux:subheading>
+                    
+                    @if($order->customer)
+                    <div class="flex items-center gap-2 sm:gap-2.5">
+                        @if(isset($order->customer->image) && $order->customer->image)
+                            <button type="button" @click="$dispatch('open-lightbox', { url: '{{ Storage::url($order->customer->image) }}' })" class="shrink-0 hover:opacity-80 transition-opacity focus:outline-none" title="Lihat Foto Profil">
+                                <img src="{{ Storage::url($order->customer->image) }}" alt="{{ $order->customer->name }}" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm" />
+                            </button>
+                        @else
+                            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 shrink-0 uppercase shadow-sm border border-emerald-200 dark:border-emerald-800/50">
+                                {{ substr($order->customer->name, 0, 2) }}
+                            </div>
+                        @endif
+                        <div class="flex flex-col leading-tight">
+                            <span class="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300">{{ $order->customer->name }}</span>
+                            @if($order->customer->phone)
+                                <span class="text-[10px] sm:text-xs text-zinc-500">{{ $order->customer->phone }}</span>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+                </div>
             </div>
         </div>
 
-        <div class="mt-6" x-cloak>
-            <div class="flex gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-px mb-6 overflow-x-auto no-scrollbar">
-                <button type="button" @click="tab = 'history'" :class="tab === 'history' ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'" class="whitespace-nowrap px-4 py-2 border-b-2 font-bold text-sm transition-colors flex items-center gap-2">
-                    <flux:icon.clock class="w-4 h-4" />
-                    Riwayat Pembayaran
+        <div class="mt-4 sm:mt-6" x-cloak>
+            <div class="flex gap-2 border-b border-zinc-200 dark:border-zinc-700 pb-px mb-4 sm:mb-6 overflow-x-auto no-scrollbar">
+                <button type="button" @click="tab = 'history'" :class="tab === 'history' ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'" class="whitespace-nowrap px-2 sm:px-4 py-2 border-b-2 font-bold text-xs sm:text-sm transition-colors flex items-center gap-1.5 sm:gap-2">
+                    <flux:icon.clock class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span class="sm:hidden">Riwayat</span>
+                    <span class="hidden sm:inline">Riwayat Pembayaran</span>
                 </button>
                 @if($sisa > 0)
-                <button type="button" @click="tab = 'form'" :class="tab === 'form' ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'" class="whitespace-nowrap px-4 py-2 border-b-2 font-bold text-sm transition-colors flex items-center gap-2">
-                    <flux:icon.plus-circle class="w-4 h-4" />
-                    Catat Pembayaran
+                <button type="button" @click="tab = 'form'" :class="tab === 'form' ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'" class="whitespace-nowrap px-2 sm:px-4 py-2 border-b-2 font-bold text-xs sm:text-sm transition-colors flex items-center gap-1.5 sm:gap-2">
+                    <flux:icon.plus-circle class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span class="sm:hidden">Catat</span>
+                    <span class="hidden sm:inline">Catat Pembayaran</span>
                 </button>
                 @endif
             </div>
@@ -257,32 +281,52 @@ $rejectPayment = function ($paymentId) {
                 {{-- TAB: FORM INPUT --}}
                 <div x-show="tab === 'form'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-4">
                     @can('sales.payment.create')
-                    <div>
-                        <flux:label class="mb-2">Nominal Bayar <span class="text-red-500">*</span></flux:label>
-                        <x-rupiah-input wire:model.live.debounce.300ms="amount" placeholder="Contoh: 5.000.000" required />
-                        <flux:error name="amount" />
-                    </div>
-                    <div class="grid grid-cols-1 gap-4">
-                        <flux:input type="date" wire:model="payment_date" label="Tanggal" required />
-                        <flux:select wire:model="finance_account_id" label="Rekening Tujuan (Kas)" placeholder="Pilih rekening tujuan..." required>
-                            @foreach($this->accounts as $acc)
-                                <option value="{{ $acc->id }}">
-                                    {{ $acc->name }} ({{ $acc->account_number ?: $acc->type }})
-                                </option>
-                            @endforeach
-                        </flux:select>
-                    </div>
-                    <div>
-                        <flux:error name="finance_account_id" />
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between items-end mb-1 sm:mb-2">
+                                <flux:label class="!mb-0 text-sm">Nominal Bayar <span class="text-red-500">*</span></flux:label>
+                                <span class="text-[10px] font-bold text-rose-500">-{{ number_format($sisa, 0, ',', '.') }}</span>
+                            </div>
+                            <x-rupiah-input wire:model.live.debounce.300ms="amount" placeholder="Contoh: 5.000.000" required />
+                            <flux:error name="amount" />
+                        </div>
+                        <div>
+                            <flux:select wire:model="finance_account_id" label="Rekening Tujuan (Kas)" placeholder="Pilih rekening tujuan..." required>
+                                @foreach($this->accounts as $acc)
+                                    <option value="{{ $acc->id }}">
+                                        {{ $acc->name }} ({{ $acc->account_number ?: $acc->type }})
+                                    </option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="finance_account_id" />
+                        </div>
                     </div>
                     
-                    <div>
-                            <flux:label class="mb-2">Bukti Transfer <span class="text-red-500">*</span></flux:label>
-                            <x-image-cropper id="payment-cropper" wire:model="proof" :image="$proof && is_string($proof) && !str_starts_with($proof, 'data:image') ? $proof : null" accept="image/*" />
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="space-y-4">
+                            <div>
+                                <flux:input type="date" wire:model="payment_date" label="Tanggal" required />
+                                <flux:error name="payment_date" />
+                            </div>
+                            
+                            <div>
+                                <flux:textarea wire:model="notes" label="Catatan Jurnal / Referensi" placeholder="Keterangan tambahan..." />
+                                <flux:error name="notes" />
+                            </div>
                         </div>
                         
-                        <flux:textarea wire:model="notes" label="Catatan" placeholder="Keterangan tambahan..." />
-                        <flux:button variant="primary" wire:click="savePayment" icon="arrow-up-tray" class="w-full">Unggah Bukti Bayar</flux:button>
+                        <div class="flex flex-col">
+                            <flux:label class="mb-1 sm:mb-2 text-sm">Bukti Transfer / Kasbon <span class="text-red-500">*</span></flux:label>
+                            <div class="flex-1 min-h-[200px]">
+                                <x-image-cropper id="payment-cropper" wire:model="proof" :image="$proof && is_string($proof) && !str_starts_with($proof, 'data:image') ? $proof : null" accept="image/*" />
+                            </div>
+                            <flux:error name="proof" />
+                        </div>
+                    </div>
+                    
+                    <div class="pt-2 sm:pt-4">
+                        <flux:button variant="primary" wire:click="savePayment" icon="arrow-up-tray" class="w-full">Proses & Catat Jurnal</flux:button>
+                    </div>
                     @else
                         <div class="flex flex-col items-center justify-center h-full text-center p-6 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl">
                             <flux:icon.lock-closed class="w-8 h-8 text-zinc-400 mb-2" />
@@ -324,7 +368,7 @@ $rejectPayment = function ($paymentId) {
                                 @endif
                             </div>
                             @if($payment->proof_path)
-                                <button type="button" @click="$dispatch('preview-image', '{{ Storage::url($payment->proof_path) }}')" class="shrink-0 w-16 h-16 mt-2 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden hover:opacity-80 transition-opacity border border-zinc-200 dark:border-zinc-700 focus:outline-none" title="Lihat Bukti">
+                                <button type="button" @click="$dispatch('open-lightbox', { url: '{{ Storage::url($payment->proof_path) }}' })" class="shrink-0 w-16 h-16 mt-2 bg-zinc-100 dark:bg-zinc-800 rounded-md overflow-hidden hover:opacity-80 transition-opacity border border-zinc-200 dark:border-zinc-700 focus:outline-none" title="Lihat Bukti">
                                     <img src="{{ Storage::url($payment->proof_path) }}" class="w-full h-full object-cover" />
                                 </button>
                             @endif
@@ -350,20 +394,8 @@ $rejectPayment = function ($paymentId) {
                 </div>
             </div>
         </div>
-
-        <div class="mt-6 flex justify-end">
-            <flux:button variant="ghost" wire:click="$set('show', false)"> Tutup </flux:button>
-        </div>
     </div>
     @endif
 </flux:modal>
 
-<flux:modal name="preview-modal" class="w-full max-w-4xl p-0 bg-transparent shadow-none border-none">
-    <div x-data="{ previewImage: '' }" @preview-image.window="previewImage = $event.detail; $flux.modal('preview-modal').show()" class="relative flex flex-col items-center justify-center p-4">
-        <button type="button" @click="$flux.modal('preview-modal').close()" class="absolute top-0 right-0 text-white hover:text-zinc-300 bg-black/50 rounded-full p-2 focus:outline-none transition-colors hover:bg-black/70 z-10">
-            <flux:icon.x-mark class="w-6 h-6" />
-        </button>
-        <img :src="previewImage" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl">
-    </div>
-</flux:modal>
 </div>

@@ -185,6 +185,9 @@
                     <flux:sidebar.item icon="inbox-arrow-down" :href="route('finance.inbox')" :current="request()->routeIs('finance.inbox')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                         {{ __('Validasi Transaksi') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="credit-card" :href="route('finance.payables')" :current="request()->routeIs('finance.payables')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        {{ __('Hutang Pembelian') }}
+                    </flux:sidebar.item>
                 </flux:navlist.group>
             </flux:sidebar.nav>
             @endcanany

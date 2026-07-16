@@ -352,138 +352,143 @@ $save = function () {
 ?>
 
 <div>
-<flux:modal wire:model="show" class="w-full md:w-[40rem] md:max-w-2xl">
+<flux:modal wire:model="show" x-on:close="$dispatch('modal-closed')" class="w-full md:w-[40rem] md:max-w-2xl">
     @if($order)
-    <div class="p-4 sm:p-6">
-        <div class="flex items-start gap-4">
-            <div class="flex-shrink-0 w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center">
-                <flux:icon.cube class="w-5 h-5" />
+    <div class="p-3 sm:p-5">
+        {{-- Header --}}
+        <div class="flex items-center gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-3">
+            <div class="flex-shrink-0 w-8 h-8 bg-orange-100 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 rounded-lg flex items-center justify-center">
+                <flux:icon.cube class="w-4 h-4" />
             </div>
-            <div class="flex-1">
-                <flux:heading size="lg">Fulfillment Bahan Produksi (Gudang)</flux:heading>
-                <flux:subheading class="mt-1 text-sm">
-                    PO <strong>{{ $order->order_number }}</strong> - Siapkan bahan untuk <strong>{{ $order->item->name }}</strong>.
-                </flux:subheading>
+            <div class="min-w-0 flex-1">
+                <flux:heading size="md" class="text-zinc-950 dark:text-white font-bold leading-tight">Fulfillment Bahan (Gudang)</flux:heading>
+                <p class="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                    PO <strong>{{ $order->order_number }}</strong> &bull; <strong>{{ $order->item->name }}</strong>
+                </p>
             </div>
         </div>
         
-        <div class="mt-6 flex flex-col sm:flex-row justify-between items-center gap-3 bg-zinc-100 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700">
+        {{-- Scanner Section --}}
+        <div class="mt-4 flex flex-col sm:flex-row justify-between items-center gap-2 bg-zinc-50 dark:bg-zinc-800/20 p-2.5 rounded-xl border border-zinc-200/50 dark:border-zinc-700/50">
             <div class="flex-1 w-full">
                 <flux:input 
                     wire:model="manualBarcode" 
                     x-on:keydown.enter="$dispatch('barcode-scanned', { code: $wire.manualBarcode }); $wire.manualBarcode = ''" 
-                    placeholder="Ketik kode barcode manual, lalu tekan Enter..." 
+                    placeholder="Scan / ketik barcode..." 
                     icon="qr-code" 
+                    class="!h-9 text-xs"
                 />
             </div>
-            <div class="hidden sm:block text-xs font-bold text-zinc-400">ATAU</div>
-            <flux:button type="button" x-on:click="Flux.modal('camera-scanner-modal').show(); window.dispatchEvent(new Event('camera-scanner-modal-opened'))" variant="filled" icon="camera" class="w-full sm:w-auto shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white border-none" tooltip="Gunakan Kamera HP">
+            <flux:button type="button" x-on:click="Flux.modal('camera-scanner-modal').show(); window.dispatchEvent(new CustomEvent('camera-scanner-modal-opened', { detail: { mode: 'continuous' } }))" variant="filled" icon="camera" class="w-full sm:w-auto shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white border-none text-xs h-9" tooltip="Gunakan Kamera HP">
                 Scanner Kamera
             </flux:button>
         </div>
 
-        <div class="mt-4 flex flex-col gap-3">
+        {{-- Material List --}}
+        <div class="mt-4 space-y-2">
             @if(count($items) > 0)
                 @foreach($items as $index => $item)
-                    <div class="p-3 sm:p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 {{ $item['input_qty'] >= $item['needed'] ? 'bg-green-50/50 dark:bg-green-900/10' : 'bg-zinc-50 dark:bg-zinc-800/50' }}">
-                        <div class="flex-1 flex gap-3 min-w-0">
+                    <div class="p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col gap-2 {{ $item['input_qty'] >= $item['needed'] ? 'bg-green-50/20 dark:bg-green-950/10 border-green-200 dark:border-green-900/50' : 'bg-white dark:bg-zinc-800' }}">
+                        <div class="flex gap-2.5 items-start">
                             @if(!empty($item['custom_attachments']))
-                                <div class="relative shrink-0 hidden sm:block">
-                                    <img src="{{ asset('storage/' . $item['custom_attachments'][0]) }}" class="w-12 h-12 rounded-lg object-cover bg-amber-100 ring-2 ring-amber-400 shadow-sm">
-                                    <div class="absolute -top-1 -right-1 bg-amber-500 text-white rounded-full p-0.5 shadow-sm">
-                                        <flux:icon.sparkles class="w-3 h-3" />
-                                    </div>
-                                </div>
+                                <img src="{{ asset('storage/' . $item['custom_attachments'][0]) }}" class="w-10 h-10 rounded-lg object-cover bg-amber-100 ring-1 ring-amber-400 shrink-0" loading="lazy">
                             @elseif(!empty($item['image']))
-                                <img src="{{ Storage::url($item['image']) }}" class="w-12 h-12 rounded-lg object-cover bg-zinc-100 shrink-0 hidden sm:block">
+                                <img src="{{ Storage::url($item['image']) }}" class="w-10 h-10 rounded-lg object-cover bg-zinc-100 shrink-0" loading="lazy">
                             @else
-                                <div class="w-12 h-12 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0 hidden sm:block">
-                                    <flux:icon.cube class="w-6 h-6" />
+                                <div class="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-400 shrink-0">
+                                    <flux:icon.cube class="w-5 h-5" />
                                 </div>
                             @endif
+                            
                             <div class="min-w-0 flex-1">
-                                <div class="text-zinc-900 dark:text-zinc-100 font-medium text-base flex flex-wrap items-center gap-2">
-                                    <span class="truncate">{{ $item['name'] }}</span>
-                                    <span class="text-[10px] text-zinc-500 font-mono hidden sm:inline-block">{{ $item['code'] ?? '-' }}</span>
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="text-xs font-bold text-zinc-950 dark:text-white truncate leading-tight">{{ $item['name'] }}</span>
                                     @if(!empty($item['custom_attachments']))
-                                        <span class="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 uppercase tracking-wider font-semibold">Custom</span>
+                                        <span class="text-[8px] bg-amber-100 text-amber-700 px-1 py-0.5 rounded font-semibold uppercase">Custom</span>
                                     @endif
                                     @if($item['input_qty'] >= $item['remaining_needed'])
-                                        <div class="inline-block"><flux:badge size="sm" color="green">Lengkap</flux:badge></div>
+                                        <flux:badge size="sm" color="green" class="!py-0 !px-1.5 text-[9px]">Lengkap</flux:badge>
                                     @endif
                                 </div>
-                                <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex flex-col sm:flex-row sm:flex-wrap gap-1 sm:gap-3 sm:items-center">
-                                    <div>Sisa Kurang: <span class="font-bold text-rose-600 dark:text-rose-500">{{ $item['remaining_needed'] }}</span> <span class="text-xs text-zinc-400">(Telah Diambil: {{ $item['already_consumed'] }} / Total Butuh: {{ $item['needed'] }})</span></div>
-                                    <div class="sm:border-l sm:border-zinc-300 sm:dark:border-zinc-600 sm:pl-3">Stok Fisik: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['stock'] }}</span></div>
-                                    @if($item['request_status'] && $item['remaining_needed'] > 0)
-                                        <div class="sm:border-l sm:border-zinc-300 sm:dark:border-zinc-600 sm:pl-3">
-                                            Status Purchasing: 
-                                            @if($item['request_status'] === 'draft')
-                                                <span class="text-orange-500 font-medium">Dalam Antrean (Draft) &middot; {{ $item['request_qty'] }} dipesan</span>
-                                            @elseif($item['request_status'] === 'ordered')
-                                                <span class="text-blue-500 font-medium">Sedang Diperjalanan (Ordered) &middot; {{ $item['request_qty'] }} dipesan</span>
-                                            @elseif($item['request_status'] === 'completed')
-                                                <span class="text-green-500 font-medium">Selesai (Completed) &middot; {{ $item['request_qty'] }} diterima</span>
-                                            @else
-                                                <span class="text-zinc-500">{{ $item['request_status'] }} &middot; {{ $item['request_qty'] }} dipesan</span>
-                                            @endif
-                                        </div>
-                                    @endif
+                                <div class="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">
+                                    <span class="font-mono">{{ $item['code'] ?? '-' }}</span> &bull; 
+                                    Stok: <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $item['stock'] }}</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3 self-end sm:self-auto shrink-0 w-full sm:w-auto justify-between sm:justify-end mt-3 sm:mt-0 pt-3 sm:pt-0 border-t sm:border-0 border-zinc-200 dark:border-zinc-700">
-                            <span class="text-sm font-medium text-zinc-600 dark:text-zinc-400 sm:hidden">Siap Diberikan:</span>
-                            <div class="flex items-center gap-2">
-                                <div class="w-24">
+
+                        {{-- Details & Input Section --}}
+                        <div class="flex items-center justify-between border-t border-zinc-100 dark:border-zinc-700/50 pt-2 text-[11px] gap-2">
+                            <div class="text-zinc-500 leading-tight">
+                                Sisa Kurang: <strong class="text-rose-600 dark:text-rose-400 font-bold">{{ $item['remaining_needed'] }}</strong> 
+                                <span class="text-[9px] text-zinc-400">(Butuh: {{ $item['needed'] }} | Diambil: {{ $item['already_consumed'] }})</span>
+                            </div>
+                            
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <div class="w-20">
                                     @if($item['requires_label'])
-                                        <div class="text-center font-bold text-xl text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 py-1 rounded-lg border border-indigo-100 dark:border-indigo-800">
-                                            {{ $item['input_qty'] }} <span class="text-[10px] text-indigo-500 font-normal uppercase">Scan</span>
-                                        </div>
+                                         <div class="text-center font-bold text-xs py-1 rounded-lg border transition-all duration-300 {{ $item['input_qty'] > 0 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50 shadow-[0_0_8px_rgba(16,185,129,0.25)]' : 'text-zinc-400 dark:text-zinc-500 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800' }}">
+                                             {{ $item['input_qty'] }} <span class="text-[8px] {{ $item['input_qty'] > 0 ? 'text-emerald-500' : 'text-zinc-400 dark:text-zinc-500' }} font-normal uppercase">Scan</span>
+                                         </div>
                                     @else
                                         @if($item['stock'] <= 0)
-                                            <div class="text-center text-sm font-bold text-red-500 bg-red-50 dark:bg-red-900/20 py-2 rounded-lg border border-red-100 dark:border-red-800">Kosong</div>
+                                            <div class="text-center text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 py-1 rounded border border-red-100 dark:border-red-900/50">Kosong</div>
                                         @else
-                                            <flux:input type="number" wire:model.blur="items.{{ $index }}.input_qty" min="0" max="{{ min($item['remaining_needed'], $item['stock']) }}" class="w-full text-center" />
+                                            <flux:input type="number" wire:model.blur="items.{{ $index }}.input_qty" min="0" max="{{ min($item['remaining_needed'], $item['stock']) }}" class="w-full text-center !h-7 text-xs" />
                                         @endif
                                     @endif
                                 </div>
-                                <span class="text-xs text-zinc-500 font-medium w-10 truncate">{{ $item['unit'] ?? 'pcs' }}</span>
+                                <span class="text-[10px] text-zinc-500 font-medium w-8 truncate uppercase">{{ $item['unit'] ?? 'pcs' }}</span>
                             </div>
                         </div>
+
+                        @if($item['request_status'] && $item['remaining_needed'] > 0)
+                            <div class="text-[9px] bg-zinc-50 dark:bg-zinc-900/30 p-1.5 rounded border border-zinc-100 dark:border-zinc-800 text-zinc-500">
+                                <strong>Purchasing:</strong> 
+                                @if($item['request_status'] === 'draft')
+                                    <span class="text-orange-500 font-medium">Antrean (Draft) &middot; {{ $item['request_qty'] }} {{ $item['unit'] }}</span>
+                                @elseif($item['request_status'] === 'ordered')
+                                    <span class="text-blue-500 font-medium">Diperjalanan (Ordered) &middot; {{ $item['request_qty'] }} {{ $item['unit'] }}</span>
+                                @elseif($item['request_status'] === 'completed')
+                                    <span class="text-green-500 font-medium">Diterima (Completed) &middot; {{ $item['request_qty'] }} {{ $item['unit'] }}</span>
+                                @else
+                                    <span class="text-zinc-500">{{ $item['request_status'] }} &middot; {{ $item['request_qty'] }} {{ $item['unit'] }}</span>
+                                @endif
+                            </div>
+                        @endif
+
+                        @if($item['requires_label'] && count($item['scanned_labels']) > 0)
+                            <div class="pl-2 border-l-2 border-indigo-200 dark:border-indigo-900/50 flex flex-wrap gap-1 mt-1">
+                                @foreach($item['scanned_labels'] as $labelIndex => $sl)
+                                    <div class="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 text-[10px] px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-800/50">
+                                        <flux:icon.qr-code class="w-2.5 h-2.5" />
+                                        {{ $sl['code'] }}
+                                        <button type="button" wire:click="removeScannedLabel({{ $index }}, {{ $labelIndex }})" class="ml-1 text-indigo-400 hover:text-red-500"><flux:icon.x-mark class="w-2.5 h-2.5" /></button>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
-                    </div>
-                    @if($item['requires_label'] && count($item['scanned_labels']) > 0)
-                        <div class="mt-2 ml-2 pl-4 border-l-2 border-indigo-200 dark:border-indigo-900/50 flex flex-wrap gap-2">
-                            @foreach($item['scanned_labels'] as $labelIndex => $sl)
-                                <div class="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 text-xs px-2 py-1 rounded border border-indigo-100 dark:border-indigo-800/50">
-                                    <flux:icon.qr-code class="w-3 h-3" />
-                                    {{ $sl['code'] }}
-                                    <button type="button" wire:click="removeScannedLabel({{ $index }}, {{ $labelIndex }})" class="ml-1 text-indigo-400 hover:text-red-500"><flux:icon.x-mark class="w-3 h-3" /></button>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
                 @endforeach
             @else
-                <div class="p-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 rounded-xl flex flex-col items-center justify-center text-center">
-                    <div class="w-12 h-12 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mb-3">
-                        <flux:icon.exclamation-triangle class="w-6 h-6" />
+                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 rounded-xl flex flex-col items-center justify-center text-center">
+                    <div class="w-10 h-10 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mb-2">
+                        <flux:icon.exclamation-triangle class="w-5 h-5" />
                     </div>
-                    <flux:heading size="md" class="text-red-800 dark:text-red-300 mb-1">Resep (BOM) Tidak Ditemukan</flux:heading>
-                    <p class="text-sm text-red-600 dark:text-red-400 max-w-sm mx-auto mb-4">
-                        Sistem menolak produksi karena resep bahan baku kosong. Produksi buta tanpa resep akan merusak pelacakan stok.
+                    <flux:heading size="sm" class="text-red-800 dark:text-red-300 mb-1">Resep (BOM) Tidak Ditemukan</flux:heading>
+                    <p class="text-xs text-red-600 dark:text-red-400 max-w-sm mx-auto mb-3">
+                        Sistem menolak produksi karena resep bahan baku kosong.
                     </p>
-                    <flux:button href="{{ route('production.recipes') }}" wire:navigate variant="danger" icon="document-plus">
-                        Buka Menu Resep (BOM)
+                    <flux:button href="{{ route('production.recipes') }}" wire:navigate variant="danger" size="sm" icon="document-plus">
+                        Buka Menu Resep
                     </flux:button>
                 </div>
             @endif
         </div>
-
+        
         @if(count($items) > 0)
-        <div class="mt-4">
-            <flux:textarea wire:model="notes" label="Catatan (Opsional)" placeholder="Misal: Bahan baku kurang..." />
+        <div class="mt-3">
+            <flux:textarea wire:model="notes" label="Catatan (Opsional)" placeholder="Catatan tambahan..." rows="2" class="text-xs" />
         </div>
 
         @php
@@ -493,11 +498,9 @@ $save = function () {
             foreach($items as $item) {
                 if ($item['remaining_needed'] > 0) {
                     $maxCanFulfill = min($item['remaining_needed'], $item['stock']);
-                    
                     if ($item['input_qty'] < $maxCanFulfill) {
                         $hasIncompleteStockUsage = true;
                     }
-                    
                     if ($item['remaining_needed'] > $item['stock']) {
                         $hasStockDeficit = true;
                     }
@@ -505,31 +508,34 @@ $save = function () {
             }
         @endphp
 
-        <div class="mt-6 flex flex-col-reverse sm:flex-row justify-between items-center gap-4">
-            <span class="text-xs text-zinc-500 text-center sm:text-left w-full sm:w-auto">
-                <flux:icon.information-circle class="inline w-4 h-4 mr-1 text-blue-500" />
+        <div class="mt-4 flex flex-col gap-3">
+            <div class="text-[10px] text-zinc-500 flex items-start gap-1.5 leading-tight">
+                <flux:icon.information-circle class="w-4 h-4 text-blue-500 shrink-0" />
+                <span>
+                    @if($hasIncompleteStockUsage)
+                        Harap lengkapi input/scan bahan baku yang <strong class="text-zinc-700 dark:text-zinc-300">tersedia di gudang</strong>.
+                    @elseif($hasStockDeficit)
+                        Pesanan tetap berstatus <strong class="text-amber-600 dark:text-amber-500">Menunggu Bahan</strong> (tiket pembelian aktif).
+                    @else
+                        Bahan siap diserahkan ke tim produksi.
+                    @endif
+                </span>
+            </div>
+            
+            <div class="flex gap-2 w-full">
+                <flux:button variant="ghost" wire:click="$set('show', false)" class="flex-1 text-xs"> Batal </flux:button>
                 @if($hasIncompleteStockUsage)
-                    Harap lengkapi input/scan bahan baku yang <strong class="text-zinc-700 dark:text-zinc-300">tersedia di gudang</strong> sebelum melanjutkan.
+                    <flux:button variant="primary" disabled class="flex-1 opacity-50 cursor-not-allowed text-xs">Lengkapi Bahan</flux:button>
                 @elseif($hasStockDeficit)
-                    Pesanan akan tetap di status <strong class="text-amber-600 dark:text-amber-500">Menunggu Bahan</strong> (Tiket pembelian telah diterbitkan).
+                    <flux:button variant="danger" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 text-xs"> Simpan & Tunggu </flux:button>
                 @else
-                    Bahan siap diserahkan ke tim produksi.
-                @endif
-            </span>
-            <div class="flex gap-2 sm:gap-3 w-full sm:w-auto">
-                <flux:button variant="ghost" wire:click="$set('show', false)" class="flex-1 sm:flex-none"> Batal </flux:button>
-                @if($hasIncompleteStockUsage)
-                    <flux:button variant="primary" disabled class="flex-1 sm:flex-none opacity-50 cursor-not-allowed">Lengkapi Bahan</flux:button>
-                @elseif($hasStockDeficit)
-                    <flux:button variant="danger" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 sm:flex-none"> Simpan & Tunggu Bah </flux:button>
-                @else
-                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 sm:flex-none">Serahkan Bahan</flux:button>
+                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 text-xs">Serahkan Bahan</flux:button>
                 @endif
             </div>
         </div>
         @else
-        <div class="mt-6 flex justify-end">
-            <flux:button variant="ghost" wire:click="$set('show', false)"> Tutup </flux:button>
+        <div class="mt-4 flex justify-end">
+            <flux:button variant="ghost" wire:click="$set('show', false)" class="w-full sm:w-auto text-xs"> Tutup </flux:button>
         </div>
         @endif
     </div>

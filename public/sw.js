@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inventory-pwa-cache-v1';
+const CACHE_NAME = 'inventory-pwa-cache-v2';
 const urlsToCache = [
     '/',
     '/manifest.json',

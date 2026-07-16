@@ -1,5 +1,5 @@
 <?php
-use function Livewire\Volt\{state, layout, title, computed, on, usesPagination};
+use function Livewire\Volt\{state, layout, title, computed, on, mount, usesPagination};
 use Modules\Purchase\Models\PurchaseOrder;
 
 usesPagination(theme: 'tailwind');
@@ -24,10 +24,29 @@ state([
     
     'order_to_archive' => null,
     'show_archive_modal' => false,
+    'columnLimits' => [], // State for per-column limits
 ]);
+
+mount(function () {
+    // Inisialisasi limit per kolom
+    $limits = [];
+    foreach ($this->columns as $key => $col) {
+        $limits[$key] = 10;
+    }
+    $this->columnLimits = $limits;
+});
 
 $loadMore = function () {
     $this->perPage += 15;
+};
+
+$loadMoreColumn = function ($status) {
+    $limits = $this->columnLimits;
+    if (!isset($limits[$status])) {
+        $limits[$status] = 10;
+    }
+    $limits[$status] += 15;
+    $this->columnLimits = $limits;
 };
 
 $setViewMode = function ($mode) {
@@ -44,15 +63,43 @@ $sort = function ($field) {
     }
 };
 
-$orders = computed(function () {
-    $query = PurchaseOrder::with('vendor')->latest();
+$getBaseQuery = function () {
+    $query = PurchaseOrder::with(['vendor', 'creator', 'items', 'payments'])->latest();
     if ($this->search) {
         $query->where('po_number', 'like', '%' . $this->search . '%')
               ->orWhereHas('vendor', function($q) {
                   $q->where('name', 'like', '%' . $this->search . '%');
               });
     }
-    return $query->get()->groupBy(function($po) {
+    return $query;
+};
+
+$orders = computed(function () {
+    if ($this->viewMode !== 'kanban') return collect();
+    
+    $ids = [];
+    foreach ($this->columns as $status => $col) {
+        $limit = $this->columnLimits[$status] ?? 10;
+        
+        $query = clone $this->getBaseQuery();
+        $statusIds = $query->where('status', $status)
+                           ->limit($limit)
+                           ->pluck('id')
+                           ->toArray();
+                           
+        $ids = array_merge($ids, $statusIds);
+    }
+    
+    if (empty($ids)) return collect();
+    
+    $result = PurchaseOrder::with(['vendor', 'creator', 'items', 'payments'])
+        ->whereIn('id', $ids)
+        ->get()
+        ->sortBy(function($order) use ($ids) {
+            return array_search($order->id, $ids);
+        });
+        
+    return $result->groupBy(function($po) {
         return $po->status ?? 'draft';
     });
 });
@@ -186,96 +233,156 @@ on([
                     @forelse($this->orders[$statusKey] ?? [] as $po)
                             @php
                                 $isCustom = str_contains($po->notes ?? '', '[CUSTOM]');
+                                
+                                $totalQty = $po->items->sum('quantity');
+                                $receivedQty = $po->items->sum('received_quantity');
+                                $receivePercent = $totalQty > 0 ? min(100, round(($receivedQty / $totalQty) * 100)) : 0;
+                                
+                                $paidAmount = $po->payments ? $po->payments->where('status', 'verified')->sum('amount') : 0;
+                                $paymentPercent = $po->total_amount > 0 ? min(100, round(($paidAmount / $po->total_amount) * 100)) : 0;
+                                
+                                $skuCount = $po->items->count();
+
+                                $deadlineStr = '';
+                                $deadlineColor = 'text-zinc-500 dark:text-zinc-400';
+                                $deadlineIcon = 'calendar';
+                                
+                                if ($po->expected_delivery_date) {
+                                    $expected = \Carbon\Carbon::parse($po->expected_delivery_date)->startOfDay();
+                                    $today = \Carbon\Carbon::now()->startOfDay();
+                                    $diff = $today->diffInDays($expected, false);
+                                    
+                                    if ($po->status === 'completed' || $po->status === 'archived') {
+                                        $deadlineStr = 'Tuntas';
+                                        $deadlineColor = 'text-emerald-600 dark:text-emerald-400 font-semibold';
+                                        $deadlineIcon = 'check-circle';
+                                    } else {
+                                        if ($diff < 0) {
+                                            $deadlineStr = 'Telat ' . abs(intval($diff)) . ' Hari';
+                                            $deadlineColor = 'text-red-600 dark:text-red-400 font-bold';
+                                            $deadlineIcon = 'exclamation-circle';
+                                        } elseif ($diff == 0) {
+                                            $deadlineStr = 'Hari Ini';
+                                            $deadlineColor = 'text-amber-600 dark:text-amber-500 font-bold';
+                                            $deadlineIcon = 'clock';
+                                        } elseif ($diff <= 3) {
+                                            $deadlineStr = 'Sisa ' . intval($diff) . ' Hari';
+                                            $deadlineColor = 'text-amber-600 dark:text-amber-500 font-semibold';
+                                            $deadlineIcon = 'clock';
+                                        } else {
+                                            $deadlineStr = 'Sisa ' . intval($diff) . ' Hari';
+                                        }
+                                    }
+                                } else {
+                                    $deadlineStr = 'Tdk ada deadline';
+                                }
                             @endphp
                             <div wire:key="po-{{ $po->id }}" 
                                  @click="activeId = '{{ $po->id }}'; $dispatch('open-detail-modal', { orderId: {{ $po->id }} })"
                                  x-show="processingId !== '{{ $po->id }}'"
-                                 class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border transition-all duration-300 {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:-translate-y-1 hover:border-amber-500 hover:shadow-amber-500/30' : 'border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-'.$column['color'].'-400 dark:hover:border-'.$column['color'].'-500' }} group relative cursor-pointer overflow-hidden">
-                                
-                                @if($isCustom)
-                                    <div class="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-40 dark:opacity-20">
-                                        <div class="absolute inset-0 bg-gradient-to-bl from-amber-400 to-transparent"></div>
-                                    </div>
-                                @endif
-                                
+                                 class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border transition-all duration-200 active:scale-[0.98] active:shadow-none {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:-translate-y-0.5 hover:border-amber-500 hover:shadow-amber-500/30' : 'border-zinc-200 dark:border-zinc-700 hover:-translate-y-0.5 hover:shadow-sm hover:border-'.$column['color'].'-400 dark:hover:border-'.$column['color'].'-500' }} group relative cursor-pointer flex flex-col gap-1.5">
                                 {{-- Header Card --}}
-                                <div class="flex justify-between items-start mb-3 relative z-10">
-                                    <div class="flex flex-col gap-1.5">
-                                        <span class="font-mono text-xs font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 px-2 py-1 rounded-md w-max">
+                                <div class="flex justify-between items-center relative z-10">
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <span class="font-mono text-[9px] font-bold text-zinc-600 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 px-1 py-px rounded w-max">
                                             {{ $po->po_number }}
                                         </span>
                                         @if($isCustom)
-                                            <span class="text-[10px] font-black text-amber-600 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5 w-max">
-                                                <flux:icon.sparkles class="w-2.5 h-2.5" /> CUSTOM
+                                            <span class="text-[8px] font-black text-amber-600 bg-amber-100 border border-amber-200 px-1 py-px rounded shadow-sm flex items-center gap-0.5 w-max">
+                                                <flux:icon.sparkles class="w-2 h-2" /> CUSTOM
                                             </span>
                                         @endif
                                     </div>
-                                <div class="flex items-center text-[10px] text-zinc-400 font-medium">
-                                    @if($po->creator)
-                                        <flux:avatar src="" fallback="{{ substr($po->creator->name, 0, 2) }}" size="xs" class="w-4 h-4 mr-1 text-[8px]" />
-                                        <span class="mr-2" title="Dibuat oleh {{ $po->creator->name }}">{{ strtok($po->creator->name, ' ') }}</span>
-                                    @endif
-                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                    {{ \Carbon\Carbon::parse($po->order_date)->format('d M Y') }}
-                                </div>
-                            </div>
-
-                            {{-- Vendor Info --}}
-                            <div class="flex items-center gap-3 mb-4">
-                                <div class="relative">
-                                    <flux:avatar src="{{ $po->vendor?->image ? Storage::url($po->vendor->image) : '' }}" fallback="{{ substr($po->vendor?->name ?? '?', 0, 2) }}" size="sm" class="ring-2 ring-white dark:ring-zinc-900 shadow-sm" />
-                                </div>
-                                <div class="flex flex-col overflow-hidden">
-                                    <span class="font-semibold text-sm text-zinc-800 dark:text-zinc-200 truncate">
-                                        {{ $po->vendor?->name ?? 'Vendor Terhapus' }}
-                                    </span>
-                                    <span class="text-[10px] text-zinc-400 truncate">Supplier</span>
-                                </div>
-                            </div>
-                            
-                            {{-- Total & Tax --}}
-                            <div class="flex items-end justify-between pt-3 border-t border-dashed border-zinc-200 dark:border-zinc-700">
-                                <div class="flex flex-col">
-                                    <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5">Total Nilai</span>
-                                    <span class="text-lg font-black text-zinc-900 dark:text-zinc-100 tracking-tight leading-none">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</span>
-                                </div>
-                                <div class="flex items-center">
-                                    @if($po->pajak)
-                                        <flux:badge size="sm" color="amber" class="font-bold">Tax</flux:badge>
-                                    @endif
-                                </div>
-                            </div>
-
-                            {{-- Action Buttons --}}
-                                @if(in_array($statusKey, ['processing', 'partially_received']))
-                                    <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                                        @can('purchase.order.update')
-                                            <flux:button variant="primary" class="w-full" icon="cube" wire:click.stop="$dispatch('open-receipt-modal', { orderId: {{ $po->id }} })">
-                                                Terima Barang
-                                            </flux:button>
-                                        @else
-                                            <flux:button disabled class="w-full" icon="cube"> 
-                                                Terima Barang
- </flux:button>
-                                        @endcan
+                                    <div class="flex items-center gap-2 text-[8px]">
+                                        <div class="flex items-center text-zinc-500 dark:text-zinc-400 font-medium">
+                                            <flux:icon.calendar class="w-2 h-2 mr-0.5" />
+                                            {{ \Carbon\Carbon::parse($po->order_date)->format('d M') }}
+                                        </div>
+                                        <div class="flex items-center {{ $deadlineColor }}">
+                                            @if($deadlineIcon === 'calendar')
+                                                <flux:icon.calendar class="w-2 h-2 mr-0.5" />
+                                            @elseif($deadlineIcon === 'check-circle')
+                                                <flux:icon.check-circle class="w-2 h-2 mr-0.5" />
+                                            @elseif($deadlineIcon === 'exclamation-circle')
+                                                <flux:icon.exclamation-circle class="w-2 h-2 mr-0.5" />
+                                            @elseif($deadlineIcon === 'clock')
+                                                <flux:icon.clock class="w-2 h-2 mr-0.5" />
+                                            @endif
+                                            {{ $deadlineStr }}
+                                        </div>
                                     </div>
-                                @endif
-                                
-                                @if($statusKey === 'completed')
-                                    <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                                        @can('purchase.order.update')
-                                            <flux:button variant="ghost" class="w-full text-zinc-500 hover:text-zinc-700" icon="archive-box" wire:click.stop="confirmArchive({{ $po->id }})">
-                                                Arsipkan PO
-                                            </flux:button>
-                                        @endcan
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2 items-center">
+                                    {{-- Vendor Info --}}
+                                    <div class="flex items-center gap-1.5 overflow-hidden">
+                                        <div class="relative shrink-0">
+                                            <flux:avatar src="{{ $po->vendor?->image ? Storage::url($po->vendor->image) : '' }}" fallback="{{ substr($po->vendor?->name ?? '?', 0, 2) }}" class="!w-6 !h-6 shadow-sm" />
+                                        </div>
+                                        <div class="flex flex-col overflow-hidden leading-tight gap-0.5">
+                                            <span class="font-bold text-[10px] text-zinc-800 dark:text-zinc-100 truncate">
+                                                {{ $po->vendor?->name ?? 'Vendor Terhapus' }}
+                                            </span>
+                                            <div class="flex items-center gap-1 flex-wrap">
+                                                <span class="text-[7px] font-medium text-blue-600 dark:text-blue-300 bg-blue-100 dark:bg-blue-500/20 px-1 py-px rounded w-max">
+                                                    {{ $po->vendor?->type ?: 'Supplier' }}
+                                                </span>
+                                                <span class="text-[9px] font-black text-zinc-900 dark:text-white tracking-tight">
+                                                    Rp {{ number_format($po->total_amount, 0, ',', '.') }}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-                                @endif
+
+                                    {{-- Progress Bars --}}
+                                    <div class="flex flex-col gap-1.5 border-l border-zinc-100 dark:border-zinc-800 pl-2">
+                                        {{-- Receiving --}}
+                                        <div>
+                                            <div class="flex justify-between items-end mb-0.5">
+                                                <span class="text-[7px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-0.5">
+                                                    <flux:icon.cube class="w-1.5 h-1.5" /> Trims
+                                                    <span class="lowercase text-[6px] ml-0.5 opacity-70">({{ $skuCount }} sku)</span>
+                                                </span>
+                                                <span class="text-[7px] font-semibold {{ $receivePercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-200' }}">
+                                                    {{ $receivedQty }}/{{ $totalQty }}
+                                                </span>
+                                            </div>
+                                            <div class="w-full h-1 bg-zinc-100 dark:bg-zinc-700/50 rounded-full overflow-hidden">
+                                                <div class="h-full {{ $receivePercent >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }} rounded-full" style="width: {{ $receivePercent }}%"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        {{-- Payment --}}
+                                        <div>
+                                            <div class="flex justify-between items-end mb-0.5">
+                                                <span class="text-[7px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-0.5">
+                                                    <flux:icon.banknotes class="w-1.5 h-1.5" /> Byr
+                                                </span>
+                                                <span class="text-[7px] font-semibold {{ $paymentPercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-200' }}">
+                                                    {{ $paymentPercent }}%
+                                                </span>
+                                            </div>
+                                            <div class="w-full h-1 bg-zinc-100 dark:bg-zinc-700/50 rounded-full overflow-hidden">
+                                                <div class="h-full {{ $paymentPercent >= 100 ? 'bg-emerald-500' : 'bg-indigo-500' }} rounded-full" style="width: {{ $paymentPercent }}%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                         </div>
                     @empty
                         <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
                             Kosong
                         </div>
                     @endforelse
+                    
+                    @if(count($this->orders[$statusKey] ?? []) >= ($columnLimits[$statusKey] ?? 10))
+                        <div class="p-2 pt-0 mt-2">
+                            <flux:button size="sm" variant="subtle" class="w-full text-xs font-semibold" wire:click="loadMoreColumn('{{ $statusKey }}')">
+                                <flux:icon.chevron-down class="w-3 h-3 mr-1" />
+                                Muat Lebih Banyak...
+                            </flux:button>
+                        </div>
+                    @endif
                 </div>
             </div>
             @endforeach
@@ -436,6 +543,28 @@ on([
     <livewire:order.detail-modal />
 
     <livewire:print-label-modal />
+    
+    @if(session('new_po_number'))
+        <div x-data x-init="$nextTick(() => { $flux.modal('new-po-success-modal').show() })">
+            <flux:modal name="new-po-success-modal" class="min-w-[22rem]">
+                <div class="p-6 text-center">
+                    <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-4">
+                        <flux:icon.check-circle class="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <flux:heading size="xl">Berhasil!</flux:heading>
+                    <flux:subheading class="mt-2 text-sm">
+                        Purchase Order baru berhasil dibuat:
+                    </flux:subheading>
+                    <div class="mt-3 mb-6 bg-zinc-50 dark:bg-zinc-800/50 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                        <span class="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-wider">{{ session('new_po_number') }}</span>
+                    </div>
+                    
+                    <flux:button variant="primary" class="w-full" @click="$flux.modal('new-po-success-modal').close()">Oke, Mengerti</flux:button>
+                </div>
+            </flux:modal>
+        </div>
+    @endif
+
     <style>
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;

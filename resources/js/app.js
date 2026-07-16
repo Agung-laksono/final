@@ -383,19 +383,38 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
                 this.resetCropperState();
             },
 
-            applyOriginal() {
+            async applyOriginal() {
                 if (!this.imgSrc) return;
-                this.newSize = this.originalSize;
-                this.croppedImgSrc = this.imgSrc;
-                this.$wire.set(wireModel, this.imgSrc);
-                if (nameModel && this.originalFile) {
-                    let finalName = this.customFileName.trim() ? this.customFileName.trim() : this.originalFile.name;
-                    if (!finalName.includes('.')) finalName += '.jpg';
-                    this.$wire.set(nameModel, finalName);
-                }
-                this.hasCropped = true;
-                this.isCropping = false;
-                this.isProcessing = false;
+                this.isProcessing = true;
+
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+
+                    // Convert ke WEBP tanpa mengubah resolusi (resize) dan tanpa kompresi berat
+                    const dataUrl = canvas.toDataURL('image/webp', 0.95);
+                    const base64Length = dataUrl.length - (dataUrl.indexOf(',') + 1);
+                    this.newSize = Math.floor(base64Length * 0.75);
+
+                    this.croppedImgSrc = dataUrl;
+                    this.$wire.set(wireModel, dataUrl);
+                    if (nameModel && this.originalFile) {
+                        let finalName = this.customFileName.trim() ? this.customFileName.trim() : this.originalFile.name;
+                        if (!finalName.includes('.')) finalName += '.webp';
+                        this.$wire.set(nameModel, finalName);
+                    }
+                    this.hasCropped = true;
+                    this.isCropping = false;
+                    this.isProcessing = false;
+                };
+                img.src = this.imgSrc; // Selalu gunakan yang asli tanpa modifikasi
             },
 
             removeImage() {

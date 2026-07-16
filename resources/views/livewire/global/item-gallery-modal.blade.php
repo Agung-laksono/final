@@ -16,7 +16,7 @@ new class extends Component {
     public $subCategoryId = '';
     public $typeId = '';
     public $stockFilter = ''; // '' (semua), 'tersedia', 'habis'
-    public $statusFilter = 'aktif'; // 'aktif', 'non-aktif', '' (semua)
+    public $statusFilter = ''; // 'aktif', 'non-aktif', '' (semua)
     public $historyFilter = false;
 
     public $perPage = 12;
@@ -247,13 +247,13 @@ new class extends Component {
                          :class="$data.items?.find(i => i.item_id == {{ $item->id }}) ? 'border-cyan-600 ring-2 ring-cyan-600 shadow-lg scale-[1.02]' : 'border-zinc-200 dark:border-zinc-800 {{ $item->is_active ? 'hover:border-cyan-500/50 hover:shadow-lg hover:scale-[1.02]' : '' }}'"
                          class="relative bg-white dark:bg-zinc-900 rounded-xl overflow-hidden transition-all duration-300 {{ $item->is_active ? 'cursor-pointer group' : 'cursor-not-allowed' }} flex flex-col h-full border">
                         
-                        {{-- NON ACTIVE Overlay --}}
-                        @if (!$item->is_active)
-                        <div class="absolute z-20 top-0 w-full h-full bg-black/60 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
-                            <div class="bg-rose-500 text-white px-3 py-1 rounded shadow-lg transform -rotate-12 font-black tracking-widest border-2 border-white text-xs">NON ACTIVE</div>
+                        {{-- MENUNGGU PERSETUJUAN Overlay --}}
+                        @if (!$item->is_approved)
+                        <div class="absolute z-40 top-0 w-full h-full bg-[#000000ba] flex flex-col items-center justify-center">
+                            <span class="text-bold text-amber-500 font-bold tracking-widest uppercase">MENUNGGU</span>
+                            <span class="text-white text-xs mt-1">PERSETUJUAN</span>
                         </div>
                         @endif
-
                         {{-- Selection Badge (Elegan & Bersih) --}}
                         <template x-if="$data.items?.find(i => i.item_id == {{ $item->id }})">
                             <div class="absolute inset-0 z-40 pointer-events-none flex items-center justify-center bg-white/30 dark:bg-black/30 backdrop-blur-[1px] rounded-xl transition-all">

@@ -30,118 +30,169 @@ $getStatusBadge = function ($status) {
 ?>
 
 <div>
-    <flux:modal wire:model="show" class="w-full md:w-[800px] lg:w-[1000px] space-y-6">
+    <flux:modal wire:model="show" class="w-full md:w-[680px] space-y-3">
         @if($order)
-            <div class="flex items-start justify-between border-b border-zinc-200 dark:border-zinc-700 pb-4">
-                <div>
-                    <div class="flex items-center gap-3 mb-1">
-                        <flux:heading size="xl">{{ $order->po_number }}</flux:heading>
-                        {!! $this->getStatusBadge($order->status) !!}
-                    </div>
-                    <flux:subheading class="flex items-center gap-2">
-                        <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        Tgl Order: {{ \Carbon\Carbon::parse($order->order_date)->translatedFormat('d F Y') }}
-                    </flux:subheading>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Info Vendor -->
-                <div class="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                    <div class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Informasi Vendor</div>
-                    <div class="flex items-center gap-3">
-                        <flux:avatar src="{{ $order->vendor?->image ? Storage::url($order->vendor->image) : '' }}" fallback="{{ substr($order->vendor?->name ?? '?', 0, 2) }}" size="md" />
-                        <div>
-                            <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $order->vendor?->name ?? 'Vendor Terhapus' }}</div>
-                            <div class="text-sm text-zinc-500">{{ $order->vendor?->phone ?? '-' }}</div>
-                        </div>
-                    </div>
-                    @if($order->vendor?->address)
-                        <div class="mt-3 text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2">
-                            <svg class="w-4 h-4 inline-block mr-1 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                            {{ $order->vendor->address }}
-                        </div>
+            {{-- Header: PO Number + Status + Date --}}
+            <div class="pb-2 border-b border-zinc-200 dark:border-zinc-700 pr-6">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-mono text-base font-black text-zinc-800 dark:text-zinc-100">{{ $order->po_number }}</span>
+                    {!! $this->getStatusBadge($order->status) !!}
+                    @if($order->pajak)
+                        <span class="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">PPN</span>
                     @endif
                 </div>
-
-                <!-- Info PO -->
-                <div class="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col justify-center">
-                    <div class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Catatan Pesanan</div>
-                    @if($order->notes)
-                        <div class="text-sm text-zinc-700 dark:text-zinc-300 prose prose-sm max-w-none prose-img:rounded-xl">
-                            {!! $order->notes !!}
-                        </div>
+                <div class="flex items-center gap-4 text-[11px] text-zinc-400 mt-0.5 flex-wrap">
+                    <span class="flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        Order: {{ \Carbon\Carbon::parse($order->order_date)->translatedFormat('d F Y') }}
+                    </span>
+                    @if($order->expected_delivery_date)
+                        @php
+                            $deadline = \Carbon\Carbon::parse($order->expected_delivery_date);
+                            $now = \Carbon\Carbon::now();
+                            $isCompleted = in_array($order->status, ['completed', 'cancelled']);
+                            if ($isCompleted) {
+                                $dlColor = 'text-emerald-600'; $dlIcon = '✅';
+                            } elseif ($deadline->isPast()) {
+                                $dlColor = 'text-red-600 font-semibold'; $dlIcon = '🔴';
+                            } elseif ($deadline->diffInDays($now) <= 3) {
+                                $dlColor = 'text-amber-600 font-semibold'; $dlIcon = '⚠️';
+                            } else {
+                                $dlColor = 'text-zinc-500'; $dlIcon = '📅';
+                            }
+                        @endphp
+                        <span class="flex items-center gap-1 {{ $dlColor }}">
+                            {{ $dlIcon }} Deadline: {{ $deadline->translatedFormat('d F Y') }}
+                            @if(!$isCompleted && $deadline->isPast())
+                                <span class="text-[10px]">({{ $deadline->locale('id')->diffForHumans() }})</span>
+                            @elseif(!$isCompleted && $deadline->isFuture())
+                                <span class="text-[10px] text-zinc-400">({{ $deadline->locale('id')->diffForHumans() }})</span>
+                            @endif
+                        </span>
                     @else
-                        <div class="text-sm text-zinc-700 dark:text-zinc-300 italic">
-                            Tidak ada catatan.
-                        </div>
+                        <span class="flex items-center gap-1 text-zinc-400 italic">
+                            📅 Deadline: Tidak ditentukan
+                        </span>
                     @endif
                 </div>
             </div>
 
-            <!-- Rincian Barang -->
-            <div>
-                <div class="text-sm font-bold text-zinc-800 dark:text-zinc-200 mb-3 border-b border-zinc-200 dark:border-zinc-700 pb-2">Rincian Pesanan</div>
-                <div class="overflow-x-auto border border-zinc-200 dark:border-zinc-700 rounded-lg">
-                    <table class="w-full text-sm text-left">
-                        <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 border-b border-zinc-200 dark:border-zinc-700">
-                            <tr>
-                                <th class="px-4 py-2 font-medium">Barang</th>
-                                <th class="px-4 py-2 font-medium text-right">Qty</th>
-                                <th class="px-4 py-2 font-medium text-right">Diterima</th>
-                                <th class="px-4 py-2 font-medium text-right">Harga Satuan</th>
-                                <th class="px-4 py-2 font-medium text-right">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                            @foreach($order->items as $item)
-                                <tr>
-                                    <td class="px-4 py-3 align-top">
-                                        <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->item->name }}</div>
-                                        <div class="text-xs font-mono text-zinc-500 mb-1">{{ $item->item->code }}</div>
-                                        @if($item->notes)
-                                            <div class="mt-2 p-2 bg-white dark:bg-zinc-900/50 rounded border border-zinc-200 dark:border-zinc-700 prose prose-xs max-w-none prose-p:my-0 prose-img:rounded-lg">
+            {{-- Vendor + Notes in one compact row --}}
+            <div class="flex items-start gap-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-lg p-2.5 border border-zinc-200 dark:border-zinc-700">
+                <flux:avatar src="{{ $order->vendor?->image ? Storage::url($order->vendor->image) : '' }}" fallback="{{ substr($order->vendor?->name ?? '?', 0, 2) }}" size="sm" class="shrink-0" />
+                <div class="min-w-0 flex-1">
+                    <div class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{{ $order->vendor?->name ?? 'Vendor Terhapus' }}</div>
+                    <div class="flex items-center gap-3 text-xs text-zinc-500 mt-0.5 flex-wrap">
+                        @if($order->vendor?->phone)
+                            <span>📞 {{ $order->vendor->phone }}</span>
+                        @endif
+                        @if($order->vendor?->address)
+                            <span class="truncate max-w-[200px]">📍 {{ $order->vendor->address }}</span>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            {{-- Notes (collapsible) --}}
+            @if($order->notes)
+                <div x-data="{ open: false }" class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                    <button @click="open = !open"
+                            class="w-full flex items-center justify-between px-3 py-2 bg-zinc-50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-left">
+                        <span class="text-xs font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+                            💬 Catatan Pesanan
+                            <span class="text-[10px] font-normal text-zinc-400 italic" x-show="!open">— {{ Str::limit(strip_tags($order->notes), 80) }}</span>
+                        </span>
+                        <svg class="w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 shrink-0" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div x-show="open"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 -translate-y-1"
+                         x-transition:enter-end="opacity-100 translate-y-0"
+                         x-cloak
+                         class="px-3 py-2.5 bg-white dark:bg-zinc-900 text-xs text-zinc-700 dark:text-zinc-300 prose prose-xs max-w-none prose-p:my-1 prose-img:rounded-lg border-t border-zinc-100 dark:border-zinc-800">
+                        {!! $order->notes !!}
+                    </div>
+                </div>
+            @endif
+
+            {{-- Items Table - Ultra Compact --}}
+            <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+                <table class="w-full text-xs">
+                    <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 border-b border-zinc-200 dark:border-zinc-700">
+                        <tr>
+                            <th class="px-3 py-1.5 font-semibold text-left">Barang</th>
+                            <th class="px-2 py-1.5 font-semibold text-right w-12">Qty</th>
+                            <th class="px-2 py-1.5 font-semibold text-right w-14">Terima</th>
+                            <th class="px-2 py-1.5 font-semibold text-right w-24">Harga</th>
+                            <th class="px-3 py-1.5 font-semibold text-right w-28">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        @foreach($order->items as $item)
+                            <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                                <td class="px-3 py-2">
+                                    <div class="font-medium text-zinc-900 dark:text-zinc-100 leading-snug">{{ $item->item->name }}</div>
+                                    <div class="font-mono text-[10px] text-zinc-400">{{ $item->item->code }}</div>
+                                    @if($item->notes)
+                                        <div x-data="{ open: false }">
+                                            <div @click="open = !open"
+                                                 class="mt-1 text-[10px] text-zinc-500 italic cursor-pointer hover:text-blue-500 transition-colors flex items-start gap-0.5 group">
+                                                <span x-show="!open" class="line-clamp-1">{{ strip_tags($item->notes) }}</span>
+                                                <span x-show="open" x-cloak class="text-zinc-400">▲ tutup</span>
+                                                <svg x-show="!open" class="w-2.5 h-2.5 shrink-0 mt-px text-zinc-400 group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                            </div>
+                                            <div x-show="open" x-cloak
+                                                 x-transition:enter="transition ease-out duration-150"
+                                                 x-transition:enter-start="opacity-0"
+                                                 x-transition:enter-end="opacity-100"
+                                                 class="mt-1 p-1.5 bg-zinc-50 dark:bg-zinc-800/50 rounded border border-zinc-200 dark:border-zinc-700 text-[10px] text-zinc-600 dark:text-zinc-400 prose prose-xs max-w-none prose-p:my-0.5 prose-img:rounded">
                                                 {!! $item->notes !!}
                                             </div>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-right align-top">{{ number_format($item->quantity, 0, ',', '.') }}</td>
-                                    <td class="px-4 py-3 text-right align-top">
-                                        @if($item->received_quantity >= $item->quantity)
-                                            <span class="text-emerald-600 font-medium">{{ number_format($item->received_quantity, 0, ',', '.') }}</span>
-                                        @elseif($item->received_quantity > 0)
-                                            <span class="text-amber-600 font-medium">{{ number_format($item->received_quantity, 0, ',', '.') }}</span>
-                                        @else
-                                            <span class="text-zinc-400">0</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-right align-top">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
-                                    <td class="px-4 py-3 text-right font-medium align-top">Rp {{ number_format($item->quantity * $item->unit_price, 0, ',', '.') }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                        <tfoot class="bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700">
-                            <tr>
-                                <td colspan="4" class="px-4 py-3 text-right font-bold text-zinc-700 dark:text-zinc-300">Total Keseluruhan</td>
-                                <td class="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400 text-lg">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>
+                                        </div>
+                                    @endif
+                                </td>
+                                <td class="px-2 py-2 text-right text-zinc-700 dark:text-zinc-300">{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                <td class="px-2 py-2 text-right">
+                                    @if($item->received_quantity >= $item->quantity)
+                                        <span class="text-emerald-600 font-semibold">{{ number_format($item->received_quantity, 0, ',', '.') }}</span>
+                                    @elseif($item->received_quantity > 0)
+                                        <span class="text-amber-600 font-semibold">{{ number_format($item->received_quantity, 0, ',', '.') }}</span>
+                                    @else
+                                        <span class="text-zinc-400">0</span>
+                                    @endif
+                                </td>
+                                <td class="px-2 py-2 text-right text-zinc-600 dark:text-zinc-400">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                                <td class="px-3 py-2 text-right font-semibold text-zinc-800 dark:text-zinc-200">{{ number_format($item->quantity * $item->unit_price, 0, ',', '.') }}</td>
                             </tr>
-                        </tfoot>
-                    </table>
-                </div>
-                
-                @if($order->pajak)
-                <div class="mt-2 text-xs text-right text-amber-600 italic">
-                    * Total nilai sudah termasuk PPN.
-                </div>
-                @endif
+                        @endforeach
+                    </tbody>
+                    <tfoot class="bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700">
+                        <tr>
+                            <td colspan="4" class="px-3 py-2 text-right text-xs font-bold text-zinc-600 dark:text-zinc-400">Total</td>
+                            <td class="px-3 py-2 text-right font-black text-emerald-600 dark:text-emerald-400">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
             </div>
 
-            <div class="flex justify-end gap-3 pt-4">
-                <flux:button variant="ghost" wire:click="$set('show', false)"> Tutup </flux:button>
+            {{-- Footer actions --}}
+            <div class="flex justify-end gap-2 pt-1">
+                <flux:button size="sm" variant="ghost" wire:click="$set('show', false)">Tutup</flux:button>
                 @if(in_array($order->status, ['processing', 'partially_received']))
-                    <flux:button variant="primary" wire:click="$dispatch('open-receipt-modal', { orderId: {{ $order->id }} }); $set('show', false)">
-                        📦 Terima Barang
-                    </flux:button>
+                    @can('purchase.order.update')
+                        <flux:button size="sm" variant="primary" icon="cube" wire:click="$dispatch('open-receipt-modal', { orderId: {{ $order->id }} }); $set('show', false)">
+                            Terima Barang
+                        </flux:button>
+                    @endcan
+                @endif
+                @if($order->status === 'completed')
+                    @can('purchase.order.update')
+                        <flux:button size="sm" variant="ghost" icon="archive-box" class="text-zinc-500" wire:click="confirmArchive({{ $order->id }}); $set('show', false)">
+                            Arsipkan
+                        </flux:button>
+                    @endcan
                 @endif
             </div>
         @else

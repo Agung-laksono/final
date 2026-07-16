@@ -1,5 +1,5 @@
 <?php
-use function Livewire\Volt\{state, layout, title, computed, on, usesPagination};
+use function Livewire\Volt\{state, layout, title, computed, on, mount, usesPagination};
 use Modules\Purchase\Models\PurchaseQueue;
 use Modules\Inventory\Models\Item;
 
@@ -24,7 +24,25 @@ state([
     'sortBy' => 'created_at',
     'sortDirection' => 'desc',
     'perPage' => 15,
+    'columnLimits' => [],
 ]);
+
+mount(function () {
+    $limits = [];
+    foreach ($this->columns as $key => $col) {
+        $limits[$key] = 10;
+    }
+    $this->columnLimits = $limits;
+});
+
+$loadMoreColumn = function ($status) {
+    $limits = $this->columnLimits;
+    if (!isset($limits[$status])) {
+        $limits[$status] = 10;
+    }
+    $limits[$status] += 15;
+    $this->columnLimits = $limits;
+};
 
 $loadMore = function () {
     $this->perPage += 15;
@@ -44,7 +62,7 @@ $sort = function ($field) {
     }
 };
 
-$queues = computed(function () {
+$getBaseQuery = function () {
     $query = PurchaseQueue::with(['item', 'fulfillments.purchaseOrderItem.purchaseOrder.vendor'])->latest();
     if ($this->search) {
         $query->whereHas('item', function($q) {
@@ -52,7 +70,36 @@ $queues = computed(function () {
               ->orWhere('code', 'like', '%' . $this->search . '%');
         });
     }
-    return $query->get()->groupBy(function($q) {
+    return $query;
+};
+
+$queues = computed(function () {
+    if ($this->viewMode !== 'kanban') return collect();
+    
+    $ids = [];
+    foreach ($this->columns as $status => $col) {
+        $limit = $this->columnLimits[$status] ?? 10;
+        
+        $query = clone $this->getBaseQuery();
+        
+        $statusIds = $query->where('status', $status)
+                           ->limit($limit)
+                           ->pluck('id')
+                           ->toArray();
+                           
+        $ids = array_merge($ids, $statusIds);
+    }
+    
+    if (empty($ids)) return collect();
+    
+    $result = PurchaseQueue::with(['item', 'fulfillments.purchaseOrderItem.purchaseOrder.vendor'])
+        ->whereIn('id', $ids)
+        ->get()
+        ->sortBy(function($queue) use ($ids) {
+            return array_search($queue->id, $ids);
+        });
+        
+    return $result->groupBy(function($q) {
         return $q->status ?? 'approved';
     });
 });
@@ -123,6 +170,8 @@ on(['status-updated' => function () {
     // Kosong saja, tujuannya hanya memancing re-render agar computed $queues dijalankan ulang
 }]);
 
+on(['echo:kanban.purchase_queue,KanbanUpdated' => '$refresh']);
+
 ?>
 
 <div class="w-full bg-transparent relative" x-data="{
@@ -168,13 +217,14 @@ on(['status-updated' => function () {
                             :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
                     </div>
                     <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
-                        @if($statusKey === 'approved' && count($this->selectedQueues) > 0)
-                            <div x-show="!collapsed">
+                        {{-- Buat PO button: always rendered, shown via x-show for reactivity --}}
+                        @if($statusKey === 'approved')
+                            <div x-show="$wire.selectedQueues.length > 0 && !collapsed" x-transition.opacity.duration.200ms style="display:none">
                                 <flux:button size="sm" variant="primary" wire:click="proceedToPO" x-on:click="document.dispatchEvent(new Event('livewire:navigate'))" wire:loading.attr="disabled" class="!rounded-full shadow-sm hover:shadow-md transition-all group overflow-hidden">
                                     <div class="flex items-center gap-1.5">
                                         <flux:icon.document-plus wire:loading.remove wire:target="proceedToPO" class="size-4 transition-transform group-hover:-translate-y-0.5" />
                                         <flux:icon.arrow-path wire:loading wire:target="proceedToPO" class="size-4 animate-spin" />
-                                        <span class="font-medium text-xs uppercase tracking-wider">Buat PO ({{ count($this->selectedQueues) }})</span>
+                                        <span class="font-medium text-xs uppercase tracking-wider" x-text="'Buat PO (' + $wire.selectedQueues.length + ')'"></span>
                                     </div>
                                 </flux:button>
                             </div>
@@ -192,126 +242,122 @@ on(['status-updated' => function () {
                         @forelse($this->queues[$statusKey] ?? [] as $queue)
                         @php
                             $isCustom = str_contains($queue->notes ?? '', '[CUSTOM]');
-                        @endphp
-                        <div wire:key="queue-{{ $queue->id }}" 
-                             @click="activeId = '{{ $queue->id }}'"
-                             x-show="processingId !== '{{ $queue->id }}'"
-                             class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border transition-all duration-300 group relative flex flex-col overflow-hidden {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-amber-500/30 hover:border-amber-500' : 'border-zinc-200 dark:border-zinc-700 hover:-translate-y-1 hover:shadow-md hover:border-' . $column['color'] . '-400 dark:hover:border-' . $column['color'] . '-500' }}">
+                            $finalQty = $queue->status === 'rejected' ? 0 : ($queue->approved_qty ?? $queue->requested_qty);
+                            $po = null;
+                            $vendorName = null;
+                            $poNumber = null;
                             
-                            @if($isCustom)
-                                <div class="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-40 dark:opacity-20">
-                                    <div class="absolute inset-0 bg-gradient-to-bl from-amber-400 to-transparent"></div>
-                                </div>
-                            @endif
-                            
-                            {{-- Header Card: Checkbox & ID, and Time --}}
-                            <div class="flex justify-between items-center mb-2 relative z-10">
-                                <div class="flex items-center gap-2">
-                                    @if($statusKey === 'approved')
-                                        <flux:checkbox wire:click.stop="toggleSelection({{ $queue->id }})" :checked="in_array($queue->id, $this->selectedQueues)" />
-                                    @endif
-                                    <span class="font-mono text-[11px] font-bold text-zinc-600 dark:text-zinc-300">#ANT-{{ str_pad($queue->id, 4, '0', STR_PAD_LEFT) }}</span>
-                                    @if($isCustom)
-                                        <span class="text-[9px] font-black uppercase tracking-widest text-white bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 rounded shadow-sm shadow-amber-500/40" title="Permintaan dengan spesifikasi khusus">
-                                            Custom
-                                        </span>
-                                    @endif
-                                </div>
-                                <span class="text-[10px] text-zinc-400 font-medium">{{ $queue->created_at->diffForHumans(null, true, true) }}</span>
-                            </div>
-                            
-                            {{-- Main Info: Image & Item --}}
-                            <div class="flex gap-3 relative z-10">
-                                {{-- Item Image --}}
-                                <div class="w-10 h-10 rounded-md bg-zinc-100 dark:bg-zinc-800 overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-700">
-                                    @if($queue->item?->image)
-                                        <img src="{{ asset('storage/' . $queue->item->image) }}" class="w-full h-full object-cover">
-                                    @else
-                                        <div class="w-full h-full flex items-center justify-center text-zinc-400">
-                                            <flux:icon.photo class="w-5 h-5" />
-                                        </div>
-                                    @endif
-                                </div>
-                                
-                                <div class="flex-1 min-w-0 flex flex-col justify-center">
-                                    <h4 class="font-bold text-sm text-zinc-900 dark:text-zinc-100 leading-tight truncate group-hover:text-{{ $column['color'] }}-600 transition-colors">
-                                        {{ $queue->item->name ?? 'Barang Dihapus' }}
-                                    </h4>
-                                    <div class="flex items-center gap-2 mt-0.5">
-                                        <span class="text-[10px] font-mono text-zinc-500">{{ $queue->item->code ?? '-' }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {{-- Notes if any --}}
-                            @if($queue->notes)
-                                <div class="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 p-1.5 rounded border border-zinc-100 dark:border-zinc-700/50 line-clamp-2 italic relative z-10">
-                                    <span class="line-clamp-2 leading-relaxed prose prose-xs" x-html="`{{ str_replace('[CUSTOM]', '', addslashes($queue->notes)) }}`"></span>
-                                </div>
-                            @endif
-                            
-                            {{-- PO & Vendor Info --}}
-                            @if(in_array($statusKey, ['ordered', 'completed', 'archived']) && $queue->fulfillments->count() > 0)
-                                @php
-                                    $poItem = $queue->fulfillments->first()->purchaseOrderItem ?? null;
-                                    $po = $poItem->purchaseOrder ?? null;
+                            if(in_array($statusKey, ['ordered', 'completed', 'archived']) && $queue->fulfillments->count() > 0) {
+                                $poItem = $queue->fulfillments->first()->purchaseOrderItem ?? null;
+                                $po = $poItem->purchaseOrder ?? null;
+                                if($po) {
                                     $vendorName = $po->vendor->name ?? null;
                                     $poNumber = $po->po_number ?? null;
-                                    
-                                    $isPartiallyReceived = $poItem && $poItem->received_quantity > 0 && $poItem->received_quantity < $poItem->quantity;
-                                @endphp
-                                @if($po)
-                                    <div class="mt-2 flex flex-col gap-1.5 text-[10px] bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded border border-zinc-100 dark:border-zinc-700/50 relative z-10">
-                                        <div class="flex items-center justify-between gap-2 text-zinc-500 dark:text-zinc-400">
-                                            <div class="flex items-center gap-1.5 truncate">
-                                                <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                                <span class="font-medium truncate">{{ $vendorName ?? 'Tanpa Vendor' }}</span>
-                                            </div>
-                                            <div class="flex items-center gap-1 shrink-0 font-mono text-zinc-600 dark:text-zinc-300">
-                                                <flux:icon.document-text class="w-3 h-3 text-blue-500" />
-                                                <span class="font-bold hover:text-blue-600 cursor-pointer transition-colors" title="Lihat Purchase Order">{{ $poNumber }}</span>
+                                }
+                            }
+                            
+                            $cardClasses = $isCustom 
+                                ? "bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 hover:-translate-y-1 active:scale-[0.98] transition-all duration-700 cursor-pointer group relative flex flex-col gap-1.5"
+                                : "bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border-l-4 border-l-" . $column['color'] . "-500 border-y border-r border-zinc-200 dark:border-zinc-700 hover:shadow-lg hover:-translate-y-1 hover:border-r-" . $column['color'] . "-300 dark:hover:border-r-" . $column['color'] . "-500/50 active:scale-[0.98] transition-all duration-700 cursor-pointer group relative flex flex-col gap-1.5";
+                        @endphp
+                        
+                        <div wire:key="queue-{{ $queue->id }}" 
+                             x-data="{ showDetails: false }"
+                             @click="
+                                 if ($event.target.closest('[data-checkbox-area]')) return;
+                                 if (window.matchMedia('(hover: hover)').matches) {
+                                     activeId = '{{ $queue->id }}';
+                                 } else {
+                                     if (!showDetails) {
+                                         showDetails = true;
+                                     } else {
+                                         activeId = '{{ $queue->id }}';
+                                     }
+                                 }
+                             "
+                             @click.outside="showDetails = false"
+                             x-show="processingId !== '{{ $queue->id }}'"
+                             class="{{ $cardClasses }}">
+                            
+                            {{-- Row 1: Header (ID, Custom Badge, Time) --}}
+                            <div class="flex justify-between items-center relative z-10">
+                                <div class="flex items-center gap-1.5">
+                                    @if($statusKey === 'approved')
+                                        <div data-checkbox-area @click.stop class="flex items-center">
+                                            <flux:checkbox wire:model="selectedQueues" value="{{ $queue->id }}" />
+                                        </div>
+                                    @endif
+                                    <span class="text-[10px] sm:text-[11px] font-bold font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-900 px-1.5 py-0.5 rounded shrink-0">#ANT-{{ str_pad($queue->id, 4, '0', STR_PAD_LEFT) }}</span>
+                                    @if($isCustom)
+                                        <span class="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 bg-amber-100 dark:bg-amber-500/20 px-1.5 py-0.5 rounded shadow-sm">CUSTOM</span>
+                                    @endif
+                                </div>
+                                <span class="text-[9px] text-zinc-400 font-medium shrink-0" title="{{ $queue->created_at->translatedFormat('d F Y H:i') }}">
+                                    {{ str_replace('yang ', '', $queue->created_at->locale('id')->diffForHumans()) }}
+                                </span>
+                            </div>
+                            
+                            {{-- Row 2: Main Info (Image, Name, Qty) & PO Details --}}
+                            <div class="flex items-center justify-between gap-2 overflow-hidden relative z-10">
+                                <div class="flex items-center gap-2 overflow-hidden min-w-0">
+                                    @if($queue->item?->image)
+                                        <button type="button" @click.stop="$dispatch('open-lightbox', { url: '{{ asset('storage/' . $queue->item->image) }}' })" class="w-10 h-10 rounded-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 overflow-hidden shrink-0 hover:opacity-80 transition-opacity cursor-zoom-in focus:outline-none" title="Lihat Foto Barang">
+                                            <img src="{{ asset('storage/' . $queue->item->image) }}" class="w-full h-full object-cover">
+                                        </button>
+                                    @endif
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="font-bold text-xs text-zinc-900 dark:text-zinc-100 leading-tight truncate group-hover:text-{{ $column['color'] }}-500 transition-colors" title="{{ $queue->item->name ?? 'Barang Dihapus' }}">
+                                            {{ $queue->item->name ?? 'Barang Dihapus' }}
+                                        </span>
+                                        <div class="flex flex-wrap items-center gap-x-1.5 mt-0.5">
+                                            <span class="text-[9px] font-mono text-zinc-500">{{ $queue->item->code ?? '-' }}</span>
+                                            <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                            <div class="flex items-baseline gap-0.5 shrink-0">
+                                                <span class="text-xs font-black text-emerald-600 dark:text-emerald-500">{{ $finalQty }}</span>
+                                                <span class="text-[9px] font-bold text-zinc-500 uppercase">{{ $queue->item->unit->name ?? 'Unit' }}</span>
                                             </div>
                                         </div>
-                                        
-                                        @if($isPartiallyReceived)
-                                            <div class="pt-1 mt-1 border-t border-zinc-200/60 dark:border-zinc-700/60 flex flex-col gap-1">
-                                                <div class="flex justify-between items-center text-[9px] font-bold">
-                                                    <span class="text-amber-600 dark:text-amber-500 uppercase tracking-wider">Tiba Sebagian</span>
-                                                    <span class="text-zinc-600 dark:text-zinc-300">{{ $poItem->received_quantity }} / {{ $poItem->quantity }}</span>
-                                                </div>
-                                                <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-1.5 overflow-hidden">
-                                                    <div class="bg-amber-500 h-1.5 rounded-full" style="width: {{ ($poItem->received_quantity / max(1, $poItem->quantity)) * 100 }}%"></div>
-                                                </div>
-                                            </div>
-                                        @endif
                                     </div>
-                                @endif
-                            @endif
-
-                            {{-- Footer: Qty --}}
-                            @php
-                                $finalQty = $queue->status === 'rejected' ? 0 : ($queue->approved_qty ?? $queue->requested_qty);
-                            @endphp
-                            <div class="flex items-center justify-between mt-3 pt-2 border-t border-zinc-100 dark:border-zinc-800 relative z-10">
-                                <div class="flex items-baseline gap-1 text-zinc-800 dark:text-zinc-200">
-                                    <span class="text-sm font-black">{{ $finalQty }}</span>
-                                    <span class="text-[10px] font-medium text-zinc-500 uppercase">{{ $queue->item->unit->name ?? 'Unit' }}</span>
                                 </div>
                                 
-                                @if($queue->approved_qty !== null && $queue->approved_qty != $queue->requested_qty && $queue->status !== 'rejected')
-                                    <span class="text-[9px] text-zinc-400 italic" title="Awalnya diminta: {{ $queue->requested_qty }}">
-                                        (Req: {{ $queue->requested_qty }})
-                                    </span>
+                                @if($po)
+                                    <div class="flex flex-col items-end shrink-0 pl-2 text-right">
+                                        <span class="font-mono text-[9px] text-blue-600 dark:text-blue-400 font-bold hover:text-blue-500 cursor-pointer transition-colors" title="Lihat Purchase Order">{{ $poNumber }}</span>
+                                        <div class="flex items-center gap-1 mt-0.5 text-zinc-500">
+                                            <flux:icon.building-storefront class="w-2.5 h-2.5 shrink-0" />
+                                            <span class="text-[9px] truncate max-w-[80px]" title="{{ $vendorName }}">{{ $vendorName ?? 'Tanpa Vendor' }}</span>
+                                        </div>
+                                    </div>
                                 @endif
                             </div>
-
-
+                            
+                            {{-- Row 3: Notes & Approvals (Hidden until hover) --}}
+                            @if($queue->notes || ($queue->approved_qty !== null && $queue->approved_qty != $queue->requested_qty && $queue->status !== 'rejected'))
+                                <div :class="showDetails ? 'max-h-32 opacity-100 mt-2 border-zinc-100 dark:border-zinc-800/50 pt-1.5' : ''" class="max-h-0 opacity-0 group-hover:max-h-32 group-hover:opacity-100 group-hover:mt-2 transition-all duration-700 ease-in-out overflow-hidden flex flex-col gap-1.5 relative z-10 border-t border-transparent group-hover:border-zinc-100 dark:group-hover:border-zinc-800/50 group-hover:pt-1.5">
+                                    @if($queue->notes)
+                                        <div class="text-[10px] text-zinc-500 dark:text-zinc-400 leading-snug line-clamp-3 italic text-justify" title="{{ strip_tags(str_replace('[CUSTOM]', '', $queue->notes)) }}" x-html="`{{ str_replace('[CUSTOM]', '', addslashes($queue->notes)) }}`"></div>
+                                    @endif
+                                    
+                                    @if($queue->approved_qty !== null && $queue->approved_qty != $queue->requested_qty && $queue->status !== 'rejected')
+                                        <div class="text-[10px] font-medium text-amber-600 dark:text-amber-500 italic">Disetujui sebagian (Req: {{ $queue->requested_qty }})</div>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     @empty
                         <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
                             Kosong
                         </div>
                     @endforelse
+                    
+                    @if(count($this->queues[$statusKey] ?? []) >= ($columnLimits[$statusKey] ?? 10))
+                        <div class="p-2 pt-0 mt-2">
+                            <flux:button size="sm" variant="subtle" class="w-full text-xs font-semibold" wire:click="loadMoreColumn('{{ $statusKey }}')">
+                                <flux:icon.chevron-down class="w-3 h-3 mr-1" />
+                                Muat Lebih Banyak...
+                            </flux:button>
+                        </div>
+                    @endif
                 </div>
             </div>
             @endforeach

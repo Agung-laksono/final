@@ -1,6 +1,9 @@
 <flux:modal name="camera-scanner-modal" class="w-full max-w-md p-0" x-on:close="$dispatch('stop-camera-scanner')">
     <div x-data="cameraScannerComponent()" x-on:stop-camera-scanner.window="stopScanner" class="p-4 sm:p-6 bg-white dark:bg-zinc-800 flex flex-col relative rounded-xl">
-        <h2 class="text-xl font-bold mb-4 text-center text-zinc-900 dark:text-white">Pindai Barcode</h2>
+        <!-- Judul dinamis berdasarkan mode -->
+        <h2 class="text-xl font-bold mb-1 text-center text-zinc-900 dark:text-white">Pindai Barcode</h2>
+        <p x-show="scanMode === 'continuous'" class="text-xs text-center text-emerald-600 dark:text-emerald-400 mb-3 font-medium">Mode Beruntun — Tekan "Selesai" jika sudah</p>
+        <div x-show="scanMode === 'single'" class="mb-3"></div>
         
         <!-- Pilih Kamera -->
         <div class="mb-4">
@@ -12,45 +15,72 @@
             </select>
         </div>
 
-        <div id="reader" class="w-full bg-black rounded-lg overflow-hidden min-h-[250px] flex items-center justify-center relative shadow-inner">
-            <!-- Loader -->
-            <div x-show="isLoading" class="absolute inset-0 flex items-center justify-center bg-zinc-900 z-10 text-white">
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span>Memproses...</span>
+        <!-- Wrapper kamera -->
+        <div class="relative w-full rounded-lg overflow-hidden shadow-inner bg-black min-h-[250px]">
+            <!-- Overlay Loader -->
+            <div x-show="isLoading" x-transition
+                 class="absolute inset-0 flex items-center justify-center bg-zinc-900/95 z-20 text-white rounded-lg">
+                <svg class="animate-spin mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span x-text="loadingMessage">Memuat...</span>
             </div>
+
+            <!-- Overlay Error -->
+            <div x-show="errorMsg" x-transition
+                 class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/95 z-20 text-white rounded-lg px-4 text-center gap-3">
+                <svg class="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p class="text-sm" x-text="errorMsg"></p>
+                <button @click="errorMsg=''; createAndStart()" class="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
+                    Coba Lagi
+                </button>
+            </div>
+
+            <!-- ✅ Overlay Sukses (mode continuous) -->
+            <div x-show="successMsg" x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="absolute inset-0 flex flex-col items-center justify-center bg-emerald-600/95 z-20 text-white rounded-lg px-4 text-center gap-3">
+                <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="font-bold text-lg">Berhasil Diinput!</p>
+                <p class="text-sm font-mono bg-emerald-700/60 px-3 py-1 rounded-lg tracking-widest" x-text="successMsg"></p>
+                <p class="text-xs text-emerald-200">Siap scan berikutnya...</p>
+            </div>
+
+            <div id="reader-wrapper" class="w-full"></div>
         </div>
         
-        <!-- Wadah tersembunyi untuk proses scan file/gambar tanpa mengganggu video stream -->
+        <!-- Wadah tersembunyi untuk proses scan file -->
         <div id="file-reader" class="hidden"></div>
         
         <div class="mt-6 flex flex-col sm:flex-row gap-3">
             <div class="flex flex-col sm:flex-row gap-3 w-full max-w-md mx-auto">
-  
-  <!-- TOMBOL 1: BUKA KAMERA -->
-  <label class="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 cursor-pointer text-center w-full sm:flex-1 flex justify-center items-center gap-2 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 dark:hover:bg-indigo-500/20 transition-colors"> 
-    <!-- Ikon Kamera -->
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-    </svg>
-    Ambil Foto
-    <input type="file" class="hidden" accept="image/*" capture="environment" @change="scanImage"> 
-  </label>
-
-  <!-- TOMBOL 2: PILIH GALERI -->
-  <label class="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 cursor-pointer text-center w-full sm:flex-1 flex justify-center items-center gap-2 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 dark:hover:bg-indigo-500/20 transition-colors"> 
-    <!-- Ikon Galeri -->
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-    </svg>
-    Pilih Galeri 
-    <input type="file" class="hidden" accept="image/*" @change="scanImage"> 
-  </label>
-
-</div>
-
-            <button type="button" @click="Flux.modal('camera-scanner-modal').close()" class="px-4 py-2 text-sm font-medium text-zinc-700 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-600 dark:hover:bg-zinc-700 w-full sm:flex-1 transition-colors">
-                Batal
+                <!-- TOMBOL 1: AMBIL FOTO -->
+                <label class="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 cursor-pointer text-center w-full sm:flex-1 flex justify-center items-center gap-2 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 dark:hover:bg-indigo-500/20 transition-colors"> 
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Ambil Foto
+                    <input type="file" class="hidden" accept="image/*" capture="environment" @change="scanImage">
+                </label>
+                <!-- TOMBOL 2: PILIH GALERI -->
+                <label class="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 cursor-pointer text-center w-full sm:flex-1 flex justify-center items-center gap-2 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20 dark:hover:bg-indigo-500/20 transition-colors"> 
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Pilih Galeri 
+                    <input type="file" class="hidden" accept="image/*" @change="scanImage">
+                </label>
+            </div>
+            <!-- Tombol label berubah: "Selesai" untuk batch mode, "Batal" untuk single -->
+            <button type="button" @click="Flux.modal('camera-scanner-modal').close()"
+                    class="px-4 py-2 text-sm font-medium rounded-lg w-full sm:flex-1 transition-colors"
+                    :class="scanMode === 'continuous'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-none'
+                        : 'text-zinc-700 bg-white border border-zinc-300 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-600 dark:hover:bg-zinc-700'">
+                <span x-text="scanMode === 'continuous' ? 'Selesai Scan' : 'Batal'"></span>
             </button>
         </div>
     </div>
@@ -58,177 +88,324 @@
     <script>
         const initCameraScanner = () => {
             Alpine.data('cameraScannerComponent', () => ({
-                isOpen: false,
                 isLoading: false,
                 isScanning: false,
+                isStopping: false,
                 scanner: null,
+                _currentReaderId: null,
                 cameras: [],
                 selectedCamera: null,
-                
+                errorMsg: '',
+                successMsg: '',          // Teks barcode yang baru saja berhasil discan
+                scanMode: 'single',      // 'single' | 'continuous'
+                loadingMessage: 'Memuat kamera...',
+                _camerasLoaded: false,
+                _STORAGE_KEY: 'preferred_camera_id',
+
                 init() {
-                    window.addEventListener('camera-scanner-modal-opened', () => {
+                    // Hapus listener lama jika ada (penting untuk Livewire re-render)
+                    // Dengan menyimpan referensi fungsi, kita bisa remove sebelum add lagi
+                    if (window._cameraOpenHandler) {
+                        window.removeEventListener('camera-scanner-modal-opened', window._cameraOpenHandler);
+                    }
+
+                    // Buat handler baru yang terikat ke instance Alpine ini
+                    window._cameraOpenHandler = async (event) => {
                         if (typeof window.Html5Qrcode === 'undefined') {
-                            alert("Library kamera belum siap. Mohon muat ulang (refresh) halaman.");
+                            alert("Library kamera belum siap. Mohon muat ulang halaman.");
                             return;
                         }
 
-                        this.isOpen = true;
-                        this.isLoading = true;
-                        
-                        this.getCameras().then(() => {
-                            setTimeout(() => {
-                                this.startScanner();
-                            }, 100);
-                        });
-                    });
+                        // Debounce: cegah double-fire dalam 500ms
+                        if (window._scannerOpening) return;
+                        window._scannerOpening = true;
+                        setTimeout(() => { window._scannerOpening = false; }, 500);
 
-                    // Monitor visibility to auto-stop scanner when modal closes (e.g., click outside, press ESC)
+                        // Baca mode dari event (default: 'single')
+                        this.scanMode = event?.detail?.mode === 'continuous' ? 'continuous' : 'single';
+                        this.errorMsg = '';
+                        this.successMsg = '';
+                        this.isLoading = true;
+                        this.loadingMessage = 'Memuat kamera...';
+
+                        if (!this._camerasLoaded) {
+                            await this.getCameras();
+                            this._camerasLoaded = true;
+                        }
+
+                        await this.createAndStart();
+                    };
+
+                    window.addEventListener('camera-scanner-modal-opened', window._cameraOpenHandler);
+
+                    // MutationObserver: deteksi modal ditutup (ESC/klik backdrop)
+                    const watchModal = () => {
+                        const modalEl = document.querySelector('[name="camera-scanner-modal"]') ||
+                                        document.querySelector('dialog[id*="camera-scanner"]');
+                        if (!modalEl) { setTimeout(watchModal, 300); return; }
+
+                        const observer = new MutationObserver(() => {
+                            const isClosed = !modalEl.hasAttribute('open') &&
+                                             (modalEl.style.display === 'none' ||
+                                              modalEl.getAttribute('aria-hidden') === 'true' ||
+                                              !modalEl.classList.contains('open'));
+                            if (this.isScanning && isClosed) {
+                                this.stopScanner();
+                            }
+                        });
+                        observer.observe(modalEl, {
+                            attributes: true,
+                            attributeFilter: ['open', 'style', 'class', 'aria-hidden']
+                        });
+                    };
+                    setTimeout(watchModal, 200);
+
+                    // Jaring pengaman berkala
                     setInterval(() => {
-                        if (this.isScanning && this.scanner) {
-                            const reader = document.getElementById('reader');
-                            // Jika element tidak terlihat (modal tertutup)
-                            if (reader && reader.offsetParent === null) {
+                        if (this.isScanning && !this.isStopping) {
+                            const wrapper = document.getElementById('reader-wrapper');
+                            if (wrapper && wrapper.offsetParent === null) {
                                 this.stopScanner();
                             }
                         }
-                    }, 500);
+                    }, 800);
                 },
 
-                getCameras() {
-                    return window.Html5Qrcode.getCameras().then(devices => {
-                        if (devices && devices.length) {
-                            this.cameras = devices;
-                            // Secara default biarkan null agar scanner menggunakan { facingMode: "environment" }
-                            // yang akan otomatis memilih kamera belakang utama bawaan OS/Browser.
-                            this.selectedCamera = ""; 
+                // ============================================================
+                // INTI FIX: createAndStart()
+                // Selalu: stop lama → buat reader baru dengan ID unik → start baru
+                // ID unik memastikan Html5Qrcode lama TIDAK BISA menemukan reader
+                // baru via getElementById, sehingga mustahil terjadi injeksi video ganda.
+                // ============================================================
+                async createAndStart() {
+                    // Tunggu scanner sebelumnya benar-benar berhenti
+                    await this.stopScanner();
+
+                    // Buat reader baru dengan ID unik (timestamp)
+                    this._currentReaderId = 'qr-' + Date.now();
+                    const wrapper = document.getElementById('reader-wrapper');
+                    if (!wrapper) return;
+
+                    // Bersihkan wrapper: matikan semua video track yang mungkin tersisa
+                    wrapper.querySelectorAll('video').forEach(v => {
+                        if (v.srcObject) {
+                            v.srcObject.getTracks().forEach(t => t.stop());
+                            v.srcObject = null;
                         }
-                    }).catch(err => {
-                        console.error("Error getting cameras", err);
-                        alert("Tidak dapat membaca daftar kamera dari sistem. " + err);
                     });
+                    wrapper.innerHTML = ''; // Hapus semua child lama
+
+                    // Tambahkan div baru dengan ID unik baru
+                    const el = document.createElement('div');
+                    el.id = this._currentReaderId;
+                    el.className = 'qr-reader-el w-full';
+                    wrapper.appendChild(el);
+
+                    // Mulai scanner baru
+                    this.startScanner();
+                },
+
+                async getCameras() {
+                    try {
+                        const devices = await window.Html5Qrcode.getCameras();
+                        if (!devices || devices.length === 0) return;
+                        this.cameras = devices;
+
+                        const savedId = localStorage.getItem(this._STORAGE_KEY);
+                        if (savedId && devices.find(d => d.id === savedId)) {
+                            this.selectedCamera = savedId;
+                            return;
+                        }
+
+                        const backCameras = devices.filter(d => {
+                            const lbl = (d.label || '').toLowerCase();
+                            return lbl.includes('back') || lbl.includes('rear') ||
+                                   lbl.includes('belakang') || lbl.includes('environment');
+                        });
+                        const mainBack = backCameras.length > 0
+                            ? (backCameras.find(d => {
+                                const lbl = (d.label || '').toLowerCase();
+                                return !lbl.includes('wide') && !lbl.includes('macro') &&
+                                       !lbl.includes('depth') && !lbl.includes('zoom') &&
+                                       !lbl.includes('tele') && !lbl.includes('virtual') &&
+                                       !lbl.includes('ultra');
+                              }) || backCameras[0])
+                            : null;
+
+                        this.selectedCamera = mainBack ? mainBack.id : devices[0].id;
+                    } catch (err) {
+                        console.warn('Tidak bisa mendapatkan daftar kamera:', err);
+                    }
                 },
 
                 switchCamera() {
-                    this.stopScanner().then(() => {
-                        this.startScanner();
-                    });
+                    if (this.selectedCamera) {
+                        localStorage.setItem(this._STORAGE_KEY, this.selectedCamera);
+                    }
+                    this.createAndStart();
                 },
 
                 startScanner() {
-                    if (this.isScanning) {
-                        this.isLoading = false;
+                    if (this.isScanning || this.isStopping) return;
+                    if (!this._currentReaderId) return;
+
+                    const readerEl = document.getElementById(this._currentReaderId);
+                    if (!readerEl) {
+                        console.error('Reader element tidak ditemukan:', this._currentReaderId);
                         return;
                     }
 
-                    // Pastikan div reader bersih sebelum membuat scanner baru
-                    if (this.scanner) {
-                        try { this.scanner.clear(); } catch(e) {}
-                    }
+                    this.scanner = new window.Html5Qrcode(this._currentReaderId, { verbose: false });
 
-                    this.scanner = new window.Html5Qrcode("reader");
-                    
-                    let cameraIdOrConfig = this.selectedCamera 
-                        ? { deviceId: { exact: this.selectedCamera } } 
-                        : { facingMode: "environment" };
+                    const cameraConfig = this.selectedCamera
+                        ? { deviceId: { exact: this.selectedCamera } }
+                        : { facingMode: 'environment' };
 
                     this.isLoading = true;
+                    this.loadingMessage = 'Mengaktifkan kamera...';
+                    this.errorMsg = '';
+
                     this.scanner.start(
-                        cameraIdOrConfig,
-                        { fps: 10, qrbox: { width: 250, height: 250 } },
-                        (decodedText) => {
-                            this.onScanSuccess(decodedText);
-                        },
-                        (errorMessage) => {
-                            // Abaikan error fokus
-                        }
+                        cameraConfig,
+                        { fps: 12, qrbox: { width: 250, height: 200 }, aspectRatio: 1.5, disableFlip: false },
+                        (decodedText) => { this.onScanSuccess(decodedText); },
+                        (_err) => { /* Abaikan error per-frame */ }
                     ).then(() => {
                         this.isLoading = false;
                         this.isScanning = true;
-                    }).catch((err) => {
-                        console.error("Gagal memulai kamera", err);
+                    }).catch(err => {
+                        console.error('Gagal memulai kamera:', err);
                         this.isLoading = false;
-                        alert("Gagal mengakses kamera. Pastikan Anda memberikan izin (Permission).");
+                        this.isScanning = false;
+                        this.scanner = null;
+                        this.errorMsg = 'Gagal mengakses kamera. Pastikan izin sudah diberikan di browser.';
                     });
                 },
 
                 stopScanner() {
-                    return new Promise((resolve) => {
-                        if (this.scanner && this.isScanning) {
-                            this.scanner.stop().then(() => {
-                                this.scanner.clear();
+                    return new Promise(resolve => {
+                        if (!this.scanner) {
+                            this._killAllVideoTracks();
+                            this.isScanning = false;
+                            this.isStopping = false;
+                            resolve();
+                            return;
+                        }
+                        if (!this.isScanning) {
+                            try { this.scanner.clear(); } catch(e) {}
+                            this._killAllVideoTracks();
+                            this.scanner = null;
+                            this.isStopping = false;
+                            resolve();
+                            return;
+                        }
+
+                        this.isStopping = true;
+
+                        const forceKill = setTimeout(() => {
+                            console.warn('Force-kill kamera (timeout)');
+                            this._killAllVideoTracks();
+                            this.scanner = null;
+                            this.isScanning = false;
+                            this.isStopping = false;
+                            resolve();
+                        }, 3000);
+
+                        this.scanner.stop()
+                            .then(() => {
+                                clearTimeout(forceKill);
+                                try { this.scanner.clear(); } catch(e) {}
+                                this._killAllVideoTracks();
                                 this.scanner = null;
                                 this.isScanning = false;
+                                this.isStopping = false;
                                 resolve();
-                            }).catch(error => {
-                                console.error("Gagal mematikan kamera", error);
+                            })
+                            .catch(err => {
+                                clearTimeout(forceKill);
+                                console.warn('stop() error:', err);
+                                this._killAllVideoTracks();
                                 this.scanner = null;
                                 this.isScanning = false;
+                                this.isStopping = false;
                                 resolve();
                             });
-                        } else {
-                            if (this.scanner) this.scanner.clear();
-                            this.scanner = null;
-                            resolve();
-                        }
                     });
                 },
 
-                scanImage(event) {
-                    if (event.target.files.length == 0) return;
-                    const imageFile = event.target.files[0];
-                    
-                    this.isLoading = true;
-
-                    // Beri jeda sedikit agar UI sempat merender status "Memproses..." 
-                    // sebelum thread utama diblokir oleh pemrosesan gambar
-                    setTimeout(() => {
-                        try {
-                            let fileScanner = new window.Html5Qrcode("file-reader");
-                            
-                            fileScanner.scanFile(imageFile, false)
-                                .then(decodedText => {
-                                    this.isLoading = false;
-                                    this.onScanSuccess(decodedText);
-                                    event.target.value = ''; // reset file input
-                                    try { fileScanner.clear(); } catch(e) {}
-                                })
-                                .catch(err => {
-                                    this.isLoading = false;
-                                    alert("Tidak ditemukan barcode di dalam gambar tersebut. Pastikan foto jelas dan terfokus.");
-                                    event.target.value = ''; // reset file input
-                                    try { fileScanner.clear(); } catch(e) {}
-                                });
-                        } catch (e) {
-                            this.isLoading = false;
-                            alert("Gagal memproses gambar. Format mungkin tidak didukung.");
-                            console.error(e);
-                            event.target.value = ''; // reset file input
-                        }
-                    }, 50);
-                },
-
-                onScanSuccess(decodedText) {
-                    // 1. Langsung tutup modal Flux secepat mungkin
+                _killAllVideoTracks() {
                     try {
-                        Flux.modal('camera-scanner-modal').close();
-                    } catch (e) {
-                        console.error('Gagal menutup modal', e);
-                    }
-                    
-                    // 2. Matikan hardware kamera di background
-                    if (this.scanner) {
-                        this.stopScanner();
-                    }
-                    
-                    // 3. Kirim data barcode ke komponen Livewire
-                    window.dispatchEvent(new CustomEvent('barcode-scanned', { detail: { code: decodedText } }));
+                        // Cari di SELURUH dokumen, jangan cuma di wrapper
+                        // karena kadang DOM library terlepas dari wrapper saat re-render
+                        document.querySelectorAll('video').forEach(v => {
+                            if (v.srcObject) {
+                                v.srcObject.getTracks().forEach(t => t.stop());
+                                v.srcObject = null;
+                            }
+                        });
+                        if (window._activeScannerStream) {
+                            window._activeScannerStream.getTracks().forEach(t => t.stop());
+                            window._activeScannerStream = null;
+                        }
+                    } catch(e) { console.warn('Kill tracks error:', e); }
                 },
-                
-                closeModal() {
-                    this.stopScanner().then(() => {
-                        this.isOpen = false;
-                    });
-                }
+
+                async scanImage(event) {
+                    if (!event.target.files.length) return;
+                    const imageFile = event.target.files[0];
+                    this.isLoading = true;
+                    this.loadingMessage = 'Memindai gambar...';
+                    await new Promise(r => setTimeout(r, 50));
+                    try {
+                        const fileReaderEl = document.getElementById('file-reader');
+                        if (fileReaderEl) fileReaderEl.innerHTML = '';
+                        const fileScanner = new window.Html5Qrcode('file-reader', { verbose: false });
+                        try {
+                            const decodedText = await fileScanner.scanFile(imageFile, false);
+                            this.isLoading = false;
+                            this.onScanSuccess(decodedText);
+                        } catch(err) {
+                            this.isLoading = false;
+                            alert('Tidak ditemukan barcode di gambar. Pastikan gambar jelas dan terfokus.');
+                        } finally {
+                            event.target.value = '';
+                            try { fileScanner.clear(); } catch(e) {}
+                        }
+                    } catch(e) {
+                        this.isLoading = false;
+                        event.target.value = '';
+                        alert('Gagal memproses gambar. Format mungkin tidak didukung.');
+                    }
+                },
+
+                async onScanSuccess(decodedText) {
+                    const code = decodedText.trim();
+
+                    if (this.scanMode === 'continuous') {
+                        // Mode beruntun: jangan tutup modal
+                        // 1. Tampilkan overlay sukses hijau
+                        this.successMsg = code;
+
+                        // 2. Kirim event ke Livewire
+                        window.dispatchEvent(new CustomEvent('barcode-scanned', {
+                            detail: { code }
+                        }));
+
+                        // 3. Setelah 1.5 detik, sembunyikan overlay & scanner siap lagi
+                        //    (scanner sudah aktif — Html5Qrcode terus berjalan, hanya di-pause overlay)
+                        setTimeout(() => {
+                            this.successMsg = '';
+                        }, 1500);
+
+                    } else {
+                        // Mode single (default): tutup modal seperti sebelumnya
+                        try { Flux.modal('camera-scanner-modal').close(); } catch(e) {}
+                        this.stopScanner();
+                        window.dispatchEvent(new CustomEvent('barcode-scanned', {
+                            detail: { code }
+                        }));
+                    }
+                },
             }));
         };
 
@@ -240,12 +417,18 @@
     </script>
     
     <style>
-        #reader { border: none !important; }
-        #reader video { 
-            object-fit: cover !important; 
+        #reader-wrapper { min-height: 250px; }
+        /* Gunakan class-based selector karena ID reader berubah setiap sesi */
+        .qr-reader-el { border: none !important; }
+        .qr-reader-el video {
+            object-fit: cover !important;
             border-radius: 0.5rem;
             width: 100% !important;
             max-height: 50vh !important;
         }
+        /* Sembunyikan toolbar bawaan Html5Qrcode yang tidak kita perlukan */
+        [id^="qr-"] [id$="__dashboard_section_swaplink"],
+        [id^="qr-"] [id$="__dashboard_section_csr"],
+        [id^="qr-"] [id$="__header_message"] { display: none !important; }
     </style>
 </flux:modal>

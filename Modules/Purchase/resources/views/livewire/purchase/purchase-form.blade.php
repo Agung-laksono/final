@@ -153,15 +153,7 @@ $vendorSearchResults = computed(function () {
                ->take(5)->get();
 });
 
-$selectVendor = function ($vendorId) {
-    $vendor = Vendor::find($vendorId);
-    if ($vendor) {
-        $this->selected_vendor = $vendor->toArray();
-        $this->vendor_id = $vendor->id;
-    }
-    $this->vendor_search_query = '';
-    $this->show_vendor_suggestions = false;
-};
+
 
 
 
@@ -172,9 +164,10 @@ $clearVendor = function () {
 
 $searchResults = computed(function () {
     if (strlen($this->search_query) < 2) return [];
-    return Item::where('name', 'like', '%' . $this->search_query . '%')
+    return Item::with(['type', 'unit'])
+               ->where('name', 'like', '%' . $this->search_query . '%')
                ->orWhere('code', 'like', '%' . $this->search_query . '%')
-               ->take(5)->get();
+               ->take(20)->get();
 });
 
 // Fungsi addItem dihapus dari Livewire karena sekarang ditangani sepenuhnya oleh AlpineJS di sisi klien.
@@ -353,15 +346,19 @@ $saveCart = function ($cartData) {
     $this->source_queues = []; // reset after success
 
     \App\Events\KanbanUpdated::safeDispatch('purchase_order');
-    Flux::toast('Purchase Order berhasil disimpan!', 'success');
-    $this->redirectRoute('purchase.orders.kanban');
+    Flux::toast("Purchase Order {$po->po_number} berhasil disimpan!", 'success');
+    session()->flash('new_po_id', $po->id);
+    session()->flash('new_po_number', $po->po_number);
+    $this->redirectRoute('purchase.orders.kanban', navigate: true);
+    
+    return true;
 };
 ?>
 
-<div class="xl:max-w-7xl xl:mx-auto" x-data="cartSystem()" 
+<div class="xl:max-w-7xl xl:mx-auto" x-data="cartSystem({ vendor: @entangle('selected_vendor') })" 
      @clear-cart.window="items = []; calculateTax();"
      @item-selected.window="addItem($event.detail.item)" 
-     @vendor-selected.window="$wire.selectVendor($event.detail.vendorId)"
+     @vendor-selected.window="vendor = $event.detail.vendor; $wire.vendor_id = vendor.id"
      @item-customized.window="items[$event.detail.index].note = $event.detail.itemData.note; items[$event.detail.index].custom_attributes = $event.detail.itemData.custom_attributes; items[$event.detail.index].custom_attachments = $event.detail.itemData.custom_attachments;"
      @open-item-editor.window="openItemEditor($event.detail.index)"
      @open-global-editor.window="openGlobalEditor()">
@@ -386,9 +383,10 @@ $saveCart = function ($cartData) {
             <div class="flex flex-col relative">
                 
                 {{-- Search & Gallery Button --}}
-                <div :class="showHeader ? 'translate-y-0 opacity-100' : '-translate-y-[120%] opacity-0 pointer-events-none'"
-                     class="sticky top-0 z-20 flex items-end gap-2 p-3 mb-4 bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200 dark:border-zinc-800 rounded-xl transition-all duration-300 ease-in-out">
-                    <div class="flex-1 relative" x-data="{ focused: false }" @click.outside="focused = false">
+                <div x-data="{ focused: false }"
+                     :class="showHeader ? 'translate-y-0 opacity-100' : '-translate-y-[120%] opacity-0 pointer-events-none'"
+                     class="sticky top-0 z-20 flex items-center gap-2 p-3 mb-4 bg-white dark:bg-zinc-900 shadow-sm border border-zinc-200 dark:border-zinc-800 rounded-xl transition-all duration-300 ease-in-out">
+                    <div class="flex-1 relative" @click.outside="focused = false">
                         <flux:input 
                             wire:model.live.debounce.300ms="search_query" 
                             @focus="focused = true; $wire.set('show_suggestions', true)"
@@ -399,39 +397,103 @@ $saveCart = function ($cartData) {
                         <div x-show="focused && $wire.show_suggestions && $wire.search_query.length >= 2" 
                              x-cloak
                              class="absolute z-20 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl overflow-hidden">
-                            @if(count($this->searchResults) > 0)
-                                <ul class="divide-y divide-zinc-100 dark:divide-zinc-700 max-h-64 overflow-y-auto">
-                                    @foreach($this->searchResults as $res)
-                                        <li @click="addItem({ item_id: {{ $res->id }}, name: '{{ addslashes($res->name) }}', code: '{{ $res->code ?? '0001' }}', unit_price: {{ $res->purchase_price ?? 0 }}, image: '{{ $res->image }}' }); $wire.search_query = ''; $wire.show_suggestions = false;"
-                                            class="px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-3 transition-colors">
-                                            @if($res->image)
-                                                <img src="{{ Storage::url($res->image) }}" class="w-8 h-8 rounded bg-zinc-100 object-cover">
-                                            @else
-                                                <div class="w-8 h-8 rounded bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
-                                                    <flux:icon.cube class="w-4 h-4" />
-                                                </div>
-                                            @endif
-                                            <div>
-                                                <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $res->name }}</div>
-                                                <div class="text-[10px] text-zinc-500 font-mono">{{ $res->code }}</div>
+                            {{-- Loading State (Skeleton) --}}
+                            <div wire:loading.block wire:target="search_query" class="w-full">
+                                <ul>
+                                    @for($i=0; $i<3; $i++)
+                                    <li class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-700 last:border-0 flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-lg bg-zinc-200 dark:bg-zinc-700/50 animate-pulse shrink-0"></div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="h-4 bg-zinc-200 dark:bg-zinc-700/50 rounded w-3/4 animate-pulse mb-2"></div>
+                                            <div class="flex gap-2">
+                                                <div class="h-3 bg-zinc-200 dark:bg-zinc-700/50 rounded w-12 animate-pulse"></div>
+                                                <div class="h-3 bg-zinc-200 dark:bg-zinc-700/50 rounded w-20 animate-pulse"></div>
                                             </div>
-                                        </li>
-                                    @endforeach
+                                        </div>
+                                        <div class="shrink-0 pl-3">
+                                            <div class="h-2 bg-zinc-200 dark:bg-zinc-700/50 rounded w-6 ml-auto animate-pulse mb-1.5"></div>
+                                            <div class="h-3 bg-zinc-200 dark:bg-zinc-700/50 rounded w-8 ml-auto animate-pulse"></div>
+                                        </div>
+                                    </li>
+                                    @endfor
                                 </ul>
-                            @else
-                                <div class="px-4 py-3 text-sm text-zinc-500 text-center">Barang tidak ditemukan.</div>
-                            @endif
+                            </div>
+
+                            {{-- Search Results --}}
+                            <div wire:loading.remove wire:target="search_query">
+                                @if(count($this->searchResults) > 0)
+                                    <ul class="max-h-64 overflow-y-auto custom-scrollbar">
+                                        @foreach($this->searchResults as $res)
+                                            <li @click="addItem({ item_id: {{ $res->id }}, name: '{{ addslashes($res->name) }}', code: '{{ $res->code ?? '0001' }}', unit_price: {{ $res->purchase_price ?? 0 }}, image: '{{ $res->image }}' }); $wire.search_query = ''; $wire.show_suggestions = false; window.playSelectSound?.('ting');"
+                                                class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-700 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-3 transition-colors">
+                                                @if($res->image)
+                                                    <img src="{{ Storage::url($res->image) }}" class="w-9 h-9 rounded-lg bg-zinc-100 object-cover shrink-0 shadow-sm">
+                                                @else
+                                                    <div class="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0 shadow-sm">
+                                                        <flux:icon.cube class="w-5 h-5" />
+                                                    </div>
+                                                @endif
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="font-semibold text-sm text-zinc-900 dark:text-zinc-100 truncate">{{ $res->name }}</div>
+                                                    <div class="flex items-center gap-1.5 mt-0.5">
+                                                        <span class="text-[6px] md:text-[10px] text-zinc-500 font-mono">{{ $res->code ?? '0001' }}</span>
+                                                        @if($res->type)
+                                                            @php
+                                                                $colors = [
+                                                                    'bahan baku utama' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200 dark:border-amber-700/50',
+                                                                    'bahan baku penolong' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-700/50',
+                                                                    'produk jadi' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700/50',
+                                                                    'barang setengah jadi' => 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400 border border-sky-200 dark:border-sky-700/50',
+                                                                    'jasa' => 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400 border border-purple-200 dark:border-purple-700/50',
+                                                                    'aset' => 'bg-slate-100 text-slate-700 dark:bg-slate-900/40 dark:text-slate-400 border border-slate-200 dark:border-slate-700/50',
+                                                                    'custom' => 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 border border-rose-200 dark:border-rose-700/50',
+                                                                ];
+                                                                $typeName = strtolower($res->type->name);
+                                                                $defaultColors = [
+                                                                    'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700/50',
+                                                                    'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 border border-rose-200 dark:border-rose-700/50',
+                                                                    'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-700/50',
+                                                                    'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400 border border-teal-200 dark:border-teal-700/50',
+                                                                    'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-400 border border-fuchsia-200 dark:border-fuchsia-700/50'
+                                                                ];
+                                                                $typeColor = $colors[$typeName] ?? $defaultColors[$res->type->id % count($defaultColors)];
+                                                            @endphp
+                                                            <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                                                            <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shadow-sm {{ $typeColor }}">{{ $res->type->name }}</span>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                                @php 
+                                                    $stock = \Illuminate\Support\Facades\DB::table('item_warehouse')->where('item_id', $res->id)->sum('stock') ?? 0;
+                                                @endphp
+                                                <div class="text-right shrink-0 pl-3">
+                                                    <div class="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Stok</div>
+                                                    <div class="text-sm font-black text-zinc-700 dark:text-zinc-300 leading-none">{{ $stock }} <span class="text-[10px] font-medium text-zinc-500">{{ $res->unit->name ?? 'pcs' }}</span></div>
+                                                </div>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <div class="px-4 py-5 text-sm text-zinc-500 text-center flex flex-col items-center justify-center">
+                                        <flux:icon.x-mark class="w-6 h-6 text-zinc-300 mb-2" />
+                                        <span>Barang tidak ditemukan.</span>
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                     </div>
                     
                     {{-- Tombol Galeri Barang --}}
-                    <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; Livewire.dispatch('open-gallery', { context: 'purchase' }); setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
-                        <div class="flex items-center gap-2">
-                            <flux:icon.squares-2x2 class="w-4 h-4" x-show="!loading" />
-                            <svg x-show="loading" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            <span class="hidden md:block">Galeri</span>
-                        </div>
-                    </flux:button>
+                    <div class="shrink-0 overflow-hidden transition-all duration-300 origin-right"
+                         :class="focused ? 'max-w-0 opacity-0 !gap-0 sm:max-w-[300px] sm:opacity-100' : 'max-w-[300px] opacity-100'">
+                        <flux:button variant="primary" class="shrink-0 !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600 !text-white" x-data="{ loading: false }" x-on:click="loading = true; Livewire.dispatch('open-gallery', { context: 'purchase' }); setTimeout(() => { $flux.modal('gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
+                            <div class="flex items-center gap-2">
+                                <flux:icon.squares-2x2 class="w-4 h-4" x-show="!loading" />
+                                <svg x-show="loading" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span class="hidden md:block">Galeri</span>
+                            </div>
+                        </flux:button>
+                    </div>
                 </div>
                 
                 {{-- Cart Header (Total Items & Delete All) --}}
@@ -785,41 +847,48 @@ $saveCart = function ($cartData) {
                 <div>
                     <flux:heading size="lg" class="mb-3">Vendor / Supplier</flux:heading>
                     
-                    @if($selected_vendor)
+                    <template x-if="vendor">
                         {{-- Vendor Card Terpilih --}}
                         <div class="group flex items-center gap-4 p-3 rounded-xl border border-blue-200 bg-blue-50/50 dark:border-blue-900/50 dark:bg-blue-900/20 transition-all">
-                            <flux:avatar src="{{ $selected_vendor['image'] ? Storage::url($selected_vendor['image']) : '' }}" fallback="{{ substr($selected_vendor['name'], 0, 2) }}" size="lg" class="shadow-sm" />
+                            <template x-if="vendor.image">
+                                <div class="relative flex-none rounded-lg w-12 h-12 shrink-0 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 overflow-hidden">
+                                    <img x-bind:src="'/storage/' + vendor.image" class="w-full h-full object-cover" />
+                                </div>
+                            </template>
+                            <template x-if="!vendor.image">
+                                <div class="relative flex-none flex items-center justify-center font-semibold rounded-lg bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 w-12 h-12 text-lg shrink-0 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+                                    <span class="select-none" x-text="vendor.name ? vendor.name.substring(0, 2).toUpperCase() : 'VN'"></span>
+                                </div>
+                            </template>
                             
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-base leading-none truncate">{{ $selected_vendor['name'] }}</h3>
-                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 leading-none">
-                                        {{ $selected_vendor['type'] ?? 'Umum' }}
-                                    </span>
+                                    <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-base leading-none truncate" x-text="vendor.name"></h3>
+                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 leading-none" x-text="vendor.type || 'Umum'"></span>
                                 </div>
                                 
                                 <div class="mt-2 flex flex-col gap-y-1.5 text-xs text-zinc-600 dark:text-zinc-400">
                                     <div class="flex items-center gap-1.5">
                                         <flux:icon.phone class="w-3.5 h-3.5 shrink-0 text-zinc-400" />
-                                        <span class="truncate">{{ $selected_vendor['phone'] ?: 'Belum ada nomor telepon' }}</span>
+                                        <span class="truncate" x-text="vendor.phone || 'Belum ada nomor telepon'"></span>
                                     </div>
-                                    @if($selected_vendor['province'] || $selected_vendor['city'])
-                                    <div class="flex items-center gap-1.5">
-                                        <flux:icon.map-pin class="w-3.5 h-3.5 shrink-0 text-zinc-400" />
-                                        <span class="truncate lg:text-[6px] xl:text-[10px]" title="{{ implode(', ', array_filter([$selected_vendor['district'] ?? null, $selected_vendor['city'] ?? null, $selected_vendor['province'] ?? null])) }}">
-                                            {{ implode(', ', array_filter([$selected_vendor['district'] ?? null, $selected_vendor['city'] ?? null, $selected_vendor['province'] ?? null])) }}
-                                        </span>
-                                    </div>
-                                    @endif
+                                    <template x-if="vendor.province || vendor.city">
+                                        <div class="flex items-center gap-1.5">
+                                            <flux:icon.map-pin class="w-3.5 h-3.5 shrink-0 text-zinc-400" />
+                                            <span class="truncate lg:text-[6px] xl:text-[10px]" x-text="[vendor.district, vendor.city, vendor.province].filter(Boolean).join(', ')"></span>
+                                        </div>
+                                    </template>
                                 </div>
                             </div>
                             
                             {{-- Tombol Silang Batal Pilih --}}
                             <div class="shrink-0">
-                                <flux:button variant="subtle" size="sm" icon="x-mark" class="text-zinc-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors rounded-full w-8 h-8 flex items-center justify-center p-0" wire:click="clearVendor" wire:loading.attr="disabled" tooltip="Ganti Vendor"></flux:button>
+                                <flux:button type="button" variant="subtle" size="sm" icon="x-mark" class="text-zinc-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors rounded-full w-8 h-8 flex items-center justify-center p-0" @click="vendor = null; $wire.vendor_id = ''; $wire.selected_vendor = null" tooltip="Ganti Vendor"></flux:button>
                             </div>
                         </div>
-                    @else
+                    </template>
+
+                    <template x-if="!vendor">
                         {{-- Vendor Search & Gallery Button --}}
                         <div class="flex items-end gap-2 relative">
                             <div class="flex-1 relative" x-data="{ focused: false }" @click.outside="focused = false">
@@ -836,7 +905,7 @@ $saveCart = function ($cartData) {
                                     @if(count($this->vendorSearchResults) > 0)
                                         <ul class="divide-y divide-zinc-100 dark:divide-zinc-700 max-h-64 overflow-y-auto">
                                             @foreach($this->vendorSearchResults as $v)
-                                                <li wire:click="selectVendor({{ $v->id }})" wire:loading.class="opacity-50 pointer-events-none"
+                                                <li @click="vendor = {{ json_encode($v->toArray()) }}; $wire.vendor_id = vendor.id; $wire.vendor_search_query = ''; $wire.show_vendor_suggestions = false;"
                                                     class="px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-3 transition-colors">
                                                     <flux:avatar src="{{ $v->image ? Storage::url($v->image) : '' }}" fallback="{{ substr($v->name, 0, 2) }}" size="sm" />
                                                     <div>
@@ -862,7 +931,7 @@ $saveCart = function ($cartData) {
                             </flux:button>
                         </div>
                         @error('vendor_id') <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> @enderror
-                    @endif
+                    </template>
                 </div>
 
                 <flux:separator />
@@ -1003,7 +1072,7 @@ $saveCart = function ($cartData) {
             {{-- Tombol Aksi --}}
             <div class="sm:col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
                 <div class="flex gap-2 w-full">
-                    <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:loading.attr="disabled"> Batal </flux:button>
+                    <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:navigate wire:loading.attr="disabled"> Batal </flux:button>
                     <flux:button variant="primary" class="w-2/3" @click="submitCart()" x-bind:disabled="isSubmitting">
                         <span x-show="!isSubmitting" class="flex items-center gap-2"><flux:icon.check class="w-4 h-4" /> Simpan Purchase Order</span>
                         <span x-show="isSubmitting" class="flex items-center gap-2">
@@ -1042,7 +1111,8 @@ $saveCart = function ($cartData) {
 
     <script>
     const initPurchaseCart = () => {
-        Alpine.data('cartSystem', () => ({
+        Alpine.data('cartSystem', (config) => ({
+            vendor: config.vendor,
             items: @json($items),
             ongkir: {{ (float) ($ongkir ?? 0) }},
             diskon_global: {{ (float) ($diskon_global ?? 0) }},
@@ -1181,17 +1251,23 @@ $saveCart = function ($cartData) {
             async submitCart() {
                 if (this.isSubmitting) return;
                 this.isSubmitting = true;
-                try {
-                    await this.$wire.saveCart({
-                        items: this.items,
-                        ongkir: this.ongkir,
-                        diskon_global: this.diskon_global,
-                        pajak_persen: this.pajak_persen,
-                        pajak_nominal: this.pajak_nominal,
-                        grand_total: this.grand_total
-                    });
-                } finally {
+                
+                // Munculkan global loader seketika
+                document.dispatchEvent(new Event('livewire:navigate'));
+                
+                let success = await this.$wire.saveCart({
+                    items: this.items,
+                    ongkir: this.ongkir,
+                    diskon_global: this.diskon_global,
+                    pajak_persen: this.pajak_persen,
+                    pajak_nominal: this.pajak_nominal,
+                    grand_total: this.grand_total
+                });
+
+                if (!success) {
                     this.isSubmitting = false;
+                    // Matikan global loader jika gagal validasi dsb
+                    document.dispatchEvent(new Event('livewire:navigate-end'));
                 }
             },
             
