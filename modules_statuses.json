@@ -3,5 +3,6 @@
     "Purchase": true,
     "Sales": true,
     "Production": true,
-    "Finance": true
+    "Finance": true,
+    "Communication": true
 }

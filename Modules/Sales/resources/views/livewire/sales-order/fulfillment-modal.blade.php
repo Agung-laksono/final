@@ -94,7 +94,7 @@ on(['echo:inventory,InventoryUpdated' => function () {
     }
 }]);
 
-on(['barcode-scanned' => function ($code) {
+on(['process-barcode' => function ($code) {
     if (!$this->show) return;
 
     $code = trim($code);
@@ -104,11 +104,13 @@ on(['barcode-scanned' => function ($code) {
 
     if (!$label) {
         \Flux::toast('Barcode tidak terdaftar.', variant: 'danger');
+        $this->dispatch('scan-error');
         return;
     }
 
     if ($label->status !== 'in_stock') {
         \Flux::toast("Barcode {$code} tidak tersedia (status: {$label->status}).", variant: 'danger');
+        $this->dispatch('scan-error');
         return;
     }
 
@@ -151,6 +153,7 @@ on(['barcode-scanned' => function ($code) {
     $this->items[$itemIndex]['input_qty']++;
 
     \Flux::toast("Berhasil scan: {$label->item->name} ({$code})", variant: 'success');
+    $this->dispatch('scan-success');
 }]);
 
 $removeScannedLabel = function($itemIndex, $labelIndex) {
@@ -397,7 +400,7 @@ $save = function () {
                 @if(!$hasAnyInput)
                     <flux:button variant="primary" disabled class="flex-1 sm:flex-none opacity-50 cursor-not-allowed">Serahkan</flux:button>
                 @elseif($hasStockDeficit)
-                    <flux:button variant="warning" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 sm:flex-none">Serahkan Parsial</flux:button>
+                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700 border-amber-500 dark:border-amber-600 text-white">Serahkan Parsial</flux:button>
                 @else
                     <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 sm:flex-none">Lengkap, Serahkan</flux:button>
                 @endif
@@ -408,6 +411,33 @@ $save = function () {
     @endif
 </flux:modal>
 
-<div x-data @barcode-scanned.window="$wire.dispatch('barcode-scanned', { code: $event.detail.code })"></div>
+<div x-data @barcode-scanned.window="$wire.dispatch('process-barcode', { code: $event.detail.code })"></div>
 <x-camera-scanner />
+
+<div x-data="{
+    playBeep(type) {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            if (type === 'success') {
+                osc.frequency.value = 1200;
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.25, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.15);
+            } else {
+                osc.frequency.value = 300;
+                osc.type = 'square';
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.4);
+            }
+        } catch(e) {}
+    }
+}" @scan-success.window="playBeep('success')" @scan-error.window="playBeep('error')"></div>
 </div>

@@ -41,17 +41,29 @@ on(['open-shipping-modal' => function ($orderId) {
     }
 }]);
 
-on(['vendor-selected' => function ($vendorId = null) {
+$setCourierVendor = function ($data = null) {
     if (!$this->show || $this->selecting_for !== 'courier') return;
     
-    if ($vendorId) {
-        $vendor = Vendor::find($vendorId);
-        if ($vendor) {
-            $this->courier_vendor = $vendor->toArray();
+    if ($data) {
+        // Alpine $dispatch('vendor-selected', { vendor: {...} }) will pass an array
+        $vendorData = null;
+        if (is_array($data)) {
+            if (isset($data['vendor'])) {
+                $vendorData = $data['vendor'];
+            } elseif (isset($data['id'])) {
+                $vendorData = $data;
+            }
+        } elseif (is_numeric($data)) {
+            $v = \Modules\Purchase\Models\Vendor::find($data);
+            if ($v) $vendorData = $v->toArray();
+        }
+        
+        if ($vendorData) {
+            $this->courier_vendor = $vendorData;
         }
     }
     $this->selecting_for = null;
-}]);
+};
 
 $setSelectingFor = function ($type) {
     $this->selecting_for = $type;
@@ -125,7 +137,7 @@ $saveShippingInfo = function () {
 
 ?>
 
-<flux:modal wire:model="show" class="w-full md:w-[45rem] md:max-w-3xl">
+<flux:modal wire:model="show" class="w-full md:w-[45rem] md:max-w-3xl" @vendor-selected.window="$wire.setCourierVendor($event.detail)">
     @if($order)
     <div class="p-4 sm:p-6">
         <div class="flex items-start gap-4">
@@ -189,10 +201,10 @@ $saveShippingInfo = function () {
                         
                         @if($courier_vendor)
                             <div class="group flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50/50 dark:border-blue-900/50 dark:bg-blue-900/20 transition-all">
-                                <flux:avatar src="{{ $courier_vendor['image'] ? Storage::url($courier_vendor['image']) : '' }}" fallback="{{ substr($courier_vendor['name'], 0, 2) }}" class="shadow-sm w-10 h-10" />
+                                <flux:avatar wire:key="vendor-avatar-{{ $courier_vendor['id'] ?? 'new' }}" src="{{ !empty($courier_vendor['image']) ? Storage::url($courier_vendor['image']) : '' }}" fallback="{{ substr($courier_vendor['name'] ?? '?', 0, 2) }}" class="shadow-sm w-10 h-10" />
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2">
-                                        <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-sm leading-none truncate">{{ $courier_vendor['name'] }}</h3>
+                                        <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-sm leading-none truncate">{{ $courier_vendor['name'] ?? '' }}</h3>
                                     </div>
                                     <div class="mt-1 flex flex-col gap-y-1 text-[10px] text-zinc-600 dark:text-zinc-400">
                                         <span class="truncate">{{ $courier_vendor['phone'] ?: 'Tidak ada nomor telepon' }}</span>

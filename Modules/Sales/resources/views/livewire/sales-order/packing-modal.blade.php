@@ -50,7 +50,6 @@ $save = function () {
 
         if ($this->packing_fee !== null && $this->packing_fee !== '') {
             $this->order->packing_fee = $this->packing_fee;
-            // Anggap packing_fee = actual_packing_fee jika diinput oleh gudang
             $this->order->actual_packing_fee = $this->packing_fee;
         }
 
@@ -60,11 +59,23 @@ $save = function () {
 
         $this->order->is_packed = true;
         
-        // Cek jika sudah packed, status bisa diubah ke shipping (Siap dikirim)
-        $this->order->status = 'shipping';
+        // Cek setting: jika gudang yang menangani pengiriman, langsung ke 'shipping'.
+        // Jika sales yang menangani, biarkan di status 'packing' agar Sales bisa input resi.
+        $gudangHandlesShipping = \Illuminate\Support\Facades\Cache::remember('setting_gudang_handles_shipping', 3600, function () {
+            return \App\Models\Setting::where('key', 'gudang_handles_shipping')->value('value');
+        }) == '1';
+        
+        if ($gudangHandlesShipping) {
+            $this->order->status = 'shipping';
+            $toastMessage = 'Proses packing selesai. Pesanan siap diserahkan ke Ekspedisi oleh tim Gudang!';
+        } else {
+            $this->order->status = 'packing';
+            $toastMessage = 'Packing selesai! Pesanan menunggu konfirmasi pengiriman oleh tim Sales.';
+        }
+
         $this->order->save();
 
-        \Flux::toast('Proses packing selesai. Pesanan siap diserahkan ke Ekspedisi!', variant: 'success');
+        \Flux::toast($toastMessage, variant: 'success');
         
         $this->dispatch('status-updated');
         \App\Events\KanbanUpdated::safeDispatch('sales_order');
