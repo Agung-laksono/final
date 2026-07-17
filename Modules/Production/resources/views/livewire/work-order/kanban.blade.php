@@ -142,61 +142,47 @@ on(['maklon-po-created' => function () {
             
             <x-slot:actions>
                 <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">
-                    <button type="button" wire:key="kanban-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-2.5 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
-                        <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
-                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
+                    <button type="button" wire:key="kanban-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1 sm:p-1.5 px-2 sm:px-2.5 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
+                        <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
                     </button>
-                    <button type="button" wire:key="kanban-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-2.5 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
-                        <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
-                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
+                    <button type="button" wire:key="kanban-sw-table" @click="$wire.setViewMode('table')" class="p-1 sm:p-1.5 px-2 sm:px-2.5 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
+                        <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
                     </button>
                 </div>
                 <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1 sm:mx-2 hidden sm:block"></div>
 
                 {{-- Tombol AI Assistant --}}
-                <flux:button variant="primary" icon="sparkles" class="px-2.5 sm:px-4 shrink-0" wire:click="$dispatch('open-groq-assistant')">
+                <flux:button variant="primary" size="sm" icon="sparkles" class="px-2 sm:px-4 shrink-0" wire:click="$dispatch('open-groq-assistant')">
                     <span class="hidden sm:inline">Tanya AI</span>
-                    <span class="sm:hidden">AI</span>
+                    <span class="sm:hidden text-xs">AI</span>
                 </flux:button>
             </x-slot:actions>
         @foreach($columns as $statusKey => $column)
-            <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['completed', 'archived']) ? 'true' : 'false' }}).as('kanban-col-prod-{{ $statusKey }}-user-{{ auth()->id() }}') }"
-                 style="height: 100%; display: flex; flex-direction: column;"
-                 class="flex-shrink-0 rounded-xl transition-all duration-300 snap-center"
-                 :class="(transparent ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80')"
-                 @click="if(collapsed) collapsed = false"
-                 wire:key="kanban-column-{{ $statusKey }}">
-                 
-                <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300"
-                     :class="(transparent ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'flex-col gap-4 h-full pb-8' : '')">
-                    <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
-                        <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shrink-0"></div>
-                        <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
-                            :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
-                    </div>
-                    <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
+            @php
+                $defaultCollapsed = in_array($statusKey, ['completed', 'archived']);
+            @endphp
+            <x-kanban.column 
+                :statusKey="$statusKey" 
+                :column="$column" 
+                :componentId="'prod'" 
+                :count="count($this->orders[$statusKey] ?? [])"
+                :defaultCollapsed="$defaultCollapsed"
+            >
                         @if($statusKey === 'waiting_vendor' && count($this->selectedOrders) > 0)
-                            <div x-show="!collapsed">
+                            <div x-show="!collapsed" class="mb-3">
                                 <flux:button size="sm" variant="primary" icon="plus" wire:click="$dispatch('open-maklon-modal', { orderIds: {{ json_encode($this->selectedOrders) }} })">Buat SPK</flux:button>
                             </div>
                         @endif
                         @if($statusKey === 'in_production')
-                            <div class="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg" x-show="!collapsed">
+                            <div class="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg mb-3 w-fit" x-show="!collapsed">
                                 <button wire:click="$set('viewModeMaklon', 'grouped')" class="p-1 rounded-md text-xs {{ $viewModeMaklon === 'grouped' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white font-medium' : 'text-zinc-500 hover:text-zinc-700' }}" title="Mode Wadah">
                                     <flux:icon.rectangle-group class="w-4 h-4" />
                                 </button>
                                 <flux:button size="sm" variant="subtle" icon="list-bullet" class="!px-1.5 !py-1.5" wire:click="$set('viewModeMaklon', 'list')" x-bind:class="$wire.viewModeMaklon === 'list' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500'" title="Mode Eceran" />
                             </div>
                         @endif
-                        <flux:badge size="sm" class="shrink-0">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
-                        <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
-                            <flux:icon.arrows-up-down x-show="collapsed" class="w-4 h-4" />
-                            <flux:icon.arrows-right-left x-show="!collapsed" class="w-4 h-4" />
-                        </flux:button>
-                    </div>
-                </div>
-                
-                <div x-show="!collapsed" x-transition.opacity.duration.300ms x-animate class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
                     @if($statusKey === 'in_production' && $viewModeMaklon === 'grouped')
                         @php
                             $groupedByPo = collect($this->orders[$statusKey] ?? [])->groupBy('purchase_order_id');
@@ -268,54 +254,34 @@ on(['maklon-po-created' => function () {
                             </div>
                         @endforelse
                     @endif
-                </div>
-            </div>
+            </x-kanban.column>
             @endforeach
     </x-kanban.board>
     </div>
 
     {{-- Table View --}}
     <div wire:key="view-table-wrapper" class="w-full {{ $this->viewMode === 'table' ? 'block' : 'hidden' }}">
-        <div x-data="{ lastScroll: 0, show: true }"
-             @scroll.window="
-                let current = window.pageYOffset;
-                if (current > lastScroll && current > 100) { show = false; } 
-                else if (current < lastScroll) { show = true; }
-                lastScroll = current;
-             "
-             class="sticky top-0 z-40 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 mb-6 transition-all duration-300 transform shadow-sm"
-             :class="show ? 'translate-y-0' : '-translate-y-full'">
-            <div class="p-4 sm:px-6">
-                <div class="flex flex-col sm:flex-row items-center gap-4">
-                    <div class="w-full sm:flex-1 relative">
-                        <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari SPK atau produk..." class="w-full" />
-                    </div>
-
-                    <div class="flex items-center gap-2 sm:gap-4 shrink-0 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-                        <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">
-                            <button type="button" wire:key="table-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
-                                <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
-                                <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
-                            </button>
-                            <button type="button" wire:key="table-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
-                                <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
-                                <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
-                            </button>
-                        </div>
-                        
-                        <div class="w-px h-8 bg-zinc-200 dark:bg-zinc-700 shrink-0"></div>
-
-                        <flux:button variant="primary" icon="sparkles" class="shrink-0" wire:click="$dispatch('open-groq-assistant')">
-                            <span class="hidden sm:inline">Tanya AI</span>
-                            <span class="sm:hidden">AI</span>
-                        </flux:button>
-                    </div>
+        <x-table.header searchModel="search" searchPlaceholder="Cari SPK atau produk...">
+                <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0 bg-white dark:bg-zinc-900">
+                    <button type="button" wire:key="table-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
+                        <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
+                    </button>
+                    <button type="button" wire:key="table-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
+                        <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
+                    </button>
                 </div>
-            </div>
-        </div>
+                
+                <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 shrink-0 mx-0.5 sm:mx-2 hidden sm:block"></div>
 
-        <div class="px-2 sm:px-6">
-            <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm mb-6">
+                <flux:button variant="primary" icon="sparkles" class="shrink-0 px-2 sm:px-4" wire:click="$dispatch('open-groq-assistant')">
+                    <span class="hidden sm:inline">Tanya AI</span>
+                    <span class="sm:hidden text-[9px]">AI</span>
+                </flux:button>
+        </x-table.header>
+
+        <x-table.wrapper>
                 <div class="overflow-x-auto min-h-[50vh]">
                     <flux:table>
                         <flux:table.columns>
@@ -393,8 +359,9 @@ on(['maklon-po-created' => function () {
                             @endforelse
                         </flux:table.rows>
                     </flux:table>
-                </div>
-            </div>
+        </x-table.wrapper>
+        
+        <div class="px-0 sm:px-4 lg:px-6 pb-24">
             <x-load-more :paginator="$this->tableOrders" item-name="SPK" />
         </div>
     </div>

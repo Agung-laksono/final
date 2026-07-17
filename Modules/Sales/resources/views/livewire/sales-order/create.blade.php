@@ -292,6 +292,22 @@ $saveCart = function ($cartData) {
         $recipients = $recipients->filter(fn($u) => $u->id !== auth()->id());
         
         \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\SalesOrderWaitingApprovalNotification($po, auth()->user()));
+
+        // Push Notification via Beams ke semua staf yang perlu approve
+        $creatorName = auth()->user()->name;
+        $soNumber    = $po->so_number;
+        $total       = 'Rp ' . number_format($po->total_amount, 0, ',', '.');
+        try {
+            $beams = new \App\Services\BeamsService();
+            $beams->sendToAll(
+                "📋 SO Baru Butuh Persetujuan",
+                "{$creatorName} membuat {$soNumber} senilai {$total}",
+                ['so_id' => $po->id, 'so_number' => $soNumber],
+                '/sales/orders'
+            );
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('[Beams] Gagal kirim notif SO baru: ' . $e->getMessage());
+        }
     }
 
     if (!$isNew) {
@@ -306,6 +322,11 @@ $saveCart = function ($cartData) {
 
     \App\Events\KanbanUpdated::safeDispatch('sales_order');
     Flux::toast('Sales Order berhasil disimpan!', 'success');
+    
+    if ($isNew) {
+        session()->flash('new_so_number', $po->so_number);
+    }
+    
     $this->redirect(route('sales.orders.index'), navigate: true);
     
     return true;
@@ -1279,7 +1300,7 @@ $saveCart = function ($cartData) {
             Livewire.on('customizer-saved', (data) => {
                 let detail = data[0];
                 let index = detail.index;
-                let cartElement = document.querySelector('[x-data="cartSystem()"]');
+                let cartElement = document.querySelector('[x-data^="cartSystem"]');
                 if (cartElement) {
                     let cart = Alpine.$data(cartElement);
                     if (cart && cart.items[index]) {
@@ -1292,7 +1313,7 @@ $saveCart = function ($cartData) {
             
             Livewire.on('add-variant-to-cart', (data) => {
                 let detail = data[0];
-                let cartElement = document.querySelector('[x-data="cartSystem()"]');
+                let cartElement = document.querySelector('[x-data^="cartSystem"]');
                 if (cartElement) {
                     let cart = Alpine.$data(cartElement);
                     if (cart) {

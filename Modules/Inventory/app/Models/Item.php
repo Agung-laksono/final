@@ -10,6 +10,10 @@ class Item extends Model
     use HasFactory, \App\Traits\UpdatesMenuBadges;
 
     protected $guarded = ['id'];
+    
+    protected $casts = [
+        'tags' => 'array',
+    ];
 
     protected static function newFactory()
     {

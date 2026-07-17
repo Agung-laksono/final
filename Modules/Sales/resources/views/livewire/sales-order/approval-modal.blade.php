@@ -120,31 +120,53 @@ $redirectToEdit = function ($orderId) {
             </div>
         </div>
 
-        <div class="mt-6 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-200 dark:border-zinc-700">
-            <div class="flex justify-between items-center mb-4 pb-4 border-b border-zinc-200 dark:border-zinc-700">
+        <div class="mt-6 flex flex-col gap-3">
+            @php
+                $payColor = $order->payment_status === 'paid' ? 'emerald' : ($order->payment_status === 'partial' ? 'amber' : 'red');
+            @endphp
+            <div class="bg-{{ $payColor }}-50 dark:bg-{{ $payColor }}-900/10 rounded-xl p-4 border border-{{ $payColor }}-200 dark:border-{{ $payColor }}-900/50 flex justify-between items-center">
                 <div class="flex flex-col">
-                    <span class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Total Nilai</span>
-                    <span class="text-xl font-bold text-zinc-900 dark:text-zinc-100">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</span>
+                    <span class="text-[10px] text-{{ $payColor }}-800/80 dark:text-{{ $payColor }}-400/80 font-bold uppercase tracking-wider">Total Nilai</span>
+                    <span class="text-xl font-black text-{{ $payColor }}-700 dark:text-{{ $payColor }}-400">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</span>
                 </div>
-                <div class="flex flex-col items-end">
-                    <span class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Status Pembayaran</span>
-                    <flux:badge size="sm" color="{{ $order->payment_status === 'paid' ? 'green' : ($order->payment_status === 'partial' ? 'amber' : 'red') }}">
+                <div class="flex flex-col items-end gap-1">
+                    <span class="text-[10px] text-{{ $payColor }}-800/80 dark:text-{{ $payColor }}-400/80 font-bold uppercase tracking-wider">Status Pembayaran</span>
+                    <flux:badge size="sm" class="!px-2 !py-0.5" color="{{ $payColor === 'emerald' ? 'green' : $payColor }}">
                         {{ strtoupper($order->payment_status) }}
                     </flux:badge>
                 </div>
             </div>
             
-            <h4 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Item Pesanan ({{ count($order->items) }})</h4>
-            <div class="max-h-40 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                @foreach($order->items as $item)
-                    <div class="flex justify-between items-start text-sm">
-                        <div class="flex flex-col">
-                            <span class="font-medium text-zinc-800 dark:text-zinc-200">{{ $item->item->name }}</span>
-                            <span class="text-xs text-zinc-500">{{ $item->qty }} x Rp {{ number_format($item->unit_price, 0, ',', '.') }}</span>
+            <div class="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-200 dark:border-zinc-700">
+                <h4 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Item Pesanan ({{ count($order->items) }})</h4>
+                <div class="max-h-40 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                    @foreach($order->items as $item)
+                        <div class="flex justify-between items-start text-sm border-b border-zinc-100 dark:border-zinc-700/50 pb-2 last:border-0 last:pb-0">
+                            <div class="flex items-center gap-3">
+                                @if($item->item->image)
+                                    <div class="shrink-0 w-8 h-8 rounded overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 cursor-zoom-in hover:opacity-80 transition-opacity"
+                                         @click.stop="$dispatch('open-lightbox', { url: '{{ Storage::url($item->item->image) }}' })"
+                                         title="Lihat Gambar">
+                                        <img src="{{ Storage::url($item->item->image) }}" class="w-full h-full object-cover">
+                                    </div>
+                                @else
+                                    <div class="shrink-0 w-8 h-8 rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center">
+                                        <flux:icon.photo class="w-4 h-4 text-zinc-400" />
+                                    </div>
+                                @endif
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-[11px] text-zinc-800 dark:text-zinc-200 leading-tight">{{ $item->item->name }}</span>
+                                    <div class="flex items-center gap-1.5 mt-0.5 text-[10px]">
+                                        <span class="font-mono text-zinc-500">{{ $item->item->code }}</span>
+                                        <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                                        <span class="font-semibold text-zinc-600 dark:text-zinc-400">{{ $item->qty }} Pcs</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="font-semibold text-[11px] text-zinc-700 dark:text-zinc-300 mt-1">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</span>
                         </div>
-                        <span class="font-medium">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</span>
-                    </div>
-                @endforeach
+                    @endforeach
+                </div>
             </div>
         </div>
 
@@ -153,11 +175,11 @@ $redirectToEdit = function ($orderId) {
         </div>
         
         <div class="mt-8 flex justify-end gap-3">
+            <flux:button variant="danger" wire:click="reject" icon="x-mark">Tolak</flux:button>
             @can('sales.order.create')
                 <flux:button variant="outline" icon="pencil" wire:click="redirectToEdit({{ $order->id }})">Sesuaikan</flux:button>
             @endcan
-            <flux:button variant="danger" wire:click="reject" icon="x-mark">Tolak Pesanan</flux:button>
-            <flux:button variant="primary" wire:click="approve" icon="check">Setujui Pesanan</flux:button>
+            <flux:button variant="primary" wire:click="approve" icon="check">Setujui</flux:button>
         </div>
     </div>
     @endif

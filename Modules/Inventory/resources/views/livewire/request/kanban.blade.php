@@ -275,8 +275,9 @@ on([
     
     <x-slot:header_actions>
         @can('inventory.request.create')
-            <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-create-request-modal')" class="shrink-0">
+            <flux:button variant="primary" size="sm" icon="plus" wire:click="$dispatch('open-create-request-modal')" class="px-2 sm:px-4 shrink-0">
                 <span class="hidden sm:inline">Buat Permintaan</span>
+                <span class="sm:hidden text-xs">Buat</span>
             </flux:button>
         @endcan
     </x-slot:header_actions>
@@ -284,31 +285,16 @@ on([
     <x-slot:kanban_layout>
         <div class="flex gap-6 overflow-x-auto pb-4 h-full -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch min-w-full w-max before:content-[''] before:m-auto after:content-[''] after:m-auto">
             @foreach($columns as $statusKey => $column)
-                <div x-data="{ collapsed: $persist({{ in_array($statusKey, ['archived', 'rejected']) ? 'true' : 'false' }}).as('kanban-col-inv-{{ $statusKey }}-user-{{ auth()->id() }}') }"
-                     class="flex-shrink-0 h-full max-h-full rounded-xl flex flex-col transition-all duration-300 snap-center"
-                     :class="(transparent ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80')"
-                     @click="if(collapsed) collapsed = false"
-                     wire:key="column-{{ $statusKey }}">
-                    
-                    {{-- Column Header --}}
-                    <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300"
-                         :class="(transparent ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'flex-col gap-4 h-full pb-8' : '')">
-                        <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
-                            <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0"></div>
-                            <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
-                                :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
-                        </div>
-                        <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
-                            <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->requests[$statusKey] ?? []) }}</flux:badge>
-                            <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
-                                <flux:icon.arrows-up-down x-show="collapsed" class="w-4 h-4" />
-                                <flux:icon.arrows-right-left x-show="!collapsed" class="w-4 h-4" />
-                            </flux:button>
-                        </div>
-                    </div>
-                    
-                    {{-- Column Items --}}
-                    <div x-show="!collapsed" x-transition.opacity.duration.300ms x-animate class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
+                @php
+                    $defaultCollapsed = in_array($statusKey, ['archived', 'rejected']);
+                @endphp
+                <x-kanban.column 
+                    :statusKey="$statusKey" 
+                    :column="$column" 
+                    :componentId="'inv'" 
+                    :count="count($this->requests[$statusKey] ?? [])"
+                    :defaultCollapsed="$defaultCollapsed"
+                >
                         @forelse($this->requests[$statusKey] ?? [] as $req)
                             @php
                                 $isCustom = str_contains($req->notes ?? '', '[CUSTOM]');
@@ -455,8 +441,7 @@ on([
                                 Kosong
                             </div>
                         @endforelse
-                    </div>
-                </div>
+                </x-kanban.column>
             @endforeach
         </div>
     </x-slot:kanban_layout>

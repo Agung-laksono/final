@@ -40,4 +40,9 @@ class SalesOrder extends Model
     {
         return $this->belongsTo(\App\Models\Brand::class);
     }
+
+    public function courierVendor()
+    {
+        return $this->belongsTo(\Modules\Purchase\Models\Vendor::class, 'courier_vendor_id');
+    }
 }

@@ -71,7 +71,8 @@ new class extends Component {
         if (strlen($this->searchQuery) >= 2) {
             $query->where(function($q) {
                 $q->where('name', 'like', '%' . $this->searchQuery . '%')
-                  ->orWhere('code', 'like', '%' . $this->searchQuery . '%');
+                  ->orWhere('code', 'like', '%' . $this->searchQuery . '%')
+                  ->orWhere('alias', 'like', '%' . $this->searchQuery . '%');
             });
         }
         
@@ -243,6 +244,7 @@ new class extends Component {
                 @forelse($galleryItems as $item)
                     <div wire:key="gallery-item-{{ $item->id }}"
                          x-data="{ activeVariant: null }"
+                         @click.outside="activeVariant = null"
                          @if($item->is_active) @click="playSelectSound(); $dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: '{{ addslashes($item->name) }}', code: '{{ $item->code ?? '0001' }}', unit_price: {{ $context === 'sales' ? ($item->selling_price ?? 0) : ($item->purchase_price ?? 0) }}, image: '{{ $item->image }}', unit: '{{ $item->unit?->name ?? 'pcs' }}', has_history: {{ in_array($item->id, $itemsWithHistory) ? 'true' : 'false' }} } })" @endif
                          :class="$data.items?.find(i => i.item_id == {{ $item->id }}) ? 'border-cyan-600 ring-2 ring-cyan-600 shadow-lg scale-[1.02]' : 'border-zinc-200 dark:border-zinc-800 {{ $item->is_active ? 'hover:border-cyan-500/50 hover:shadow-lg hover:scale-[1.02]' : '' }}'"
                          class="relative bg-white dark:bg-zinc-900 rounded-xl overflow-hidden transition-all duration-300 {{ $item->is_active ? 'cursor-pointer group' : 'cursor-not-allowed' }} flex flex-col h-full border">
@@ -373,40 +375,43 @@ new class extends Component {
                             
                             {{-- Judul, Meta & Deskripsi --}}
                             <div class="mb-2 flex-1 overflow-hidden flex flex-col pt-0.5">
+                                {{-- Nama Alias --}}
+                                <h2 class="font-semibold text-zinc-800 dark:text-zinc-200 text-base lg:text-lg leading-tight truncate transition-colors"
+                                    :title="activeVariant ? activeVariant.customer : '{{ addslashes($item->name) }}'">
+                                    @if($item->alias)
+                                        <span class="font-bold text-lg lg:text-xl" x-show="!activeVariant">{{ $item->alias }}</span>
+                                    @endif
+                                    <span class="font-bold text-lg lg:text-xl" x-show="activeVariant" x-text="activeVariant.customer" style="display: none;"></span>
+                                </h2>
                                 {{-- Nama Barang --}}
-                                <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 text-[11px] md:text-xs lg:text-[13px] leading-tight truncate transition-colors" 
-                                    :title="activeVariant ? activeVariant.customer : '{{ addslashes($item->name) }}'"
-                                    x-text="activeVariant ? activeVariant.customer : '{{ addslashes($item->name) }}'">
-                                </h3>
+                                <h5 class="font-semibold text-zinc-800 dark:text-zinc-200 text-[8px] md:text-[9px] lg:text-[10px] leading-tight truncate transition-colors" 
+                                    title="{{ $item->name }}"
+                                    x-show="!activeVariant">
+                                    {{ $item->name }}
+                                </h5>
                                 
                                 {{-- Kode & Kategori (Baris Super Rapat) --}}
                                 <div class="flex items-center gap-1 mt-0.5 overflow-hidden">
-                                    <span class="text-[8px] sm:text-[9px] font-mono font-medium shrink-0 transition-colors"
+                                    <span class="text-[6px] sm:text-[8px] font-mono font-medium shrink-0 transition-colors"
                                           :class="activeVariant ? 'text-indigo-500' : 'text-zinc-400 dark:text-zinc-500'"
                                           x-text="activeVariant ? activeVariant.date : '{{ $item->code }}'">
                                     </span>
                                           
-                                    <span class="text-zinc-300 dark:text-zinc-600 text-[6px] sm:text-[7px] shrink-0">&bull;</span>
+                                    <span class="text-zinc-300 dark:text-zinc-600 text-[5px] sm:text-[6px] shrink-0">&bull;</span>
                                     
-                                    <div class="flex items-center gap-1 overflow-hidden">
-                                        <span class="text-[7px] sm:text-[8px] font-bold uppercase tracking-widest truncate text-zinc-400 dark:text-zinc-500"
+                                    <div class="flex items-center gap-0.5 overflow-hidden">
+                                        <span class="text-[5px] sm:text-[6px] font-bold uppercase tracking-widest truncate text-zinc-400 dark:text-zinc-500"
                                               x-text="activeVariant ? 'Riwayat Varian' : '{{ addslashes($item->category?->name ?? 'Tanpa Kategori') }}'">
                                         </span>
                                         
                                         @if($item->subCategory)
-                                            <span class="text-zinc-300 dark:text-zinc-600 text-[6px] sm:text-[7px] shrink-0" x-show="!activeVariant">&bull;</span>
-                                            <span class="text-[6px] sm:text-[7px] font-semibold text-zinc-400/80 uppercase tracking-wider truncate" x-show="!activeVariant">
+                                            <span class="text-zinc-300 dark:text-zinc-600 text-[5px] sm:text-[6px] shrink-0" x-show="!activeVariant">&bull;</span>
+                                            <span class="text-[5px] sm:text-[6px] font-semibold text-zinc-400/80 uppercase tracking-wider truncate" x-show="!activeVariant">
                                                 {{ $item->subCategory->name }}
                                             </span>
                                         @endif
                                     </div>
                                 </div>
-                                
-                                {{-- Deskripsi / Atribut --}}
-                                <p class="text-[9px] mt-1 leading-tight truncate transition-colors" 
-                                   :class="activeVariant ? 'text-indigo-600 dark:text-indigo-400 font-medium' : 'text-zinc-500 dark:text-zinc-400'"
-                                   :title="activeVariant ? activeVariant.attributes : '{{ addslashes($item->description) }}'"
-                                   x-text="activeVariant ? activeVariant.attributes : '{{ addslashes($item->description) }}'"></p>
                             </div>
                             
                             {{-- Harga & Stok --}}

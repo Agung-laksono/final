@@ -1294,7 +1294,7 @@ $saveCart = function ($cartData) {
             Livewire.on('customizer-saved', (data) => {
                 let detail = data[0];
                 let index = detail.index;
-                let cartElement = document.querySelector('[x-data="cartSystem()"]');
+                let cartElement = document.querySelector('[x-data^="cartSystem"]');
                 if (cartElement) {
                     let cart = Alpine.$data(cartElement);
                     if (cart && cart.items[index]) {
@@ -1307,7 +1307,7 @@ $saveCart = function ($cartData) {
             
             Livewire.on('add-variant-to-cart', (data) => {
                 let detail = data[0];
-                let cartElement = document.querySelector('[x-data="cartSystem()"]');
+                let cartElement = document.querySelector('[x-data^="cartSystem"]');
                 if (cartElement) {
                     let cart = Alpine.$data(cartElement);
                     if (cart) {

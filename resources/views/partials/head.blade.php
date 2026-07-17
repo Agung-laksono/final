@@ -87,3 +87,53 @@
 </script>
 @endauth
 @endif
+
+@auth
+<!-- Pusher Beams - Push Notification SDK -->
+<script src="https://js.pusher.com/beams/1.0/push-notifications-cdn.js"></script>
+<script>
+(function() {
+    const BEAMS_INSTANCE_ID = '{{ config("beams.instance_id") }}';
+    const USER_ID           = {{ auth()->id() }};
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log('[Beams] Push notifications tidak didukung browser ini.');
+        return;
+    }
+
+    // Tunggu sampai service worker terdaftar, baru init Beams
+    async function initBeams() {
+        try {
+            // Daftarkan service worker kita (yang sudah include Beams importScripts)
+            const swReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+            await navigator.serviceWorker.ready;
+
+            // Inisialisasi Beams HANYA dengan service worker yang sudah terdaftar
+            const beamsClient = new PusherPushNotifications.Client({
+                instanceId: BEAMS_INSTANCE_ID,
+                serviceWorkerRegistration: swReg,
+            });
+
+            await beamsClient.start();
+
+            // Subscribe ke interest global (semua staf)
+            await beamsClient.addDeviceInterest('all-users');
+
+            // Subscribe ke interest personal (notifikasi khusus user ini)
+            await beamsClient.addDeviceInterest('user-' + USER_ID);
+
+            console.log('[Beams] ✅ Terdaftar! Interests: all-users, user-' + USER_ID);
+        } catch (err) {
+            console.warn('[Beams] ❌ Gagal mendaftarkan:', err);
+        }
+    }
+
+    // Inisialisasi saat halaman siap
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBeams);
+    } else {
+        initBeams();
+    }
+})();
+</script>
+@endauth

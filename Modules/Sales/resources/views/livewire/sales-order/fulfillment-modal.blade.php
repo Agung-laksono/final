@@ -61,6 +61,7 @@ $refreshItems = function() {
             'so_item_id' => $orderItem->id,
             'item_id' => $orderItem->item_id,
             'name' => $orderItem->item->name,
+            'is_custom' => !empty($orderItem->custom_attributes) || !empty($orderItem->custom_attachments) || str_contains($orderItem->notes ?? '', '[CUSTOM]'),
             'requires_label' => $orderItem->item->requires_label,
             'needed' => $neededQty,
             'already_consumed' => $alreadyConsumed,
@@ -324,10 +325,15 @@ $save = function () {
             @forelse($items as $index => $item)
                 <div class="p-3 sm:p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 {{ $item['input_qty'] >= $item['remaining_needed'] ? 'bg-green-50/50 dark:bg-green-900/10' : 'bg-zinc-50 dark:bg-zinc-800/50' }}">
                     <div class="flex-1">
-                        <div class="text-zinc-900 dark:text-zinc-100 font-medium text-base">
-                            {{ $item['name'] }}
+                        <div class="text-zinc-900 dark:text-zinc-100 font-medium text-base flex items-center gap-2 flex-wrap">
+                            <span>{{ $item['name'] }}</span>
+                            @if($item['is_custom'] ?? false)
+                                <span class="text-[9px] font-black text-amber-600 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5 whitespace-nowrap">
+                                    <flux:icon.sparkles class="w-3 h-3" /> CUSTOM
+                                </span>
+                            @endif
                             @if($item['input_qty'] >= $item['remaining_needed'])
-                                <div class="inline-block ml-2"><flux:badge size="sm" color="green">Cukup</flux:badge></div>
+                                <flux:badge size="sm" color="green">Cukup</flux:badge>
                             @endif
                         </div>
                         <div class="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex flex-wrap gap-3 items-center">

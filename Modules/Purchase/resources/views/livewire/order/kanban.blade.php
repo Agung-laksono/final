@@ -185,51 +185,35 @@ on([
             
             <x-slot:actions>
                 <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">
-                    <button type="button" wire:key="kanban-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-2.5 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
-                        <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
-                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
+                    <button type="button" wire:key="kanban-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1 sm:p-1.5 px-2 sm:px-2.5 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
+                        <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
                     </button>
-                    <button type="button" wire:key="kanban-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-2.5 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
-                        <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
-                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
+                    <button type="button" wire:key="kanban-sw-table" @click="$wire.setViewMode('table')" class="p-1 sm:p-1.5 px-2 sm:px-2.5 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
+                        <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
                     </button>
                 </div>
                 <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1 sm:mx-2 hidden sm:block"></div>
 
                 @can('purchase.create')
-                    <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" class="px-2.5 sm:px-4 shrink-0" wire:navigate>
+                    <flux:button variant="primary" size="sm" icon="plus" href="{{ route('purchase.orders.create') }}" class="px-2 sm:px-4 shrink-0" wire:navigate>
                         <span class="hidden sm:inline">Buat PO</span>
-                        <span class="sm:hidden">Buat</span>
+                        <span class="sm:hidden text-xs">Buat</span>
                     </flux:button>
                 @endcan
             </x-slot:actions>
         @foreach($columns as $statusKey => $column)
-            <div x-data="{ collapsed: $persist({{ $statusKey === 'archived' ? 'true' : 'false' }}).as('kanban-col-order-{{ $statusKey }}-user-{{ auth()->id() }}') }"
-                 style="height: 100%; display: flex; flex-direction: column;"
-                 class="flex-shrink-0 rounded-xl transition-all duration-300 snap-center"
-                 :class="(transparent ? '' : 'bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80')"
-                 @click="if(collapsed) collapsed = false"
-                 wire:key="column-{{ $statusKey }}">
-                
-                {{-- Column Header --}}
-                <div class="p-4 flex justify-between items-center rounded-t-xl transition-all duration-300"
-                     :class="(transparent ? '' : 'bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 ') + (collapsed ? 'flex-col gap-4 h-full pb-8' : '')">
-                    <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
-                        <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0"></div>
-                        <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
-                            :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
-                    </div>
-                    <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
-                        <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ count($this->orders[$statusKey] ?? []) }}</flux:badge>
-                        <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
-                            <flux:icon.arrows-up-down x-show="collapsed" class="w-4 h-4" />
-                            <flux:icon.arrows-right-left x-show="!collapsed" class="w-4 h-4" />
-                        </flux:button>
-                    </div>
-                </div>
-
-                {{-- Column Items --}}
-                <div x-show="!collapsed" x-transition.opacity.duration.300ms x-animate class="flex-1 p-3 overflow-y-auto space-y-3" :class="transparent ? 'hide-scroll' : 'custom-scrollbar'">
+            @php
+                $defaultCollapsed = $statusKey === 'archived';
+            @endphp
+            <x-kanban.column 
+                :statusKey="$statusKey" 
+                :column="$column" 
+                :componentId="'order'" 
+                :count="count($this->orders[$statusKey] ?? [])"
+                :defaultCollapsed="$defaultCollapsed"
+            >
                     @forelse($this->orders[$statusKey] ?? [] as $po)
                             @php
                                 $isCustom = str_contains($po->notes ?? '', '[CUSTOM]');
@@ -376,64 +360,38 @@ on([
                     @endforelse
                     
                     @if(count($this->orders[$statusKey] ?? []) >= ($columnLimits[$statusKey] ?? 10))
-                        <div class="p-2 pt-0 mt-2">
-                            <flux:button size="sm" variant="subtle" class="w-full text-xs font-semibold" wire:click="loadMoreColumn('{{ $statusKey }}')">
-                                <flux:icon.chevron-down class="w-3 h-3 mr-1" />
-                                Muat Lebih Banyak...
-                            </flux:button>
-                        </div>
+                        <x-kanban.load-more :statusKey="$statusKey" />
                     @endif
-                </div>
-            </div>
-            @endforeach
+            </x-kanban.column>
+        @endforeach
     </x-kanban.board>
     </div>
 
     {{-- Table View --}}
     <div wire:key="view-table-wrapper" class="w-full {{ $this->viewMode === 'table' ? 'block' : 'hidden' }}">
-        <div x-data="{ lastScroll: 0, show: true }"
-             @scroll.window="
-                let current = window.pageYOffset;
-                if (current > lastScroll && current > 100) { show = false; } 
-                else if (current < lastScroll) { show = true; }
-                lastScroll = current;
-             "
-             class="sticky top-0 z-40 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 mb-6 transition-all duration-300 transform shadow-sm"
-             :class="show ? 'translate-y-0' : '-translate-y-full'">
-            <div class="p-4 sm:px-6">
-                <div class="flex flex-col sm:flex-row items-center gap-4">
-                    <div class="w-full sm:flex-1 relative">
-                        <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari PO / Vendor..." class="w-full" />
-                    </div>
-
-                    <div class="flex items-center gap-2 sm:gap-4 shrink-0 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-                        <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">
-                            <button type="button" wire:key="table-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
-                                <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
-                                <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
-                            </button>
-                            <button type="button" wire:key="table-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
-                                <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
-                                <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
-                            </button>
-                        </div>
-                        
-                        <div class="w-px h-8 bg-zinc-200 dark:bg-zinc-700 shrink-0"></div>
-
-                        @can('purchase.create')
-                            <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" wire:navigate class="shrink-0">
-                                <span class="hidden sm:inline">Buat PO</span>
-                                <span class="sm:hidden">Buat</span>
-                            </flux:button>
-                        @endcan
-                    </div>
+        <x-table.header searchModel="search" searchPlaceholder="Cari PO / Vendor...">
+                <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0 bg-white dark:bg-zinc-900">
+                    <button type="button" wire:key="table-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">
+                        <flux:icon.view-columns wire:loading.remove wire:target="setViewMode('kanban')" class="w-4 h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('kanban')" class="w-4 h-4 animate-spin" />
+                    </button>
+                    <button type="button" wire:key="table-sw-table" @click="$wire.setViewMode('table')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'table' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Tabel">
+                        <flux:icon.table-cells wire:loading.remove wire:target="setViewMode('table')" class="w-4 h-4" />
+                        <flux:icon.arrow-path wire:loading wire:target="setViewMode('table')" class="w-4 h-4 animate-spin" />
+                    </button>
                 </div>
-            </div>
-        </div>
+                
+                <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 shrink-0 mx-0.5 sm:mx-2 hidden sm:block"></div>
 
-        <div class="px-2 sm:px-6">
-            <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-sm mb-6">
-                <div class="overflow-x-auto min-h-[50vh]">
+                @can('purchase.create')
+                    <flux:button variant="primary" icon="plus" href="{{ route('purchase.orders.create') }}" wire:navigate class="shrink-0 px-2 sm:px-4">
+                        <span class="hidden sm:inline">Buat PO</span>
+                        <span class="sm:hidden text-[9px]">Buat</span>
+                    </flux:button>
+                @endcan
+        </x-table.header>
+
+        <x-table.wrapper>
                     <flux:table>
                         <flux:table.columns>
                             <flux:table.column sortable :sorted="$sortBy === 'po_number'" :direction="$sortDirection" wire:click="sort('po_number')">No. PO & Tanggal</flux:table.column>
@@ -511,8 +469,9 @@ on([
                             @endforelse
                         </flux:table.rows>
                     </flux:table>
-                </div>
-            </div>
+        </x-table.wrapper>
+        
+        <div class="px-0 sm:px-4 lg:px-6 pb-24">
             <x-load-more :paginator="$this->tableOrders" item-name="PO" />
         </div>
     </div>

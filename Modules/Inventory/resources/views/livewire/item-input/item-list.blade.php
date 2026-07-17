@@ -59,19 +59,23 @@ $getItems = function () {
     ])
         ->withCount('customVariants')
         ->when($this->search, function ($query) {
-            $query->where('name', 'like', '%' . $this->search . '%')
+            $query->where(function($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
                   ->orWhere('code', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('category', function($q) {
-                      $q->where('name', 'like', '%' . $this->search . '%');
-                  })->orWhereHas('warehouses', function($q) {
-                      $q->where('name', 'like', '%' . $this->search . '%');
-                  })->orWhereHas('type', function($q) {
-                      $q->where('name', 'like', '%' . $this->search . '%');
-                  })->orWhereHas('unit', function($q) {
-                      $q->where('name', 'like', '%' . $this->search . '%');
-                  })->orWhereHas('subCategory', function($q) {
-                      $q->where('name', 'like', '%' . $this->search . '%');
+                  ->orWhere('alias', 'like', '%' . $this->search . '%')
+                  ->orWhere('tags', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('category', function($q2) {
+                      $q2->where('name', 'like', '%' . $this->search . '%');
+                  })->orWhereHas('warehouses', function($q2) {
+                      $q2->where('name', 'like', '%' . $this->search . '%');
+                  })->orWhereHas('type', function($q2) {
+                      $q2->where('name', 'like', '%' . $this->search . '%');
+                  })->orWhereHas('unit', function($q2) {
+                      $q2->where('name', 'like', '%' . $this->search . '%');
+                  })->orWhereHas('subCategory', function($q2) {
+                      $q2->where('name', 'like', '%' . $this->search . '%');
                   });
+            });
         })
         ->when($this->sortBy, function ($query) {
             $query->orderBy($this->sortBy, $this->sortDirection);
@@ -593,40 +597,43 @@ $delete = function (Item $item) {
                         
                         {{-- Judul, Meta & Deskripsi --}}
                         <div class="mb-2 flex-1 overflow-hidden flex flex-col pt-0.5">
+                            {{-- Nama Alias --}}
+                            <h2 class="font-semibold text-zinc-800 dark:text-zinc-200 text-base lg:text-lg leading-tight truncate transition-colors"
+                            title="{{ $item->name }}">
+                            @if($item->alias)
+                                <span class="font-bold text-lg lg:text-xl">{{ $item->alias }}</span>
+                            @endif
+                        </h2>
                             {{-- Nama Barang --}}
-                            <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 text-[11px] md:text-xs lg:text-[13px] leading-tight truncate transition-colors" 
+                            <h5 class="font-semibold text-zinc-800 dark:text-zinc-200 md:text-[10px] lg:text-[12px] leading-tight truncate transition-colors" 
                                 title="{{ $item->name }}">
                                 {{ $item->name }}
-                            </h3>
+                            </h5>
                             
                             {{-- Kode & Kategori (Baris Super Rapat) --}}
                             <div class="flex items-center gap-1 mt-0.5 overflow-hidden">
-                                <span class="text-[8px] sm:text-[9px] font-mono font-medium text-zinc-400 dark:text-zinc-500 shrink-0">
+                                <span class="text-[6px] sm:text-[9px] font-mono font-medium text-zinc-400 dark:text-zinc-500 shrink-0">
                                     {{ $item->code }}
                                 </span>
                                       
                                 <span class="text-zinc-300 dark:text-zinc-600 text-[6px] sm:text-[7px] shrink-0">&bull;</span>
                                 
                                 <div class="flex items-center gap-1 overflow-hidden">
-                                    <span class="text-[7px] sm:text-[8px] font-bold uppercase tracking-widest truncate text-zinc-400 dark:text-zinc-500">
+                                    <span class="text-[5px] sm:text-[6px] font-bold uppercase tracking-widest truncate text-zinc-400 dark:text-zinc-500">
                                         {{ $item->category?->name ?? 'Tanpa Kategori' }}
                                     </span>
                                     
                                     @if($item->subCategory)
                                         <span class="text-zinc-300 dark:text-zinc-600 text-[6px] sm:text-[7px] shrink-0">&bull;</span>
-                                        <span class="text-[6px] sm:text-[7px] font-semibold text-zinc-400/80 uppercase tracking-wider truncate">
+                                        <span class="text-[5px] sm:text-[6px] font-semibold text-zinc-400/80 uppercase tracking-wider truncate">
                                             {{ $item->subCategory->name }}
                                         </span>
                                     @endif
                                 </div>
                             </div>
-                            
-                            {{-- Deskripsi --}}
-                            <p class="text-[9px] mt-0.5 leading-tight line-clamp-2 transition-colors" 
-                               :class="activeVariant ? 'text-indigo-600 dark:text-indigo-400 font-medium' : 'text-zinc-500 dark:text-zinc-400'"
-                               :title="activeVariant ? activeVariant.description : '{{ addslashes($item->description) }}'"
-                               x-text="activeVariant ? activeVariant.description : '{{ addslashes($item->description) }}'"></p>
                         </div>
+                        
+
                         
                         {{-- Harga & Stok --}}
                         <div class="mt-auto flex items-end justify-between pt-2 border-t border-zinc-100/80 dark:border-zinc-700">

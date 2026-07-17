@@ -68,8 +68,24 @@ $openModal = function ($id = null) {
                                     </div>
                                 @endif
                                 <div class="flex flex-col">
-                                    <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $i->name }}</span>
-                                    <span class="text-[11px] font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-md mt-1 w-fit">{{ $i->code }}</span>
+                                    @if($i->alias)
+                                        <span class="font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-wide text-xs">{{ $i->alias }}</span>
+                                        <span class="font-medium text-zinc-600 dark:text-zinc-400 text-[11px] mt-0.5">{{ $i->name }}</span>
+                                    @else
+                                        <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $i->name }}</span>
+                                    @endif
+                                    <div class="flex flex-wrap gap-1 mt-1.5 items-center">
+                                        <span class="text-[11px] font-mono text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-md">{{ $i->code }}</span>
+                                        @if(!empty($i->tags) && is_array($i->tags))
+                                            <span class="text-zinc-300 dark:text-zinc-600 text-[10px] mx-0.5">&bull;</span>
+                                            @foreach(array_slice($i->tags, 0, 2) as $tag)
+                                                <span class="text-[9px] font-medium text-indigo-600 bg-indigo-50 dark:bg-indigo-500/10 dark:text-indigo-400 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-500/20">{{ $tag }}</span>
+                                            @endforeach
+                                            @if(count($i->tags) > 2)
+                                                <span class="text-[9px] font-medium text-zinc-500 bg-zinc-50 dark:bg-zinc-800 px-1 py-0.5 rounded-md border border-zinc-200 dark:border-zinc-700">+{{ count($i->tags) - 2 }}</span>
+                                            @endif
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
                         </flux:table.cell>

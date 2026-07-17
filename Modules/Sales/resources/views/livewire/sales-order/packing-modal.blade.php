@@ -59,17 +59,17 @@ $save = function () {
 
         $this->order->is_packed = true;
         
-        // Cek setting: jika gudang yang menangani pengiriman, langsung ke 'shipping'.
-        // Jika sales yang menangani, biarkan di status 'packing' agar Sales bisa input resi.
+        // Tetap di 'packing' karena pergerakan ke 'Tunggu Kurir' 
+        // akan dikendalikan secara visual oleh is_packed = true
+        $this->order->status = 'packing';
+        
         $gudangHandlesShipping = \Illuminate\Support\Facades\Cache::remember('setting_gudang_handles_shipping', 3600, function () {
             return \App\Models\Setting::where('key', 'gudang_handles_shipping')->value('value');
         }) == '1';
         
         if ($gudangHandlesShipping) {
-            $this->order->status = 'shipping';
-            $toastMessage = 'Proses packing selesai. Pesanan siap diserahkan ke Ekspedisi oleh tim Gudang!';
+            $toastMessage = 'Proses packing selesai. Pesanan pindah ke Tunggu Kurir!';
         } else {
-            $this->order->status = 'packing';
             $toastMessage = 'Packing selesai! Pesanan menunggu konfirmasi pengiriman oleh tim Sales.';
         }
 
@@ -85,7 +85,7 @@ $save = function () {
 ?>
 
 <div>
-<flux:modal wire:model="show" class="w-full md:w-[32rem] md:max-w-xl">
+<flux:modal wire:model="show" class="w-full md:w-[42rem] md:max-w-3xl">
     @if($order)
     <div class="p-4 sm:p-6">
         <div class="flex items-start gap-4 mb-6">
@@ -100,24 +100,26 @@ $save = function () {
             </div>
         </div>
 
-        <div class="space-y-4">
-            <div>
-                <label class="block mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Biaya Packing Tambahan (Opsional)</label>
-                <x-rupiah-input wire:model="packing_fee" placeholder="0" />
-                <span class="text-[10px] text-zinc-500 mt-1 block">Isi jika ada biaya tambahan seperti palet kayu atau kardus besar.</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+            <div class="space-y-4">
+                <div>
+                    <label class="block mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Biaya Packing (Opsional)</label>
+                    <x-rupiah-input wire:model="packing_fee" placeholder="0" />
+                    <span class="text-[10px] text-zinc-500 mt-1 block">Palet kayu atau kardus besar.</span>
+                </div>
+                
+                <div>
+                    <flux:textarea wire:model="notes" label="Catatan Dimensi (Opsional)" placeholder="Misal: P 40 x L 30 x T 20cm, Berat 2Kg..." />
+                </div>
             </div>
 
             <div>
-                <label class="block mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Foto Packing / Bukti (Opsional tapi Disarankan)</label>
+                <label class="block mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Foto Packing / Bukti</label>
                 <div class="bg-white dark:bg-zinc-900 p-2 rounded-xl border border-zinc-200 dark:border-zinc-700">
                     <x-image-cropper id="packing-cropper" wire:model="packing_receipt" :image="$packing_receipt && is_string($packing_receipt) && !str_starts_with($packing_receipt, 'data:image') ? \Illuminate\Support\Facades\Storage::url($packing_receipt) : null" accept="image/*" />
                 </div>
                 <div wire:loading wire:target="packing_receipt" class="text-xs text-purple-600 mt-2">Memproses gambar...</div>
-                <div class="text-xs text-zinc-500 mt-1">Sangat disarankan untuk difoto sebagai bukti jika pembeli komplain.</div>
-            </div>
-            
-            <div>
-                <flux:textarea wire:model="notes" label="Catatan Dimensi / Lainnya (Opsional)" placeholder="Misal: P 40cm x L 30cm x T 20cm, Berat 2Kg..." />
+                <div class="text-[10px] text-zinc-500 mt-1">Disarankan sbg bukti jika pembeli komplain.</div>
             </div>
         </div>
 

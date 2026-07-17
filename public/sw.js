@@ -1,4 +1,7 @@
-const CACHE_NAME = 'inventory-pwa-cache-v2';
+// Pusher Beams - WAJIB ada di baris pertama agar push notification bekerja
+importScripts('https://js.pusher.com/beams/service-worker.js');
+
+const CACHE_NAME = 'inventory-pwa-cache-v5';
 const urlsToCache = [
     '/',
     '/manifest.json',
@@ -41,6 +44,64 @@ self.addEventListener('fetch', event => {
     event.respondWith(
         fetch(event.request).catch(() => {
             return caches.match(event.request);
+        })
+    );
+});
+
+// ============================================================
+// Pusher Beams Custom Push & Click Handler
+// Tujuannya agar saat notifikasi diklik, ia membuka/fokus ke 
+// PWA (Standalone) alih-alih membuka tab browser Chrome biasa.
+// ============================================================
+
+// 1. Override default behavior dari Pusher Beams
+PusherPushNotifications.onNotificationReceived = ({ pushEvent, payload }) => {
+    // Kita tampilkan notifikasi secara manual
+    const notification = payload.notification || {};
+    const data         = payload.data || {};
+
+    const title   = notification.title || 'Inventory System';
+    const options = {
+        body:    notification.body  || '',
+        icon:    notification.icon  || '/apple-touch-icon.png',
+        badge:   '/apple-touch-icon.png',
+        data:    { url: data.url || '/' },
+        vibrate: [200, 100, 200],
+        tag:     'inventory-notification',
+        renotify: true,
+        actions: [
+            { action: 'open', title: 'Buka Aplikasi' },
+            { action: 'dismiss', title: 'Tutup' }
+        ]
+    };
+
+    pushEvent.waitUntil(self.registration.showNotification(title, options));
+};
+
+// 2. Handle klik notifikasi secara manual
+self.addEventListener('notificationclick', event => {
+    event.notification.close();
+
+    if (event.action === 'dismiss') return;
+
+    // Ambil URL dari payload Beams
+    const targetUrl = (event.notification.data && event.notification.data.url)
+        ? event.notification.data.url
+        : '/';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+            // Cek apakah PWA sudah terbuka (cari tab/jendela dengan URL yang sama atau basis domain sama)
+            for (const client of windowClients) {
+                if (client.url.includes(self.location.origin) && 'focus' in client) {
+                    client.navigate(targetUrl); // Arahkan ke halaman spesifik
+                    return client.focus();      // Fokuskan window PWA-nya
+                }
+            }
+            // Jika PWA belum terbuka sama sekali, buka window baru (biasanya akan launch PWA jika terinstall)
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
         })
     );
 });

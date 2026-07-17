@@ -18,8 +18,14 @@ new class extends Component {
     public $item_id = null;
     public $code = '';
     
+    #[Rule('nullable|string|max:100')]
+    public $alias = '';
+    
     #[Rule('required|string|max:100')]
     public $name = '';
+    
+    #[Rule('nullable|array')]
+    public $tags = [];
     
     #[Rule('nullable|string')]
     public $description = '';
@@ -63,6 +69,7 @@ new class extends Component {
     public $types = [];
     public $categories = [];
     public $subcategories = [];
+    public $availableTags = [];
 
     public function mount()
     {
@@ -89,12 +96,20 @@ new class extends Component {
         $this->units = Unit::orderBy('name')->get();
         $this->types = Type::orderBy('name')->get();
         $this->categories = Category::orderBy('name')->get();
+        $this->availableTags = Item::whereNotNull('tags')
+            ->pluck('tags')
+            ->flatten()
+            ->unique()
+            ->values()
+            ->toArray();
         
         if ($id) {
             $item = Item::findOrFail($id);
             $this->item_id = $item->id;
             $this->code = $item->code;
+            $this->alias = $item->alias;
             $this->name = $item->name;
+            $this->tags = $item->tags ?? [];
             $this->description = $item->description;
             $this->image = $item->image;
             $this->unit_id = $item->unit_id;
@@ -116,7 +131,9 @@ new class extends Component {
         } else {
             $this->item_id = null;
             $this->code = '';
+            $this->alias = '';
             $this->name = '';
+            $this->tags = [];
             $this->description = '';
             $this->image = null;
             $this->unit_id = '';
@@ -190,6 +207,10 @@ new class extends Component {
         $validated['type_id'] = $validated['type_id'] ?: null;
         $validated['category_id'] = $validated['category_id'] ?: null;
         $validated['sub_category_id'] = $validated['sub_category_id'] ?: null;
+        
+        if (!empty($validated['alias'])) {
+            $validated['alias'] = strtoupper(trim($validated['alias']));
+        }
 
         if (is_string($this->image) && str_starts_with($this->image, 'data:image/webp;base64,')) {
             $base64Image = substr($this->image, strpos($this->image, ',') + 1);
@@ -297,15 +318,84 @@ new class extends Component {
 
                     <div class="border-t border-dashed border-zinc-200 dark:border-zinc-700"></div>
 
-                    {{-- Nama Barang --}}
-                    <div class="space-y-1">
-                        <flux:input wire:model="name" label="Nama Barang" placeholder="Contoh: Kursi Kayu Jati" required maxlength="25" />
-                        <p class="text-[11px] text-zinc-400">Maks. 25 karakter.</p>
+                    {{-- Nama Barang & Alias --}}
+                    <div class="space-y-4">
+                        <div class="space-y-1">
+                            <flux:input wire:model="alias" label="Alias (Seri / Merek)" placeholder="Contoh: BILLY, RAHWANA" maxlength="100" />
+                            <p class="text-[11px] text-zinc-400">Kosongkan jika tidak ada nama seri khusus.</p>
+                        </div>
+                        <div class="space-y-1">
+                            <flux:input wire:model="name" label="Nama Barang" placeholder="Contoh: Rak Buku Putih, Dipan Jati 160x200" required maxlength="100" />
+                            <p class="text-[11px] text-zinc-400">Maks. 100 karakter.</p>
+                        </div>
+                    </div>
+
+                    {{-- Tags --}}
+                    <div class="space-y-1" x-data="{
+                        newTag: '',
+                        tags: @entangle('tags'),
+                        availableTags: @entangle('availableTags'),
+                        showSuggestions: false,
+                        addTag(tag = null) {
+                            tag = (tag || this.newTag).trim();
+                            if (tag && !this.tags.includes(tag)) {
+                                this.tags.push(tag);
+                            }
+                            this.newTag = '';
+                            this.showSuggestions = false;
+                        },
+                        removeTag(index) {
+                            this.tags.splice(index, 1);
+                        },
+                        get filteredSuggestions() {
+                            if (!this.newTag) return [];
+                            return this.availableTags.filter(t => 
+                                t.toLowerCase().includes(this.newTag.toLowerCase()) && 
+                                !this.tags.includes(t)
+                            );
+                        }
+                    }">
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Label / Tags</label>
+                        <div class="relative">
+                            <div class="min-h-[42px] p-1.5 flex flex-wrap gap-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-shadow">
+                                <template x-for="(tag, index) in tags" :key="index">
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 rounded-md border border-indigo-100 dark:border-indigo-500/20">
+                                        <span x-text="tag"></span>
+                                        <button type="button" @click.stop="removeTag(index)" class="text-indigo-400 hover:text-indigo-600 focus:outline-none">
+                                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+                                        </button>
+                                    </span>
+                                </template>
+                                <input type="text" 
+                                       x-model="newTag" 
+                                       @keydown.enter.prevent="addTag()" 
+                                       @keydown.backspace="newTag === '' && tags.length > 0 ? removeTag(tags.length - 1) : null"
+                                       @input="showSuggestions = true"
+                                       @click="showSuggestions = true"
+                                       @click.away="showSuggestions = false"
+                                       placeholder="Ketik tag & tekan Enter..." 
+                                       class="flex-1 min-w-[140px] bg-transparent border-0 p-1 text-sm focus:ring-0 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400">
+                            </div>
+                            
+                            {{-- Suggestions Dropdown --}}
+                            <div x-show="showSuggestions && filteredSuggestions.length > 0" 
+                                 x-transition.opacity
+                                 class="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden max-h-48 overflow-y-auto"
+                                 style="display: none;">
+                                <template x-for="suggestion in filteredSuggestions" :key="suggestion">
+                                    <div @click="addTag(suggestion)" 
+                                         class="px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-2">
+                                        <flux:icon.plus class="w-4 h-4 text-zinc-400" />
+                                        <span x-text="suggestion"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- Deskripsi --}}
                     <div class="flex-1">
-                        <flux:textarea wire:model="description" label="Spesifikasi / Deskripsi" placeholder="Tuliskan spesifikasi lengkap, ukuran, atau keterangan tambahan..." rows="5" />
+                        <flux:textarea wire:model="description" label="Spesifikasi / Deskripsi" placeholder="Tuliskan spesifikasi lengkap, ukuran, atau keterangan tambahan..." rows="4" />
                     </div>
 
                 </div>

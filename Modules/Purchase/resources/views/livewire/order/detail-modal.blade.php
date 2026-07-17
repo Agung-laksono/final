@@ -9,7 +9,7 @@ state([
 ]);
 
 on(['open-detail-modal' => function ($orderId) {
-    $this->order = PurchaseOrder::with(['vendor', 'items.item'])->findOrFail($orderId);
+    $this->order = PurchaseOrder::with(['vendor', 'items.item', 'creator'])->findOrFail($orderId);
     $this->show = true;
 }]);
 
@@ -40,6 +40,11 @@ $getStatusBadge = function ($status) {
                     @if($order->pajak)
                         <span class="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">PPN</span>
                     @endif
+                    
+                    <div class="ml-auto flex items-center gap-1.5 text-[11px] text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700" title="Petugas Checkout">
+                        <flux:icon.user class="w-3 h-3" />
+                        <span class="font-medium">{{ explode(' ', $order->creator?->name ?? 'Sistem')[0] }}</span>
+                    </div>
                 </div>
                 <div class="flex items-center gap-4 text-[11px] text-zinc-400 mt-0.5 flex-wrap">
                     <span class="flex items-center gap-1">
@@ -133,25 +138,63 @@ $getStatusBadge = function ($status) {
                         @foreach($order->items as $item)
                             <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
                                 <td class="px-3 py-2">
-                                    <div class="font-medium text-zinc-900 dark:text-zinc-100 leading-snug">{{ $item->item->name }}</div>
-                                    <div class="font-mono text-[10px] text-zinc-400">{{ $item->item->code }}</div>
-                                    @if($item->notes)
-                                        <div x-data="{ open: false }">
-                                            <div @click="open = !open"
-                                                 class="mt-1 text-[10px] text-zinc-500 italic cursor-pointer hover:text-blue-500 transition-colors flex items-start gap-0.5 group">
-                                                <span x-show="!open" class="line-clamp-1">{{ strip_tags($item->notes) }}</span>
-                                                <span x-show="open" x-cloak class="text-zinc-400">▲ tutup</span>
-                                                <svg x-show="!open" class="w-2.5 h-2.5 shrink-0 mt-px text-zinc-400 group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    <div class="flex items-start gap-3">
+                                        @php
+                                            $itemImage = null;
+                                            if (!empty($item->custom_attachments) && is_array($item->custom_attachments) && count($item->custom_attachments) > 0) {
+                                                $itemImage = $item->custom_attachments[0]['path'] ?? ($item->custom_attachments[0] ?? null);
+                                            }
+                                            if (!$itemImage && $item->item) {
+                                                $itemImage = $item->item->image;
+                                            }
+                                        @endphp
+                                        @if($itemImage && is_string($itemImage))
+                                            <div class="shrink-0 w-10 h-10 rounded overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-100 cursor-zoom-in hover:opacity-80 transition-opacity mt-0.5"
+                                                 @click.stop="$dispatch('open-lightbox', { url: '{{ Storage::url($itemImage) }}' })"
+                                                 title="Lihat Gambar">
+                                                <img src="{{ Storage::url($itemImage) }}" class="w-full h-full object-cover">
                                             </div>
-                                            <div x-show="open" x-cloak
-                                                 x-transition:enter="transition ease-out duration-150"
-                                                 x-transition:enter-start="opacity-0"
-                                                 x-transition:enter-end="opacity-100"
-                                                 class="mt-1 p-1.5 bg-zinc-50 dark:bg-zinc-800/50 rounded border border-zinc-200 dark:border-zinc-700 text-[10px] text-zinc-600 dark:text-zinc-400 prose prose-xs max-w-none prose-p:my-0.5 prose-img:rounded">
-                                                {!! $item->notes !!}
+                                        @else
+                                            <div class="shrink-0 w-10 h-10 rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 mt-0.5">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                             </div>
+                                        @endif
+                                        <div class="flex-1">
+                                            <div class="font-medium text-zinc-900 dark:text-zinc-100 leading-snug flex items-center gap-1.5 flex-wrap">
+                                                {{ $item->item->name }}
+                                                @if(!empty($item->custom_attributes) || !empty($item->custom_attachments) || str_contains(strtoupper($item->notes ?? ''), '[CUSTOM]'))
+                                                    <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-500 border border-amber-200 dark:border-amber-800">CUSTOM</span>
+                                                @endif
+                                            </div>
+                                            <div class="font-mono text-[10px] text-zinc-400">{{ $item->item->code }}</div>
+                                            @if(!empty($item->custom_attributes))
+                                                <div class="mt-1">
+                                                    @foreach($item->custom_attributes as $attr)
+                                                        <div class="text-[10px] text-amber-600 dark:text-amber-500 leading-tight">
+                                                            <span class="font-medium">{{ $attr['key'] ?? '-' }}:</span> {{ $attr['value'] ?? '-' }}
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                            @if($item->notes)
+                                                <div x-data="{ open: false }">
+                                                    <div @click="open = !open"
+                                                         class="mt-1 text-[10px] text-zinc-500 italic cursor-pointer hover:text-blue-500 transition-colors flex items-start gap-0.5 group">
+                                                        <span x-show="!open" class="line-clamp-1">{{ strip_tags($item->notes) }}</span>
+                                                        <span x-show="open" x-cloak class="text-zinc-400">▲ tutup</span>
+                                                        <svg x-show="!open" class="w-2.5 h-2.5 shrink-0 mt-px text-zinc-400 group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                    </div>
+                                                    <div x-show="open" x-cloak
+                                                         x-transition:enter="transition ease-out duration-150"
+                                                         x-transition:enter-start="opacity-0"
+                                                         x-transition:enter-end="opacity-100"
+                                                         class="mt-1 p-1.5 bg-zinc-50 dark:bg-zinc-800/50 rounded border border-zinc-200 dark:border-zinc-700 text-[10px] text-zinc-600 dark:text-zinc-400 prose prose-xs max-w-none prose-p:my-0.5 prose-img:rounded">
+                                                        {!! $item->notes !!}
+                                                    </div>
+                                                </div>
+                                            @endif
                                         </div>
-                                    @endif
+                                    </div>
                                 </td>
                                 <td class="px-2 py-2 text-right text-zinc-700 dark:text-zinc-300">{{ number_format($item->quantity, 0, ',', '.') }}</td>
                                 <td class="px-2 py-2 text-right">
