@@ -434,6 +434,31 @@
             <flux:separator text="Atau ketik manual" />
 
             <form wire:submit.prevent="startNewChat" class="space-y-6">
+                <!-- Native Contact Picker Button (Mobile Only) -->
+                <div x-data="{ supported: ('contacts' in navigator && 'ContactsManager' in window) }" x-show="supported" class="flex justify-center mb-4">
+                    <button type="button" 
+                            @click="async () => {
+                                try {
+                                    const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+                                    if (contacts.length > 0) {
+                                        let cName = contacts[0].name ? contacts[0].name[0] : '';
+                                        let cTel = contacts[0].tel ? contacts[0].tel[0] : '';
+                                        cTel = cTel.replace(/[^0-9\+]/g, '');
+                                        $wire.set('newChatName', cName);
+                                        $wire.set('newChatPhone', cTel);
+                                    }
+                                } catch (err) {
+                                    console.error('Contact Picker Error:', err);
+                                }
+                            }"
+                            class="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-sm font-semibold rounded-lg transition-colors border border-blue-200 dark:border-blue-800">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9M10.125 2.25h.375a9 9 0 0 1 9 9v.375M10.125 2.25A3.375 3.375 0 0 1 13.5 5.625v1.5c0 .621.504 1.125 1.125 1.125h1.5a3.375 3.375 0 0 1 3.375 3.375M9 15l2.25 2.25L15 12" />
+                        </svg>
+                        Pilih dari Kontak HP
+                    </button>
+                </div>
+
                 <div class="space-y-4">
                     <flux:input wire:model="newChatPhone" label="Nomor WhatsApp" placeholder="Contoh: 08123456789" type="tel" required />
                     <flux:input wire:model="newChatName" label="Nama Kontak (Opsional)" placeholder="Nama panggilan..." />
