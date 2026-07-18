@@ -87,7 +87,7 @@
         <!-- Heading Section -->
         <section class="relative z-10 text-center max-w-4xl mx-auto mb-2 md:mb-4 px-3 fade-in delay-100 shrink-0">
             <h1 class="font-serif text-2xl sm:text-4xl lg:text-5xl text-gray-900 dark:text-white leading-tight mb-2 tracking-tight drop-shadow-md transition-colors duration-300">
-                Romlah ERP untuk Usaha Mebel Anda.
+                Romlah ERP ✨ untuk Usaha Mebel Anda.
             </h1>
             <p class="text-sm sm:text-base lg:text-lg text-gray-800 dark:text-gray-300 font-semibold px-4 drop-shadow transition-colors duration-300">
                 Kendalikan Produksi, Stok, Payroll, Keuangan, Marketing hingga Penjualan dalam Satu Genggaman.
