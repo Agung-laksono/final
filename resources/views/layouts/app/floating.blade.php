@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Cache bust for CSS: 2026-07-18 -->
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
     <head>
         @include('partials.head')
