@@ -132,12 +132,12 @@
             <div class="flex items-center gap-3 text-xs w-full md:w-auto bg-zinc-100 dark:bg-zinc-800/50 p-2 rounded-lg px-3 border border-zinc-200 dark:border-zinc-800">
                 <div class="text-zinc-500 flex flex-col md:flex-row md:gap-1">
                     <span class="font-medium text-zinc-600 dark:text-zinc-400">Asli:</span>
-                    <span x-text="formatSize(originalSize)"></span>
+                    <span x-text="originalSize === 0 ? '0 KB' : (originalSize / 1024).toFixed(1) + ' KB'"></span>
                 </div>
                 <flux:icon.arrow-right class="w-3 h-3 text-zinc-300" />
                 <div class="text-emerald-600 font-medium flex flex-col md:flex-row md:gap-1">
                     <span>Hasil (Estimasi):</span>
-                    <span x-text="formatSize(previewSize)"></span>
+                    <span x-text="previewSize === 0 ? '0 KB' : (previewSize / 1024).toFixed(1) + ' KB'"></span>
                 </div>
             </div>
 
@@ -224,7 +224,7 @@
         
         {{-- Info Ukuran Kompresi (Mini Text di bawah gambar) --}}
         <div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400 text-center truncate w-full" title="Ukuran Asli -> Kompresi">
-            <span x-text="formatSize(originalSize)"></span> <flux:icon.arrow-right class="w-3 h-3 inline text-zinc-300 mx-1" /> <span x-text="formatSize(newSize)" class="font-semibold text-green-600 dark:text-green-400"></span>
+            <span x-text="originalSize === 0 ? '0 KB' : (originalSize / 1024).toFixed(1) + ' KB'"></span> <flux:icon.arrow-right class="w-3 h-3 inline text-zinc-300 mx-1" /> <span x-text="newSize === 0 ? '0 KB' : (newSize / 1024).toFixed(1) + ' KB'" class="font-semibold text-green-600 dark:text-green-400"></span>
         </div>
     </div>
     
