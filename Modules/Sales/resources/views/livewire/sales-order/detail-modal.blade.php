@@ -43,7 +43,7 @@ $getStatusBadge = function ($status) {
 ?>
 
 <div>
-    <flux:modal wire:model="show" class="w-full md:w-[680px] space-y-3">
+    <flux:modal wire:model="show" class="w-[92vw] md:w-[680px] space-y-3" scroll="body">
         @if($order)
             @php
                 // Tim gudang biasa (tanpa role manajerial) tidak boleh melihat harga

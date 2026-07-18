@@ -605,7 +605,7 @@ $delete = function (Item $item) {
                             @endif
                         </h2>
                             {{-- Nama Barang --}}
-                            <h5 class="font-semibold text-zinc-800 dark:text-zinc-200 md:text-[10px] lg:text-[12px] leading-tight truncate transition-colors" 
+                            <h5 class="font-semibold text-zinc-800 dark:text-zinc-200 text-[8px] md:text-[10px] lg:text-[12px] leading-tight line-clamp-2 md:truncate transition-colors" 
                                 title="{{ $item->name }}">
                                 {{ $item->name }}
                             </h5>

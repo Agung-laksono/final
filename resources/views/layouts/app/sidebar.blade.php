@@ -175,6 +175,15 @@
             </flux:sidebar.nav>
             @endcan
 
+            <!-- Komunikasi -->
+            <flux:sidebar.nav>
+                <flux:navlist.group heading="{{ __('KOMUNIKASI') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
+                    <flux:sidebar.item icon="chat-bubble-left-right" :href="route('chat.index')" :current="request()->routeIs('chat.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                        {{ __('Chat WhatsApp') }}
+                    </flux:sidebar.item>
+                </flux:navlist.group>
+            </flux:sidebar.nav>
+
             <!-- Keuangan -->
             @canany(['finance.dashboard.view', 'finance.inbox.view'])
             <flux:sidebar.nav>
@@ -195,6 +204,10 @@
             <flux:sidebar.nav class="mt-4">
                 <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
                     {{ __('Dashboard Utama') }}
+                </flux:sidebar.item>
+                
+                <flux:sidebar.item icon="newspaper" :href="route('cms.posts.index')" :current="request()->routeIs('cms.posts.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
+                    {{ __('Kelola Artikel & Dokumen') }}
                 </flux:sidebar.item>
                 
                 <flux:sidebar.item icon="cog-6-tooth" :href="route('settings.index')" :current="request()->routeIs('settings.*') || request()->routeIs('profile.*') || request()->routeIs('security.*') || request()->routeIs('appearance.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
@@ -353,7 +366,7 @@
                 });
             });
         </script>
-            <x-loading>
-    </x-loading>
+        <x-loading></x-loading>
+        <livewire:ai-chat-widget />
     </body>
 </html>

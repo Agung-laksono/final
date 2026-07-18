@@ -4,5 +4,6 @@
     "Sales": true,
     "Production": true,
     "Finance": true,
-    "Communication": true
+    "Communication": true,
+    "CMS": true
 }
