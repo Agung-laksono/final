@@ -449,7 +449,7 @@ const initCropper = () => {
                 if (bytes === 0) return '0 KB';
                 return (bytes / 1024).toFixed(1) + ' KB';
             }
-        });
+    }));
 };
 
 if (window.Alpine) {
