@@ -22,6 +22,35 @@ class ChatApp extends Component
     public $showNewChatModal = false;
     public $newChatPhone = '';
     public $newChatName = '';
+    
+    public $searchContact = '';
+
+    #[\Livewire\Attributes\Computed]
+    public function availableContacts()
+    {
+        if (strlen($this->searchContact) < 2) return collect();
+
+        $query = $this->searchContact;
+        
+        $customers = \Modules\Sales\Models\Customer::where('name', 'like', "%{$query}%")
+                        ->orWhere('phone', 'like', "%{$query}%")
+                        ->get()
+                        ->map(fn($c) => ['type' => 'Customer', 'name' => $c->name, 'phone' => $c->phone]);
+                        
+        $vendors = \Modules\Purchase\Models\Vendor::where('name', 'like', "%{$query}%")
+                        ->orWhere('phone', 'like', "%{$query}%")
+                        ->get()
+                        ->map(fn($v) => ['type' => 'Vendor', 'name' => $v->name, 'phone' => $v->phone]);
+                        
+        return $customers->concat($vendors);
+    }
+
+    public function selectContact($name, $phone)
+    {
+        $this->newChatName = $name;
+        $this->newChatPhone = $phone;
+        $this->searchContact = ''; // Reset pencarian
+    }
 
     public function mount()
     {

@@ -404,22 +404,47 @@
     {{-- NEW CHAT MODAL --}}
     {{-- ============================================================ --}}
     <flux:modal wire:model="showNewChatModal" class="md:w-96">
-        <form wire:submit.prevent="startNewChat" class="space-y-6">
+        <div class="space-y-6">
             <div>
                 <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Percakapan Baru</h2>
-                <p class="text-sm text-zinc-500 mt-1">Masukkan nomor WhatsApp yang ingin dihubungi.</p>
+                <p class="text-sm text-zinc-500 mt-1">Cari kontak atau masukkan nomor baru.</p>
             </div>
             
-            <div class="space-y-4">
-                <flux:input wire:model="newChatPhone" label="Nomor WhatsApp" placeholder="Contoh: 08123456789" type="tel" required />
-                <flux:input wire:model="newChatName" label="Nama Kontak (Opsional)" placeholder="Nama pelanggan..." />
+            <!-- Contact Picker -->
+            <div class="space-y-3">
+                <flux:input wire:model.live.debounce.300ms="searchContact" icon="magnifying-glass" placeholder="Cari Pelanggan / Vendor..." />
+                
+                @if(strlen($searchContact) >= 2)
+                    <div class="max-h-48 overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-1 bg-zinc-50 dark:bg-zinc-800/50 custom-scrollbar">
+                        @forelse($this->availableContacts as $contact)
+                            <div wire:click="selectContact('{{ addslashes($contact['name']) }}', '{{ $contact['phone'] }}')" class="p-2 hover:bg-white dark:hover:bg-zinc-700 rounded cursor-pointer transition-colors flex justify-between items-center group">
+                                <div class="overflow-hidden">
+                                    <div class="font-medium text-sm text-zinc-800 dark:text-zinc-200 truncate">{{ $contact['name'] }}</div>
+                                    <div class="text-xs text-zinc-500">{{ $contact['phone'] }}</div>
+                                </div>
+                                <flux:badge size="sm" color="{{ $contact['type'] == 'Customer' ? 'emerald' : 'sky' }}">{{ $contact['type'] }}</flux:badge>
+                            </div>
+                        @empty
+                            <div class="p-4 text-center text-sm text-zinc-500">Tidak ada kontak ditemukan.</div>
+                        @endforelse
+                    </div>
+                @endif
             </div>
 
-            <div class="flex justify-end gap-3">
-                <flux:button wire:click="$set('showNewChatModal', false)" variant="ghost">Batal</flux:button>
-                <flux:button type="submit" variant="primary" class="!bg-[#00a884] !hover:bg-[#017561]">Mulai Chat</flux:button>
-            </div>
-        </form>
+            <flux:separator text="Atau ketik manual" />
+
+            <form wire:submit.prevent="startNewChat" class="space-y-6">
+                <div class="space-y-4">
+                    <flux:input wire:model="newChatPhone" label="Nomor WhatsApp" placeholder="Contoh: 08123456789" type="tel" required />
+                    <flux:input wire:model="newChatName" label="Nama Kontak (Opsional)" placeholder="Nama panggilan..." />
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <flux:button wire:click="$set('showNewChatModal', false)" variant="ghost">Batal</flux:button>
+                    <flux:button type="submit" variant="primary" class="!bg-[#00a884] !hover:bg-[#017561]">Mulai Chat</flux:button>
+                </div>
+            </form>
+        </div>
     </flux:modal>
 
 </div>
