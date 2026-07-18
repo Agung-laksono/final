@@ -16,9 +16,8 @@ document.addEventListener('alpine:init', () => {
     });
 });
 
-// Cropper-style Interactive Crop — Pure Alpine JS, Zero Library
-window.imageCropperData = (wireModel = 'image', nameModel = null) => {
-    return {
+document.addEventListener('alpine:init', () => {
+    window.Alpine.data('imageCropper', (wireModel = 'image', nameModel = null) => ({
             isProcessing: false,
             isCropping: false,
             isDragging: false,
@@ -450,8 +449,8 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
                 if (bytes === 0) return '0 KB';
                 return (bytes / 1024).toFixed(1) + ' KB';
             }
-        };
-};
+        });
+});
 
 /**
  * Echo exposes an expressive API for subscribing to channels and listening

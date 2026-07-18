@@ -13,7 +13,7 @@
     $nameModelValue = $nameModel ? "'{$nameModel}'" : 'null';
 @endphp
 
-<div x-data="window.imageCropperData('{{ $wireModel }}', {{ $nameModelValue }})" 
+<div x-data="imageCropper('{{ $wireModel }}', {{ $nameModelValue }})" 
      x-init="$watch('isCropping', val => val ? Flux.modal('{{ $modalName }}').show() : Flux.modal('{{ $modalName }}').close())"
      @item-saved.window="resetCropper()"
      @reset-cropper.window="resetCropper()"
