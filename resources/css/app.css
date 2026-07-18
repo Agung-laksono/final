@@ -122,3 +122,7 @@ select:focus[data-flux-control] {
 #tinymce-aux-container > * {
     pointer-events: auto !important;
 }
+
+[x-cloak] {
+    display: none !important;
+}
