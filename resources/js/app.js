@@ -28,7 +28,7 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
             previewSize: 0,
             hasCropped: false,
             maxSize: 800,
-            quality: 0.8,
+            quality: 0.4,
             customFileName: '',
 
             // Image state
@@ -56,8 +56,8 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
             dragStartCropH: 0,
 
             // Aspect ratio
-            ratioLabel: '1:1',
-            aspectRatio: 1, // w/h, null = free
+            ratioLabel: '4:3',
+            aspectRatio: 4 / 3, // w/h, null = free
 
             // Transformations
             rotation: 0,
