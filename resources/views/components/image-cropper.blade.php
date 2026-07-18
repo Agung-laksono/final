@@ -151,7 +151,7 @@
 
     {{-- Tampilan saat KOSONG (Belum Ada File) --}}
     @if (!$image)
-    <div x-show="!originalFile && !isCropping" x-cloak class="w-full">
+    <div x-show="!originalFile && !isCropping" style="display: none;" class="w-full">
         @if ($mode === 'button')
             <button type="button" @click="pickFile('gallery')" class="cursor-pointer flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors w-fit shadow-sm">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
@@ -192,7 +192,7 @@
     @endif
 
     {{-- Tampilan saat ADA FILE (Preview Hasil Crop) --}}
-    <div x-show="originalFile && !isCropping" x-cloak class="w-full">
+    <div x-show="originalFile && !isCropping" style="display: none;" class="w-full">
         <div class="relative w-full rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm flex flex-col items-center justify-center min-h-[100px]">
             {{-- Gambar --}}
             <div class="relative w-full flex justify-center bg-white dark:bg-zinc-900 group">
@@ -230,7 +230,7 @@
     
     {{-- Preview Gambar (dari Server/Database saat Mode Edit awal, ditimpa ketika originalFile ada) --}}
     @if ($image)
-    <div x-show="!originalFile && !isCropping" x-cloak class="w-full">
+    <div x-show="!originalFile && !isCropping" style="display: none;" class="w-full">
         <div class="relative w-full rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm flex flex-col items-center justify-center min-h-[100px]">
             {{-- Gambar --}}
             <div class="relative w-full flex justify-center bg-white dark:bg-zinc-900 group">
