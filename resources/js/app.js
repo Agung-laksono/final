@@ -16,7 +16,7 @@ document.addEventListener('alpine:init', () => {
     });
 });
 
-document.addEventListener('alpine:init', () => {
+const initCropper = () => {
     window.Alpine.data('imageCropper', (wireModel = 'image', nameModel = null) => ({
             isProcessing: false,
             isCropping: false,
@@ -449,8 +449,14 @@ document.addEventListener('alpine:init', () => {
                 if (bytes === 0) return '0 KB';
                 return (bytes / 1024).toFixed(1) + ' KB';
             }
-    }));
-});
+        });
+};
+
+if (window.Alpine) {
+    initCropper();
+} else {
+    document.addEventListener('alpine:init', initCropper);
+}
 
 /**
  * Echo exposes an expressive API for subscribing to channels and listening
