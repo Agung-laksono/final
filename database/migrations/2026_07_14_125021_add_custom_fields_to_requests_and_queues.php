@@ -1,0 +1,38 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('inventory_requests', function (Blueprint $table) {
+            $table->json('custom_attributes')->nullable();
+            $table->json('custom_attachments')->nullable();
+        });
+
+        Schema::table('purchase_queues', function (Blueprint $table) {
+            $table->json('custom_attributes')->nullable();
+            $table->json('custom_attachments')->nullable();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('inventory_requests', function (Blueprint $table) {
+            $table->dropColumn(['custom_attributes', 'custom_attachments']);
+        });
+
+        Schema::table('purchase_queues', function (Blueprint $table) {
+            $table->dropColumn(['custom_attributes', 'custom_attachments']);
+        });
+    }
+};

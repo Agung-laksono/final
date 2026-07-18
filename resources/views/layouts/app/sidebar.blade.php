@@ -367,6 +367,8 @@
             });
         </script>
         <x-loading></x-loading>
+        @if(!request()->is('chat*'))
         <livewire:ai-chat-widget />
+        @endif
     </body>
 </html>
