@@ -334,7 +334,7 @@ $saveCart = function ($cartData) {
 ?>
 
 <div class="xl:max-w-7xl xl:mx-auto" x-data="cartSystem({ customer: @entangle('selected_customer') })" 
-     @clear-cart.window="items = []; calculateTax();"
+     @clear-cart.window="items = []; calculateTax(); window.dispatchEvent(new CustomEvent('cart-cleared'));"
      @item-selected.window="addItem($event.detail.item)" 
      @customer-selected.window="customer = $event.detail.customer; $wire.customer_id = customer.id"
      @open-item-editor.window="openItemEditor($event.detail.index)"
@@ -766,13 +766,6 @@ $saveCart = function ($cartData) {
             {{-- Step 0: Keranjang Terisi --}}
             <div x-show="step === 0" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
                 <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col items-center justify-center text-center space-y-4">
-                    <div class="w-12 h-12 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-full flex items-center justify-center mb-1">
-                        <flux:icon.shopping-cart class="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h3 class="text-base font-bold text-zinc-800 dark:text-zinc-200">Keranjang Terisi</h3>
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Lanjutkan untuk melengkapi data pesanan.</p>
-                    </div>
                     <flux:button variant="primary" class="w-full mt-2" @click="step = 1">
                         Lanjut ke Data Pelanggan <flux:icon.arrow-right class="w-4 h-4 ml-2" />
                     </flux:button>
@@ -1270,9 +1263,9 @@ $saveCart = function ($cartData) {
                         unit_price: newItem.unit_price,
                         subtotal: newItem.unit_price,
                         image: newItem.image,
-                        note: '',
-                        custom_attributes: [],
-                        custom_attachments: [],
+                        note: newItem.note || '',
+                        custom_attributes: newItem.custom_attributes || [],
+                        custom_attachments: newItem.custom_attachments || [],
                         has_history: newItem.has_history
                     });
                     this.calculateTax();
@@ -1280,8 +1273,10 @@ $saveCart = function ($cartData) {
             },
 
             removeItem(index) {
+                const item = this.items[index];
                 this.items.splice(index, 1);
                 this.calculateTax();
+                window.dispatchEvent(new CustomEvent('item-removed-from-cart', { detail: { item_id: item.item_id } }));
             },
 
             isSubmitting: false,

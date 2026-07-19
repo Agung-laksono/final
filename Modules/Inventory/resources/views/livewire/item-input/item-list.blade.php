@@ -55,7 +55,12 @@ $sort = function ($column) {
 $getItems = function () {
     return Item::with([
         'subCategory','category', 'unit', 'type', 'warehouses',
-        'customVariants' => fn($q) => $q->with('salesOrder.customer')->latest('id')->limit(5)
+        'customVariants' => fn($q) => $q->with('salesOrder.customer')
+            ->whereNotNull('custom_attachments')
+            ->where('custom_attachments', '!=', '[]')
+            ->where('custom_attachments', '!=', '')
+            ->latest('id')
+            ->limit(5)
     ])
         ->withCount('customVariants')
         ->when($this->search, function ($query) {
