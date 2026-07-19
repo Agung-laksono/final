@@ -470,24 +470,24 @@ new class extends Component {
                         </div>
                          <div class="p-3 flex flex-col flex-1 relative">
                              {{-- Badge Tipe Barang & Varian Kustom (Straddling Kiri & Kanan Bawah Gambar) --}}
-                             <div class="absolute left-0 right-0 top-0 -translate-y-1/2 flex justify-between items-center z-10 pointer-events-none px-2.5">
+                             <div class="absolute left-0 right-0 top-0 -translate-y-1/2 flex justify-between items-center z-10 pointer-events-none pr-2.5">
                                  <div>
                                      @if ($item->type)
                                          @php
                                              $colors = [
-                                                 'bahan baku utama' => 'bg-amber-600/90',
-                                                 'bahan baku penolong' => 'bg-amber-500/90',
-                                                 'produk jadi' => 'bg-emerald-600/90',
-                                                 'barang setengah jadi' => 'bg-sky-500/90',
-                                                 'jasa' => 'bg-purple-500/90',
-                                                 'aset' => 'bg-slate-600/90',
-                                                 'custom' => 'bg-rose-500/90',
+                                                 'bahan baku utama' => 'bg-amber-600',
+                                                 'bahan baku penolong' => 'bg-amber-500',
+                                                 'produk jadi' => 'bg-emerald-600',
+                                                 'barang setengah jadi' => 'bg-sky-500',
+                                                 'jasa' => 'bg-purple-500',
+                                                 'aset' => 'bg-slate-600',
+                                                 'custom' => 'bg-rose-500',
                                              ];
                                              $typeName = strtolower($item->type->name);
-                                             $defaultColors = ['bg-indigo-500/90', 'bg-rose-500/90', 'bg-cyan-500/90', 'bg-teal-500/90', 'bg-fuchsia-500/90'];
+                                             $defaultColors = ['bg-indigo-500', 'bg-rose-500', 'bg-cyan-500', 'bg-teal-500', 'bg-fuchsia-500'];
                                              $color = $colors[$typeName] ?? $defaultColors[$item->type->id % count($defaultColors)];
                                          @endphp
-                                         <div class="w-max {{ $color }} text-white rounded-md px-1.5 py-0.5 text-[8px] font-bold tracking-wider uppercase shadow-sm border border-white/70 dark:border-zinc-800/80 backdrop-blur-sm">
+                                         <div class="w-max {{ $color }} text-white rounded-r-md px-2 py-0.5 text-[8px] sm:text-[9px] font-black tracking-wider uppercase shadow-sm">
                                              {{ $item->type->name }}
                                          </div>
                                      @endif
