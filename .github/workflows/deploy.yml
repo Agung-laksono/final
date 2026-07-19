@@ -30,6 +30,10 @@ jobs:
         node-version: '20'
 
     - name: Install NPM Dependencies & Build
+      env:
+        VITE_APP_NAME: "Laravel"
+        VITE_PUSHER_APP_KEY: "e57d7a930ecb0fd913d9"
+        VITE_PUSHER_APP_CLUSTER: "ap1"
       run: |
         npm install
         npm run build
