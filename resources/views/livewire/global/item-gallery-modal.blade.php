@@ -21,6 +21,7 @@ new class extends Component {
 
     public $perPage = 12;
     public $context = 'inventory';
+    public $lastContext = null;
 
     public function updated($property)
     {
@@ -48,16 +49,20 @@ new class extends Component {
     #[On('open-gallery')]
     public function handleOpenGallery($context = 'inventory')
     {
-        $this->context = $context;
-        
-        $type = null;
-        if ($context === 'purchase') {
-            $type = Type::where('name', 'like', '%bahan baku utama%')->first();
-        } elseif ($context === 'sales') {
-            $type = Type::where('name', 'like', '%produk jadi%')->first();
+        if ($this->lastContext !== $context) {
+            $this->context = $context;
+            $this->lastContext = $context;
+            
+            $type = null;
+            if ($context === 'purchase') {
+                $type = Type::where('name', 'like', '%bahan baku utama%')->first();
+            } elseif ($context === 'sales') {
+                $type = Type::where('name', 'like', '%produk jadi%')->first();
+            }
+            
+            $this->typeId = $type ? $type->id : '';
         }
         
-        $this->typeId = $type ? $type->id : '';
         $this->resetPage();
     }
 
