@@ -422,8 +422,9 @@ new class extends Component {
                                             <flux:select.option value="{{ $unit->id }}">{{ $unit->name }}</flux:select.option>
                                         @endforeach
                                     </flux:select>
-                                    <button type="button" x-on:click="$dispatch('open-unit-modal')" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors" title="Tambah Baru">
-                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
+                                    <button type="button" wire:click="$dispatch('open-unit-modal')" wire:loading.attr="disabled" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Tambah Baru">
+                                        <svg wire:loading.remove wire:target="$dispatch('open-unit-modal')" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
+                                        <flux:icon.spinner wire:loading wire:target="$dispatch('open-unit-modal')" class="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
@@ -438,8 +439,9 @@ new class extends Component {
                                             <flux:select.option value="{{ $type->id }}">{{ $type->name }}</flux:select.option>
                                         @endforeach
                                     </flux:select>
-                                    <button type="button" x-on:click="$dispatch('open-type-modal')" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors" title="Tambah Baru">
-                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
+                                    <button type="button" wire:click="$dispatch('open-type-modal')" wire:loading.attr="disabled" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Tambah Baru">
+                                        <svg wire:loading.remove wire:target="$dispatch('open-type-modal')" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
+                                        <flux:icon.spinner wire:loading wire:target="$dispatch('open-type-modal')" class="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
@@ -454,8 +456,9 @@ new class extends Component {
                                             <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
                                         @endforeach
                                     </flux:select>
-                                    <button type="button" x-on:click="$dispatch('open-category-modal')" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors" title="Tambah Baru">
-                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
+                                    <button type="button" wire:click="$dispatch('open-category-modal')" wire:loading.attr="disabled" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Tambah Baru">
+                                        <svg wire:loading.remove wire:target="$dispatch('open-category-modal')" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
+                                        <flux:icon.spinner wire:loading wire:target="$dispatch('open-category-modal')" class="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
@@ -470,8 +473,9 @@ new class extends Component {
                                             <flux:select.option value="{{ $sub->id }}">{{ $sub->name }}</flux:select.option>
                                         @endforeach
                                     </flux:select>
-                                    <button type="button" x-on:click="window.dispatchEvent(new CustomEvent('trigger-add-subcategory'))" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors" title="Tambah Baru">
-                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
+                                    <button type="button" wire:click="$dispatch('open-sub-category-modal')" wire:loading.attr="disabled" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Tambah Baru">
+                                        <svg wire:loading.remove wire:target="$dispatch('open-sub-category-modal')" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
+                                        <flux:icon.spinner wire:loading wire:target="$dispatch('open-sub-category-modal')" class="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
