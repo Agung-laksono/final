@@ -13,7 +13,7 @@
     $nameModelValue = $nameModel ? "'{$nameModel}'" : 'null';
 @endphp
 
-<div x-data="Object.assign({ originalSize: 0, newSize: 0, previewSize: 0, isProcessing: false, isCropping: false, originalFile: null, hasCropped: false }, window.imageCropperData('{{ $wireModel }}', {{ $nameModelValue }}))" 
+<div x-data="Object.assign({ originalSize: 0, newSize: 0, previewSize: 0, isProcessing: false, isCropping: false, originalFile: null, hasCropped: false }, (typeof window.imageCropperData === 'function' ? window.imageCropperData('{{ $wireModel }}', {{ $nameModelValue }}) : {}))" 
      x-init="$watch('isCropping', val => val ? Flux.modal('{{ $modalName }}').show() : Flux.modal('{{ $modalName }}').close())"
      @item-saved.window="resetCropper()"
      @reset-cropper.window="resetCropper()"
