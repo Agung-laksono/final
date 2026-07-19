@@ -248,7 +248,7 @@ $saveShippingInfo = function () {
         
         <div class="mt-6 flex justify-end gap-3">
             <flux:button variant="ghost" wire:click="$set('show', false)"> Batal </flux:button>
-            <flux:button variant="primary" wire:click="saveShippingInfo" icon="paper-airplane">Kirim Pesanan</flux:button>
+            <flux:button variant="primary" wire:click="saveShippingInfo" wire:target="saveShippingInfo" wire:loading.attr="disabled" icon="paper-airplane">Kirim Pesanan</flux:button>
         </div>
     </div>
     @endif

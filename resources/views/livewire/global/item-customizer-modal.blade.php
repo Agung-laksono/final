@@ -383,7 +383,7 @@ new class extends Component {
 
         <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-200">
             <flux:button variant="subtle" @click="$flux.modal('item-customizer-modal').close()">Batal</flux:button>
-            <flux:button variant="primary" icon="check" wire:click="save" class="!bg-emerald-600 hover:!bg-emerald-700 !border-emerald-700">Simpan Spesifikasi</flux:button>
+            <flux:button variant="primary" icon="check" wire:click="save" wire:target="save" wire:loading.attr="disabled" class="!bg-emerald-600 hover:!bg-emerald-700 !border-emerald-700">Simpan Spesifikasi</flux:button>
         </div>
     </div>
 </flux:modal>

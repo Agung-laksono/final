@@ -405,7 +405,7 @@ $save = function () {
                     <span class="hidden sm:inline">Riwayat</span>
                 </flux:button>
                 @can('inventory.opname.create')
-                <flux:button wire:click="save" variant="primary" icon="document-check" class="px-3" tooltip="Simpan">
+                <flux:button wire:click="save" wire:target="save" wire:loading.attr="disabled" variant="primary" icon="document-check" class="px-3" tooltip="Simpan">
                     <span class="hidden sm:inline">Simpan</span>
                 </flux:button>
                 @endcan

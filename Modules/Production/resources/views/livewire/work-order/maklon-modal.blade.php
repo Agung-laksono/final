@@ -705,7 +705,7 @@ $handleVendorSelected = function ($vendorId) {
                 <!-- STICKY FOOTER -->
                 <div class="p-4 bg-zinc-50 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 shrink-0 flex justify-end gap-3 rounded-b-xl z-20">
                     <flux:button variant="ghost" wire:click="$set('show', false)"> Batal </flux:button>
-                    <flux:button variant="primary" wire:click="save" wire:loading.attr="disabled">
+                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled">
                         <span wire:loading.remove wire:target="save">Simpan & Buat Perintah Kerja</span>
                         <span wire:loading wire:target="save">Memproses...</span>
                     </flux:button>

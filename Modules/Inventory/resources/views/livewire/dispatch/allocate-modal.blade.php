@@ -179,7 +179,7 @@ $save = function () {
 
             <div class="flex justify-end gap-2 pt-4 border-t border-zinc-200 dark:border-zinc-700 mt-6">
                 <flux:button variant="ghost" wire:click="$set('show', false)"> Batal </flux:button>
-                <flux:button icon="check" variant="primary" wire:click="save"> Simpan A </flux:button>
+                <flux:button icon="check" variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled"> Simpan Alokasi </flux:button>
             </div>
         @endif
     </div>

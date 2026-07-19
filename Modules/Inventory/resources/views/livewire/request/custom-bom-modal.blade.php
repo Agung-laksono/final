@@ -387,7 +387,7 @@ new class extends Component {
 
         <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-700">
             <flux:button variant="ghost" wire:click="$set('show', false)">Batal</flux:button>
-            <flux:button variant="primary" icon="check" wire:click="saveAndRoute">Simpan Kustomisasi & Terbitkan SPK</flux:button>
+            <flux:button variant="primary" icon="check" wire:click="saveAndRoute" wire:target="saveAndRoute" wire:loading.attr="disabled">Simpan Kustomisasi & Terbitkan SPK</flux:button>
         </div>
     </div>
     @endif

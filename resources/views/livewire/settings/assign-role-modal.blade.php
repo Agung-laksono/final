@@ -109,7 +109,7 @@ $save = function () {
             <flux:modal.close>
                 <flux:button variant="ghost"> Batal </flux:button>
             </flux:modal.close>
-            <flux:button icon="check" wire:click="save" variant="primary"> Simpan </flux:button>
+            <flux:button icon="check" wire:click="save" wire:target="save" wire:loading.attr="disabled" variant="primary"> Simpan Role </flux:button>
         </div>
     </div>
 </flux:modal>

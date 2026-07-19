@@ -520,7 +520,7 @@ new class extends Component {
                             <flux:error name="proof" />
                         </div>
                     </div>
-                    <flux:button wire:click="processPayment" icon="arrow-up-tray" class="w-full mt-2 !bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600">Proses & Catat Jurnal</flux:button>
+                    <flux:button wire:click="processPayment" wire:target="processPayment" wire:loading.attr="disabled" icon="arrow-up-tray" class="w-full mt-2 !bg-emerald-600 hover:!bg-emerald-700 !text-white !border-emerald-600">Proses & Catat Jurnal</flux:button>
                 </div>
             @endif
 

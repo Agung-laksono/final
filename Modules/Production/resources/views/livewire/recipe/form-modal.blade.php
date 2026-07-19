@@ -279,7 +279,7 @@ $handleItemSelected = function ($itemData) {
 
         <div class="flex justify-end gap-2 pt-4">
             <flux:button variant="ghost" wire:click="$set('show', false)"> Batal </flux:button>
-            <flux:button icon="check" variant="primary" wire:click="save"> Simpan R </flux:button>
+            <flux:button icon="check" variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled"> Simpan Resep </flux:button>
         </div>
     </div>
 </flux:modal>

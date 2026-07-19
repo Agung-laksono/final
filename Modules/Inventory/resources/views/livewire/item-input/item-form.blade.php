@@ -39,7 +39,7 @@ $openModal = function ($id = null) {
     <div class="flex justify-between items-center mb-6">
         <flux:heading size="lg">Pengelolaan Barang</flux:heading>
         @can('inventory.item.create')
-            <flux:button wire:click="openModal" variant="primary" icon="plus">Tambah Barang Baru</flux:button>
+            <flux:button wire:click="openModal" wire:target="openModal" wire:loading.attr="disabled" variant="primary" icon="plus">Tambah Barang Baru</flux:button>
         @endcan
     </div>
 

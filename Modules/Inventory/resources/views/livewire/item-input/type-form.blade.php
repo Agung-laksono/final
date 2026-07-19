@@ -103,7 +103,7 @@ $delete = function (Type $type) {
                 <flux:modal.close>
                     <flux:button variant="ghost"> Batal </flux:button>
                 </flux:modal.close>
-                <flux:button type="submit" variant="primary">{{ $type_id ? 'Simpan Perubahan' : 'Tambahkan' }}</flux:button>
+                <flux:button type="submit" variant="primary" wire:target="save" wire:loading.attr="disabled">{{ $type_id ? 'Simpan Perubahan' : 'Tambahkan' }}</flux:button>
             </div>
         </form>
     </flux:modal>

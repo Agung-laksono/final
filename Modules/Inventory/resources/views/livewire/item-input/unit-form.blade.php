@@ -131,7 +131,7 @@ $delete = function (Unit $unit) {
                 <flux:modal.close>
                     <flux:button variant="ghost"> Batal </flux:button>
                 </flux:modal.close>
-                <flux:button type="submit" variant="primary">{{ $unit_id ? 'Simpan Perubahan' : 'Tambahkan' }}</flux:button>
+                <flux:button type="submit" variant="primary" wire:target="save" wire:loading.attr="disabled">{{ $unit_id ? 'Simpan Perubahan' : 'Tambahkan' }}</flux:button>
             </div>
         </form>
     </flux:modal>

@@ -545,7 +545,7 @@ $save = function () {
 
     <div class="flex justify-end gap-2 pt-1">
         <flux:button size="sm" wire:click="$set('show', false)" variant="ghost">Batal</flux:button>
-        <flux:button size="sm" icon="check" wire:click="save" variant="primary" :disabled="!$canSave">Proses</flux:button>
+        <flux:button size="sm" icon="check" wire:click="save" wire:target="save" wire:loading.attr="disabled" variant="primary" :disabled="!$canSave">Proses</flux:button>
     </div>
     @endif
 </flux:modal>

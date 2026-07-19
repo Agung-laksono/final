@@ -90,7 +90,7 @@ $delete = function (Category $category) {
                 <flux:modal.close>
                     <flux:button variant="ghost"> Batal </flux:button>
                 </flux:modal.close>
-                <flux:button type="submit" variant="primary">{{ $category_id ? 'Simpan Perubahan' : 'Tambahkan' }}</flux:button>
+                <flux:button type="submit" variant="primary" wire:target="save" wire:loading.attr="disabled">{{ $category_id ? 'Simpan Perubahan' : 'Tambahkan' }}</flux:button>
             </div>
         </form>
     </flux:modal>

@@ -325,7 +325,7 @@ $rejectPayment = function ($paymentId) {
                     </div>
                     
                     <div class="pt-2 sm:pt-4">
-                        <flux:button variant="primary" wire:click="savePayment" icon="arrow-up-tray" class="w-full">Proses & Catat Jurnal</flux:button>
+                        <flux:button variant="primary" wire:click="savePayment" wire:target="savePayment" wire:loading.attr="disabled" icon="arrow-up-tray" class="w-full">Proses & Catat Jurnal</flux:button>
                     </div>
                     @else
                         <div class="flex flex-col items-center justify-center h-full text-center p-6 border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl">

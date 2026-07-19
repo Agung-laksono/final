@@ -335,7 +335,7 @@ new class extends Component {
                 
                 <div class="mt-6 flex justify-end gap-2">
                     <flux:button variant="ghost" @click="$wire.showModal = false">Batal</flux:button>
-                    <flux:button type="submit" variant="primary">Simpan</flux:button>
+                    <flux:button type="submit" variant="primary" wire:target="saveBrand" wire:loading.attr="disabled">Simpan</flux:button>
                 </div>
             </form>
         </flux:modal>

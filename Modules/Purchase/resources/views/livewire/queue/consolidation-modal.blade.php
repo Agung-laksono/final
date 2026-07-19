@@ -80,7 +80,7 @@ $proceedToPO = function () {
             </div>
             <div class="flex gap-3">
                 <flux:button variant="ghost" wire:click="$set('show', false)"> Batal </flux:button>
-                <flux:button variant="primary" wire:click="proceedToPO" icon="arrow-right">Lanjut ke PO</flux:button>
+                <flux:button variant="primary" wire:click="proceedToPO" wire:target="proceedToPO" wire:loading.attr="disabled" icon="arrow-right">Lanjut ke PO</flux:button>
             </div>
         </div>
     </flux:modal>
