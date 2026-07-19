@@ -1,0 +1,393 @@
+import sys
+
+# 1. Read the exact target content
+with open('temp_right_column.txt', 'r', encoding='utf-8') as f:
+    target = f.read()
+
+# 2. Prepare the new content
+new_content = r'''        {{-- KOLOM KANAN: Ringkasan Biaya & Tombol (Lebar 4 kolom dari 12) --}}
+        <div x-show="items.length > 0" x-cloak class="lg:col-span-4 xl:col-span-4 space-y-6 sticky top-6 pb-20">
+
+            {{-- Step 0: Keranjang Terisi --}}
+            <div x-show="step === 0" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+                <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col items-center justify-center text-center space-y-4">
+                    <div class="w-12 h-12 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 rounded-full flex items-center justify-center mb-1">
+                        <flux:icon.shopping-cart class="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-zinc-800 dark:text-zinc-200">Keranjang Terisi</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Lanjutkan untuk melengkapi data pesanan.</p>
+                    </div>
+                    <flux:button variant="primary" class="w-full mt-2" @click="step = 1">
+                        Lanjut ke Data Pelanggan <flux:icon.arrow-right class="w-4 h-4 ml-2" />
+                    </flux:button>
+                </div>
+            </div>
+
+            {{-- Informasi Pelanggan & Catatan (Step 1) --}}
+            <div x-show="step >= 1" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-800/30 shadow-sm space-y-6">
+
+                {{-- Pilih Customer --}}
+                <div>
+                    <flux:heading size="lg" class="mb-3">Customer / Affiliate</flux:heading>
+                    
+                    <template x-if="customer">
+                        {{-- Customer Card Terpilih --}}
+                        <div class="group flex items-center gap-4 p-3 rounded-xl border border-cyan-200 bg-cyan-50/50 dark:border-cyan-900/50 dark:bg-cyan-900/20 transition-all">
+                            <template x-if="customer.image">
+                                <div class="relative flex-none rounded-lg w-12 h-12 shrink-0 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 overflow-hidden">
+                                    <img x-bind:src="'/storage/' + customer.image" class="w-full h-full object-cover" />
+                                </div>
+                            </template>
+                            <template x-if="!customer.image">
+                                <div class="relative flex-none flex items-center justify-center font-semibold rounded-lg bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 w-12 h-12 text-lg shrink-0 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+                                    <span class="select-none" x-text="customer.name ? customer.name.substring(0, 2).toUpperCase() : 'CS'"></span>
+                                </div>
+                            </template>
+                            
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-base leading-none truncate" x-text="customer.name"></h3>
+                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 leading-none" x-text="customer.type || 'Umum'"></span>
+                                </div>
+                                
+                                <div class="mt-2 flex flex-col gap-y-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                                    <div class="flex items-center gap-1.5">
+                                        <flux:icon.phone class="w-3.5 h-3.5 shrink-0 text-zinc-400" />
+                                        <span class="truncate" x-text="customer.phone || 'Belum ada nomor telepon'"></span>
+                                    </div>
+                                    <template x-if="customer.province || customer.city">
+                                        <div class="flex items-center gap-1.5">
+                                            <flux:icon.map-pin class="w-3.5 h-3.5 shrink-0 text-zinc-400" />
+                                            <span class="truncate text-[4px] lg:text-[6px] xl:text-[10px]" x-text="[customer.district, customer.city, customer.province].filter(Boolean).join(', ')"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                            
+                            {{-- Tombol Silang Batal Pilih --}}
+                            <div class="shrink-0">
+                                <flux:button type="button" variant="subtle" size="sm" icon="x-mark" class="text-zinc-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors rounded-full w-8 h-8 flex items-center justify-center p-0" @click="customer = null; .customer_id = ''; .selected_customer = null" tooltip="Ganti Customer"></flux:button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template x-if="!customer">
+                        {{-- Customer Search & Gallery Button --}}
+                        <div class="flex items-end gap-2 relative">
+                            <div class="flex-1 relative" x-data="{ focused: false }" @click.outside="focused = false">
+                                <flux:input 
+                                    wire:model.live.debounce.300ms="customer_search_query" 
+                                    @focus="focused = true; .set('show_customer_suggestions', true)"
+                                    icon="building-storefront" 
+                                    placeholder="Cari customer..." />
+                                
+                                {{-- Dropdown Customer Suggestion --}}
+                                <div x-show="focused && .show_customer_suggestions && .customer_search_query.length >= 2" 
+                                     x-cloak
+                                     class="absolute z-20 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl overflow-hidden">
+                                    @if(count(->customerSearchResults) > 0)
+                                        <ul class="divide-y divide-zinc-100 dark:divide-zinc-700 max-h-64 overflow-y-auto">
+                                            @foreach(->customerSearchResults as )
+                                                <li @click="customer = {{ json_encode(->toArray()) }}; .customer_id = customer.id; .customer_search_query = ''; .show_customer_suggestions = false;"
+                                                    class="px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-3 transition-colors">
+                                                    <flux:avatar src="{{ ->image ? Storage::url(->image) : '' }}" fallback="{{ substr(->name, 0, 2) }}" size="sm" />
+                                                    <div>
+                                                        <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ ->name }}</div>
+                                                        <div class="text-[10px] text-zinc-500">{{ ->type }}</div>
+                                                    </div>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @else
+                                        <div class="px-4 py-3 text-sm text-zinc-500 text-center">Customer tidak ditemukan.</div>
+                                    @endif
+                                </div>
+                            </div>
+                            
+                            {{-- Tombol Galeri Customer --}}
+                            <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { .modal('customer-gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
+                                <div class="flex items-center gap-2">
+                                    <flux:icon.users class="w-4 h-4" x-show="!loading" />
+                                    <svg x-show="loading" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    <span class="hidden xl:block">Galeri</span>
+                                </div>
+                            </flux:button>
+                        </div>
+                    </template>
+                </div>
+
+                <flux:separator />
+
+                {{-- Catatan Tambahan --}}
+                <div x-data="{
+                    get isRichText() {
+                        const val = .notes || '';
+                        return val.includes('<p>') || val.includes('<br>') || val.includes('<strong>') || val.includes('<em>') || val.includes('<img') || val.includes('<table') || val.includes('<ul') || val.includes('<ol');
+                    }
+                }">
+                    <div class="flex justify-between items-center mb-3">
+                        <flux:heading size="lg">Catatan Khusus</flux:heading>
+                        <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" @click="('open-global-editor')" class="!px-2 h-7" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
+                    </div>
+                    
+                    <!-- Jika terdeteksi HTML -->
+                    <div x-show="isRichText" x-cloak class="relative group" @click="('open-global-editor')">
+                        <div class="w-full min-h-[5rem] max-h-[12rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 bg-white dark:bg-zinc-900/50 text-sm prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 prose-img:rounded-xl cursor-pointer" x-html=".notes">
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Note -->
+                    <div x-show="!isRichText">
+                        <flux:textarea wire:model="notes" rows="3" placeholder="Tulis catatan atau instruksi khusus untuk pesanan ini..." />
+                    </div>
+                </div>
+
+                {{-- Tombol Lanjut (Hanya muncul jika di Step 1) --}}
+                <div x-show="step === 1" x-transition>
+                    <flux:separator class="my-4" />
+                    <flux:button variant="primary" class="w-full" @click="step = 2">
+                        Lanjut ke Tanggal Order <flux:icon.arrow-right class="w-4 h-4 ml-2" />
+                    </flux:button>
+                </div>
+            </div>
+
+            {{-- Informasi Dokumen (Step 2) --}}
+            <div x-show="step >= 2" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-800/30 shadow-sm space-y-6">
+                
+                {{-- Tanggal Order --}}
+                <div>
+                    <flux:heading size="lg" class="mb-3">Tanggal Order</flux:heading>
+                    <flux:input type="date" wire:model="order_date" icon="calendar" class="[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full" required />
+                </div>
+                
+                <flux:separator />
+                
+                {{-- Tenggat Waktu Pengerjaan --}}
+                <div x-data="{
+                    days: '',
+                    isCalculating: false,
+                    init() {
+                        this.('.deadline', (val) => {
+                            if(!this.isCalculating) this.calculateDays();
+                        });
+                        this.('.order_date', (val) => {
+                            if(!this.isCalculating) this.calculateDays();
+                        });
+                        setTimeout(() => this.calculateDays(), 100);
+                    },
+                    calculateDate() {
+                        this.isCalculating = true;
+                        if(this.days === '' || this.days < 0) {
+                            .deadline = null;
+                        } else {
+                            let baseDate = new Date(.order_date || Date.now());
+                            baseDate.setDate(baseDate.getDate() + parseInt(this.days));
+                            .deadline = baseDate.toISOString().split('T')[0];
+                        }
+                        setTimeout(() => { this.isCalculating = false; }, 50);
+                    },
+                    calculateDays() {
+                        this.isCalculating = true;
+                        if(!.deadline || !.order_date) {
+                            this.days = '';
+                        } else {
+                            let start = new Date(.order_date);
+                            let end = new Date(.deadline);
+                            start.setHours(0,0,0,0);
+                            end.setHours(0,0,0,0);
+                            let diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+                            
+                            if (diffDays < 0) {
+                                .deadline = .order_date;
+                                this.days = 0;
+                            } else {
+                                this.days = diffDays;
+                            }
+                        }
+                        setTimeout(() => { this.isCalculating = false; }, 50);
+                    }
+                }">
+                    <flux:heading size="lg" class="mb-3">Tenggat Waktu Pengerjaan<span class="text-red-500">*</span></flux:heading>
+                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-white dark:bg-zinc-900 shadow-sm">
+                        <div class="flex items-center gap-4">
+                            <flux:input type="number" x-model="days" x-on:input="calculateDate" class="w-24 font-bold text-center" min="0" placeholder="0" />
+                            <span class="text-sm text-zinc-500 leading-tight">Hari dari<br>sekarang</span>
+                        </div>
+                        
+                        <div class="flex items-center my-4">
+                            <div class="flex-1 border-t border-zinc-200 dark:border-zinc-700"></div>
+                            <span class="px-4 text-[11px] font-bold text-slate-400 tracking-widest uppercase">ATAU</span>
+                            <div class="flex-1 border-t border-zinc-200 dark:border-zinc-700"></div>
+                        </div>
+                        
+                        <flux:input type="date" wire:model="deadline" x-bind:min=".order_date" icon="calendar" class="[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full" />
+                    </div>
+                </div>
+
+                {{-- Tombol Lanjut (Hanya muncul jika di Step 2) --}}
+                <div x-show="step === 2" x-transition>
+                    <flux:separator class="my-4" />
+                    <flux:button variant="primary" class="w-full" @click="step = 3">
+                        Lanjut ke Ringkasan Biaya <flux:icon.arrow-right class="w-4 h-4 ml-2" />
+                    </flux:button>
+                </div>
+            </div>
+
+            {{-- Ringkasan Biaya (Step 3) --}}
+            <div x-show="step >= 3" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-800/30 shadow-sm">
+                <flux:heading size="lg" class="mb-4">Ringkasan Biaya</flux:heading>
+                
+                <div class="space-y-4">
+                    {{-- Subtotal Items --}}
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-zinc-500">Subtotal Barang</span>
+                        <span class="font-medium text-zinc-900 dark:text-zinc-100" x-text="'Rp ' + formatRupiah(subtotal_amount)"></span>
+                    </div>
+
+                    <flux:separator />
+
+                    {{-- Diskon --}}
+                    <flux:field>
+                        <flux:label>Diskon Global</flux:label>
+                        <x-rupiah-input x-model="discount" @input="calculateTax()" />
+                    </flux:field>
+                    
+                    {{-- Ongkir --}}
+                    <flux:field>
+                        <flux:label>Ongkos Kirim</flux:label>
+                        <x-rupiah-input x-model="ongkir" @input="calculateTax()" />
+                    </flux:field>
+
+                    {{-- Pajak PPN (Cached Options) --}}
+                    <div x-data="{
+                            options: JSON.parse(localStorage.getItem('purchase_tax_options')) || [0, 4, 11, 12],
+                            showAdd: false,
+                            deleteMode: false,
+                            newTax: '',
+                            addOption() {
+                                let val = parseFloat(this.newTax);
+                                if(!isNaN(val) && !this.options.includes(val) && val >= 0) {
+                                    this.options.push(val);
+                                    this.options.sort((a,b) => a - b);
+                                    localStorage.setItem('purchase_tax_options', JSON.stringify(this.options));
+                                }
+                                this.newTax = '';
+                                this.showAdd = false;
+                            },
+                            removeOption(val) {
+                                this.options = this.options.filter(o => o !== val);
+                                if(this.options.length === 0) this.options = [0]; // Default fallback
+                                localStorage.setItem('purchase_tax_options', JSON.stringify(this.options));
+                                if (.tax_percent == val) {
+                                    .setPajakPersen(0);
+                                }
+                                if(!this.options.some(o => o !== 0)) {
+                                    this.deleteMode = false;
+                                }
+                            }
+                        }" 
+                        class="flex items-center justify-between text-sm">
+                        
+                        <span class="text-zinc-500 whitespace-nowrap text-xs">PPN</span>
+                        
+                        <div class="flex flex-wrap items-center justify-end gap-1.5 ml-4">
+                            <template x-for="opt in options" :key="opt">
+                                <div class="relative flex items-center">
+                                    <button type="button" 
+                                        @click="deleteMode ? removeOption(opt) : .setPajakPersen(opt)"
+                                        :class="[.tax_percent == opt ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700', deleteMode && opt !== 0 ? 'animate-pulse ring-2 ring-red-400' : '']"
+                                        class="px-2 py-1 text-xs rounded-md font-medium transition-all cursor-pointer"
+                                        x-text="opt === 0 ? '0%' : opt + '%'">
+                                    </button>
+                                    
+                                    {{-- Tombol Silang Hapus (Hover Desktop atau Mode Hapus Mobile) --}}
+                                    <button type="button" x-show="opt !== 0" @click.stop="removeOption(opt)" 
+                                        :class="deleteMode ? 'flex' : 'hidden group-hover:flex'"
+                                        class="absolute -top-1.5 -right-1.5 items-center justify-center w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[8px] hover:bg-red-600 shadow-sm z-10">
+                                        ?
+                                    </button>
+                                </div>
+                            </template>
+                            
+                            {{-- Tombol Tambah --}}
+                            <button type="button" x-show="!showAdd" @click="showAdd = true; deleteMode = false; (() => .newTaxInput.focus())" class="px-2 py-1 text-xs rounded-md font-medium border border-dashed border-zinc-300 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 dark:border-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300 transition-colors cursor-pointer">
+                                +
+                            </button>
+                            
+                            {{-- Tombol Mode Hapus (Untuk Layar Sentuh) --}}
+                            <button type="button" x-show="!showAdd && options.some(o => o !== 0)" @click="deleteMode = !deleteMode" 
+                                :class="deleteMode ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:border-red-800' : 'text-zinc-400 border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800'"
+                                class="p-1 rounded-md border transition-colors cursor-pointer" title="Mode Hapus">
+                                <flux:icon.trash class="w-3.5 h-3.5" />
+                            </button>
+                            
+                            {{-- Form Tambah Kecil --}}
+                            <div x-show="showAdd" x-cloak class="flex items-center gap-1 bg-zinc-50 dark:bg-zinc-800 p-0.5 rounded border border-zinc-200 dark:border-zinc-700">
+                                <input type="number" x-ref="newTaxInput" x-model="newTax" @keydown.enter.prevent="addOption" @keydown.escape="showAdd = false" class="w-12 px-1 py-0.5 text-xs rounded bg-white border border-zinc-200 dark:border-zinc-600 dark:bg-zinc-900 text-center focus:outline-none focus:border-zinc-400" placeholder="%" />
+                                <button type="button" @click="addOption" class="p-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-500" title="Simpan"><flux:icon.check class="w-3 h-3" /></button>
+                                <button type="button" @click="showAdd = false" class="p-1 text-zinc-400 hover:text-red-500" title="Batal"><flux:icon.x-mark class="w-3 h-3" /></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <flux:separator />
+
+                    {{-- Grand Total --}}
+                    <div class="flex justify-between items-end">
+                        <span class="text-base font-medium text-zinc-700 dark:text-zinc-300">Grand Total</span>
+                        <span class="text-2xl font-bold text-emerald-600 dark:text-emerald-400" x-text="'Rp ' + formatRupiah(grand_total)"></span>
+                    </div>
+                    
+                </div>
+            </div>
+            
+            {{-- Tombol Aksi --}}
+            <div x-show="step >= 3" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="sm:col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
+                <div class="flex gap-2 w-full">
+                    <flux:button variant="ghost" class="w-1/3" href="{{ route('sales.orders.index') }}" wire:loading.attr="disabled" wire:navigate> Batal </flux:button>
+                    <flux:button variant="primary" class="w-2/3" @click="submitCart()" x-bind:disabled="isSubmitting">
+                        <span x-show="!isSubmitting" class="flex items-center gap-2"><flux:icon.check class="w-4 h-4" /> Simpan Sales Order</span>
+                        <span x-show="isSubmitting" class="flex items-center gap-2">
+                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Menyimpan...
+                        </span>
+                    </flux:button>
+                </div>
+            </div>
+        </div>
+'''
+
+# 3. Read full file
+with open('Modules/Sales/resources/views/livewire/sales-order/create.blade.php', 'r', encoding='utf-8') as f:
+    full_content = f.read()
+
+# 4. Replace
+if target in full_content:
+    print("Found exact block, replacing...")
+    full_content = full_content.replace(target, new_content)
+else:
+    print("WARNING: Exact block not found. Checking line endings...")
+    target = target.replace('\r\n', '\n')
+    full_content_fixed = full_content.replace('\r\n', '\n')
+    if target in full_content_fixed:
+        print("Found with normalized line endings. Replacing...")
+        full_content = full_content_fixed.replace(target, new_content)
+    else:
+        print("ERROR: Not found even with normalized line endings.")
+        sys.exit(1)
+
+# Add step: 0 to Alpine state
+target2 = "        Alpine.data('cartSystem', (config) => ({\n            customer: config.customer,"
+new_content2 = "        Alpine.data('cartSystem', (config) => ({\n            step: 0,\n            customer: config.customer,"
+if target2 in full_content:
+    full_content = full_content.replace(target2, new_content2)
+else:
+    target2_fixed = target2.replace('\n', '\r\n')
+    if target2_fixed in full_content:
+        new_content2_fixed = new_content2.replace('\n', '\r\n')
+        full_content = full_content.replace(target2_fixed, new_content2_fixed)
+
+with open('Modules/Sales/resources/views/livewire/sales-order/create.blade.php', 'w', encoding='utf-8') as f:
+    f.write(full_content)
+print("SUCCESS!")
