@@ -267,7 +267,7 @@ new class extends Component {
                         </flux:dropdown>
 
                         @can('inventory.item.create')
-                        <div x-data="{ loading: false }" x-on:item-form-ready.window="loading = false">
+                        <div x-data="{ loading: false }" x-on:item-modal-loaded.window="loading = false">
                             <flux:button x-on:click="loading = true; $dispatch('open-item-modal')" x-bind:disabled="loading" variant="primary" class="shrink-0 px-2 md:px-4">
                                 <span x-show="!loading" class="flex items-center">
                                     <flux:icon.plus class="w-4 h-4" />
