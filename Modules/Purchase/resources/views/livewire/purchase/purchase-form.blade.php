@@ -764,84 +764,26 @@ $saveCart = function ($cartData) {
         </div>
 
         {{-- KOLOM KANAN: Ringkasan Biaya & Tombol (Lebar 4 kolom dari 12) --}}
-        <div x-show="items.length > 0" x-cloak class="lg:col-span-4 xl:col-span-4 sm:grid sm:grid-cols-2 sm:gap-4 md:grid-cols-1 md:gap-0 space-y-6 sticky top-6">
+        <div x-show="items.length > 0" x-cloak class="lg:col-span-4 xl:col-span-4 space-y-6 sticky top-6 pb-20">
 
-            {{-- Informasi Dokumen --}}
-            <div class="bg-emerald-50/50 dark:bg-emerald-900/10 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm space-y-6">
-                
-                {{-- Tanggal Order --}}
-                <div>
-                    <flux:heading size="lg" class="mb-3">Tanggal Order</flux:heading>
-                    <flux:input type="date" wire:model="order_date" icon="calendar" class="[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full" required />
-                </div>
-                
-                <flux:separator />
-                
-                {{-- Tenggat Waktu --}}
-                <div x-data="{
-                    days: '',
-                    isCalculating: false,
-                    init() {
-                        this.$watch('$wire.expected_delivery_date', (val) => {
-                            if(!this.isCalculating) this.calculateDays();
-                        });
-                        this.$watch('$wire.order_date', (val) => {
-                            if(!this.isCalculating) this.calculateDays();
-                        });
-                        setTimeout(() => this.calculateDays(), 100);
-                    },
-                    calculateDate() {
-                        this.isCalculating = true;
-                        if(this.days === '' || this.days < 0) {
-                            $wire.expected_delivery_date = null;
-                        } else {
-                            let baseDate = new Date($wire.order_date || Date.now());
-                            baseDate.setDate(baseDate.getDate() + parseInt(this.days));
-                            $wire.expected_delivery_date = baseDate.toISOString().split('T')[0];
-                        }
-                        setTimeout(() => { this.isCalculating = false; }, 50);
-                    },
-                    calculateDays() {
-                        this.isCalculating = true;
-                        if(!$wire.expected_delivery_date || !$wire.order_date) {
-                            this.days = '';
-                        } else {
-                            let start = new Date($wire.order_date);
-                            let end = new Date($wire.expected_delivery_date);
-                            start.setHours(0,0,0,0);
-                            end.setHours(0,0,0,0);
-                            let diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
-                            
-                            if (diffDays < 0) {
-                                $wire.expected_delivery_date = $wire.order_date;
-                                this.days = 0;
-                            } else {
-                                this.days = diffDays;
-                            }
-                        }
-                        setTimeout(() => { this.isCalculating = false; }, 50);
-                    }
-                }">
-                    <flux:heading size="lg" class="mb-3">Tenggat Waktu Pengerjaan<span class="text-red-500">*</span></flux:heading>
-                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-white dark:bg-zinc-900 shadow-sm">
-                        <div class="flex items-center gap-4">
-                            <flux:input type="number" x-model="days" x-on:input="calculateDate" class="w-24 font-bold text-center" min="0" placeholder="0" />
-                            <span class="text-sm text-zinc-500 leading-tight">Hari dari<br>sekarang</span>
-                        </div>
-                        
-                        <div class="flex items-center my-4">
-                            <div class="flex-1 border-t border-zinc-200 dark:border-zinc-700"></div>
-                            <span class="px-4 text-[11px] font-bold text-slate-400 tracking-widest uppercase">ATAU</span>
-                            <div class="flex-1 border-t border-zinc-200 dark:border-zinc-700"></div>
-                        </div>
-                        
-                        <flux:input type="date" wire:model="expected_delivery_date" x-bind:min="$wire.order_date" icon="calendar" class="[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full" />
+            {{-- Step 0: Keranjang Terisi --}}
+            <div x-show="step === 0" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+                <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col items-center justify-center text-center space-y-4">
+                    <div class="w-12 h-12 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full flex items-center justify-center mb-1">
+                        <flux:icon.shopping-cart class="w-6 h-6" />
                     </div>
+                    <div>
+                        <h3 class="text-base font-bold text-zinc-800 dark:text-zinc-200">Keranjang Terisi</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Lanjutkan untuk melengkapi data pesanan.</p>
+                    </div>
+                    <flux:button variant="primary" class="w-full mt-2 !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600" @click="step = 1">
+                        Lanjut ke Data Vendor <flux:icon.arrow-right class="w-4 h-4 ml-2" />
+                    </flux:button>
                 </div>
             </div>
 
-            {{-- Informasi Vendor & Catatan --}}
-            <div class="bg-emerald-50/50 dark:bg-emerald-900/10 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm space-y-6">
+            {{-- Informasi Vendor & Catatan (Step 1) --}}
+            <div x-show="step >= 1" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm space-y-6">
 
                 {{-- Pilih Vendor --}}
                 <div>
@@ -922,7 +864,7 @@ $saveCart = function ($cartData) {
                             </div>
                             
                             {{-- Tombol Galeri Vendor --}}
-                            <flux:button variant="primary" class="shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('vendor-gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
+                            <flux:button variant="primary" class="shrink-0 !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('vendor-gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
                                 <div class="flex items-center gap-2">
                                     <flux:icon.users class="w-4 h-4" x-show="!loading" />
                                     <svg x-show="loading" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -930,7 +872,6 @@ $saveCart = function ($cartData) {
                                 </div>
                             </flux:button>
                         </div>
-                        @error('vendor_id') <span class="text-red-500 text-sm mt-1 block">{{ $message }}</span> @enderror
                     </template>
                 </div>
 
@@ -959,10 +900,100 @@ $saveCart = function ($cartData) {
                         <flux:textarea wire:model="notes" placeholder="Tulis catatan atau instruksi khusus untuk vendor..." rows="3" />
                     </div>
                 </div>
+
+                {{-- Tombol Lanjut (Hanya muncul jika di Step 1) --}}
+                <div x-show="step === 1" x-transition>
+                    <flux:separator class="my-4" />
+                    <flux:button variant="primary" class="w-full !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600" @click="step = 2">
+                        Lanjut ke Tanggal Order <flux:icon.arrow-right class="w-4 h-4 ml-2" />
+                    </flux:button>
+                </div>
             </div>
 
-            {{-- Ringkasan Biaya --}}
-            <div class="bg-emerald-50/50 dark:bg-emerald-900/10 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
+            {{-- Informasi Dokumen (Step 2) --}}
+            <div x-show="step >= 2" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm space-y-6">
+                
+                {{-- Tanggal Order --}}
+                <div>
+                    <flux:heading size="lg" class="mb-3">Tanggal Order</flux:heading>
+                    <flux:input type="date" wire:model="order_date" icon="calendar" class="[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full" required />
+                </div>
+                
+                <flux:separator />
+                
+                {{-- Tenggat Waktu --}}
+                <div x-data="{
+                    days: '',
+                    isCalculating: false,
+                    init() {
+                        this.$watch('$wire.expected_delivery_date', (val) => {
+                            if(!this.isCalculating) this.calculateDays();
+                        });
+                        this.$watch('$wire.order_date', (val) => {
+                            if(!this.isCalculating) this.calculateDays();
+                        });
+                        setTimeout(() => this.calculateDays(), 100);
+                    },
+                    calculateDate() {
+                        this.isCalculating = true;
+                        if(this.days === '' || this.days < 0) {
+                            $wire.expected_delivery_date = null;
+                        } else {
+                            let baseDate = new Date($wire.order_date || Date.now());
+                            baseDate.setDate(baseDate.getDate() + parseInt(this.days));
+                            $wire.expected_delivery_date = baseDate.toISOString().split('T')[0];
+                        }
+                        setTimeout(() => { this.isCalculating = false; }, 50);
+                    },
+                    calculateDays() {
+                        this.isCalculating = true;
+                        if(!$wire.expected_delivery_date || !$wire.order_date) {
+                            this.days = '';
+                        } else {
+                            let start = new Date($wire.order_date);
+                            let end = new Date($wire.expected_delivery_date);
+                            start.setHours(0,0,0,0);
+                            end.setHours(0,0,0,0);
+                            let diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
+                            
+                            if (diffDays < 0) {
+                                $wire.expected_delivery_date = $wire.order_date;
+                                this.days = 0;
+                            } else {
+                                this.days = diffDays;
+                            }
+                        }
+                        setTimeout(() => { this.isCalculating = false; }, 50);
+                    }
+                }">
+                    <flux:heading size="lg" class="mb-3">Tenggat Waktu Pengerjaan<span class="text-red-500">*</span></flux:heading>
+                    <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-white dark:bg-zinc-900 shadow-sm">
+                        <div class="flex items-center gap-4">
+                            <flux:input type="number" x-model="days" x-on:input="calculateDate" class="w-24 font-bold text-center" min="0" placeholder="0" />
+                            <span class="text-sm text-zinc-500 leading-tight">Hari dari<br>sekarang</span>
+                        </div>
+                        
+                        <div class="flex items-center my-4">
+                            <div class="flex-1 border-t border-zinc-200 dark:border-zinc-700"></div>
+                            <span class="px-4 text-[11px] font-bold text-slate-400 tracking-widest uppercase">ATAU</span>
+                            <div class="flex-1 border-t border-zinc-200 dark:border-zinc-700"></div>
+                        </div>
+                        
+                        <flux:input type="date" wire:model="expected_delivery_date" x-bind:min="$wire.order_date" icon="calendar" class="[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full" />
+                    </div>
+                </div>
+
+                {{-- Tombol Lanjut (Hanya muncul jika di Step 2) --}}
+                <div x-show="step === 2" x-transition>
+                    <flux:separator class="my-4" />
+                    <flux:button variant="primary" class="w-full !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600" @click="step = 3">
+                        Lanjut ke Ringkasan Biaya <flux:icon.arrow-right class="w-4 h-4 ml-2" />
+                    </flux:button>
+                </div>
+            </div>
+
+            {{-- Ringkasan Biaya (Step 3) --}}
+            <div x-show="step >= 3" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="bg-emerald-50/50 dark:bg-emerald-900/10 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
                 <flux:heading size="lg" class="mb-4">Ringkasan Biaya</flux:heading>
                 
                 <div class="space-y-4">
@@ -1070,10 +1101,10 @@ $saveCart = function ($cartData) {
             </div>
             
             {{-- Tombol Aksi --}}
-            <div class="sm:col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
+            <div x-show="step >= 3" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="sm:col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
                 <div class="flex gap-2 w-full">
                     <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:navigate wire:loading.attr="disabled"> Batal </flux:button>
-                    <flux:button variant="primary" class="w-2/3" @click="submitCart()" x-bind:disabled="isSubmitting">
+                    <flux:button variant="primary" class="w-2/3 !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600" @click="submitCart()" x-bind:disabled="isSubmitting">
                         <span x-show="!isSubmitting" class="flex items-center gap-2"><flux:icon.check class="w-4 h-4" /> Simpan Purchase Order</span>
                         <span x-show="isSubmitting" class="flex items-center gap-2">
                             <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -1112,6 +1143,7 @@ $saveCart = function ($cartData) {
     <script>
     const initPurchaseCart = () => {
         Alpine.data('cartSystem', (config) => ({
+            step: 0,
             vendor: config.vendor,
             items: @json($items),
             ongkir: {{ (float) ($ongkir ?? 0) }},
