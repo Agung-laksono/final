@@ -13,7 +13,23 @@
     $nameModelValue = $nameModel ? "'{$nameModel}'" : 'null';
 @endphp
 
-<div x-data="Object.assign({ originalSize: 0, newSize: 0, previewSize: 0, isProcessing: false, isCropping: false, originalFile: null, hasCropped: false }, (typeof window.imageCropperData === 'function' ? window.imageCropperData('{{ $wireModel }}', {{ $nameModelValue }}) : {}))" 
+<div x-data="Object.assign({
+        isProcessing: false, isCropping: false, isDragging: false,
+        originalFile: null, originalSize: 0, newSize: 0, previewSize: 0,
+        hasCropped: false, maxSize: 800, quality: 0.4, customFileName: '',
+        imgSrc: null, workingImgSrc: null, croppedImgSrc: null,
+        imgNatW: 0, imgNatH: 0, imgDispW: 0, imgDispH: 0,
+        cropX: 0, cropY: 0, cropW: 0, cropH: 0,
+        dragMode: null, dragStartX: 0, dragStartY: 0,
+        dragStartCropX: 0, dragStartCropY: 0, dragStartCropW: 0, dragStartCropH: 0,
+        ratioLabel: '4:3', aspectRatio: 4/3,
+        rotation: 0, flipH: false, flipV: false, containerWidth: 400,
+        pickFile(){}, processFile(){}, handleFile(){}, setRatio(){}, startCrop(){},
+        applyTransformations(){}, rotateLeft(){}, rotateRight(){}, toggleFlipH(){}, toggleFlipV(){},
+        initCropBox(){}, onPointerDown(){}, onPointerMove(){}, generateCanvas(){ return Promise.resolve(null); },
+        updatePreviewSize(){}, applyCrop(){}, cancelCrop(){}, applyOriginal(){},
+        removeImage(){}, resetCropper(){}, resetCropperState(){}, formatSize(){ return '0 KB'; }
+    }, (typeof window.imageCropperData === 'function' ? window.imageCropperData('{{ $wireModel }}', {{ $nameModelValue }}) : {}))" 
      x-init="$watch('isCropping', val => val ? Flux.modal('{{ $modalName }}').show() : Flux.modal('{{ $modalName }}').close())"
      @item-saved.window="resetCropper()"
      @reset-cropper.window="resetCropper()"
