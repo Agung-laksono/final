@@ -38,12 +38,24 @@ class SalesOrderWaitingApprovalNotification extends Notification
      */
     public function toArray(object $notifiable): array
     {
+        $this->salesOrder->loadMissing(['customer', 'items.item']);
+        
+        $itemsCount = $this->salesOrder->items->count();
+        $itemsSummary = $this->salesOrder->items->take(2)->map(function($i) { 
+            return $i->qty . 'x ' . ($i->item->name ?? 'Item'); 
+        })->implode(', ') . ($itemsCount > 2 ? ', dll (' . $itemsCount . ' SKU)' : '');
+
         return [
             'title' => 'Persetujuan Sales Order',
             'message' => "Sales Order baru <b>" . e($this->salesOrder->so_number) . "</b> diajukan oleh " . e($this->creator->name) . " dan menunggu persetujuan.",
             'icon' => 'calculator',
             'color' => 'text-amber-500',
             'url' => route('sales.orders.index') . '?show_approval=' . $this->salesOrder->id,
+            'action_type' => 'sales_approval',
+            'order_id' => $this->salesOrder->id,
+            'customer_name' => $this->salesOrder->customer->name ?? 'Pelanggan',
+            'total_amount' => $this->salesOrder->total_amount,
+            'items_summary' => $itemsSummary,
         ];
     }
 }

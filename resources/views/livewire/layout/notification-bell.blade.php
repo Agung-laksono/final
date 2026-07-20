@@ -59,9 +59,20 @@ $markAllAsRead = function () {
 // Realtime update via Laravel Echo (Pusher/Reverb)
 on([
     // Notifikasi baru masuk
-    'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function () {
+    'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function ($notification) {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
         $this->js("document.getElementById('notif-sound').play().catch(() => {})");
+        
+        $this->dispatch('notification-popup', [
+            'id' => $notification['id'] ?? null,
+            'title' => $notification['title'] ?? 'Notifikasi Baru',
+            'message' => $notification['message'] ?? '',
+            'action_type' => $notification['action_type'] ?? null,
+            'order_id' => $notification['order_id'] ?? null,
+            'customer_name' => $notification['customer_name'] ?? '',
+            'total_amount' => $notification['total_amount'] ?? 0,
+            'items_summary' => $notification['items_summary'] ?? '',
+        ]);
     },
     // Tab lain menandai notifikasi sudah dibaca
     'echo-private:App.Models.User.{authId},.NotificationsRead' => function ($event) {
@@ -73,6 +84,82 @@ on([
 with(fn () => [
     'notifications' => $this->getNotifications()
 ]);
+
+$approveSalesOrder = function ($orderId, $notificationId = null) {
+    abort_unless(auth()->user()->can('sales.approve.update'), 403);
+    
+    $order = \Modules\Sales\Models\SalesOrder::with('items')->find($orderId);
+    if ($order && $order->status === 'pending_approval') {
+        $hasDeficit = false;
+        foreach ($order->items as $item) {
+            $itemModel = \Modules\Inventory\Models\Item::find($item->item_id);
+            $atp = $itemModel ? $itemModel->getATP() : 0;
+            if ($item->qty > $atp) {
+                $deficit = $item->qty - $atp;
+                $existingRequest = \Modules\Inventory\Models\InventoryRequest::where('item_id', $item->item_id)
+                    ->where('source_type', 'sales')
+                    ->where('reference_number', $order->so_number)
+                    ->exists();
+                if (!$existingRequest) {
+                    \Modules\Inventory\Models\InventoryRequest::create([
+                        'item_id' => $item->item_id,
+                        'source_type' => 'sales',
+                        'reference_number' => $order->so_number,
+                        'requested_qty' => $deficit,
+                        'notes' => 'Defisit stok untuk pesanan pelanggan (ATP: ' . $atp . ', Dipesan: ' . $item->qty . ')' . 
+                                   (!empty($item->custom_attributes) || !empty($item->custom_attachments) ? ' [CUSTOM]' : ''),
+                        'status' => 'draft',
+                    ]);
+                    $hasDeficit = true;
+                }
+            }
+        }
+        
+        $order->status = 'processing';
+        $order->save();
+
+        if ($order->created_by) {
+            $creator = \App\Models\User::find($order->created_by);
+            if ($creator && $creator->id !== auth()->id()) {
+                $creator->notify(new \App\Notifications\SalesOrderStatusChangedNotification($order, auth()->user()));
+            }
+        }
+
+        \App\Events\KanbanUpdated::safeDispatch('sales_order');
+        if ($hasDeficit) {
+            \App\Events\KanbanUpdated::safeDispatch('inventory_request');
+        }
+        \Flux::toast('Pesanan disetujui, lanjut ke pemrosesan gudang.', variant: 'success');
+        
+        if ($notificationId) {
+            $this->markAsRead($notificationId);
+        }
+    }
+};
+
+$rejectSalesOrder = function ($orderId, $notificationId = null) {
+    abort_unless(auth()->user()->can('sales.approve.update'), 403);
+    
+    $order = \Modules\Sales\Models\SalesOrder::find($orderId);
+    if ($order && $order->status === 'pending_approval') {
+        $order->status = 'rejected';
+        $order->save();
+
+        if ($order->created_by) {
+            $creator = \App\Models\User::find($order->created_by);
+            if ($creator && $creator->id !== auth()->id()) {
+                $creator->notify(new \App\Notifications\SalesOrderStatusChangedNotification($order, auth()->user()));
+            }
+        }
+
+        \App\Events\KanbanUpdated::safeDispatch('sales_order');
+        \Flux::toast('Pesanan ditolak.', variant: 'danger');
+        
+        if ($notificationId) {
+            $this->markAsRead($notificationId);
+        }
+    }
+};
 
 ?>
 
@@ -196,4 +283,97 @@ with(fn () => [
             </div>
         </flux:menu>
     </flux:dropdown>
+
+    <!-- Custom Real-time Notification Pop-up (Pusher Beam Style) -->
+    <div x-data="{
+             show: false,
+             id: null,
+             title: '',
+             message: '',
+             actionType: null,
+             orderId: null,
+             customerName: '',
+             totalAmount: 0,
+             itemsSummary: '',
+             
+             showNotification(data) {
+                 this.id = data.id || null;
+                 this.title = data.title || 'Notifikasi Baru';
+                 this.message = data.message || '';
+                 this.actionType = data.action_type || null;
+                 this.orderId = data.order_id || null;
+                 this.customerName = data.customer_name || '';
+                 this.totalAmount = data.total_amount || 0;
+                 this.itemsSummary = data.items_summary || '';
+                 
+                 this.show = true;
+                 
+                 // Auto hide after 8s if no action needed
+                 if (!this.actionType) {
+                     setTimeout(() => this.show = false, 8000);
+                 }
+             },
+             
+             approve() {
+                 $wire.approveSalesOrder(this.orderId, this.id);
+                 this.show = false;
+             },
+             reject() {
+                 $wire.rejectSalesOrder(this.orderId, this.id);
+                 this.show = false;
+             }
+         }"
+         @notification-popup.window="showNotification($event.detail)"
+         class="fixed bottom-4 right-4 z-[9999]">
+         
+         <div x-show="show" 
+              x-transition:enter="transition ease-out duration-300"
+              x-transition:enter-start="opacity-0 translate-y-4"
+              x-transition:enter-end="opacity-100 translate-y-0"
+              x-transition:leave="transition ease-in duration-200"
+              x-transition:leave-start="opacity-100 translate-y-0"
+              x-transition:leave-end="opacity-0 translate-y-4"
+              class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-2xl rounded-xl p-4 w-80 flex flex-col gap-3"
+              style="display: none;">
+              
+              <div class="flex justify-between items-start gap-2">
+                  <div class="flex items-start gap-3 flex-1">
+                      <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                          <flux:icon.bell class="w-4 h-4" />
+                      </div>
+                      <div class="flex-1">
+                          <h4 class="font-bold text-sm text-zinc-900 dark:text-zinc-100" x-text="title"></h4>
+                          <p class="text-[11px] text-zinc-500 mt-0.5 leading-snug" x-html="message"></p>
+                      </div>
+                  </div>
+                  <button @click="show = false" class="text-zinc-400 hover:text-zinc-600 shrink-0"><flux:icon.x-mark class="w-4 h-4" /></button>
+              </div>
+              
+              <!-- Context Box -->
+              <template x-if="actionType === 'sales_approval'">
+                  <div class="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 border border-zinc-100 dark:border-zinc-700 flex flex-col gap-1.5 mt-1">
+                      <div class="flex justify-between items-center">
+                          <span class="text-[10px] font-bold text-zinc-500 tracking-wider">PEMBELI</span>
+                          <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100" x-text="customerName"></span>
+                      </div>
+                      <div class="flex justify-between items-center">
+                          <span class="text-[10px] font-bold text-zinc-500 tracking-wider">TOTAL</span>
+                          <span class="text-xs font-black text-amber-600 dark:text-amber-500">Rp <span x-text="new Intl.NumberFormat('id-ID').format(totalAmount)"></span></span>
+                      </div>
+                      <div class="flex flex-col gap-0.5 mt-1 pt-1 border-t border-zinc-200 dark:border-zinc-700">
+                          <span class="text-[9px] font-bold text-zinc-500 tracking-wider">PRODUK</span>
+                          <span class="text-[10px] text-zinc-700 dark:text-zinc-300 leading-tight" x-text="itemsSummary"></span>
+                      </div>
+                  </div>
+              </template>
+              
+              <!-- Actions -->
+              <template x-if="actionType === 'sales_approval'">
+                  <div class="flex gap-2 w-full mt-1">
+                      <button @click="reject" class="flex-1 py-2 px-3 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-bold transition-colors text-center shadow-sm">Tolak</button>
+                      <button @click="approve" class="flex-1 py-2 px-3 bg-blue-600 text-white hover:bg-blue-700 border border-transparent rounded-lg text-xs font-bold transition-colors text-center shadow-sm">Setujui</button>
+                  </div>
+              </template>
+         </div>
+    </div>
 </div>
