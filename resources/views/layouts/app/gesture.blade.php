@@ -106,7 +106,10 @@
             </div>
             
             {{-- Menu Content (Grid) --}}
-            <div class="flex-1 overflow-y-auto hide-scrollbar touch-pan-y relative z-10">
+            <div class="flex-1 overflow-y-auto hide-scrollbar touch-pan-y relative z-10"
+                 @touchstart.passive="contentTouchStart"
+                 @touchmove="contentTouchMove"
+                 @touchend="contentTouchEnd">
                 <x-layouts.app.gesture-menu-grid />
             </div>
         </div>
@@ -165,6 +168,11 @@
                     recentTabs: [],
                     currentUrl: window.location.pathname,
                     
+                    // variables for content drag detection
+                    contentStartY: 0,
+                    isContentAtTop: false,
+                    isContentAtBottom: false,
+                    
                     get currentTranslateY() {
                         if (this.isDragging) {
                             return Math.max(0, this.currentY);
@@ -188,7 +196,7 @@
                     onMenuDrag(e) {
                         if (!this.isDragging) return;
                         // Prevent page scrolling while dragging menu
-                        e.preventDefault(); 
+                        if (e.cancelable) e.preventDefault(); 
                         
                         const deltaY = e.touches[0].clientY - this.startY;
                         
@@ -201,12 +209,14 @@
                     },
                     
                     endMenuDrag(e) {
+                        if (!this.isDragging) return;
                         this.isDragging = false;
                         const deltaY = e.changedTouches[0].clientY - this.startY;
                         
                         if (deltaY < -40) { // Swiped Up
                             if (this.menuState === 0) this.menuState = 1;
                             else if (this.menuState === 1) this.menuState = 2;
+                            else if (this.menuState === 2 && this.isContentAtBottom) this.menuState = 0; // Close if swiped up at the absolute bottom
                         } else if (deltaY > 40) { // Swiped Down
                             if (this.menuState === 2) this.menuState = 1;
                             else if (this.menuState === 1) this.menuState = 0;
@@ -221,6 +231,34 @@
                             if (min === d0) this.menuState = 0;
                             else if (min === d1) this.menuState = 1;
                             else this.menuState = 2;
+                        }
+                    },
+                    
+                    contentTouchStart(e) {
+                        this.contentStartY = e.touches[0].clientY;
+                        this.isContentAtTop = e.currentTarget.scrollTop <= 0;
+                        // Tolerance of 2px for bottom check
+                        this.isContentAtBottom = e.currentTarget.scrollTop + e.currentTarget.clientHeight >= e.currentTarget.scrollHeight - 2;
+                    },
+                    
+                    contentTouchMove(e) {
+                        if (!this.isDragging) {
+                            const deltaY = e.touches[0].clientY - this.contentStartY;
+                            
+                            // If pulled down when at top OR pulled up when at bottom
+                            if ((deltaY > 10 && this.isContentAtTop) || (deltaY < -10 && this.isContentAtBottom)) {
+                                this.startMenuDrag(e);
+                            }
+                        }
+                        
+                        if (this.isDragging) {
+                            this.onMenuDrag(e);
+                        }
+                    },
+                    
+                    contentTouchEnd(e) {
+                        if (this.isDragging) {
+                            this.endMenuDrag(e);
                         }
                     },
                     
