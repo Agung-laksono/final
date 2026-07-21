@@ -38,8 +38,9 @@ new #[Title('Appearance settings')] class extends Component {
         <flux:separator class="my-6" />
 
         <flux:radio.group wire:model.live="layoutMode" variant="segmented" label="Layout Navigasi">
-            <flux:radio value="sidebar" icon="bars-4">Sidebar Klasik</flux:radio>
-            <flux:radio value="floating" icon="squares-2x2">Multi-Level Speed Dial</flux:radio>
+            <flux:radio value="sidebar" icon="bars-4">Sidebar</flux:radio>
+            <flux:radio value="floating" icon="squares-2x2">Speed Dial</flux:radio>
+            <flux:radio value="gesture" icon="hand-raised">Gesture & Tabs</flux:radio>
         </flux:radio.group>
         
         <div class="mt-2 text-sm text-zinc-500">

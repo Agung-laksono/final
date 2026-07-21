@@ -88,4 +88,13 @@ class User extends Authenticatable implements PasskeyUser
     {
         return $this->belongsTo(Brand::class);
     }
+
+    /**
+     * Send Sales Order status change notification.
+     * This avoids Volt compiler bugs that occur when instantiating new classes inside Blade files.
+     */
+    public function sendSalesOrderNotification($order, $actor)
+    {
+        $this->notify(new \App\Notifications\SalesOrderStatusChangedNotification($order, $actor));
+    }
 }

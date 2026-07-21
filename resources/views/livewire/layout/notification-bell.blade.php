@@ -1,67 +1,67 @@
 <?php
 
-use function Livewire\Volt\{state, on, mount, with};
+use Livewire\Volt\Component;
+use Livewire\Attributes\On;
 use Illuminate\Notifications\DatabaseNotification;
 
-state(['unreadCount' => 0, 'authId' => null]);
+new class extends Component {
+    public $unreadCount = 0;
+    public $authId = null;
 
-mount(function() {
-    $this->authId = auth()->id();
-    if (auth()->check()) {
+    public function mount() {
+        $this->authId = auth()->id();
+        if (auth()->check()) {
+            $this->unreadCount = auth()->user()->unreadNotifications()->count();
+        }
+    }
+
+    public function with() {
+        return [
+            'notifications' => $this->getNotifications()
+        ];
+    }
+
+    public function getNotifications() {
+        if (!auth()->check()) {
+            return collect([]);
+        }
+        
+        $user = auth()->user();
+        $this->unreadCount = $user->unreadNotifications()->count();
+        
+        return $user->notifications()->take(5)->get();
+    }
+
+    public function markAsRead($notificationId) {
+        if (!auth()->check()) return;
+        
+        $notification = auth()->user()->notifications()->find($notificationId);
+        if ($notification) {
+            $notification->markAsRead();
+            $this->unreadCount = auth()->user()->unreadNotifications()->count();
+            \App\Livewire\Support\NotificationSync::syncToOthers(auth()->id(), $this->unreadCount);
+        }
+    }
+
+    public function markAsReadAndRedirect($notificationId, $url) {
+        $this->markAsRead($notificationId);
+        if ($url && $url !== '#') {
+            return $this->redirect($url, navigate: true);
+        }
+    }
+
+    public function markAllAsRead() {
+        if (!auth()->check()) return;
+        
+        auth()->user()->unreadNotifications->markAsRead();
+        $this->unreadCount = 0;
+        \App\Livewire\Support\NotificationSync::syncToOthers(auth()->id(), 0);
+    }
+
+    #[On('echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated')]
+    public function onNotificationReceived($notification) {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
-    }
-});
-
-$getNotifications = function () {
-    if (!auth()->check()) {
-        return collect([]);
-    }
-    
-    $user = auth()->user();
-    $this->unreadCount = $user->unreadNotifications()->count();
-    
-    // Ambil 5 notifikasi terbaru
-    return $user->notifications()->take(5)->get();
-};
-
-$markAsRead = function ($notificationId) {
-    if (!auth()->check()) return;
-    
-    $notification = auth()->user()->notifications()->find($notificationId);
-    if ($notification) {
-        $notification->markAsRead();
-        $this->unreadCount = auth()->user()->unreadNotifications()->count();
-        \App\Livewire\Support\NotificationSync::syncToOthers(auth()->id(), $this->unreadCount);
-    }
-};
-
-$markAsReadAndRedirect = function ($notificationId, $url) {
-    $notification = auth()->user()->notifications()->find($notificationId);
-    if ($notification) {
-        $notification->markAsRead();
-        $this->unreadCount = auth()->user()->unreadNotifications()->count();
-        \App\Livewire\Support\NotificationSync::syncToOthers(auth()->id(), $this->unreadCount);
-    }
-    
-    if ($url && $url !== '#') {
-        return $this->redirect($url, navigate: true);
-    }
-};
-
-$markAllAsRead = function () {
-    if (!auth()->check()) return;
-    
-    auth()->user()->unreadNotifications->markAsRead();
-    $this->unreadCount = 0;
-    \App\Livewire\Support\NotificationSync::syncToOthers(auth()->id(), 0);
-};
-
-// Realtime update via Laravel Echo (Pusher/Reverb)
-on([
-    // Notifikasi baru masuk
-    'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function ($notification) {
-        $this->unreadCount = auth()->user()->unreadNotifications()->count();
-        $this->js("document.getElementById('notif-sound').play().catch(() => {})");
+        $this->js("document.getElementById('notif-sound') && document.getElementById('notif-sound').play().catch(() => {})");
         
         $this->dispatch('notification-popup', [
             'id' => $notification['id'] ?? null,
@@ -73,94 +73,90 @@ on([
             'total_amount' => $notification['total_amount'] ?? 0,
             'items_summary' => $notification['items_summary'] ?? '',
         ]);
-    },
-    // Tab lain menandai notifikasi sudah dibaca
-    'echo-private:App.Models.User.{authId},.NotificationsRead' => function ($event) {
+    }
+
+    #[On('echo-private:App.Models.User.{authId},.NotificationsRead')]
+    public function onNotificationsRead($event) {
         $this->unreadCount = $event['unreadCount'];
         $this->dispatch('$refresh');
-    },
-]);
+    }
 
-with(fn () => [
-    'notifications' => $this->getNotifications()
-]);
-
-$approveSalesOrder = function ($orderId, $notificationId = null) {
-    abort_unless(auth()->user()->can('sales.approve.update'), 403);
-    
-    $order = \Modules\Sales\Models\SalesOrder::with('items')->find($orderId);
-    if ($order && $order->status === 'pending_approval') {
-        $hasDeficit = false;
-        foreach ($order->items as $item) {
-            $itemModel = \Modules\Inventory\Models\Item::find($item->item_id);
-            $atp = $itemModel ? $itemModel->getATP() : 0;
-            if ($item->qty > $atp) {
-                $deficit = $item->qty - $atp;
-                $existingRequest = \Modules\Inventory\Models\InventoryRequest::where('item_id', $item->item_id)
-                    ->where('source_type', 'sales')
-                    ->where('reference_number', $order->so_number)
-                    ->exists();
-                if (!$existingRequest) {
-                    \Modules\Inventory\Models\InventoryRequest::create([
-                        'item_id' => $item->item_id,
-                        'source_type' => 'sales',
-                        'reference_number' => $order->so_number,
-                        'requested_qty' => $deficit,
-                        'notes' => 'Defisit stok untuk pesanan pelanggan (ATP: ' . $atp . ', Dipesan: ' . $item->qty . ')' . 
-                                   (!empty($item->custom_attributes) || !empty($item->custom_attachments) ? ' [CUSTOM]' : ''),
-                        'status' => 'draft',
-                    ]);
-                    $hasDeficit = true;
+    public function approveSalesOrder($orderId, $notificationId = null) {
+        abort_unless(auth()->user()->can('sales.approve.update'), 403);
+        
+        $order = \Modules\Sales\Models\SalesOrder::with('items')->find($orderId);
+        if ($order && $order->status === 'pending_approval') {
+            $hasDeficit = false;
+            foreach ($order->items as $item) {
+                $itemModel = \Modules\Inventory\Models\Item::find($item->item_id);
+                $atp = $itemModel ? $itemModel->getATP() : 0;
+                if ($item->qty > $atp) {
+                    $deficit = $item->qty - $atp;
+                    $existingRequest = \Modules\Inventory\Models\InventoryRequest::where('item_id', $item->item_id)
+                        ->where('source_type', 'sales')
+                        ->where('reference_number', $order->so_number)
+                        ->exists();
+                    if (!$existingRequest) {
+                        \Modules\Inventory\Models\InventoryRequest::create([
+                            'item_id' => $item->item_id,
+                            'source_type' => 'sales',
+                            'reference_number' => $order->so_number,
+                            'requested_qty' => $deficit,
+                            'notes' => 'Defisit stok untuk pesanan pelanggan (ATP: ' . $atp . ', Dipesan: ' . $item->qty . ')' . 
+                                       (!empty($item->custom_attributes) || !empty($item->custom_attachments) ? ' [CUSTOM]' : ''),
+                            'status' => 'draft',
+                        ]);
+                        $hasDeficit = true;
+                    }
                 }
             }
-        }
-        
-        $order->status = 'processing';
-        $order->save();
+            
+            $order->status = 'processing';
+            $order->save();
 
-        if ($order->created_by) {
-            $creator = \App\Models\User::find($order->created_by);
-            if ($creator && $creator->id !== auth()->id()) {
-                $creator->notify(new \App\Notifications\SalesOrderStatusChangedNotification($order, auth()->user()));
+            if ($order->created_by) {
+                $creator = \App\Models\User::find($order->created_by);
+                if ($creator && $creator->id !== auth()->id()) {
+                    $creator->sendSalesOrderNotification($order, auth()->user());
+                }
+            }
+
+            \App\Events\KanbanUpdated::safeDispatch('sales_order');
+            if ($hasDeficit) {
+                \App\Events\KanbanUpdated::safeDispatch('inventory_request');
+            }
+            \Flux::toast('Pesanan disetujui, lanjut ke pemrosesan gudang.', variant: 'success');
+            
+            if ($notificationId) {
+                $this->markAsRead($notificationId);
             }
         }
+    }
 
-        \App\Events\KanbanUpdated::safeDispatch('sales_order');
-        if ($hasDeficit) {
-            \App\Events\KanbanUpdated::safeDispatch('inventory_request');
-        }
-        \Flux::toast('Pesanan disetujui, lanjut ke pemrosesan gudang.', variant: 'success');
+    public function rejectSalesOrder($orderId, $notificationId = null) {
+        abort_unless(auth()->user()->can('sales.approve.update'), 403);
         
-        if ($notificationId) {
-            $this->markAsRead($notificationId);
+        $order = \Modules\Sales\Models\SalesOrder::find($orderId);
+        if ($order && $order->status === 'pending_approval') {
+            $order->status = 'rejected';
+            $order->save();
+
+            if ($order->created_by) {
+                $creator = \App\Models\User::find($order->created_by);
+                if ($creator && $creator->id !== auth()->id()) {
+                    $creator->sendSalesOrderNotification($order, auth()->user());
+                }
+            }
+
+            \App\Events\KanbanUpdated::safeDispatch('sales_order');
+            \Flux::toast('Pesanan ditolak.', variant: 'danger');
+            
+            if ($notificationId) {
+                $this->markAsRead($notificationId);
+            }
         }
     }
 };
-
-$rejectSalesOrder = function ($orderId, $notificationId = null) {
-    abort_unless(auth()->user()->can('sales.approve.update'), 403);
-    
-    $order = \Modules\Sales\Models\SalesOrder::find($orderId);
-    if ($order && $order->status === 'pending_approval') {
-        $order->status = 'rejected';
-        $order->save();
-
-        if ($order->created_by) {
-            $creator = \App\Models\User::find($order->created_by);
-            if ($creator && $creator->id !== auth()->id()) {
-                $creator->notify(new \App\Notifications\SalesOrderStatusChangedNotification($order, auth()->user()));
-            }
-        }
-
-        \App\Events\KanbanUpdated::safeDispatch('sales_order');
-        \Flux::toast('Pesanan ditolak.', variant: 'danger');
-        
-        if ($notificationId) {
-            $this->markAsRead($notificationId);
-        }
-    }
-};
-
 ?>
 
 <div {{ $attributes }}>
