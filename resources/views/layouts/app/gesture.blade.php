@@ -114,30 +114,37 @@
             </div>
         </div>
         
-        {{-- Floating Drag Handle for Bottom Bar (When Closed) --}}
-        <div class="fixed bottom-14 left-0 right-0 h-8 z-[9999] flex justify-center items-end pb-2 touch-none cursor-pointer"
-             x-show="menuState === 0"
-             @touchstart.passive="startMenuDrag"
-             @touchmove.passive="onMenuDrag"
-             @touchend="endMenuDrag"
-             @click="menuState = 1">
-            <div class="w-12 h-1.5 bg-zinc-300/80 dark:bg-zinc-600/80 rounded-full shadow-sm drop-shadow backdrop-blur-sm border border-zinc-400/20"></div>
-        </div>
+        {{-- Bottom Tab Bar (Recent Pages & Drag Handle) --}}
+        <div class="fixed bottom-0 left-0 right-0 h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 z-[9999] flex flex-col shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] pb-safe relative">
+            
+            {{-- Integrated Drag Handle --}}
+            <div class="w-full h-4 flex justify-center items-start pt-1.5 cursor-pointer touch-none"
+                 x-show="menuState === 0"
+                 @touchstart.passive="startMenuDrag"
+                 @touchmove.passive="onMenuDrag"
+                 @touchend="endMenuDrag"
+                 @click="menuState = 1">
+                 <div class="w-12 h-1 bg-zinc-300 dark:bg-zinc-600 rounded-full"></div>
+            </div>
+            
+            {{-- Placeholder for Drag Handle when menu is open so height doesn't shift --}}
+            <div class="w-full h-4" x-show="menuState > 0" x-cloak></div>
 
-        {{-- Bottom Tab Bar (Recent Pages) --}}
-        <div class="fixed bottom-0 left-0 right-0 h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 z-[9999] flex items-center justify-around px-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] pb-safe">
-            <template x-for="tab in recentTabs" :key="tab.url">
-                <a :href="tab.url" wire:navigate 
-                   class="flex flex-col items-center justify-center w-full h-full gap-0 transition-colors relative"
-                   :class="currentUrl === tab.url ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'">
-                    
-                    {{-- Active Indicator --}}
-                    <div x-show="currentUrl === tab.url" class="absolute top-0 w-8 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-b-full"></div>
-                    
-                    <div x-html="getSvgIcon(tab.icon, currentUrl === tab.url)"></div>
-                    <span class="text-[10px] font-medium truncate w-14 text-center" x-text="tab.title"></span>
-                </a>
-            </template>
+            {{-- Tabs Container --}}
+            <div class="flex-1 flex items-center justify-around px-2 relative">
+                <template x-for="tab in recentTabs" :key="tab.url">
+                    <a :href="tab.url" wire:navigate 
+                       class="flex flex-col items-center justify-center w-full h-full gap-0 transition-colors relative"
+                       :class="currentUrl === tab.url ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'">
+                        
+                        {{-- Active Indicator --}}
+                        <div x-show="currentUrl === tab.url" class="absolute top-0 w-8 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-b-full"></div>
+                        
+                        <div x-html="getSvgIcon(tab.icon, currentUrl === tab.url)"></div>
+                        <span class="text-[10px] font-medium truncate w-14 text-center" x-text="tab.title"></span>
+                    </a>
+                </template>
+            </div>
         </div>
 
         @persist('toast')
