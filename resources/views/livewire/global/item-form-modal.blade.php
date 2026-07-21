@@ -149,7 +149,7 @@ new class extends Component {
             $this->isInventoryUrl = request()->routeIs('inventory.items');
             $this->is_active = $this->isInventoryUrl;
             
-            $this->requires_label = false;
+            $this->requires_label = true;
         }
         
         $this->dispatch('unit-updated', options: $this->units);
