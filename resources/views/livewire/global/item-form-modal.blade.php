@@ -145,8 +145,12 @@ new class extends Component {
             $this->selling_price = null;
             $this->min_stock = null;
             $this->max_stock = null;
-            // Otomatis non-aktif jika ditambahkan dari luar modul Inventory (misal: dari Purchasing)
-            $this->isInventoryUrl = request()->routeIs('inventory.items');
+            // Otomatis aktif jika diinput dari modul Inventory ATAU jika user memiliki Role Gudang / Admin
+            $isInventoryUser = auth()->check() && auth()->user()->hasAnyRole([
+                'Super Admin', 'Manager', 'Kepala Gudang', 'Staf Gudang', 'Staf Gudang PPIC', 'Staf Gudang Fulfillment'
+            ]);
+            
+            $this->isInventoryUrl = request()->routeIs('inventory.items') || $isInventoryUser;
             $this->is_active = $this->isInventoryUrl;
             
             $this->requires_label = true;
