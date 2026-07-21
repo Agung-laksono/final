@@ -216,7 +216,6 @@
                         if (deltaY < -40) { // Swiped Up
                             if (this.menuState === 0) this.menuState = 1;
                             else if (this.menuState === 1) this.menuState = 2;
-                            else if (this.menuState === 2 && this.isContentAtBottom) this.menuState = 0; // Close if swiped up at the absolute bottom
                         } else if (deltaY > 40) { // Swiped Down
                             if (this.menuState === 2) this.menuState = 1;
                             else if (this.menuState === 1) this.menuState = 0;
@@ -237,16 +236,14 @@
                     contentTouchStart(e) {
                         this.contentStartY = e.touches[0].clientY;
                         this.isContentAtTop = e.currentTarget.scrollTop <= 0;
-                        // Tolerance of 2px for bottom check
-                        this.isContentAtBottom = e.currentTarget.scrollTop + e.currentTarget.clientHeight >= e.currentTarget.scrollHeight - 2;
                     },
                     
                     contentTouchMove(e) {
                         if (!this.isDragging) {
                             const deltaY = e.touches[0].clientY - this.contentStartY;
                             
-                            // If pulled down when at top OR pulled up when at bottom
-                            if ((deltaY > 10 && this.isContentAtTop) || (deltaY < -10 && this.isContentAtBottom)) {
+                            // If pulled down when at top
+                            if (deltaY > 10 && this.isContentAtTop) {
                                 this.startMenuDrag(e);
                             }
                         }
