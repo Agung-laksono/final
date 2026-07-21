@@ -386,10 +386,10 @@
         </div>
 
         {{-- Bottom Tab Bar (Recent Pages) --}}
-        <div class="fixed bottom-0 left-0 right-0 h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 z-[990] flex items-center justify-around px-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] pb-safe">
+        <div class="fixed bottom-0 left-0 right-0 h-14 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 z-[9999] flex items-center justify-around px-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] pb-safe">
             <template x-for="tab in recentTabs" :key="tab.url">
                 <a :href="tab.url" wire:navigate 
-                   class="flex flex-col items-center justify-center w-full h-full gap-1 transition-colors relative"
+                   class="flex flex-col items-center justify-center w-full h-full gap-0 transition-colors relative"
                    :class="currentUrl === tab.url ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'">
                     
                     {{-- Active Indicator --}}
@@ -432,7 +432,7 @@
                         }
                         
                         if (this.recentTabs.length === 0) {
-                            this.recentTabs = [{ url: '/', title: 'Home', icon: 'home' }];
+                            this.recentTabs = [];
                         }
                         
                         this.recordVisit();
@@ -501,15 +501,32 @@
                     recordVisit() {
                         setTimeout(() => {
                             this.currentUrl = window.location.pathname;
+                            if (this.currentUrl === '/' || this.currentUrl === '/dashboard') return;
+                            
                             let title = this.determineTitle(this.currentUrl, document.title);
                             let icon = this.determineIcon(this.currentUrl);
                             
                             let tabs = [...this.recentTabs];
-                            tabs = tabs.filter(t => t.url !== this.currentUrl);
-                            tabs.unshift({ url: this.currentUrl, title: title, icon: icon });
+                            let existingTab = tabs.find(t => t.url === this.currentUrl);
                             
-                            if (tabs.length > 5) {
-                                tabs = tabs.slice(0, 5);
+                            if (!existingTab) {
+                                tabs.push({ url: this.currentUrl, title: title, icon: icon, timestamp: Date.now() });
+                                if (tabs.length > 5) {
+                                    let oldestIndex = 0;
+                                    let oldestTime = tabs[0].timestamp || 0;
+                                    for (let i = 1; i < tabs.length; i++) {
+                                        let tTime = tabs[i].timestamp || 0;
+                                        if (tTime < oldestTime) {
+                                            oldestTime = tTime;
+                                            oldestIndex = i;
+                                        }
+                                    }
+                                    tabs.splice(oldestIndex, 1);
+                                }
+                            } else {
+                                existingTab.title = title;
+                                existingTab.icon = icon;
+                                existingTab.timestamp = Date.now();
                             }
                             
                             this.recentTabs = tabs;
