@@ -10,22 +10,11 @@
         </flux:main>
     </x-layouts::app.floating>
 @elseif($layoutMode === 'gesture')
-    {{-- Di Layar Lebar (PC): Tampilkan Mode 1 (Sidebar) --}}
-    <div class="hidden lg:block h-full">
-        <x-layouts::app.sidebar :title="$title ?? null">
-            <flux:main>
-                {{ $slot }}
-            </flux:main>
-        </x-layouts::app.sidebar>
-    </div>
-    {{-- Di Layar Kecil (Mobile): Tampilkan Mode Gesture & Bottom Tabs --}}
-    <div class="block lg:hidden h-full">
-        <x-layouts::app.gesture :title="$title ?? null">
-            <flux:main>
-                {{ $slot }}
-            </flux:main>
-        </x-layouts::app.gesture>
-    </div>
+    <x-layouts::app.gesture :title="$title ?? null">
+        <flux:main>
+            {{ $slot }}
+        </flux:main>
+    </x-layouts::app.gesture>
 @else
     <x-layouts::app.sidebar :title="$title ?? null">
         <flux:main>

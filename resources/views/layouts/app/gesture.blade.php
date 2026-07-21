@@ -78,311 +78,47 @@
             {{ $slot }}
         </div>
 
-        {{-- Off-Canvas Menu --}}
-        <div class="fixed inset-0 z-[999] pointer-events-none" x-cloak>
-            {{-- Backdrop --}}
-            <div class="absolute inset-0 bg-black/50 pointer-events-auto" 
-                 x-show="isMenuOpen" 
-                 @click="isMenuOpen = false"
-                 x-transition:enter="transition-opacity ease-linear duration-300"
-                 x-transition:enter-start="opacity-0"
-                 x-transition:enter-end="opacity-100"
-                 x-transition:leave="transition-opacity ease-linear duration-300"
-                 x-transition:leave-start="opacity-100"
-                 x-transition:leave-end="opacity-0"></div>
+        {{-- Backdrop --}}
+        <div class="fixed inset-0 bg-black/40 pointer-events-auto z-[9998]" 
+             x-show="menuState > 0" 
+             @click="menuState = 0"
+             x-transition.opacity.duration.300ms
+             x-cloak></div>
+             
+        {{-- Multi-State Bottom Sheet (App Drawer) --}}
+        <div class="fixed inset-x-0 bottom-0 z-[10000] bg-zinc-50 dark:bg-zinc-900 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] transition-transform flex flex-col"
+             :class="{
+                 'duration-300 ease-out': !isDragging,
+                 'duration-0': isDragging
+             }"
+             :style="{
+                 transform: `translateY(${currentTranslateY}px)`,
+                 height: '90vh'
+             }">
             
-            {{-- Sliding Panel --}}
-            <div class="absolute inset-y-0 left-0 w-[280px] bg-zinc-50 dark:bg-zinc-900 shadow-xl overflow-y-auto pointer-events-auto flex flex-col hide-scrollbar"
-                 x-show="isMenuOpen"
-                 x-transition:enter="transition ease-out duration-300 transform"
-                 x-transition:enter-start="-translate-x-full"
-                 x-transition:enter-end="translate-x-0"
-                 x-transition:leave="transition ease-in duration-300 transform"
-                 x-transition:leave-start="translate-x-0"
-                 x-transition:leave-end="-translate-x-full">
-                
-                <div class="p-4 border-b border-zinc-200 dark:border-zinc-700 flex justify-between items-center sticky top-0 bg-zinc-50 dark:bg-zinc-900 z-10">
-                    <x-app-logo href="#" wire:navigate />
-                    <button @click="isMenuOpen = false" class="text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-800 p-2 rounded-full transition-colors"><flux:icon.x-mark class="w-5 h-5" /></button>
-                </div>
-                
-                <div class="p-4 pb-24 flex flex-col gap-2" @click="setTimeout(() => isMenuOpen = false, 300)">
-                    <!-- Inventory -->
-             @can('inventory.view')
-            <flux:sidebar.nav>
-                <flux:navlist.group heading="{{ __('INVENTORY') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
-                    <flux:sidebar.item icon="chart-pie" :href="route('inventory')" :current="request()->routeIs('inventory')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Dashboard') }}
-                    </flux:sidebar.item>
-                    @can('inventory.item.view')
-                    <flux:sidebar.item icon="cube" :href="route('inventory.items')" :current="request()->routeIs('inventory.items')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Barang') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('inventory.warehouse.view')
-                    <flux:sidebar.item icon="building-storefront" :href="route('inventory.warehouses')" :current="request()->routeIs('inventory.warehouses')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Gudang') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('inventory.transfer.view')
-                    <flux:sidebar.item :href="route('inventory.transfers')" :current="request()->routeIs('inventory.transfers*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        <x-slot:icon>
-                            <div class="relative">
-                                <flux:icon.arrows-right-left class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                                <livewire:layout.sidebar-badge type="inventory_transfer" />
-                            </div>
-                        </x-slot:icon>
-                        {{ __('Transfer Barang') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item :href="route('inventory.requests')" :current="request()->routeIs('inventory.requests*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        <x-slot:icon>
-                            <div class="relative">
-                                <flux:icon.inbox-arrow-down class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                                <livewire:layout.sidebar-badge type="inventory_request" />
-                            </div>
-                        </x-slot:icon>
-                        {{ __('Permintaan Barang') }}
-                    </flux:sidebar.item>
-                    @endcan
-
-                    @can('inventory.stock.create')
-                    <flux:sidebar.item icon="arrow-right-end-on-rectangle" :href="route('inventory.dispatch')" :current="request()->routeIs('inventory.dispatch')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Alokasi Kedatangan') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item :href="route('inventory.production-receipts')" :current="request()->routeIs('inventory.production-receipts*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        <x-slot:icon>
-                            <div class="relative">
-                                <flux:icon.arrow-down-tray class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                            </div>
-                        </x-slot:icon>
-                        {{ __('Penerimaan Fisik (QC)') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('production.order.update')
-                    <flux:sidebar.item icon="clipboard-document-check" :href="route('inventory.fulfillments')" :current="request()->routeIs('inventory.fulfillments')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Pemenuhan Produksi') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('inventory.view')
-                    <flux:sidebar.item icon="truck" :href="route('inventory.sales-deliveries')" :current="request()->routeIs('inventory.sales-deliveries')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Pengiriman Penjualan') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('inventory.movement.view')
-                    <flux:sidebar.item icon="clock" :href="route('inventory.movements')" :current="request()->routeIs('inventory.movements*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Riwayat Mutasi') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('inventory.opname.view')
-                    <flux:sidebar.item icon="adjustments-horizontal" :href="route('inventory.stock-opname')" :current="request()->routeIs('inventory.stock-opname')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Opname') }}
-                    </flux:sidebar.item>
-                    @endcan
-                </flux:navlist.group>
-            </flux:sidebar.nav>
-            @endcan
-
-            <!-- Pembelian -->
-            @can('purchase.dashboard.view')
-            <flux:sidebar.nav>
-                <flux:navlist.group heading="{{ __('PEMBELIAN') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
-                    @can('purchase.dashboard.view')
-                    <flux:sidebar.item icon="shopping-cart" :href="route('purchase.index')" :current="request()->routeIs('purchase.index')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Dashboard Pembelian') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('purchase.queue.view')
-                    <flux:sidebar.item :href="route('purchase.queues.kanban')" :current="request()->routeIs('purchase.queues.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        <x-slot:icon>
-                            <div class="relative">
-                                <flux:icon.queue-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                                <livewire:layout.sidebar-badge type="purchase_queue" />
-                            </div>
-                        </x-slot:icon>
-                        {{ __('Kanban Permintaan') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('purchase.order.view')
-                    <flux:sidebar.item :href="route('purchase.orders.kanban')" :current="request()->routeIs('purchase.orders.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        <x-slot:icon>
-                            <div class="relative">
-                                <flux:icon.clipboard-document-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                                <livewire:layout.sidebar-badge type="purchase_order" />
-                            </div>
-                        </x-slot:icon>
-                        {{ __('Kanban PO') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('purchase.vendor.view')
-                    <flux:sidebar.item icon="building-office-2" :href="route('purchase.vendors.index')" :current="request()->routeIs('purchase.vendors.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Data Vendor') }}
-                    </flux:sidebar.item>
-                    @endcan
-                </flux:navlist.group>
-            </flux:sidebar.nav>
-            @endcan
-
-            <!-- Produksi -->
-            @can('production.dashboard.view')
-            <flux:sidebar.nav>
-                <flux:navlist.group heading="{{ __('PRODUKSI') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
-                    @can('production.order.view')
-                    <flux:sidebar.item :href="route('production.orders')" :current="request()->routeIs('production.orders*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        <x-slot:icon>
-                            <div class="relative">
-                                <flux:icon.wrench-screwdriver class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                                <livewire:layout.sidebar-badge type="production_order" />
-                            </div>
-                        </x-slot:icon>
-                        {{ __('Kanban Produksi') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('production.order.view')
-                    <flux:sidebar.item icon="document-text" :href="route('production.recipes')" :current="request()->routeIs('production.recipes*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Resep Produksi') }}
-                    </flux:sidebar.item>
-                    @endcan
-                </flux:navlist.group>
-            </flux:sidebar.nav>
-            @endcan
-
-            <!-- Penjualan -->
-            @can('sales.dashboard.view')
-            <flux:sidebar.nav>
-                <flux:navlist.group heading="{{ __('PENJUALAN') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
-                    @can('sales.customer.view')
-                    <flux:sidebar.item icon="user-group" :href="route('sales.customers.index')" :current="request()->routeIs('sales.customers.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Data Pelanggan') }}
-                    </flux:sidebar.item>
-                    @endcan
-                    @can('sales.order.view')
-                    <flux:sidebar.item :href="route('sales.orders.index')" :current="request()->routeIs('sales.orders.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        <x-slot:icon>
-                            <div class="relative">
-                                <flux:icon.clipboard-document-list class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                                <livewire:layout.sidebar-badge type="sales_order" />
-                            </div>
-                        </x-slot:icon>
-                        {{ __('Kanban Sales Order') }}
-                    </flux:sidebar.item>
-                    @endcan
-                </flux:navlist.group>
-            </flux:sidebar.nav>
-            @endcan
-
-            <!-- Komunikasi -->
-            <flux:sidebar.nav>
-                <flux:navlist.group heading="{{ __('KOMUNIKASI') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
-                    <flux:sidebar.item icon="chat-bubble-left-right" :href="route('chat.index')" :current="request()->routeIs('chat.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Chat WhatsApp') }}
-                    </flux:sidebar.item>
-                </flux:navlist.group>
-            </flux:sidebar.nav>
-
-            <!-- Keuangan -->
-            @canany(['finance.dashboard.view', 'finance.inbox.view'])
-            <flux:sidebar.nav>
-                <flux:navlist.group heading="{{ __('KEUANGAN') }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
-                    <flux:sidebar.item icon="banknotes" :href="route('finance.dashboard')" :current="request()->routeIs('finance.dashboard')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Buku Kas & Bank') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="inbox-arrow-down" :href="route('finance.inbox')" :current="request()->routeIs('finance.inbox')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Validasi Transaksi') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="credit-card" :href="route('finance.payables')" :current="request()->routeIs('finance.payables')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                        {{ __('Hutang Pembelian') }}
-                    </flux:sidebar.item>
-                </flux:navlist.group>
-            </flux:sidebar.nav>
-            @endcanany
-
-            <flux:sidebar.nav class="mt-4">
-                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                    {{ __('Dashboard Utama') }}
-                </flux:sidebar.item>
-                
-                <flux:sidebar.item icon="newspaper" :href="route('cms.posts.index')" :current="request()->routeIs('cms.posts.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                    {{ __('Kelola Artikel & Dokumen') }}
-                </flux:sidebar.item>
-                
-                <flux:sidebar.item icon="cog-6-tooth" :href="route('settings.index')" :current="request()->routeIs('settings.*') || request()->routeIs('profile.*') || request()->routeIs('security.*') || request()->routeIs('appearance.*')" wire:navigate class="transition-transform duration-300 hover:translate-x-2">
-                    {{ __('Pengaturan') }}
-                </flux:sidebar.item>
-            </flux:sidebar.nav>
-            <flux:spacer />
-
-            <flux:sidebar.nav>
-                <flux:sidebar.item 
-                    class="cursor-pointer text-indigo-600 dark:text-indigo-400 font-medium"
-                    tooltip="Install Aplikasi"
-                    x-data="{ deferredPrompt: null, showInstall: false }"
-                    @beforeinstallprompt.window="
-                        $event.preventDefault();
-                        deferredPrompt = $event;
-                        showInstall = true;
-                    "
-                    @appinstalled.window="showInstall = false"
-                    x-show="showInstall"
-                    x-cloak
-                    x-on:click="
-                        if (deferredPrompt) {
-                            deferredPrompt.prompt();
-                            deferredPrompt.userChoice.then((choiceResult) => {
-                                if (choiceResult.outcome === 'accepted') {
-                                    showInstall = false;
-                                }
-                                deferredPrompt = null;
-                            });
-                        }
-                    "
-                >
-                    <x-slot:icon>
-                        <flux:icon.arrow-down-tray class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                    </x-slot:icon>
-
-                    <span>{{ __('Install Aplikasi') }}</span>
-                </flux:sidebar.item>
-
-                <flux:sidebar.item 
-                    class="cursor-pointer"
-                    tooltip="Layar Penuh"
-                    x-data="{ isFullscreen: false }"
-                    x-on:fullscreenchange.document="isFullscreen = !!document.fullscreenElement"
-                    x-on:click="document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()"
-                >
-                    <x-slot:icon>
-                        <flux:icon.arrows-pointing-out x-show="!isFullscreen" variant="outline" class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                        <flux:icon.arrows-pointing-in x-cloak x-show="isFullscreen" variant="outline" class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                    </x-slot:icon>
-
-                    <span x-show="!isFullscreen">{{ __('Layar Penuh') }}</span>
-                    <span x-cloak x-show="isFullscreen">{{ __('Keluar Layar Penuh') }}</span>
-                </flux:sidebar.item>
-
-                <flux:sidebar.item 
-                    class="cursor-pointer"
-                    tooltip="Ganti Tema"
-                    x-on:click="
-                        let newTheme = $flux.dark ? 'light' : 'dark';
-                        if (document.startViewTransition) {
-                            document.startViewTransition(() => $flux.appearance = newTheme);
-                        } else {
-                            $flux.appearance = newTheme;
-                        }
-                    "
-                >
-                    <x-slot:icon>
-                        <flux:icon.moon x-show="!$flux.dark" variant="outline" class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                        <flux:icon.sun x-cloak x-show="$flux.dark" variant="outline" class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
-                    </x-slot:icon>
-                    
-                    <span x-show="!$flux.dark">{{ __('Mode Gelap') }}</span>
-                    <span x-cloak x-show="$flux.dark">{{ __('Mode Terang') }}</span>
-                </flux:sidebar.item>
-            </flux:sidebar.nav>
-            
-                </div>
+            {{-- Header & Drag Handle --}}
+            <div class="w-full flex flex-col items-center justify-center pt-3 pb-3 flex-shrink-0 relative z-20 touch-none cursor-pointer bg-zinc-50 dark:bg-zinc-900 rounded-t-3xl"
+                 @touchstart.passive="startMenuDrag"
+                 @touchmove.passive="onMenuDrag"
+                 @touchend="endMenuDrag"
+                 @click="menuState = (menuState === 1 ? 2 : 1)">
+                <div class="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-600 rounded-full"></div>
             </div>
+            
+            {{-- Menu Content (Grid) --}}
+            <div class="flex-1 overflow-y-auto hide-scrollbar touch-pan-y relative z-10">
+                <x-layouts.app.gesture-menu-grid />
+            </div>
+        </div>
+        
+        {{-- Floating Drag Handle for Bottom Bar (When Closed) --}}
+        <div class="fixed bottom-14 left-0 right-0 h-8 z-[9999] flex justify-center items-end pb-2 touch-none cursor-pointer"
+             x-show="menuState === 0"
+             @touchstart.passive="startMenuDrag"
+             @touchmove.passive="onMenuDrag"
+             @touchend="endMenuDrag"
+             @click="menuState = 1">
+            <div class="w-12 h-1.5 bg-zinc-300/80 dark:bg-zinc-600/80 rounded-full shadow-sm drop-shadow backdrop-blur-sm border border-zinc-400/20"></div>
         </div>
 
         {{-- Bottom Tab Bar (Recent Pages) --}}
@@ -419,11 +155,74 @@
 
             function gestureApp() {
                 return {
-                    isMenuOpen: false,
+                    menuState: 0, // 0 = closed, 1 = peek (75%), 2 = expanded (100%)
+                    isDragging: false,
+                    startY: 0,
+                    currentY: 0,
+                    windowHeight: window.innerHeight,
                     touchStartX: 0,
                     touchStartY: 0,
                     recentTabs: [],
                     currentUrl: window.location.pathname,
+                    
+                    get currentTranslateY() {
+                        if (this.isDragging) {
+                            return Math.max(0, this.currentY);
+                        }
+                        if (this.menuState === 0) return this.windowHeight;
+                        if (this.menuState === 1) return this.windowHeight * 0.25; // 75% visible
+                        if (this.menuState === 2) return 0; // 100% visible
+                        return this.windowHeight;
+                    },
+                    
+                    startMenuDrag(e) {
+                        this.isDragging = true;
+                        this.startY = e.touches[0].clientY;
+                        this.windowHeight = window.innerHeight;
+                        
+                        if (this.menuState === 0) this.currentY = this.windowHeight;
+                        else if (this.menuState === 1) this.currentY = this.windowHeight * 0.25;
+                        else if (this.menuState === 2) this.currentY = 0;
+                    },
+                    
+                    onMenuDrag(e) {
+                        if (!this.isDragging) return;
+                        // Prevent page scrolling while dragging menu
+                        e.preventDefault(); 
+                        
+                        const deltaY = e.touches[0].clientY - this.startY;
+                        
+                        let startPoint = 0;
+                        if (this.menuState === 0) startPoint = this.windowHeight;
+                        else if (this.menuState === 1) startPoint = this.windowHeight * 0.25;
+                        else if (this.menuState === 2) startPoint = 0;
+                        
+                        this.currentY = startPoint + deltaY;
+                    },
+                    
+                    endMenuDrag(e) {
+                        this.isDragging = false;
+                        const deltaY = e.changedTouches[0].clientY - this.startY;
+                        
+                        if (deltaY < -40) { // Swiped Up
+                            if (this.menuState === 0) this.menuState = 1;
+                            else if (this.menuState === 1) this.menuState = 2;
+                        } else if (deltaY > 40) { // Swiped Down
+                            if (this.menuState === 2) this.menuState = 1;
+                            else if (this.menuState === 1) this.menuState = 0;
+                        } else {
+                            // Snap to nearest point
+                            const h = this.windowHeight;
+                            const d0 = Math.abs(this.currentY - h);
+                            const d1 = Math.abs(this.currentY - (h * 0.25));
+                            const d2 = Math.abs(this.currentY - 0);
+                            
+                            const min = Math.min(d0, d1, d2);
+                            if (min === d0) this.menuState = 0;
+                            else if (min === d1) this.menuState = 1;
+                            else this.menuState = 2;
+                        }
+                    },
                     
                     init() {
                         const saved = localStorage.getItem('gesture_recent_tabs');
@@ -446,21 +245,7 @@
                         // Tidak perlu prevent default, biarkan scroll alami
                     },
                     handleTouchEnd(e) {
-                        const touchEndX = e.changedTouches[0].clientX;
-                        const touchEndY = e.changedTouches[0].clientY;
-                        
-                        const deltaX = touchEndX - this.touchStartX;
-                        const deltaY = touchEndY - this.touchStartY;
-                        
-                        // Swipe Right (Open Menu) - Mulai dari 30px ujung kiri layar
-                        if (deltaX > 70 && Math.abs(deltaY) < 50 && this.touchStartX < 30) {
-                            this.isMenuOpen = true;
-                        }
-                        
-                        // Swipe Left (Close Menu)
-                        if (deltaX < -70 && Math.abs(deltaY) < 50 && this.isMenuOpen) {
-                            this.isMenuOpen = false;
-                        }
+                        // Old swipe-from-left gesture disabled to prevent conflict with Android Back gesture
                     },
                     
                     getSvgIcon(iconName, isActive) {
