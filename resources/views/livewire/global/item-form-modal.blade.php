@@ -461,20 +461,22 @@ new class extends Component {
                             </div>
 
                             {{-- Sub Kategori --}}
+                            @if($category_id)
                             <div>
                                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Sub Kategori</label>
                                 <div class="flex gap-1.5">
-                                    <flux:select wire:model.live="sub_category_id" class="flex-1 min-w-0" :disabled="!$category_id">
+                                    <flux:select wire:model.live="sub_category_id" class="flex-1 min-w-0">
                                         <flux:select.option value="">-- Pilih Sub --</flux:select.option>
                                         @foreach($subcategories as $sub)
                                             <flux:select.option value="{{ $sub->id }}">{{ $sub->name }}</flux:select.option>
                                         @endforeach
                                     </flux:select>
-                                    <button type="button" x-on:click="$flux.modal('sub-category-modal').show()" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors" title="Tambah Baru">
+                                    <button type="button" x-on:click="$flux.modal('subcategory-modal').show()" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors" title="Tambah Baru">
                                         <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
                                     </button>
                                 </div>
                             </div>
+                            @endif
                         </div>
                     </div>
 
