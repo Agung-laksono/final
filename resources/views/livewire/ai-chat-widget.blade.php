@@ -236,8 +236,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
         x-transition:leave-start="opacity-100 scale-100"
         x-transition:leave-end="opacity-0 scale-50"
         @click="open = !open; minimized = false; if(open) { scrollBottom(); $dispatch('ai-chat-opened'); }"
-        class="w-10 h-10 lg:w-12 lg:h-12 bg-indigo-500/10 hover:bg-indigo-500/20 dark:bg-indigo-500/20 dark:hover:bg-indigo-500/30 backdrop-blur-md border border-indigo-500/30 rounded-full shadow-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors pointer-events-auto"
-        style="position: absolute; bottom: 24px; right: 24px;"
+        class="absolute right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:right-6 md:bottom-6 w-10 h-10 lg:w-12 lg:h-12 bg-indigo-500/10 hover:bg-indigo-500/20 dark:bg-indigo-500/20 dark:hover:bg-indigo-500/30 backdrop-blur-md border border-indigo-500/30 rounded-full shadow-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors pointer-events-auto"
         title="Tanya AI"
     >
         <flux:icon.sparkles class="w-4 h-4 lg:w-5 lg:h-5" />
@@ -252,8 +251,8 @@ Gaya Penulisan yang WAJIB dipatuhi:
         x-transition:leave="transition ease-in duration-150"
         x-transition:leave-start="opacity-100 scale-100"
         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
-        :style="`left: ${posX}px; position: absolute; bottom: 85px;`"
-        class="w-[340px] max-w-[calc(100vw-16px)] flex flex-col rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 pointer-events-auto"
+        :style="`left: ${posX}px; position: absolute;`"
+        class="bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-[85px] w-[340px] max-w-[calc(100vw-16px)] flex flex-col rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 pointer-events-auto"
     >
         {{-- MESSENGER HEADER --}}
         <div

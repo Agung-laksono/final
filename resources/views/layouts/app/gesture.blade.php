@@ -12,69 +12,53 @@
     @include('layouts.app.global-loader')
         
         {{-- Gesture Detectors --}}
-        <div class="fixed inset-0 z-0 pointer-events-none"
-             @touchstart.passive="handleTouchStart"
-             @touchmove.passive="handleTouchMove"
+        <div x-data="gestureHandler()" 
+             class="w-full relative touch-pan-y"
+             @touchstart="handleTouchStart"
+             @touchmove="handleTouchMove"
              @touchend="handleTouchEnd">
-        </div>
-        
-        <div class="relative z-10"
-             @touchstart.passive="handleTouchStart"
-             @touchmove.passive="handleTouchMove"
-             @touchend="handleTouchEnd">
+             
+            @php
+                $navItems = \App\Models\NavigationItem::all();
+                $iconSvgs = [];
+                $urlMappings = [];
+                
+                foreach($navItems as $item) {
+                    if(\Illuminate\Support\Facades\Route::has($item->route_name)) {
+                        $url = parse_url(route($item->route_name), PHP_URL_PATH);
+                        
+                        $gradient = match($item->section) {
+                            'INVENTORY' => 'from-blue-500 to-cyan-400',
+                            'PEMBELIAN' => 'from-purple-500 to-pink-500',
+                            'PRODUKSI' => 'from-orange-500 to-amber-400',
+                            'PENJUALAN' => 'from-emerald-500 to-teal-400',
+                            'KEUANGAN' => 'from-indigo-500 to-blue-600',
+                            default => 'from-zinc-500 to-zinc-400',
+                        };
+                        
+                        $urlMappings[$url] = [
+                            'icon' => $item->icon,
+                            'gradient' => $gradient,
+                        ];
+                        
+                        if(!isset($iconSvgs[$item->icon])) {
+                            $iconSvgs[$item->icon] = \Illuminate\Support\Facades\Blade::render('<flux:icon icon="'.$item->icon.'" class="size-5 md:size-6" />');
+                        }
+                    }
+                }
+                $urlMappings['/dashboard'] = [
+                    'icon' => 'home',
+                    'gradient' => 'from-zinc-500 to-zinc-400',
+                ];
+                $iconSvgs['home'] = \Illuminate\Support\Facades\Blade::render('<flux:icon icon="home" class="size-5 md:size-6" />');
+                $iconSvgs['document-text'] = \Illuminate\Support\Facades\Blade::render('<flux:icon icon="document-text" class="size-5 md:size-6" />');
+            @endphp
+
+            <script>
+                window.AppUrlMappings = {!! json_encode($urlMappings) !!};
+                window.AppIconSvgs = {!! json_encode($iconSvgs) !!};
+            </script>
             
-            <!-- Mobile User Menu -->
-            <flux:header class="md:hidden border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 sticky top-0 z-40">
-                <x-app-logo href="#" wire:navigate />
-
-                <flux:spacer />
-                <livewire:layout.notification-bell />
-                <flux:spacer />
-
-                <flux:dropdown position="top" align="end">
-                    <flux:profile
-                        :initials="auth()->user()->initials()"
-                        :avatar="auth()->user()->avatarUrl()"
-                        icon-trailing="chevron-down"
-                    />
-                    <flux:menu>
-                        <flux:menu.radio.group>
-                            <div class="p-0 text-sm font-normal">
-                                <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                                    <flux:avatar
-                                        :name="auth()->user()->name"
-                                        :initials="auth()->user()->initials()"
-                                        :src="auth()->user()->avatarUrl()"
-                                    />
-                                    <div class="grid flex-1 text-start text-sm leading-tight">
-                                        <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
-                                        <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
-                                    </div>
-                                </div>
-                            </div>
-                        </flux:menu.radio.group>
-                        <flux:menu.separator />
-                        <flux:menu.radio.group>
-                            <flux:menu.item :href="route('settings.index')" icon="cog" wire:navigate>
-                                {{ __('Settings') }}
-                            </flux:menu.item>
-                        </flux:menu.radio.group>
-                        <flux:menu.separator />
-                        <form method="POST" action="{{ route('logout') }}" class="w-full">
-                            @csrf
-                            <flux:menu.item
-                                as="button"
-                                type="submit"
-                                icon="arrow-right-start-on-rectangle"
-                                class="w-full cursor-pointer"
-                            >
-                                {{ __('Log out') }}
-                            </flux:menu.item>
-                        </form>
-                    </flux:menu>
-                </flux:dropdown>
-            </flux:header>
-
             {{ $slot }}
         </div>
 
@@ -86,7 +70,7 @@
              x-cloak></div>
              
         {{-- Multi-State Bottom Sheet (App Drawer) --}}
-        <div class="fixed inset-x-0 bottom-0 mx-auto max-w-md z-[10000] bg-zinc-50 dark:bg-zinc-900 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] transition-transform flex flex-col"
+        <div class="fixed inset-x-0 bottom-0 mx-auto max-w-md md:max-w-2xl xl:max-w-4xl z-[10000] bg-zinc-50 dark:bg-zinc-900 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] transition-transform flex flex-col"
              :class="{
                  'duration-300 ease-out': !isDragging,
                  'duration-0': isDragging
@@ -101,12 +85,13 @@
                  @touchstart.passive="startMenuDrag"
                  @touchmove.passive="onMenuDrag"
                  @touchend="endMenuDrag"
-                 @click="menuState = (menuState === 1 ? 2 : 1)">
+                 @click="menuState = 0">
                 <div class="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-600 rounded-full"></div>
             </div>
             
             {{-- Menu Content (Grid) --}}
             <div class="flex-1 overflow-y-auto hide-scrollbar touch-pan-y relative z-10"
+                 :style="{ paddingBottom: `${currentTranslateY}px` }"
                  @touchstart.passive="contentTouchStart"
                  @touchmove="contentTouchMove"
                  @touchend="contentTouchEnd">
@@ -115,17 +100,27 @@
         </div>
         
         {{-- Bottom Tab Bar (Recent Pages & Drag Handle) --}}
-        <div class="fixed bottom-0 md:bottom-6 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 w-full md:w-max md:min-w-[448px] md:max-w-[95vw] md:rounded-2xl md:border md:px-4 h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t md:border-t-0 border-zinc-200 dark:border-zinc-800 z-[9999] flex flex-col shadow-[0_-4px_16px_rgba(0,0,0,0.1)] md:shadow-2xl md:shadow-zinc-900/20 pb-safe transition-all duration-300"
-             :class="(menuState > 0 || (isDragging && currentY < windowHeight - 20)) ? 'translate-y-32 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'">
+        <div class="fixed bottom-0 md:bottom-6 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 w-full md:w-max md:min-w-[400px] xl:min-w-[448px] md:max-w-[95vw] md:rounded-[24px] md:border md:px-3 xl:px-4 md:py-1.5 xl:py-2 min-h-[64px] md:min-h-[56px] xl:min-h-[84px] bg-white/60 dark:bg-zinc-900/60 backdrop-blur-3xl border-t md:border-t-0 border-zinc-200/50 dark:border-zinc-700/50 z-[9999] flex flex-col justify-center shadow-[0_-4px_25px_rgba(0,0,0,0.08)] md:shadow-[0_15px_40px_rgba(0,0,0,0.2)] md:dark:shadow-zinc-900/60 pb-safe transition-all duration-300"
+             @pointerenter="if($event.pointerType === 'mouse') { clearTimeout(dockTimer); isDockHidden = false; }"
+             @pointerleave="if($event.pointerType === 'mouse') { resetDockTimer(); }"
+             @touchstart.passive="if(!isDockHidden) resetDockTimer()"
+             @click="if(isDockHidden) { isDockHidden = false; resetDockTimer(); }"
+             :class="[
+                 (menuState > 0 || (isDragging && currentY < windowHeight - 20)) 
+                    ? 'translate-y-32 opacity-0 pointer-events-none' 
+                    : (isDockHidden && window.innerWidth >= 768)
+                        ? 'translate-y-[calc(100%+10px)] opacity-50 hover:opacity-100 cursor-pointer'
+                        : 'translate-y-0 opacity-100'
+             ]">
             
             {{-- Integrated Drag Handle --}}
-            <div class="w-full h-4 flex justify-center items-start pt-1.5 cursor-pointer touch-none"
+            <div class="w-full h-4 flex justify-center items-start pt-1.5 cursor-pointer touch-none z-10"
                  x-show="menuState === 0"
-                 @touchstart.passive="startMenuDrag"
-                 @touchmove.passive="onMenuDrag"
-                 @touchend="endMenuDrag"
-                 @click="menuState = 1">
-                 <div class="w-12 h-1 bg-zinc-300 dark:bg-zinc-600 rounded-full"></div>
+                 @touchstart.passive="if(!isDockHidden) startMenuDrag($event)"
+                 @touchmove.passive="if(!isDockHidden) onMenuDrag($event)"
+                 @touchend="if(!isDockHidden) endMenuDrag($event)"
+                 @click.stop="if(isDockHidden) { isDockHidden = false; resetDockTimer(); } else { menuState = 2; }">
+                 <div class="w-12 h-1 bg-zinc-300 dark:bg-zinc-600 rounded-full hover:bg-zinc-400 transition-colors"></div>
             </div>
             
             {{-- Placeholder for Drag Handle when menu is open so height doesn't shift --}}
@@ -134,28 +129,54 @@
             {{-- Tabs Container --}}
             <div class="flex-1 flex items-center justify-center md:gap-2 px-2 relative">
                 <template x-for="tab in recentTabs" :key="tab.url">
-                    <a :href="tab.url" wire:navigate 
-                       class="flex flex-col items-center justify-center w-full md:w-[74px] lg:w-[90px] h-full gap-0 relative flex-shrink-0 select-none"
-                       :class="[
-                           currentUrl === tab.url ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100',
-                           draggedTabUrl === tab.url ? '' : 'transition-transform duration-300'
-                       ]"
-                       :style="draggedTabUrl === tab.url ? `transform: translateY(${tabCurrentY}px); opacity: ${Math.max(0, 1 - (Math.abs(tabCurrentY)/100))};` : ''"
-                       @mousedown="startTabDrag($event, tab.url)"
-                       @mousemove.window="onTabDrag($event)"
-                       @mouseup.window="endTabDrag($event)"
-                       @touchstart.passive="startTabDrag($event, tab.url)"
-                       @touchmove.passive="onTabDrag($event)"
-                       @touchend.window="endTabDrag($event)"
-                       @click="if(tabWasDragged) { $event.preventDefault(); $event.stopPropagation(); }"
-                       draggable="false">
+                    <div class="relative group flex-1 md:flex-none"
+                         :style="draggedTabUrl === tab.url ? `transform: translateY(${tabCurrentY}px); opacity: ${Math.max(0, 1 - (Math.abs(tabCurrentY)/100))};` : ''"
+                         @mousedown="startTabDrag($event, tab.url)"
+                         @mousemove.window="onTabDrag($event)"
+                         @mouseup.window="endTabDrag($event)"
+                         @touchstart.passive="startTabDrag($event, tab.url)"
+                         @touchmove.passive="onTabDrag($event)"
+                         @touchend.window="endTabDrag($event)"
+                         @contextmenu.prevent="activeDeleteUrl = activeDeleteUrl === tab.url ? null : tab.url"
+                         @click.outside="if(activeDeleteUrl === tab.url) activeDeleteUrl = null">
                         
-                        {{-- Active Indicator --}}
-                        <div x-show="currentUrl === tab.url" class="absolute top-0 w-8 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-b-full"></div>
-                        
-                        <div x-html="getSvgIcon(tab.icon, currentUrl === tab.url)"></div>
-                        <span class="text-[10px] lg:text-xs lg:mt-1 font-medium truncate w-14 lg:w-20 text-center pointer-events-none" x-text="tab.title"></span>
-                    </a>
+                        {{-- Delete Button (Visible only when triggered via contextmenu) --}}
+                        <button @click.prevent.stop="removeTab(tab.url); activeDeleteUrl = null;"
+                                class="absolute top-1 right-1 p-0.5 bg-zinc-200 hover:bg-red-100 dark:bg-zinc-700 dark:hover:bg-red-900 rounded-full z-30 transition-all duration-200"
+                                :class="activeDeleteUrl === tab.url ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'">
+                            <svg class="w-3 h-3 text-zinc-600 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+
+                        <a :href="tab.url" wire:navigate 
+                           class="flex flex-col items-center justify-center w-full md:w-[50px] lg:w-[60px] xl:w-[86px] h-[64px] md:h-[48px] lg:h-[50px] xl:h-[76px] gap-1 md:gap-0.5 xl:gap-1 px-1 relative select-none md:rounded-xl xl:rounded-2xl transition-all duration-300 md:border group hover:z-50"
+                           :class="[
+                               currentUrl === tab.url 
+                                ? 'text-indigo-600 dark:text-indigo-400 md:bg-indigo-50/70 md:dark:bg-indigo-900/40 md:shadow-[0_4px_16px_rgba(79,70,229,0.25)] md:border-indigo-200/60 md:dark:border-indigo-500/40' 
+                                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 md:border-transparent md:hover:bg-zinc-100/50 md:dark:hover:bg-zinc-800/50',
+                               draggedTabUrl === tab.url ? '' : 'transition-transform duration-300'
+                           ]"
+                           @click="if(tabWasDragged) { $event.preventDefault(); $event.stopPropagation(); }"
+                           draggable="false">
+                            
+                            {{-- Active Indicator (Garis Atas) - Hanya untuk HP/Mobile --}}
+                            <div x-show="currentUrl === tab.url" class="absolute top-0 w-8 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-b-full md:hidden"></div>
+                            
+                            <div class="relative flex justify-center group-active:scale-[1.1] transition-all duration-300 ease-out xl:group-hover:scale-[1.4] xl:group-hover:-translate-y-4">
+                                <div x-html="getSvgIcon(tab.icon, currentUrl === tab.url, tab.url)"></div>
+                                <template x-if="badges[tab.url]">
+                                    <div x-html="badges[tab.url]" class="absolute -top-1 -right-1"></div>
+                                </template>
+                            </div>
+                            
+                            {{-- Full Text for Mobile (< md) and PC (>= xl) --}}
+                            <span class="block md:hidden xl:block text-[10px] xl:text-[11px] font-medium truncate w-14 xl:w-20 text-center pointer-events-none xl:group-hover:text-indigo-600 xl:dark:group-hover:text-indigo-400 xl:group-hover:-translate-y-1 transition-all duration-300" x-text="tab.title"></span>
+                            
+                            {{-- 1-Word Text for Tablet (md to lg) to save extreme vertical space --}}
+                            <span class="hidden md:block xl:hidden text-[9px] lg:text-[10px] font-medium truncate w-full text-center pointer-events-none opacity-80" x-text="tab.title.split(' ')[0]"></span>
+                        </a>
+                    </div>
                 </template>
             </div>
         </div>
@@ -187,6 +208,56 @@
                     touchStartY: 0,
                     recentTabs: [],
                     currentUrl: window.location.pathname,
+                    
+                    isDockHidden: false,
+                    dockTimer: null,
+                    badges: {},
+                    activeDeleteUrl: null,
+                    longPressTimer: null,
+                    
+                    init() {
+                        this.resetDockTimer();
+                        
+                        // Load saved tabs
+                        try {
+                            const saved = localStorage.getItem('gesture_recent_tabs');
+                            if (saved) {
+                                this.recentTabs = JSON.parse(saved);
+                            }
+                        } catch(e) {}
+                        
+                        // Sync badges continuously
+                        setInterval(() => {
+                            this.syncBadges();
+                        }, 2000);
+                        
+                        this.recordVisit();
+                    },
+
+                    syncBadges() {
+                        const newBadges = {};
+                        document.querySelectorAll('#drawer-menu-container a[data-drawer-url]').forEach(el => {
+                            const url = el.getAttribute('data-drawer-url');
+                            const badgeSpan = el.querySelector('div[style="display: contents;"] > span.absolute');
+                            if (badgeSpan) {
+                                // Clone and adjust position for the dock (top right of icon container)
+                                const cloned = badgeSpan.cloneNode(true);
+                                cloned.className = cloned.className.replace('-left-2', 'right-1/4 translate-x-2 lg:right-1/3').replace('-top-1.5', '-top-1.5');
+                                newBadges[url] = cloned.outerHTML;
+                            }
+                        });
+                        this.badges = newBadges;
+                    },
+                    
+                    resetDockTimer() {
+                        clearTimeout(this.dockTimer);
+                        if (window.innerWidth >= 768) {
+                            this.isDockHidden = false;
+                            this.dockTimer = setTimeout(() => {
+                                this.isDockHidden = true;
+                            }, 3500);
+                        }
+                    },
                     
                     // variables for tab dragging to dismiss
                     draggedTabUrl: null,
@@ -267,6 +338,15 @@
                         this.tabStartY = e.touches ? e.touches[0].clientY : e.clientY;
                         this.tabCurrentY = 0;
                         this.tabWasDragged = false;
+                        
+                        // Deteksi Long Press khusus untuk HP/Tablet (500ms)
+                        clearTimeout(this.longPressTimer);
+                        this.longPressTimer = setTimeout(() => {
+                            if (Math.abs(this.tabCurrentY) < 10) {
+                                this.activeDeleteUrl = this.activeDeleteUrl === url ? null : url;
+                                if (navigator.vibrate) navigator.vibrate(50); // Getar sedikit jika didukung
+                            }
+                        }, 500);
                     },
 
                     onTabDrag(e) {
@@ -274,6 +354,11 @@
                         
                         let clientY = e.touches ? e.touches[0].clientY : e.clientY;
                         let deltaY = clientY - this.tabStartY;
+                        
+                        // Batalkan long-press jika jari mulai bergeser
+                        if (Math.abs(deltaY) > 10) {
+                            clearTimeout(this.longPressTimer);
+                        }
                         
                         // Only allow dragging UP
                         if (deltaY < 0) {
@@ -285,6 +370,7 @@
                     },
 
                     endTabDrag(e) {
+                        clearTimeout(this.longPressTimer);
                         if (!this.draggedTabUrl) return;
                         
                         // If dragged up by more than 40px, throw it away
@@ -340,6 +426,16 @@
                         }
                         
                         this.recordVisit();
+                        this.resetDockTimer();
+                        
+                        // Observe drawer for badge updates
+                        const drawerContainer = document.getElementById('drawer-menu-container');
+                        if (drawerContainer) {
+                            const observer = new MutationObserver(() => this.syncBadges());
+                            observer.observe(drawerContainer, { childList: true, subtree: true, characterData: true });
+                        }
+                        
+                        setTimeout(() => this.syncBadges(), 200);
                         
                         // Listen for window resize to trim if screen gets smaller
                         window.addEventListener('resize', () => {
@@ -362,44 +458,55 @@
                         // Old swipe-from-left gesture disabled to prevent conflict with Android Back gesture
                     },
                     
-                    getSvgIcon(iconName, isActive) {
-                        const classes = isActive ? 'w-5 h-5 lg:w-6 lg:h-6 stroke-[2.5]' : 'w-5 h-5 lg:w-6 lg:h-6 stroke-[1.5]';
-                        const icons = {
-                            'home': `<svg class="${classes}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>`,
-                            'cube': `<svg class="${classes}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>`,
-                            'shopping-cart': `<svg class="${classes}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>`,
-                            'banknotes': `<svg class="${classes}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V5.946c0-.754-.726-1.294-1.453-1.096A60.07 60.07 0 012.25 5.25v13.5zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>`,
-                            'document-text': `<svg class="${classes}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>`,
-                            'wrench-screwdriver': `<svg class="${classes}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.827M15.17 11.42L21 5.583M5.583 21l5.837-5.837m-2.14-7.466l-5.592 5.592a2.65 2.65 0 01-3.75-3.749l5.59-5.59M11.42 15.17l3.75-3.75M5.583 21l3.75-3.75" /></svg>`,
-                            'calculator': `<svg class="${classes}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V13.5zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V18zm2.498-6.75h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V13.5zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V18zm2.504-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V18zm2.498-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zM8.25 6h7.5v2.25h-7.5V6zM12 2.25c-1.892 0-3.758.11-5.593.322C5.307 2.7 4.5 3.65 4.5 4.757V19.5a2.25 2.25 0 002.25 2.25h10.5a2.25 2.25 0 002.25-2.25V4.757c0-1.108-.806-2.057-1.907-2.185A48.507 48.507 0 0012 2.25z" /></svg>`
-                        };
-                        return icons[iconName] || icons['document-text'];
+                    getSvgIcon(iconName, isActive, url = null) {
+                        let map = window.AppUrlMappings[url];
+                        let svg = window.AppIconSvgs[iconName] || window.AppIconSvgs['document-text'];
+                        
+                        // Menghapus kotak gradien, hanya menampilkan SVG asli
+                        let classes = isActive ? 'text-indigo-600 dark:text-indigo-400 stroke-[2.5]' : 'text-zinc-600 dark:text-zinc-400 stroke-[1.5]';
+                        
+                        return `<div class="w-6 h-6 md:w-5 md:h-5 lg:w-5 lg:h-5 xl:w-9 xl:h-9 flex items-center justify-center transition-colors ${classes}">
+                                   ${svg}
+                                </div>`;
                     },
 
                     determineIcon(url) {
-                        if (url.includes('/inventory')) return 'cube';
-                        if (url.includes('/finance')) return 'banknotes';
-                        if (url.includes('/purchase')) return 'shopping-cart';
-                        if (url.includes('/sales')) return 'calculator';
-                        if (url.includes('/production')) return 'wrench-screwdriver';
-                        if (url === '/' || url === '/dashboard') return 'home';
+                        const path = url.replace(window.location.origin, '');
+                        
+                        let map = window.AppUrlMappings[path];
+                        if (map) return map.icon;
+                        
                         return 'document-text';
                     },
 
                     determineTitle(url, docTitle) {
+                        // Coba cari label asli dari menu drawer agar konsisten
+                        const drawerLink = document.querySelector(`#drawer-menu-container a[data-drawer-url="${url}"]`);
+                        if (drawerLink) {
+                            const labelSpan = drawerLink.querySelector('span.leading-tight');
+                            if (labelSpan && labelSpan.innerText.trim()) {
+                                return labelSpan.innerText.trim();
+                            }
+                        }
+
                         let shortTitle = docTitle.split('-')[0].trim();
-                        if (url.includes('/inventory/items')) return 'Barang';
-                        if (url.includes('/inventory/warehouses')) return 'Gudang';
-                        if (url.includes('/purchase/orders')) return 'PO';
-                        if (url.includes('/sales/orders')) return 'SO';
+                        if (shortTitle.toLowerCase() === 'laravel' || !shortTitle) {
+                            let pathParts = url.split('/').filter(p => p.length > 0);
+                            if (pathParts.length > 0) {
+                                let lastPart = pathParts[pathParts.length - 1];
+                                shortTitle = lastPart.charAt(0).toUpperCase() + lastPart.slice(1).replace(/[-_]/g, ' ');
+                            } else {
+                                shortTitle = 'Menu';
+                            }
+                        }
                         
                         if (shortTitle.length > 12) shortTitle = shortTitle.substring(0, 10) + '..';
                         return shortTitle;
                     },
 
                     trimTabs(tabs) {
-                        // Allow tabs to fill available screen width, but strictly cap at 10 tabs maximum
-                        let maxTabs = Math.min(10, Math.max(4, Math.floor((window.innerWidth - 32) / 82))); 
+                        // Batas disesuaikan dengan kapasitas lebar layar, maksimal 10.
+                        let maxTabs = Math.min(10, Math.max(2, Math.floor((window.innerWidth - 32) / 82))); 
                         
                         while (tabs.length > maxTabs) {
                             let oldestIndex = 0;

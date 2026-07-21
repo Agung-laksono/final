@@ -1,284 +1,139 @@
-<div class="px-4 pb-20 pt-2 space-y-8">
+<div id="drawer-menu-container" class="px-4 pb-20 pt-2 space-y-8">
 
-    <!-- Inventory -->
-    @can('inventory.view')
-    <div>
-        <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">{{ __('INVENTORY') }}</h3>
-        <div class="grid grid-cols-4 gap-y-6 gap-x-2">
-            <a href="{{ route('inventory') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.chart-pie class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Dashboard</span>
-            </a>
+    <!-- Profil & Notifikasi (Minimalis) -->
+    <div x-data="{ showNotifs: false }">
+        <div class="flex items-center justify-between px-1 mb-2">
+            <div class="flex items-center gap-2.5">
+                <flux:avatar size="sm" :name="auth()->user()->name" :src="auth()->user()->avatarUrl()" class="w-8 h-8 text-xs" />
+                <span class="text-[13px] font-medium text-zinc-700 dark:text-zinc-300">{{ auth()->user()->name }}</span>
+            </div>
+            <div class="flex items-center gap-1">
+                {{-- Bell toggle button --}}
+                @php $unread = auth()->user()->unreadNotifications()->count(); @endphp
+                <button @click="showNotifs = !showNotifs" class="relative flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-zinc-400 transition-colors" :class="showNotifs ? 'text-blue-500 bg-blue-50 dark:bg-blue-500/10' : 'hover:text-zinc-600 dark:hover:text-zinc-200'">
+                    <flux:icon.bell class="w-[16px] h-[16px]" />
+                    <span class="text-[12px] font-medium">Notifikasi</span>
+                    @if($unread > 0)
+                        <span class="w-2 h-2 bg-blue-500 rounded-full border-2 border-zinc-50 dark:border-zinc-900"></span>
+                    @endif
+                </button>
 
-            @can('inventory.item.view')
-            <a href="{{ route('inventory.items') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.cube class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Barang</span>
-            </a>
-            @endcan
-
-            @can('inventory.warehouse.view')
-            <a href="{{ route('inventory.warehouses') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.building-storefront class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Gudang</span>
-            </a>
-            @endcan
-
-            @can('inventory.transfer.view')
-            <a href="{{ route('inventory.transfers') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <div class="relative">
-                        <flux:icon.arrows-right-left class="size-6" />
-                        <livewire:layout.sidebar-badge type="inventory_transfer" />
-                    </div>
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Transfer</span>
-            </a>
-
-            <a href="{{ route('inventory.requests') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <div class="relative">
-                        <flux:icon.inbox-arrow-down class="size-6" />
-                        <livewire:layout.sidebar-badge type="inventory_request" />
-                    </div>
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Permintaan</span>
-            </a>
-            @endcan
-
-            @can('inventory.stock.create')
-            <a href="{{ route('inventory.dispatch') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.arrow-right-end-on-rectangle class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Kedatangan</span>
-            </a>
-
-            <a href="{{ route('inventory.production-receipts') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.arrow-down-tray class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Terima QC</span>
-            </a>
-            @endcan
-
-            @can('production.order.update')
-            <a href="{{ route('inventory.fulfillments') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.clipboard-document-check class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Pemenuhan</span>
-            </a>
-            @endcan
-
-            @can('inventory.view')
-            <a href="{{ route('inventory.sales-deliveries') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.truck class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Pengiriman</span>
-            </a>
-            @endcan
-
-            @can('inventory.movement.view')
-            <a href="{{ route('inventory.movements') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.clock class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Riwayat</span>
-            </a>
-            @endcan
-
-            @can('inventory.opname.view')
-            <a href="{{ route('inventory.stock-opname') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.adjustments-horizontal class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Opname</span>
-            </a>
-            @endcan
+                <form method="POST" action="{{ route('logout') }}" class="m-0">
+                    @csrf
+                    <button type="submit" title="Keluar" class="p-2 text-zinc-400 hover:text-red-500 transition-colors">
+                        <flux:icon.arrow-right-start-on-rectangle class="w-[18px] h-[18px]" />
+                    </button>
+                </form>
+            </div>
         </div>
-    </div>
-    @endcan
 
-    <!-- Pembelian -->
-    @can('purchase.dashboard.view')
-    <div>
-        <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">{{ __('PEMBELIAN') }}</h3>
-        <div class="grid grid-cols-4 gap-y-6 gap-x-2">
-            @can('purchase.dashboard.view')
-            <a href="{{ route('purchase.index') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.shopping-cart class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Dashboard</span>
-            </a>
-            @endcan
-
-            @can('purchase.queue.view')
-            <a href="{{ route('purchase.queues.kanban') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <div class="relative">
-                        <flux:icon.queue-list class="size-6" />
-                        <livewire:layout.sidebar-badge type="purchase_queue" />
-                    </div>
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Permintaan</span>
-            </a>
-            @endcan
-
-            @can('purchase.order.view')
-            <a href="{{ route('purchase.orders.kanban') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <div class="relative">
-                        <flux:icon.clipboard-document-list class="size-6" />
-                        <livewire:layout.sidebar-badge type="purchase_order" />
-                    </div>
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Kanban PO</span>
-            </a>
-            @endcan
-
-            @can('purchase.vendor.view')
-            <a href="{{ route('purchase.vendors.index') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.building-office-2 class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Vendor</span>
-            </a>
-            @endcan
-        </div>
-    </div>
-    @endcan
-
-    <!-- Produksi -->
-    @can('production.dashboard.view')
-    <div>
-        <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">{{ __('PRODUKSI') }}</h3>
-        <div class="grid grid-cols-4 gap-y-6 gap-x-2">
-            @can('production.order.view')
-            <a href="{{ route('production.orders') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <div class="relative">
-                        <flux:icon.wrench-screwdriver class="size-6" />
-                        <livewire:layout.sidebar-badge type="production_order" />
-                    </div>
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Kanban</span>
-            </a>
-
-            <a href="{{ route('production.recipes') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.document-text class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Resep</span>
-            </a>
-            @endcan
-        </div>
-    </div>
-    @endcan
-
-    <!-- Penjualan -->
-    @can('sales.dashboard.view')
-    <div>
-        <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">{{ __('PENJUALAN') }}</h3>
-        <div class="grid grid-cols-4 gap-y-6 gap-x-2">
-            @can('sales.customer.view')
-            <a href="{{ route('sales.customers.index') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.user-group class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Pelanggan</span>
-            </a>
-            @endcan
-
-            @can('sales.order.view')
-            <a href="{{ route('sales.orders.index') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <div class="relative">
-                        <flux:icon.clipboard-document-list class="size-6" />
-                        <livewire:layout.sidebar-badge type="sales_order" />
-                    </div>
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Kanban SO</span>
-            </a>
-            @endcan
-        </div>
-    </div>
-    @endcan
-
-    <!-- Komunikasi -->
-    <div>
-        <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">{{ __('KOMUNIKASI') }}</h3>
-        <div class="grid grid-cols-4 gap-y-6 gap-x-2">
-            <a href="{{ route('chat.index') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.chat-bubble-left-right class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">WhatsApp</span>
-            </a>
+        {{-- Notifikasi Inline (toggle) --}}
+        <div x-show="showNotifs"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 -translate-y-2"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-2"
+             x-cloak
+             class="mb-2">
+            <livewire:layout.gesture-notification-strip />
         </div>
     </div>
 
-    <!-- Keuangan -->
-    @canany(['finance.dashboard.view', 'finance.inbox.view'])
-    <div>
-        <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">{{ __('KEUANGAN') }}</h3>
-        <div class="grid grid-cols-4 gap-y-6 gap-x-2">
-            <a href="{{ route('finance.dashboard') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.banknotes class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Buku Kas</span>
-            </a>
-            
-            <a href="{{ route('finance.inbox') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.inbox-arrow-down class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Validasi</span>
-            </a>
-            
-            <a href="{{ route('finance.payables') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.credit-card class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Hutang</span>
-            </a>
-        </div>
-    </div>
-    @endcanany
+    @php
+        use App\Services\NavigationService;
+        $navGroups = NavigationService::getGrouped();
+        $sectionOrder = ['INVENTORY','PEMBELIAN','PRODUKSI','PENJUALAN','KOMUNIKASI','KEUANGAN'];
+        $sectionPermissions = [
+            'INVENTORY'   => 'inventory.view',
+            'PEMBELIAN'   => 'purchase.dashboard.view',
+            'PRODUKSI'    => 'production.dashboard.view',
+            'PENJUALAN'   => 'sales.dashboard.view',
+            'KOMUNIKASI'  => null,
+            'KEUANGAN'    => null,
+        ];
+        $badgeItems = [
+            'inventory.transfers'    => 'inventory_transfer',
+            'inventory.requests'     => 'inventory_request',
+            'purchase.queues.kanban' => 'purchase_queue',
+            'purchase.orders.kanban' => 'purchase_order',
+            'production.orders'      => 'production_order',
+            'sales.orders.index'     => 'sales_order',
+        ];
+    @endphp
 
-    <!-- Pengaturan -->
+    @foreach($sectionOrder as $section)
+        @if(isset($navGroups[$section]) && count($navGroups[$section]) > 0)
+            @php
+                $items = $navGroups[$section];
+                $sectionPerm = $sectionPermissions[$section] ?? null;
+            @endphp
+            @if(!$sectionPerm || auth()->user()->can($sectionPerm))
+
+            <div>
+                <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">{{ __($section) }}</h3>
+                <div class="grid grid-cols-4 md:grid-cols-6 xl:grid-cols-8 gap-y-6 gap-x-2">
+                    @foreach($items as $item)
+                        @php
+                            $routeExists = \Illuminate\Support\Facades\Route::has($item['route_name']);
+                            $hasBadge = isset($badgeItems[$item['route_name']]);
+                        @endphp
+                        @if($routeExists)
+                            @if(!$item['permission'] || auth()->user()->can($item['permission']))
+                            
+                            <a href="{{ route($item['route_name']) }}" data-drawer-url="{{ route($item['route_name'], [], false) }}" wire:navigate class="flex flex-col items-center gap-2 md:gap-3 group">
+                                <div class="w-12 h-12 md:w-14 md:h-14 xl:w-16 xl:h-16 rounded-2xl md:rounded-[1.25rem] xl:rounded-3xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                    @if($hasBadge)
+                                        <div class="relative">
+                                            @if(($item['icon_type'] ?? 'flux') === 'image' && $item['image_path'])
+                                                <img src="{{ Storage::url($item['image_path']) }}" class="size-6 md:size-7 xl:size-8 object-contain group-hover:scale-110 transition-transform duration-300 group-hover:-rotate-3 group-active:scale-95" />
+                                            @else
+                                                <flux:icon :icon="$item['icon']" class="size-6 md:size-7 xl:size-8 group-hover:scale-110 transition-transform duration-300 group-hover:-rotate-3 group-active:scale-95" />
+                                            @endif
+                                            <livewire:layout.sidebar-badge :type="$badgeItems[$item['route_name']]" />
+                                        </div>
+                                    @else
+                                        @if(($item['icon_type'] ?? 'flux') === 'image' && $item['image_path'])
+                                            <img src="{{ Storage::url($item['image_path']) }}" class="size-6 md:size-7 xl:size-8 object-contain group-hover:scale-110 transition-transform duration-300 group-hover:-rotate-3 group-active:scale-95" />
+                                        @else
+                                            <flux:icon :icon="$item['icon']" class="size-6 md:size-7 xl:size-8 group-hover:scale-110 transition-transform duration-300 group-hover:-rotate-3 group-active:scale-95" />
+                                        @endif
+                                    @endif
+                                </div>
+                                <span class="text-[10px] md:text-xs xl:text-[13px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">{{ __($item['label']) }}</span>
+                            </a>
+
+                            @endif
+                        @endif
+                    @endforeach
+                </div>
+            </div>
+
+            @endif
+        @endif
+    @endforeach
+
+    <!-- LAINNYA & Pengaturan -->
+    @if(isset($navGroups['LAINNYA']))
     <div>
         <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">{{ __('LAINNYA') }}</h3>
         <div class="grid grid-cols-4 gap-y-6 gap-x-2">
-            <a href="{{ route('dashboard') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.home class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Utama</span>
-            </a>
-
-            <a href="{{ route('cms.posts.index') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.newspaper class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Artikel</span>
-            </a>
-
-            <a href="{{ route('settings.index') }}" wire:navigate class="flex flex-col items-center gap-2 group">
-                <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    <flux:icon.cog-6-tooth class="size-6" />
-                </div>
-                <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">Pengaturan</span>
-            </a>
+            @foreach($navGroups['LAINNYA'] as $item)
+                @php $routeExists = \Illuminate\Support\Facades\Route::has($item['route_name']); @endphp
+                @if($routeExists)
+                    <a href="{{ route($item['route_name']) }}" data-drawer-url="{{ route($item['route_name'], [], false) }}" wire:navigate class="flex flex-col items-center gap-2 group">
+                        <div class="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            @if(($item['icon_type'] ?? 'flux') === 'image' && $item['image_path'])
+                                <img src="{{ Storage::url($item['image_path']) }}" class="size-6 object-contain group-hover:scale-110 transition-transform duration-300 group-hover:-rotate-3 group-active:scale-95" />
+                            @else
+                                <flux:icon :icon="$item['icon']" class="size-6 group-hover:scale-110 transition-transform duration-300 group-hover:-rotate-3 group-active:scale-95" />
+                            @endif
+                        </div>
+                        <span class="text-[10px] font-medium text-center text-zinc-600 dark:text-zinc-400 leading-tight">{{ __($item['label']) }}</span>
+                    </a>
+                @endif
+            @endforeach
 
             <!-- Mode Gelap Toggle -->
             <button class="flex flex-col items-center gap-2 group"
@@ -299,4 +154,5 @@
             </button>
         </div>
     </div>
+    @endif
 </div>
