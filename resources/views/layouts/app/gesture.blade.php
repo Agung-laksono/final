@@ -86,7 +86,7 @@
              x-cloak></div>
              
         {{-- Multi-State Bottom Sheet (App Drawer) --}}
-        <div class="fixed inset-x-0 bottom-0 z-[10000] bg-zinc-50 dark:bg-zinc-900 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] transition-transform flex flex-col"
+        <div class="fixed inset-x-0 bottom-0 mx-auto max-w-md z-[10000] bg-zinc-50 dark:bg-zinc-900 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] transition-transform flex flex-col"
              :class="{
                  'duration-300 ease-out': !isDragging,
                  'duration-0': isDragging
@@ -115,7 +115,7 @@
         </div>
         
         {{-- Bottom Tab Bar (Recent Pages & Drag Handle) --}}
-        <div class="fixed bottom-0 left-0 right-0 h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 z-[9999] flex flex-col shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] pb-safe relative">
+        <div class="fixed bottom-0 left-0 right-0 mx-auto max-w-md h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 z-[9999] flex flex-col shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] pb-safe relative">
             
             {{-- Integrated Drag Handle --}}
             <div class="w-full h-4 flex justify-center items-start pt-1.5 cursor-pointer touch-none"
