@@ -82,7 +82,7 @@ $delete = function (SubCategory $subCategory) {
 };
 ?>
 
-<div x-on:open-subcategory-modal.window="$wire.openModal()">
+<div x-on:open-subcategory-modal.window="$wire.openModal($event.detail)">
     @if ($show)
     <div class="flex justify-between items-center mb-6">
         <flux:heading size="lg">Pengelolaan Sub Kategori</flux:heading>

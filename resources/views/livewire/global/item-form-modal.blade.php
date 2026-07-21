@@ -61,7 +61,7 @@ new class extends Component {
     public $is_active = true;
     
     #[Rule('boolean')]
-    public $requires_label = false;
+    public $requires_label = true;
 
     public $isInventoryUrl = true;
 
@@ -281,272 +281,276 @@ new class extends Component {
     <div x-on:trigger-add-subcategory.window="$wire.dispatch('open-subcategory-modal', { category_id: $wire.category_id })"></div>
 
     <flux:modal name="item-modal" class="md:max-w-4xl">
-
-        {{-- Modal Header --}}
-        <div class="flex items-center gap-4 mb-6">
-            <div class="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400 shadow-sm shrink-0">
-                @if ($item_id)
-                    <flux:icon.pencil-square class="w-5 h-5" />
-                @else
-                    <flux:icon.cube class="w-5 h-5" />
+        <div x-data="{ step: 1 }" x-on:item-modal-loaded.window="step = 1">
+            {{-- Modal Header --}}
+            <div class="flex items-center gap-4 mb-4">
+                <div class="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400 shadow-sm shrink-0">
+                    @if ($item_id)
+                        <flux:icon.pencil-square class="w-5 h-5" />
+                    @else
+                        <flux:icon.cube class="w-5 h-5" />
+                    @endif
+                </div>
+                <div class="flex-1 min-w-0">
+                    <flux:heading size="lg" class="!mb-0">{{ $item_id ? 'Edit Barang' : 'Tambah Barang Baru' }}</flux:heading>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        <span x-show="step === 1">Langkah 1: Identitas & Wujud Barang</span>
+                        <span x-show="step === 2" style="display: none;">Langkah 2: Klasifikasi & Pengelompokan</span>
+                        <span x-show="step === 3" style="display: none;">Langkah 3: Spesifikasi & Label Tambahan</span>
+                        <span x-show="step === 4" style="display: none;">Langkah 4: Operasional & Angka Dasar</span>
+                        <span x-show="step === 5" style="display: none;">Langkah 5: Tinjauan Akhir (Review)</span>
+                    </p>
+                </div>
+                @if ($code)
+                    <div class="text-xs font-mono bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 px-2.5 py-1 rounded-lg shrink-0">{{ $code }}</div>
                 @endif
             </div>
-            <div class="flex-1 min-w-0">
-                <flux:heading size="lg" class="!mb-0">{{ $item_id ? 'Edit Barang' : 'Tambah Barang Baru' }}</flux:heading>
-                <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    {{ $item_id ? 'Perbarui informasi dan detail barang' : 'Isi informasi lengkap untuk mendaftarkan barang baru' }}
-                </p>
+
+            {{-- Progress Indicator --}}
+            <div class="flex gap-1.5 mb-8" x-show="step < 5">
+                <div class="h-1.5 flex-1 rounded-full transition-colors duration-300" :class="step >= 1 ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-zinc-200 dark:bg-zinc-700'"></div>
+                <div class="h-1.5 flex-1 rounded-full transition-colors duration-300" :class="step >= 2 ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-zinc-200 dark:bg-zinc-700'"></div>
+                <div class="h-1.5 flex-1 rounded-full transition-colors duration-300" :class="step >= 3 ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-zinc-200 dark:bg-zinc-700'"></div>
+                <div class="h-1.5 flex-1 rounded-full transition-colors duration-300" :class="step >= 4 ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-zinc-200 dark:bg-zinc-700'"></div>
             </div>
-            @if ($code)
-                <div class="text-xs font-mono bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 px-2.5 py-1 rounded-lg shrink-0">{{ $code }}</div>
-            @endif
-        </div>
+            {{-- Progress Indicator Step 5 (Full) --}}
+            <div class="flex gap-1.5 mb-8" x-show="step === 5" style="display: none;">
+                <div class="h-1.5 w-full rounded-full transition-colors duration-300 bg-emerald-500 dark:bg-emerald-400"></div>
+            </div>
 
-        <form wire:submit="save">
-            <div class="grid grid-cols-1 md:grid-cols-5">
+            <form wire:submit="save">
+                
+                <div :class="step === 5 ? 'grid grid-cols-1 md:grid-cols-5 gap-6 w-full' : 'w-full sm:w-[42rem] max-w-full mx-auto'">
+                    
+                    {{-- KOLOM KIRI (Langkah 1 & 3 pada Step 5) --}}
+                    <div :class="step === 5 ? 'md:col-span-2 flex flex-col gap-6' : ''">
 
-                {{-- KOLOM KIRI: Foto & Deskripsi (2/5) --}}
-                <div class="md:col-span-2 border-b md:border-b-0 md:border-r border-zinc-200 dark:border-zinc-700 p-6 flex flex-col gap-5 bg-zinc-50/30 dark:bg-zinc-800/10">
+                        {{-- STEP 1: IDENTITAS --}}
+                        <div x-show="step === 1 || step === 5" x-transition.opacity :class="step === 5 ? 'p-5 bg-zinc-50/30 dark:bg-zinc-800/10 border border-zinc-200 dark:border-zinc-700 rounded-xl space-y-6' : 'space-y-6'" style="display: none;">
+                            <div class="flex flex-col items-center gap-2 mb-4">
+                                <div class="w-full max-w-[192px]">
+                                    <x-image-cropper id="item-cropper" wire:model="image" :image="$image" accept="image/*" />
+                                </div>
+                                <span class="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium text-center">Klik untuk ganti foto utama</span>
+                            </div>
 
-                    {{-- Area Foto --}}
-                    <div class="flex flex-col items-center gap-2">
-                        <div class="w-full max-w-[192px]">
-                            <x-image-cropper id="item-cropper" wire:model="image" :image="$image" accept="image/*" />
-                        </div>
-                        <span class="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium text-center">Klik untuk ganti foto utama</span>
-                    </div>
-
-                    <div class="border-t border-dashed border-zinc-200 dark:border-zinc-700"></div>
-
-                    {{-- Nama Barang & Alias --}}
-                    <div class="space-y-4">
-                        <div class="space-y-1">
-                            <flux:input wire:model="alias" label="Alias (Seri / Merek)" placeholder="Contoh: BILLY, RAHWANA" maxlength="100" />
-                            <p class="text-[11px] text-zinc-400">Kosongkan jika tidak ada nama seri khusus.</p>
-                        </div>
-                        <div class="space-y-1">
                             <flux:input wire:model="name" label="Nama Barang" placeholder="Contoh: Rak Buku Putih, Dipan Jati 160x200" required maxlength="100" />
-                            <p class="text-[11px] text-zinc-400">Maks. 100 karakter.</p>
+                            <flux:input wire:model="alias" label="Alias (Seri / Merek)" placeholder="Opsional, cth: BILLY, RAHWANA" maxlength="100" />
                         </div>
-                    </div>
 
-                    {{-- Tags --}}
-                    <div class="space-y-1" x-data="{
-                        newTag: '',
-                        tags: @entangle('tags'),
-                        availableTags: @entangle('availableTags'),
-                        showSuggestions: false,
-                        addTag(tag = null) {
-                            tag = (tag || this.newTag).trim();
-                            if (tag && !this.tags.includes(tag)) {
-                                this.tags.push(tag);
-                            }
-                            this.newTag = '';
-                            this.showSuggestions = false;
-                        },
-                        removeTag(index) {
-                            this.tags.splice(index, 1);
-                        },
-                        get filteredSuggestions() {
-                            if (!this.newTag) return [];
-                            return this.availableTags.filter(t => 
-                                t.toLowerCase().includes(this.newTag.toLowerCase()) && 
-                                !this.tags.includes(t)
-                            );
-                        }
-                    }">
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Label / Tags</label>
-                        <div class="relative">
-                            <div class="min-h-[42px] p-1.5 flex flex-wrap gap-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-shadow">
-                                <template x-for="(tag, index) in tags" :key="index">
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 rounded-md border border-indigo-100 dark:border-indigo-500/20">
-                                        <span x-text="tag"></span>
-                                        <button type="button" @click.stop="removeTag(index)" class="text-indigo-400 hover:text-indigo-600 focus:outline-none">
-                                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
-                                        </button>
-                                    </span>
-                                </template>
-                                <input type="text" 
-                                       x-model="newTag" 
-                                       @keydown.enter.prevent="addTag()" 
-                                       @keydown.backspace="newTag === '' && tags.length > 0 ? removeTag(tags.length - 1) : null"
-                                       @input="showSuggestions = true"
-                                       @click="showSuggestions = true"
-                                       @click.away="showSuggestions = false"
-                                       placeholder="Ketik tag & tekan Enter..." 
-                                       class="flex-1 min-w-[140px] bg-transparent border-0 p-1 text-sm focus:ring-0 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400">
-                            </div>
-                            
-                            {{-- Suggestions Dropdown --}}
-                            <div x-show="showSuggestions && filteredSuggestions.length > 0" 
-                                 x-transition.opacity
-                                 class="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden max-h-48 overflow-y-auto"
-                                 style="display: none;">
-                                <template x-for="suggestion in filteredSuggestions" :key="suggestion">
-                                    <div @click="addTag(suggestion)" 
-                                         class="px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-2">
-                                        <flux:icon.plus class="w-4 h-4 text-zinc-400" />
-                                        <span x-text="suggestion"></span>
+                        {{-- STEP 3: SPESIFIKASI --}}
+                        <div x-show="step === 3 || step === 5" x-transition.opacity :class="step === 5 ? 'p-5 bg-zinc-50/30 dark:bg-zinc-800/10 border border-zinc-200 dark:border-zinc-700 rounded-xl space-y-6' : 'space-y-6'" style="display: none;">
+                            {{-- Deskripsi --}}
+                            <flux:textarea wire:model="description" label="Spesifikasi / Deskripsi" placeholder="Tuliskan spesifikasi lengkap, ukuran, atau keterangan tambahan..." rows="4" />
+
+                            {{-- Tags --}}
+                            <div class="space-y-1" x-data="{
+                                newTag: '',
+                                tags: @entangle('tags'),
+                                availableTags: @entangle('availableTags'),
+                                showSuggestions: false,
+                                addTag(tag = null) {
+                                    tag = (tag || this.newTag).trim();
+                                    if (tag && !this.tags.includes(tag)) {
+                                        this.tags.push(tag);
+                                    }
+                                    this.newTag = '';
+                                    this.showSuggestions = false;
+                                },
+                                removeTag(index) {
+                                    this.tags.splice(index, 1);
+                                },
+                                get filteredSuggestions() {
+                                    let available = this.availableTags || [];
+                                    if (!this.newTag) {
+                                        return available.filter(t => !this.tags.includes(t)).slice(0, 15);
+                                    }
+                                    return available.filter(t => 
+                                        t.toLowerCase().includes(this.newTag.toLowerCase()) && 
+                                        !this.tags.includes(t)
+                                    ).slice(0, 15);
+                                }
+                            }">
+                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Label / Tags (Opsional)</label>
+                                <div class="relative">
+                                    <div class="min-h-[42px] p-1.5 flex flex-wrap gap-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-shadow">
+                                        <template x-for="(tag, index) in tags" :key="index">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 rounded-md border border-indigo-100 dark:border-indigo-500/20">
+                                                <span x-text="tag"></span>
+                                                <button type="button" @click.stop="removeTag(index)" class="text-indigo-400 hover:text-indigo-600 focus:outline-none">
+                                                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+                                                </button>
+                                            </span>
+                                        </template>
+                                        <div class="flex-1 flex items-center min-w-[140px]">
+                                            <input type="text" 
+                                                x-model="newTag" 
+                                                @keydown.enter.prevent="addTag()" 
+                                                @keydown.comma.prevent="addTag()"
+                                                @keydown.backspace="newTag === '' && tags.length > 0 ? removeTag(tags.length - 1) : null"
+                                                @input="showSuggestions = true"
+                                                @click="showSuggestions = true"
+                                                @click.away="showSuggestions = false"
+                                                placeholder="Ketik tag & tekan Enter / Koma" 
+                                                class="w-full bg-transparent border-0 p-1 text-sm focus:ring-0 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400">
+                                            <button type="button" x-show="newTag.trim() !== ''" @click.stop="addTag()" class="p-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 transition-colors" title="Tambah Tag">
+                                                <flux:icon.plus class="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </div>
-                                </template>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Deskripsi --}}
-                    <div class="flex-1">
-                        <flux:textarea wire:model="description" label="Spesifikasi / Deskripsi" placeholder="Tuliskan spesifikasi lengkap, ukuran, atau keterangan tambahan..." rows="4" />
-                    </div>
-
-                </div>
-
-                {{-- KOLOM KANAN: Detail Teknis, Harga, Stok (3/5) --}}
-                <div class="md:col-span-3 p-6 flex flex-col gap-6">
-
-                    {{-- Seksi: Klasifikasi --}}
-                    <div class="space-y-4">
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="p-1.5 bg-violet-50 dark:bg-violet-500/10 rounded-lg text-violet-500">
-                                <flux:icon.tag class="w-4 h-4" />
-                            </div>
-                            <span class="text-xs font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Klasifikasi</span>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {{-- Satuan --}}
-                            <div>
-                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Satuan <span class="text-red-500">*</span></label>
-                                <div class="flex gap-1.5">
-                                    <flux:select wire:model.live="unit_id" class="flex-1 min-w-0">
-                                        <flux:select.option value="">-- Pilih Satuan --</flux:select.option>
-                                        @foreach($units as $unit)
-                                            <flux:select.option value="{{ $unit->id }}">{{ $unit->name }}</flux:select.option>
-                                        @endforeach
-                                    </flux:select>
-                                    <button type="button" x-on:click="$flux.modal('unit-modal').show()" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors" title="Tambah Baru">
-                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
-                                    </button>
+                                    
+                                    {{-- Suggestions Dropdown --}}
+                                    <div x-show="showSuggestions && filteredSuggestions.length > 0" 
+                                        x-transition.opacity
+                                        class="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden max-h-48 overflow-y-auto"
+                                        style="display: none;">
+                                        <template x-for="suggestion in filteredSuggestions" :key="suggestion">
+                                            <div @click="addTag(suggestion)" 
+                                                class="px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-2">
+                                                <flux:icon.plus class="w-4 h-4 text-zinc-400" />
+                                                <span x-text="suggestion"></span>
+                                            </div>
+                                        </template>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {{-- Tipe Barang --}}
-                            <div>
-                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Tipe Barang <span class="text-red-500">*</span></label>
-                                <div class="flex gap-1.5">
-                                    <flux:select wire:model.live="type_id" class="flex-1 min-w-0">
-                                        <flux:select.option value="">-- Pilih Tipe --</flux:select.option>
-                                        @foreach($types as $type)
-                                            <flux:select.option value="{{ $type->id }}">{{ $type->name }}</flux:select.option>
-                                        @endforeach
-                                    </flux:select>
-                                    <button type="button" x-on:click="$flux.modal('type-modal').show()" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors" title="Tambah Baru">
-                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
-                                    </button>
-                                </div>
-                            </div>
+                    </div> <!-- End of Kolom Kiri -->
 
-                            {{-- Kategori Utama --}}
-                            <div>
-                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Kategori <span class="text-red-500">*</span></label>
-                                <div class="flex gap-1.5">
-                                    <flux:select wire:model.live="category_id" class="flex-1 min-w-0">
+                    {{-- KOLOM KANAN (Langkah 2 & 4 pada Step 5) --}}
+                    <div :class="step === 5 ? 'md:col-span-3 flex flex-col gap-6' : ''">
+
+                        {{-- STEP 2: KLASIFIKASI --}}
+                        <div x-show="step === 2 || step === 5" x-transition.opacity :class="step === 5 ? 'p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl space-y-6 shadow-sm' : 'space-y-6'" style="display: none;">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                {{-- Kategori Utama --}}
+                                <div>
+                                    <div class="flex justify-between items-center mb-1.5">
+                                        <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Kategori <span class="text-red-500">*</span></label>
+                                        <button type="button" x-on:click="$flux.modal('category-modal').show()" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5" title="Tambah Baru">
+                                            <flux:icon.plus class="w-3 h-3" /> Baru
+                                        </button>
+                                    </div>
+                                    <flux:select wire:model.live="category_id" class="w-full">
                                         <flux:select.option value="">-- Pilih Kategori --</flux:select.option>
                                         @foreach($categories as $category)
                                             <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
                                         @endforeach
                                     </flux:select>
-                                    <button type="button" x-on:click="$flux.modal('category-modal').show()" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors" title="Tambah Baru">
-                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
-                                    </button>
                                 </div>
-                            </div>
 
-                            {{-- Sub Kategori --}}
-                            @if($category_id)
-                            <div>
-                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Sub Kategori</label>
-                                <div class="flex gap-1.5">
-                                    <flux:select wire:model.live="sub_category_id" class="flex-1 min-w-0">
+                                {{-- Sub Kategori --}}
+                                <div>
+                                    <div class="flex justify-between items-center mb-1.5">
+                                        <label class="text-sm font-medium" :class="!$wire.category_id ? 'text-zinc-400 dark:text-zinc-500' : 'text-zinc-700 dark:text-zinc-300'">Sub Kategori</label>
+                                        <button type="button" x-bind:disabled="!$wire.category_id" x-on:click="$dispatch('open-subcategory-modal', { category_id: $wire.category_id })" class="text-[11px] font-medium transition-colors flex items-center gap-0.5" :class="!$wire.category_id ? 'text-zinc-400 dark:text-zinc-500 cursor-not-allowed' : 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300'" title="Tambah Baru">
+                                            <flux:icon.plus class="w-3 h-3" /> Baru
+                                        </button>
+                                    </div>
+                                    <flux:select wire:model.live="sub_category_id" class="w-full" x-bind:disabled="!$wire.category_id">
                                         <flux:select.option value="">-- Pilih Sub --</flux:select.option>
                                         @foreach($subcategories as $sub)
                                             <flux:select.option value="{{ $sub->id }}">{{ $sub->name }}</flux:select.option>
                                         @endforeach
                                     </flux:select>
-                                    <button type="button" x-on:click="$flux.modal('subcategory-modal').show()" class="shrink-0 flex items-center justify-center w-8 h-8 mt-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-500 hover:text-blue-600 transition-colors" title="Tambah Baru">
-                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" /></svg>
-                                    </button>
+                                </div>
+
+                                {{-- Tipe Barang --}}
+                                <div>
+                                    <div class="flex justify-between items-center mb-1.5">
+                                        <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Tipe Barang <span class="text-red-500">*</span></label>
+                                        <button type="button" x-on:click="$flux.modal('type-modal').show()" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5" title="Tambah Baru">
+                                            <flux:icon.plus class="w-3 h-3" /> Baru
+                                        </button>
+                                    </div>
+                                    <flux:select wire:model.live="type_id" class="w-full">
+                                        <flux:select.option value="">-- Pilih Tipe --</flux:select.option>
+                                        @foreach($types as $type)
+                                            <flux:select.option value="{{ $type->id }}">{{ $type->name }}</flux:select.option>
+                                        @endforeach
+                                    </flux:select>
+                                </div>
+
+                                {{-- Satuan --}}
+                                <div>
+                                    <div class="flex justify-between items-center mb-1.5">
+                                        <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Satuan <span class="text-red-500">*</span></label>
+                                        <button type="button" x-on:click="$flux.modal('unit-modal').show()" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5" title="Tambah Baru">
+                                            <flux:icon.plus class="w-3 h-3" /> Baru
+                                        </button>
+                                    </div>
+                                    <flux:select wire:model.live="unit_id" class="w-full">
+                                        <flux:select.option value="">-- Pilih Satuan --</flux:select.option>
+                                        @foreach($units as $unit)
+                                            <flux:select.option value="{{ $unit->id }}">{{ $unit->name }}</flux:select.option>
+                                        @endforeach
+                                    </flux:select>
                                 </div>
                             </div>
-                            @endif
                         </div>
+
+                        {{-- STEP 4: HARGA & STOK --}}
+                        <div x-show="step === 4 || step === 5" x-transition.opacity :class="step === 5 ? 'p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl space-y-6 shadow-sm' : 'space-y-6'" style="display: none;">
+                            <div class="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Harga Beli <span class="text-red-500">*</span></label>
+                                    <x-currency-input wire:model="purchase_price" placeholder="0" required />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Harga Jual <span class="text-red-500">*</span></label>
+                                    <x-currency-input wire:model="selling_price" placeholder="0" required />
+                                </div>
+                            </div>
+
+                            <div class="border-t border-dashed border-zinc-200 dark:border-zinc-700"></div>
+
+                            <div class="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Stok Min (Kritis) <span class="text-red-500">*</span></label>
+                                    <flux:input type="number" wire:model.live="min_stock" placeholder="Batas notifikasi" required min="0" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Stok Max (Ideal) <span class="text-red-500">*</span></label>
+                                    <flux:input type="number" wire:model.live="max_stock" placeholder="Batas ideal" required x-bind:min="$wire.min_stock || 0" />
+                                </div>
+                            </div>
+
+                            <div class="border-t border-dashed border-zinc-200 dark:border-zinc-700"></div>
+
+                            <div class="flex items-center gap-6 pt-2">
+                                @if ($this->isInventoryUrl)
+                                    <flux:switch wire:model="is_active" label="Status Aktif" />
+                                @endif
+                                <flux:switch wire:model="requires_label" label="Cetak Label QR" />
+                            </div>
+                        </div>
+
+                    </div> <!-- End of Kolom Kanan -->
+                </div> <!-- End of Main Wrapper Grid -->
+
+                {{-- FOOTER NAVIGATION --}}
+                <div class="flex items-center justify-between pt-6 mt-8 border-t border-zinc-200 dark:border-zinc-700">
+                    <div class="flex gap-2">
+                        <flux:modal.close x-show="step === 1">
+                            <flux:button variant="ghost">Batal</flux:button>
+                        </flux:modal.close>
+                        <flux:button x-show="step > 1" variant="ghost" x-on:click="step--" style="display: none;" icon="chevron-left">Sebelumnya</flux:button>
                     </div>
 
-                    <div class="border-t border-dashed border-zinc-200 dark:border-zinc-700"></div>
-
-                    {{-- Seksi: Harga --}}
-                    <div class="space-y-4">
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="p-1.5 bg-emerald-50 dark:bg-emerald-500/10 rounded-lg text-emerald-500">
-                                <flux:icon.banknotes class="w-4 h-4" />
-                            </div>
-                            <span class="text-xs font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Harga Dasar</span>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Harga Beli <span class="text-red-500">*</span></label>
-                                <x-currency-input wire:model="purchase_price" placeholder="0" required />
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Harga Jual <span class="text-red-500">*</span></label>
-                                <x-currency-input wire:model="selling_price" placeholder="0" required />
-                            </div>
-                        </div>
+                    <div class="flex gap-2">
+                        <flux:button x-show="step < 5" variant="primary" x-on:click="step++" icon-trailing="chevron-right">
+                            <span x-show="step < 4">Selanjutnya</span>
+                            <span x-show="step === 4" style="display: none;">Tinjau Data</span>
+                        </flux:button>
+                        <flux:button x-show="step === 5" type="submit" variant="primary" icon="{{ $item_id ? 'check' : 'plus' }}" style="display: none;">
+                            {{ $item_id ? 'Simpan Perubahan' : 'Simpan Barang' }}
+                        </flux:button>
                     </div>
-
-                    <div class="border-t border-dashed border-zinc-200 dark:border-zinc-700"></div>
-
-                    {{-- Seksi: Stok --}}
-                    <div class="space-y-4">
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="p-1.5 bg-blue-50 dark:bg-blue-500/10 rounded-lg text-blue-500">
-                                <flux:icon.archive-box class="w-4 h-4" />
-                            </div>
-                            <span class="text-xs font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">Batas Stok</span>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Stok Minimum <span class="text-red-500">*</span></label>
-                                <flux:input type="number" wire:model.live="min_stock" placeholder="0" required min="0" />
-                                <p class="text-[11px] text-zinc-400 mt-1">Notifikasi stok kritis</p>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Stok Maksimum <span class="text-red-500">*</span></label>
-                                <flux:input type="number" wire:model.live="max_stock" placeholder="0" required x-bind:min="$wire.min_stock || 0" />
-                                <p class="text-[11px] text-zinc-400 mt-1">Batas stok ideal</p>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
-            </div>
 
-            {{-- FOOTER --}}
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between pt-6 mt-6 border-t border-zinc-200 dark:border-zinc-700 gap-4">
-                <div class="flex items-center gap-6">
-                    @if ($this->isInventoryUrl)
-                        <flux:switch wire:model="is_active" label="Status Aktif" />
-                    @endif
-                    <flux:switch wire:model="requires_label" label="Cetak Label" />
-                </div>
-                <div class="flex gap-2 w-full sm:w-auto">
-                    <flux:modal.close>
-                        <flux:button variant="ghost" class="w-full sm:w-auto">Batal</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" variant="primary" class="w-full sm:w-auto" icon="{{ $item_id ? 'check' : 'plus' }}">
-                        {{ $item_id ? 'Simpan Perubahan' : 'Simpan Barang' }}
-                    </flux:button>
-                </div>
-            </div>
-        </form>
+            </form>
+        </div>
     </flux:modal>
 
     {{-- Komponen pendukung untuk Quick Add (agar otomatis terpanggil jika item-form-modal digunakan) --}}
