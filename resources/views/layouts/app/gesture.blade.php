@@ -115,7 +115,8 @@
         </div>
         
         {{-- Bottom Tab Bar (Recent Pages & Drag Handle) --}}
-        <div class="fixed bottom-0 left-0 right-0 mx-auto max-w-md h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 z-[9999] flex flex-col shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] pb-safe relative">
+        <div class="fixed bottom-0 md:bottom-6 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 w-full md:w-max md:min-w-[448px] md:max-w-[95vw] md:rounded-2xl md:border md:px-4 h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t md:border-t-0 border-zinc-200 dark:border-zinc-800 z-[9999] flex flex-col shadow-[0_-4px_16px_rgba(0,0,0,0.1)] md:shadow-2xl md:shadow-zinc-900/20 pb-safe transition-all duration-300"
+             :class="(menuState > 0 || (isDragging && currentY < windowHeight - 20)) ? 'translate-y-32 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'">
             
             {{-- Integrated Drag Handle --}}
             <div class="w-full h-4 flex justify-center items-start pt-1.5 cursor-pointer touch-none"
@@ -131,17 +132,29 @@
             <div class="w-full h-4" x-show="menuState > 0" x-cloak></div>
 
             {{-- Tabs Container --}}
-            <div class="flex-1 flex items-center justify-around px-2 relative">
+            <div class="flex-1 flex items-center justify-center md:gap-2 px-2 relative">
                 <template x-for="tab in recentTabs" :key="tab.url">
                     <a :href="tab.url" wire:navigate 
-                       class="flex flex-col items-center justify-center w-full h-full gap-0 transition-colors relative"
-                       :class="currentUrl === tab.url ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'">
+                       class="flex flex-col items-center justify-center w-full md:w-[74px] lg:w-[90px] h-full gap-0 relative flex-shrink-0 select-none"
+                       :class="[
+                           currentUrl === tab.url ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100',
+                           draggedTabUrl === tab.url ? '' : 'transition-transform duration-300'
+                       ]"
+                       :style="draggedTabUrl === tab.url ? `transform: translateY(${tabCurrentY}px); opacity: ${Math.max(0, 1 - (Math.abs(tabCurrentY)/100))};` : ''"
+                       @mousedown="startTabDrag($event, tab.url)"
+                       @mousemove.window="onTabDrag($event)"
+                       @mouseup.window="endTabDrag($event)"
+                       @touchstart.passive="startTabDrag($event, tab.url)"
+                       @touchmove.passive="onTabDrag($event)"
+                       @touchend.window="endTabDrag($event)"
+                       @click="if(tabWasDragged) { $event.preventDefault(); $event.stopPropagation(); }"
+                       draggable="false">
                         
                         {{-- Active Indicator --}}
                         <div x-show="currentUrl === tab.url" class="absolute top-0 w-8 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-b-full"></div>
                         
                         <div x-html="getSvgIcon(tab.icon, currentUrl === tab.url)"></div>
-                        <span class="text-[10px] font-medium truncate w-14 text-center" x-text="tab.title"></span>
+                        <span class="text-[10px] lg:text-xs lg:mt-1 font-medium truncate w-14 lg:w-20 text-center pointer-events-none" x-text="tab.title"></span>
                     </a>
                 </template>
             </div>
@@ -174,6 +187,12 @@
                     touchStartY: 0,
                     recentTabs: [],
                     currentUrl: window.location.pathname,
+                    
+                    // variables for tab dragging to dismiss
+                    draggedTabUrl: null,
+                    tabStartY: 0,
+                    tabCurrentY: 0,
+                    tabWasDragged: false,
                     
                     // variables for content drag detection
                     contentStartY: 0,
@@ -240,6 +259,48 @@
                         }
                     },
                     
+                    startTabDrag(e, url) {
+                        // Prevent starting drag if it's right-click
+                        if (e.button === 2) return;
+                        
+                        this.draggedTabUrl = url;
+                        this.tabStartY = e.touches ? e.touches[0].clientY : e.clientY;
+                        this.tabCurrentY = 0;
+                        this.tabWasDragged = false;
+                    },
+
+                    onTabDrag(e) {
+                        if (!this.draggedTabUrl) return;
+                        
+                        let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                        let deltaY = clientY - this.tabStartY;
+                        
+                        // Only allow dragging UP
+                        if (deltaY < 0) {
+                            this.tabCurrentY = deltaY;
+                            if (deltaY < -10) {
+                                this.tabWasDragged = true;
+                            }
+                        }
+                    },
+
+                    endTabDrag(e) {
+                        if (!this.draggedTabUrl) return;
+                        
+                        // If dragged up by more than 40px, throw it away
+                        if (this.tabCurrentY < -40) {
+                            this.removeTab(this.draggedTabUrl);
+                        }
+                        
+                        this.draggedTabUrl = null;
+                        this.tabCurrentY = 0;
+                        
+                        // Reset flag after a tiny delay so click event can be blocked
+                        setTimeout(() => {
+                            this.tabWasDragged = false;
+                        }, 50);
+                    },
+                    
                     contentTouchStart(e) {
                         this.contentStartY = e.touches[0].clientY;
                         this.isContentAtTop = e.currentTarget.scrollTop <= 0;
@@ -274,9 +335,20 @@
                         
                         if (this.recentTabs.length === 0) {
                             this.recentTabs = [];
+                        } else {
+                            this.recentTabs = this.trimTabs(this.recentTabs);
                         }
                         
                         this.recordVisit();
+                        
+                        // Listen for window resize to trim if screen gets smaller
+                        window.addEventListener('resize', () => {
+                            let newTabs = this.trimTabs([...this.recentTabs]);
+                            if (newTabs.length !== this.recentTabs.length) {
+                                this.recentTabs = newTabs;
+                                localStorage.setItem('gesture_recent_tabs', JSON.stringify(this.recentTabs));
+                            }
+                        });
                     },
 
                     handleTouchStart(e) {
@@ -291,7 +363,7 @@
                     },
                     
                     getSvgIcon(iconName, isActive) {
-                        const classes = isActive ? 'w-5 h-5 stroke-[2.5]' : 'w-5 h-5 stroke-[1.5]';
+                        const classes = isActive ? 'w-5 h-5 lg:w-6 lg:h-6 stroke-[2.5]' : 'w-5 h-5 lg:w-6 lg:h-6 stroke-[1.5]';
                         const icons = {
                             'home': `<svg class="${classes}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>`,
                             'cube': `<svg class="${classes}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>`,
@@ -325,6 +397,25 @@
                         return shortTitle;
                     },
 
+                    trimTabs(tabs) {
+                        // Allow tabs to fill available screen width, but strictly cap at 10 tabs maximum
+                        let maxTabs = Math.min(10, Math.max(4, Math.floor((window.innerWidth - 32) / 82))); 
+                        
+                        while (tabs.length > maxTabs) {
+                            let oldestIndex = 0;
+                            let oldestTime = tabs[0].timestamp || 0;
+                            for (let i = 1; i < tabs.length; i++) {
+                                let tTime = tabs[i].timestamp || 0;
+                                if (tTime < oldestTime) {
+                                    oldestTime = tTime;
+                                    oldestIndex = i;
+                                }
+                            }
+                            tabs.splice(oldestIndex, 1);
+                        }
+                        return tabs;
+                    },
+
                     recordVisit() {
                         setTimeout(() => {
                             this.currentUrl = window.location.pathname;
@@ -338,27 +429,22 @@
                             
                             if (!existingTab) {
                                 tabs.push({ url: this.currentUrl, title: title, icon: icon, timestamp: Date.now() });
-                                if (tabs.length > 5) {
-                                    let oldestIndex = 0;
-                                    let oldestTime = tabs[0].timestamp || 0;
-                                    for (let i = 1; i < tabs.length; i++) {
-                                        let tTime = tabs[i].timestamp || 0;
-                                        if (tTime < oldestTime) {
-                                            oldestTime = tTime;
-                                            oldestIndex = i;
-                                        }
-                                    }
-                                    tabs.splice(oldestIndex, 1);
-                                }
                             } else {
                                 existingTab.title = title;
                                 existingTab.icon = icon;
                                 existingTab.timestamp = Date.now();
                             }
                             
+                            tabs = this.trimTabs(tabs);
+                            
                             this.recentTabs = tabs;
                             localStorage.setItem('gesture_recent_tabs', JSON.stringify(tabs));
                         }, 50);
+                    },
+                    
+                    removeTab(url) {
+                        this.recentTabs = this.recentTabs.filter(t => t.url !== url);
+                        localStorage.setItem('gesture_recent_tabs', JSON.stringify(this.recentTabs));
                     }
                 }
             }
