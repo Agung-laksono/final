@@ -11,6 +11,15 @@ Route::get('/manifest.json', function () {
 
     $iconPath = $get('pwa_icon', null);
     $iconUrl  = $iconPath ? asset('storage/' . $iconPath) : asset('apple-touch-icon.png');
+    
+    $extension = $iconPath ? pathinfo($iconPath, PATHINFO_EXTENSION) : 'png';
+    $mimeType = match(strtolower($extension)) {
+        'jpg', 'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'svg'  => 'image/svg+xml',
+        'ico'  => 'image/x-icon',
+        default => 'image/png',
+    };
 
     $manifest = [
         'name'             => $get('pwa_name', 'Inventory System'),
@@ -25,10 +34,9 @@ Route::get('/manifest.json', function () {
         'theme_color'      => $get('pwa_theme_color_light', '#ffffff'),
         'orientation'      => 'any',
         'icons'            => [
-            ['src' => $iconUrl, 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any maskable'],
-            ['src' => $iconUrl, 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any maskable'],
-            ['src' => $iconUrl, 'sizes' => 'any', 'type' => 'image/png'],
-            ['src' => $iconUrl, 'sizes' => '180x180', 'type' => 'image/png', 'purpose' => 'apple touch icon'],
+            ['src' => $iconUrl, 'sizes' => '192x192', 'type' => $mimeType, 'purpose' => 'any maskable'],
+            ['src' => $iconUrl, 'sizes' => '512x512', 'type' => $mimeType, 'purpose' => 'any maskable'],
+            ['src' => $iconUrl, 'sizes' => 'any', 'type' => $mimeType],
         ],
     ];
 
