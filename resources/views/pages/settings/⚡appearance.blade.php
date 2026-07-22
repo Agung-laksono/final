@@ -37,7 +37,7 @@ new #[Title('Appearance settings')] class extends Component {
 
         <flux:separator class="my-6" />
 
-        <flux:radio.group wire:model.live="layoutMode" variant="segmented" label="Layout Navigasi">
+        <flux:radio.group wire:model.live="layoutMode" variant="segmented" label="Layout Navigasi" x-on:change="localStorage.removeItem('dock_recent_tabs')">
             <flux:radio value="sidebar" icon="bars-4">Sidebar</flux:radio>
             <flux:radio value="floating" icon="squares-2x2">Speed Dial</flux:radio>
             <flux:radio value="dock" icon="computer-desktop">Dock & Tabs</flux:radio>
