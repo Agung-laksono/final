@@ -21,6 +21,7 @@ state([
     'tempNoteContent' => '',
     'mediaUploadTemp' => null,
     'mediaUploadTempName' => null,
+    'selectedVendorData' => null,
 ]);
 
 $groupedOrders = computed(function () {
@@ -283,19 +284,20 @@ $handleVendorSelected = function ($vendorId) {
     if ($vendor) {
         $this->vendor_id = $vendor->id;
         $this->vendor_name = $vendor->name;
+        $this->selectedVendorData = $vendor->toArray();
     }
 };
 ?>
-<div @vendor-selected.window="$wire.handleVendorSelected($event.detail.vendorId); setTimeout(() => { $flux.modal('vendor-gallery-modal').close() }, 50);"
+<div @vendor-selected.window="$wire.handleVendorSelected($event.detail.vendor ? $event.detail.vendor.id : $event.detail.vendorId); setTimeout(() => { $flux.modal('vendor-gallery-modal').close() }, 50);"
      @maklon-data-loaded.window="$flux.modal('maklon-modal').show()">
 
 <flux:modal name="maklon-modal" class="w-full md:w-[60rem] md:max-w-5xl !p-0 overflow-hidden">
-    <div class="relative w-full bg-white dark:bg-zinc-900 flex flex-col h-[90vh] sm:h-auto sm:max-h-[85vh]">
+    <div class="relative w-full bg-white dark:bg-zinc-900 flex flex-col {{ $editingNoteKey ? 'h-[85vh] min-h-[600px]' : 'h-[90vh] sm:h-auto sm:max-h-[85vh]' }}">
         
         @if($editingNoteKey)
         <!-- PANEL EDITOR -->
         <div class="flex flex-col w-full h-full bg-white dark:bg-zinc-900 z-50">
-            <div class="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/50">
+            <div class="flex-none px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/50">
                 <div>
                     <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Editor Catatan</h2>
                 </div>
@@ -306,7 +308,7 @@ $handleVendorSelected = function ($vendorId) {
             <div class="flex-1 p-6" wire:ignore>
                 <x-rich-editor wire:model="tempNoteContent" height="100%" />
             </div>
-            <div class="px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex justify-end gap-2">
+            <div class="flex-none px-6 py-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex justify-end gap-2">
                 <flux:button variant="ghost" @click="$wire.set('editingNoteKey', null)">Batal</flux:button>
                 <flux:button variant="primary" wire:click="saveEditor">Simpan Catatan</flux:button>
             </div>
@@ -332,22 +334,53 @@ $handleVendorSelected = function ($vendorId) {
             <div class="space-y-6">
                 <!-- CONTENT GOES HERE -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
+                    <div x-data="{ localVendor: @entangle('selectedVendorData') }" 
+                         @vendor-selected.window="
+                            localVendor = $event.detail.vendor;
+                            $wire.set('vendor_id', localVendor.id);
+                         ">
                         <flux:label>Vendor <span class="text-red-500">*</span></flux:label>
-                        @if($this->selectedVendor)
-                            <div class="mt-2 p-3 border rounded-lg flex items-center justify-between">
-                                <div>
-                                    <div class="font-bold">{{ $this->selectedVendor->name }}</div>
-                                    <div class="text-xs text-zinc-500">{{ $this->selectedVendor->type }}</div>
+                        
+                        <template x-if="localVendor">
+                            <div class="mt-2 p-3 border rounded-xl flex items-center gap-3">
+                                <!-- Avatar -->
+                                <div class="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-zinc-100 flex items-center justify-center font-bold text-zinc-500 text-sm border border-zinc-200">
+                                    <template x-if="localVendor.image">
+                                        <img :src="'/storage/' + localVendor.image" class="w-full h-full object-cover" />
+                                    </template>
+                                    <template x-if="!localVendor.image">
+                                        <span x-text="localVendor.name.substring(0, 2).toUpperCase()"></span>
+                                    </template>
                                 </div>
-                                <flux:button size="sm" variant="subtle" onclick="$flux.modal('vendor-gallery-modal').show()">Ganti</flux:button>
+
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <div class="font-bold text-zinc-900 dark:text-zinc-100 truncate" x-text="localVendor.name"></div>
+                                        <span class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 leading-none shrink-0" x-text="localVendor.type"></span>
+                                    </div>
+                                    <div class="text-[10px] text-zinc-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                        <span class="flex items-center gap-1 truncate max-w-[120px]">
+                                            <flux:icon.phone class="w-3 h-3 shrink-0" /> 
+                                            <span x-text="localVendor.phone || '---'"></span>
+                                        </span>
+                                        <template x-if="localVendor.province || localVendor.city">
+                                            <span class="flex items-center gap-1 truncate flex-1" :title="[localVendor.district, localVendor.city, localVendor.province].filter(Boolean).join(', ')">
+                                                <flux:icon.map-pin class="w-3 h-3 shrink-0" /> 
+                                                <span x-text="[localVendor.district, localVendor.city, localVendor.province].filter(Boolean).join(', ')"></span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </div>
+                                <flux:button size="sm" variant="subtle" @click="$flux.modal('vendor-gallery-modal').show()" class="shrink-0">Ganti</flux:button>
                             </div>
-                        @else
-                            <div class="mt-2 p-6 border-2 border-dashed rounded-xl text-center cursor-pointer hover:border-indigo-500" onclick="$flux.modal('vendor-gallery-modal').show()">
+                        </template>
+
+                        <template x-if="!localVendor">
+                            <div class="mt-2 p-6 border-2 border-dashed rounded-xl text-center cursor-pointer hover:border-indigo-500 transition-colors" @click="$flux.modal('vendor-gallery-modal').show()">
                                 <flux:icon.user-plus class="w-8 h-8 mx-auto text-zinc-400" />
                                 <span class="text-sm">Pilih Vendor</span>
                             </div>
-                        @endif
+                        </template>
                     </div>
                     <div>
                         <flux:label>Tenggat Waktu <span class="text-red-500">*</span></flux:label>
@@ -360,6 +393,18 @@ $handleVendorSelected = function ($vendorId) {
                         <flux:heading size="md">Item & Biaya</flux:heading>
                         <flux:switch wire:model.live="is_grouped" label="Gabung Item" />
                     </div>
+
+                    <!-- Global Cost Distributor -->
+                    <div class="mb-4 bg-indigo-50/50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/30">
+                        <flux:label>Biaya Borongan (Global)</flux:label>
+                        <div class="flex gap-2 mt-1">
+                            <div class="flex-1">
+                                <x-currency-input wire:model="global_cost" placeholder="Masukkan total biaya..." />
+                            </div>
+                            <flux:button variant="primary" wire:click="distributeGlobalCost" icon="calculator">Distribusikan</flux:button>
+                        </div>
+                        <p class="text-xs text-zinc-500 mt-2">Biaya akan otomatis dibagi rata (proporsional) ke seluruh item di bawah.</p>
+                    </div>
                     
                     @if($this->is_grouped)
                         @foreach($this->groupedOrders as $itemId => $group)
@@ -371,7 +416,7 @@ $handleVendorSelected = function ($vendorId) {
                             <div class="w-48">
                                 <x-currency-input wire:model="costs.group_{{ $itemId }}" placeholder="Rp 0" />
                             </div>
-                            <flux:button size="sm" icon="pencil-square" wire:click="openEditor('group_{{ $itemId }}')" />
+                            <flux:button size="sm" icon="pencil-square" wire:click="openEditor(`group_{{ $itemId }}`)" />
                         </div>
                         @endforeach
                     @else
@@ -384,7 +429,7 @@ $handleVendorSelected = function ($vendorId) {
                             <div class="w-48">
                                 <x-currency-input wire:model="costs.single_{{ $order->id }}" placeholder="Rp 0" />
                             </div>
-                            <flux:button size="sm" icon="pencil-square" wire:click="openEditor('single_{{ $order->id }}')" />
+                            <flux:button size="sm" icon="pencil-square" wire:click="openEditor(`single_{{ $order->id }}`)" />
                         </div>
                         @endforeach
                     @endif
@@ -409,11 +454,6 @@ $handleVendorSelected = function ($vendorId) {
     </div>
 </flux:modal>
 
-<livewire:global.vendor-gallery-modal />
-<livewire:global.vendor-form-modal />
-<livewire:work-order.price-history-modal />
-<livewire:global.template-modal />
-
 @once
 <style>
     /* TinyMCE: pastikan editor mengisi container flex sepenuhnya */
@@ -436,4 +476,21 @@ document.addEventListener('focusin', function (e) {
 </script>
 @endonce
 
+@once
+<script>
+    // Trik khusus untuk Modal Maklon:
+    // Karena Maklon menggunakan <flux:modal> (Top Layer <dialog>), kita perlu
+    // "menculik" kontainer menu TinyMCE agar ikut masuk ke dalam dimensi Top Layer ini.
+    // Script ini tidak akan merusak rich-editor global.
+    document.addEventListener('focusin', function (e) {
+        const dialog = e.target.closest('dialog[data-modal="maklon-modal"]');
+        if (dialog) {
+            const aux = document.getElementById('tinymce-aux-container');
+            if (aux && aux.parentNode !== dialog) {
+                dialog.appendChild(aux);
+            }
+        }
+    });
+</script>
+@endonce
 </div>

@@ -9,7 +9,7 @@
     @template-selected.window="handleTemplateSelected($event.detail.content)"
     @ai-content-generated.window="handleTemplateSelected($event.detail.content)"
     wire:ignore 
-    class="relative w-full max-w-full flex flex-col min-w-0 rich-editor-container"
+    class="relative w-full h-full max-w-full flex flex-col min-w-0 rich-editor-container"
 >
     <!-- Loading Overlay -->
     <div x-show="editorLoading" x-transition.opacity.duration.200ms class="absolute inset-0 z-[10] flex flex-col items-center justify-center bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm rounded-lg" style="display: none;">

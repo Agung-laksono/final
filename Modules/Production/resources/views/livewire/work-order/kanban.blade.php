@@ -377,18 +377,24 @@ on(['maklon-po-created' => function () {
     
 
     {{-- Modals remain unchanged --}}
-    <div wire:ignore>
-        <livewire:work-order.fulfillment-modal />
-        <livewire:work-order.maklon-modal />
-        <livewire:work-order.po-detail-modal />
-        <livewire:work-order.prod-detail-modal />
-        <livewire:work-order.finish-phase-modal />
-        <livewire:work-order.vendor-cost-modal />
-        <livewire:work-order.po-print-modal />
-        <livewire:work-order.material-receipt-modal />
-        {{-- <livewire:work-order.groq-assistant /> --}}
-        {{-- <livewire:work-order.claude-assistant /> --}}
-    </div>
+    <template x-teleport="body">
+        <div>
+            <livewire:work-order.fulfillment-modal />
+            <livewire:work-order.maklon-modal />
+            <livewire:work-order.po-detail-modal />
+            <livewire:work-order.prod-detail-modal />
+            <livewire:work-order.finish-phase-modal />
+            <livewire:work-order.vendor-cost-modal />
+            <livewire:work-order.po-print-modal />
+            <livewire:work-order.material-receipt-modal />
+            <livewire:global.vendor-gallery-modal />
+            <livewire:global.vendor-form-modal />
+            <livewire:work-order.price-history-modal />
+            <livewire:global.template-modal />
+            {{-- <livewire:work-order.groq-assistant /> --}}
+            {{-- <livewire:work-order.claude-assistant /> --}}
+        </div>
+    </template>
 
     <style>
         .custom-scrollbar::-webkit-scrollbar {
