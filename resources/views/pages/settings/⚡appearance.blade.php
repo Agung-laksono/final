@@ -17,8 +17,8 @@ new #[Title('Appearance settings')] class extends Component {
         // Save to cookie for 1 year
         Cookie::queue('layout_mode', $value, 60 * 24 * 365);
         
-        // Reload the page to apply the layout change correctly
-        return redirect()->route('appearance.edit');
+        // Force a hard reload to ensure the layout wrapper is completely changed
+        $this->js('window.location.reload()');
     }
 }; ?>
 
