@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
 <!-- PWA Meta Tags -->
-<link rel="manifest" href="{{ route('pwa.manifest') }}">
+<link rel="manifest" href="{{ route('pwa.manifest') }}" crossorigin="use-credentials">
 @php
     $themeColors = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_theme_colors', function () {
         if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return ['light' => '#ffffff', 'dark' => '#18181b'];
