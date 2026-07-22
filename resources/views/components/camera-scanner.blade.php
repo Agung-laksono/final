@@ -5,55 +5,32 @@
         <p x-show="scanMode === 'continuous'" class="text-xs text-center text-emerald-600 dark:text-emerald-400 mb-3 font-medium">Mode Beruntun — Tekan "Selesai" jika sudah</p>
         <div x-show="scanMode === 'single'" class="mb-3"></div>
         
-        <!-- Pilih Kamera -->
-        <div class="mb-4">
-            <select x-model="selectedCamera" @change="switchCamera" class="w-full bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 dark:bg-zinc-700 dark:border-zinc-600 dark:placeholder-zinc-400 dark:text-white dark:focus:ring-indigo-500 dark:focus:border-indigo-500">
-                <option value="" x-show="cameras.length === 0">Kamera Utama (Otomatis)</option>
-                <template x-for="camera in cameras" :key="camera.id">
-                    <option :value="camera.id" x-text="camera.label || 'Kamera ' + camera.id"></option>
-                </template>
-            </select>
-        </div>
-
-        <!-- Wrapper kamera -->
-        <div class="relative w-full rounded-lg overflow-hidden shadow-inner bg-black min-h-[250px]">
+        <!-- Wrapper utama (Tanpa Live Video) -->
+        <div class="relative w-full rounded-lg flex flex-col items-center justify-center p-6 text-center shadow-sm border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 min-h-[200px]">
             <!-- Overlay Loader -->
             <div x-show="isLoading" x-transition
-                 class="absolute inset-0 flex items-center justify-center bg-zinc-900/95 z-20 text-white rounded-lg">
-                <svg class="animate-spin mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                 class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/95 z-20 text-white rounded-lg">
+                <svg class="animate-spin mb-3 h-8 w-8 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span x-text="loadingMessage">Memuat...</span>
+                <span x-text="loadingMessage" class="font-medium tracking-wide">Memproses gambar...</span>
             </div>
 
-            <!-- Overlay Error -->
-            <div x-show="errorMsg" x-transition
-                 class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/95 z-20 text-white rounded-lg px-4 text-center gap-3">
-                <svg class="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <p class="text-sm" x-text="errorMsg"></p>
-                <button @click="errorMsg=''; createAndStart()" class="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
-                    Coba Lagi
-                </button>
-            </div>
-
-            <!-- ✅ Overlay Sukses (mode continuous) -->
-            <div x-show="successMsg" x-transition:enter="transition ease-out duration-150"
-                 x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-                 x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100"
-                 x-transition:leave-end="opacity-0"
+            <!-- Overlay Sukses -->
+            <div x-show="successMsg" x-transition
                  class="absolute inset-0 flex flex-col items-center justify-center bg-emerald-600/95 z-20 text-white rounded-lg px-4 text-center gap-3">
                 <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <p class="font-bold text-lg">Berhasil Diinput!</p>
                 <p class="text-sm font-mono bg-emerald-700/60 px-3 py-1 rounded-lg tracking-widest" x-text="successMsg"></p>
-                <p class="text-xs text-emerald-200">Siap scan berikutnya...</p>
             </div>
 
-            <div id="reader-wrapper" class="w-full"></div>
+            <div x-show="!isLoading && !successMsg" class="flex flex-col items-center gap-2">
+                <flux:icon.qr-code class="w-16 h-16 text-zinc-300 dark:text-zinc-600 mb-2" />
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">Ambil foto barcode dengan kamera HP Anda, sistem akan mendeteksinya secara otomatis.</p>
+            </div>
         </div>
         
         <!-- Wadah tersembunyi untuk proses scan file -->
@@ -91,35 +68,13 @@
                 isLoading: false,
                 isScanning: false,
                 isStopping: false,
-                scanner: null,
-                _currentReaderId: null,
-                cameras: [],
-                selectedCamera: null,
                 errorMsg: '',
-                successMsg: '',          // Teks barcode yang baru saja berhasil discan
-                scanMode: 'single',      // 'single' | 'continuous'
-                loadingMessage: 'Memuat kamera...',
-                _camerasLoaded: false,
-                _STORAGE_KEY: 'preferred_camera_id',
+                successMsg: '',
+                scanMode: 'single',
+                loadingMessage: 'Memuat...',
 
                 init() {
-                    // Hapus listener lama jika ada (penting untuk Livewire re-render)
-                    // Dengan menyimpan referensi fungsi, kita bisa remove sebelum add lagi
-                    if (window._cameraOpenHandler) {
-                        window.removeEventListener('camera-scanner-modal-opened', window._cameraOpenHandler);
-                    }
-
-                    // Buat handler baru yang terikat ke instance Alpine ini
                     window._cameraOpenHandler = async (event) => {
-                        if (typeof window.Html5Qrcode === 'undefined') {
-                            alert("Library kamera belum siap. Mohon muat ulang halaman.");
-                            return;
-                        }
-
-                        // Debounce: cegah double-fire dalam 500ms
-                        if (window._scannerOpening) return;
-                        window._scannerOpening = true;
-                        setTimeout(() => { window._scannerOpening = false; }, 500);
 
                         // Baca mode dari event (default: 'single')
                         this.scanMode = event?.detail?.mode === 'continuous' ? 'continuous' : 'single';
