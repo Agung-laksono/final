@@ -479,7 +479,7 @@ document.addEventListener('focusin', function (e) {
 @once
 <script>
     // Trik khusus untuk Modal Maklon:
-    // Karena Maklon menggunakan <flux:modal> (Top Layer <dialog>), kita perlu
+    // Karena Maklon menggunakan flux:modal (Top Layer <dialog>), kita perlu
     // "menculik" kontainer menu TinyMCE agar ikut masuk ke dalam dimensi Top Layer ini.
     // Script ini tidak akan merusak rich-editor global.
     document.addEventListener('focusin', function (e) {
