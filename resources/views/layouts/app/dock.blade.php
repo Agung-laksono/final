@@ -165,10 +165,10 @@
                         
                         {{-- Delete Button (Visible when editMode is active) --}}
                         <button @click.prevent.stop="closeTab(tab.url)"
-                                class="absolute -top-1 -right-1 md:top-auto md:bottom-1 md:left-1 p-1 md:p-0.5 bg-zinc-200 hover:bg-red-100 dark:bg-zinc-700 dark:hover:bg-red-900 rounded-full z-[60] transition-all duration-200 shadow-sm"
+                                class="absolute top-0 right-0 w-5 h-5 flex items-center justify-center bg-zinc-200/90 text-zinc-600 hover:bg-red-500 hover:text-white dark:bg-zinc-700/90 dark:text-zinc-300 dark:hover:bg-red-500 dark:hover:text-white rounded-full z-[60] transition-all duration-200 shadow-sm border border-white dark:border-zinc-800"
                                 :class="editMode ? 'opacity-100 scale-100 pointer-events-auto animate-bounce' : 'opacity-0 scale-75 pointer-events-none'">
-                            <svg class="w-3 h-3 text-zinc-600 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
 
