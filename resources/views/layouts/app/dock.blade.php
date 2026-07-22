@@ -78,6 +78,7 @@
 
                         <iframe :src="tab.url + (tab.url.includes('?') ? '&' : '?') + 'iframe=1'" 
                                 @load="tab.loaded = true"
+                                allow="camera; microphone; fullscreen; clipboard-read; clipboard-write; display-capture"
                                 class="w-full h-full border-0"></iframe>
                     </div>
                 </template>

@@ -236,7 +236,7 @@ on(['maklon-po-created' => function () {
                                 
                                 <div class="p-2 space-y-2">
                                     @foreach($poOrders as $order)
-                                        <div wire:key="card-grouped-{{ $order->id }}">
+                                        <div wire:key="card-grouped-{{ $statusKey }}-{{ $order->id }}">
                                             @include('production::livewire.work-order.partials.kanban-card', [
                                                 'order' => $order, 
                                                 'statusKey' => $statusKey, 
@@ -254,7 +254,7 @@ on(['maklon-po-created' => function () {
                         @endforelse
                     @else
                         @forelse($this->orders[$statusKey] ?? [] as $order)
-                            <div wire:key="card-{{ $order->id }}">
+                            <div wire:key="card-{{ $statusKey }}-{{ $order->id }}">
                                 @include('production::livewire.work-order.partials.kanban-card', ['order' => $order, 'statusKey' => $statusKey, 'viewModeMaklon' => $viewModeMaklon])
                             </div>
                         @empty

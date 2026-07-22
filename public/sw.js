@@ -1,7 +1,7 @@
 // Pusher Beams - WAJIB ada di baris pertama agar push notification bekerja
 importScripts('https://js.pusher.com/beams/service-worker.js');
 
-const CACHE_NAME = 'inventory-pwa-cache-v1784721474530';
+const CACHE_NAME = 'inventory-pwa-cache-v1784723806618';
 const urlsToCache = [
     '/',
     '/manifest.json',
