@@ -127,7 +127,9 @@
              @pointerenter="if($event.pointerType === 'mouse') { clearTimeout(dockTimer); isDockHidden = false; }"
              @pointerleave="if($event.pointerType === 'mouse') { resetDockTimer(); }"
              @touchstart.passive="if(!isDockHidden) resetDockTimer()"
-             @click="if(isDockHidden) { isDockHidden = false; resetDockTimer(); }"
+             @click="if(isDockHidden) { isDockHidden = false; resetDockTimer(); } else { toggleEditMode($event); }"
+             @click.outside="editMode = false"
+             @contextmenu.prevent="editMode = !editMode"
              :class="[
                  (menuState > 0 || (isDragging && currentY < windowHeight - 20)) 
                     ? 'translate-y-32 opacity-0 pointer-events-none' 
@@ -159,26 +161,25 @@
                          @mouseup.window="endTabDrag($event)"
                          @touchstart.passive="startTabDrag($event, tab.url)"
                          @touchmove.passive="onTabDrag($event)"
-                         @touchend.window="endTabDrag($event)"
-                         @contextmenu.prevent="activeDeleteUrl = activeDeleteUrl === tab.url ? null : tab.url"
-                         @click.outside="if(activeDeleteUrl === tab.url) activeDeleteUrl = null">
+                         @touchend.window="endTabDrag($event)">
                         
-                        {{-- Delete Button (Visible only when triggered via contextmenu / long press) --}}
-                        <button @click.prevent.stop="closeTab(tab.url); activeDeleteUrl = null;"
+                        {{-- Delete Button (Visible when editMode is active) --}}
+                        <button @click.prevent.stop="closeTab(tab.url)"
                                 class="absolute -top-1 -right-1 md:top-auto md:bottom-1 md:left-1 p-1 md:p-0.5 bg-zinc-200 hover:bg-red-100 dark:bg-zinc-700 dark:hover:bg-red-900 rounded-full z-[60] transition-all duration-200 shadow-sm"
-                                :class="activeDeleteUrl === tab.url ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-75 pointer-events-none'">
+                                :class="editMode ? 'opacity-100 scale-100 pointer-events-auto animate-bounce' : 'opacity-0 scale-75 pointer-events-none'">
                             <svg class="w-3 h-3 text-zinc-600 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
 
-                        <a :href="tab.url" @click.prevent="openTab(tab.url)" 
+                        <a :href="tab.url" @click.prevent="if(editMode) { $event.preventDefault(); } else { openTab(tab.url); }" 
                            class="flex flex-col items-center justify-center w-full md:w-[50px] lg:w-[60px] xl:w-[86px] h-[64px] md:h-[48px] lg:h-[50px] xl:h-[76px] gap-1 md:gap-0.5 xl:gap-1 px-1 relative select-none md:rounded-xl xl:rounded-2xl transition-all duration-300 md:border group hover:z-50"
                            :class="[
                                activeTabUrl === tab.url 
                                 ? 'text-indigo-600 dark:text-indigo-400 md:bg-indigo-50/70 md:dark:bg-indigo-900/40 md:shadow-[0_4px_16px_rgba(79,70,229,0.25)] md:border-indigo-200/60 md:dark:border-indigo-500/40' 
                                 : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 md:border-transparent md:hover:bg-zinc-100/50 md:dark:hover:bg-zinc-800/50',
-                               draggedTabUrl === tab.url ? '' : 'transition-transform duration-300'
+                               draggedTabUrl === tab.url ? '' : 'transition-transform duration-300',
+                               editMode ? 'animate-pulse opacity-70' : ''
                            ]"
                            @click="if(tabWasDragged) { $event.preventDefault(); $event.stopPropagation(); }">
                             
@@ -234,12 +235,30 @@
                     isDockHidden: false,
                     dockTimer: null,
                     badges: {},
-                    activeDeleteUrl: null,
-                    longPressTimer: null,
+                    
+                    // Edit mode for deleting tabs (3 clicks)
+                    editMode: false,
+                    clickCount: 0,
+                    clickTimer: null,
                     
                     // Tab System (Workspace)
                     openTabs: [],
                     activeTabUrl: 'dashboard',
+                    
+                    toggleEditMode(e) {
+                        this.clickCount++;
+                        clearTimeout(this.clickTimer);
+                        
+                        if (this.clickCount >= 3) {
+                            this.editMode = true;
+                            this.clickCount = 0;
+                            if (navigator.vibrate) navigator.vibrate(100);
+                        } else {
+                            this.clickTimer = setTimeout(() => {
+                                this.clickCount = 0;
+                            }, 500); // 500ms time window for 3 clicks
+                        }
+                    },
                     
                     openTab(url, title = null, icon = null) {
                         this.menuState = 0; // Close drawer
@@ -394,15 +413,6 @@
                         this.tabStartY = e.touches ? e.touches[0].clientY : e.clientY;
                         this.tabCurrentY = 0;
                         this.tabWasDragged = false;
-                        
-                        // Deteksi Long Press khusus untuk HP/Tablet (500ms)
-                        clearTimeout(this.longPressTimer);
-                        this.longPressTimer = setTimeout(() => {
-                            if (Math.abs(this.tabCurrentY) < 10) {
-                                this.activeDeleteUrl = this.activeDeleteUrl === url ? null : url;
-                                if (navigator.vibrate) navigator.vibrate(50); // Getar sedikit jika didukung
-                            }
-                        }, 500);
                     },
 
                     onTabDrag(e) {
@@ -410,11 +420,6 @@
                         
                         let clientY = e.touches ? e.touches[0].clientY : e.clientY;
                         let deltaY = clientY - this.tabStartY;
-                        
-                        // Batalkan long-press jika jari mulai bergeser
-                        if (Math.abs(deltaY) > 10) {
-                            clearTimeout(this.longPressTimer);
-                        }
                         
                         // Only allow dragging UP
                         if (deltaY < 0) {
@@ -426,7 +431,6 @@
                     },
 
                     endTabDrag(e) {
-                        clearTimeout(this.longPressTimer);
                         if (!this.draggedTabUrl) return;
                         
                         // If dragged up by more than 40px, throw it away
