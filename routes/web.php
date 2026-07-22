@@ -25,8 +25,9 @@ Route::get('/manifest.json', function () {
         'theme_color'      => $get('pwa_theme_color_light', '#ffffff'),
         'orientation'      => 'any',
         'icons'            => [
-            ['src' => $iconUrl, 'sizes' => '192x192', 'type' => 'image/png'],
-            ['src' => $iconUrl, 'sizes' => '512x512', 'type' => 'image/png'],
+            ['src' => $iconUrl, 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any maskable'],
+            ['src' => $iconUrl, 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any maskable'],
+            ['src' => $iconUrl, 'sizes' => 'any', 'type' => 'image/png'],
             ['src' => $iconUrl, 'sizes' => '180x180', 'type' => 'image/png', 'purpose' => 'apple touch icon'],
         ],
     ];
