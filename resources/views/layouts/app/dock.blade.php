@@ -163,12 +163,10 @@
                          @contextmenu.prevent="activeDeleteUrl = activeDeleteUrl === tab.url ? null : tab.url"
                          @click.outside="if(activeDeleteUrl === tab.url) activeDeleteUrl = null">
                         
-                        {{-- Delete Button (Visible on hover for PC >1098px, or on long-press for tablet/mobile <=1098px) --}}
+                        {{-- Delete Button (Visible only when triggered via contextmenu / long press) --}}
                         <button @click.prevent.stop="closeTab(tab.url); activeDeleteUrl = null;"
-                                class="absolute -top-1 -right-1 md:top-auto md:bottom-1 md:left-1 p-1 md:p-0.5 bg-zinc-200 hover:bg-red-100 dark:bg-zinc-700 dark:hover:bg-red-900 rounded-full z-[60] transition-all duration-200 shadow-sm
-                                       min-[1098px]:opacity-0 min-[1098px]:scale-75 min-[1098px]:pointer-events-none 
-                                       min-[1098px]:group-hover:opacity-100 min-[1098px]:group-hover:scale-100 min-[1098px]:group-hover:pointer-events-auto"
-                                :class="window.innerWidth <= 1098 ? (activeDeleteUrl === tab.url ? '!opacity-100 !scale-100 !pointer-events-auto' : '!opacity-0 !scale-75 !pointer-events-none') : ''">
+                                class="absolute -top-1 -right-1 md:top-auto md:bottom-1 md:left-1 p-1 md:p-0.5 bg-zinc-200 hover:bg-red-100 dark:bg-zinc-700 dark:hover:bg-red-900 rounded-full z-[60] transition-all duration-200 shadow-sm"
+                                :class="activeDeleteUrl === tab.url ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-75 pointer-events-none'">
                             <svg class="w-3 h-3 text-zinc-600 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
