@@ -278,7 +278,7 @@ $save = function () {
                                 ->where('allocated_qty', '>', 0)
                                 ->orderBy('allocated_qty', 'desc')
                                 ->limit(1)
-                                ->update(['allocated_qty' => \Illuminate\Support\Facades\DB::raw('GREATEST(0, allocated_qty - 1)')]);
+                                ->update(['allocated_qty' => \Illuminate\Support\Facades\DB::raw('MAX(0, allocated_qty - 1)')]);
                         }
                     } else {
                         $remainingToDeduct = $inputQty;
@@ -314,7 +314,7 @@ $save = function () {
                                 ->where('allocated_qty', '>', 0)
                                 ->orderBy('allocated_qty', 'desc')
                                 ->limit(1)
-                                ->update(['allocated_qty' => \Illuminate\Support\Facades\DB::raw('GREATEST(0, allocated_qty - ' . $deduct . ')')]);
+                                ->update(['allocated_qty' => \Illuminate\Support\Facades\DB::raw('MAX(0, allocated_qty - ' . $deduct . ')')]);
 
                             $remainingToDeduct -= $deduct;
                         }

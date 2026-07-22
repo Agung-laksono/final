@@ -128,6 +128,11 @@ $toggleSelection = function ($orderId) {
     }
 };
 
+$openMaklonModal = function () {
+    // Broadcast event secara global untuk memastikan pasti diterima oleh modal
+    $this->dispatch('open-maklon-modal', orderIds: array_values($this->selectedOrders));
+};
+
 on(['maklon-po-created' => function () {
     $this->selectedOrders = [];
 }]);
@@ -170,19 +175,23 @@ on(['maklon-po-created' => function () {
                 :count="count($this->orders[$statusKey] ?? [])"
                 :defaultCollapsed="$defaultCollapsed"
             >
-                        @if($statusKey === 'waiting_vendor' && count($this->selectedOrders) > 0)
-                            <div x-show="!collapsed" class="mb-3">
-                                <flux:button size="sm" variant="primary" icon="plus" wire:click="$dispatch('open-maklon-modal', { orderIds: {{ json_encode($this->selectedOrders) }} })">Buat SPK</flux:button>
-                            </div>
-                        @endif
-                        @if($statusKey === 'in_production')
-                            <div class="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg mb-3 w-fit" x-show="!collapsed">
-                                <button wire:click="$set('viewModeMaklon', 'grouped')" class="p-1 rounded-md text-xs {{ $viewModeMaklon === 'grouped' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white font-medium' : 'text-zinc-500 hover:text-zinc-700' }}" title="Mode Wadah">
-                                    <flux:icon.rectangle-group class="w-4 h-4" />
-                                </button>
-                                <flux:button size="sm" variant="subtle" icon="list-bullet" class="!px-1.5 !py-1.5" wire:click="$set('viewModeMaklon', 'list')" x-bind:class="$wire.viewModeMaklon === 'list' ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500'" title="Mode Eceran" />
-                            </div>
-                        @endif
+                @if($statusKey === 'waiting_vendor' && count($this->selectedOrders) > 0)
+                    <div class="sticky top-0 z-10 -mx-3 px-3 py-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-b border-zinc-100 dark:border-zinc-800 mb-1">
+                        <flux:button size="sm" variant="primary" icon="plus" class="w-full justify-center" wire:click="openMaklonModal">
+                            Buat SPK ({{ count($this->selectedOrders) }})
+                        </flux:button>
+                    </div>
+                @endif
+                @if($statusKey === 'in_production')
+                    <div class="sticky top-0 z-10 -mx-3 px-3 py-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-b border-zinc-100 dark:border-zinc-800 mb-1 flex gap-1">
+                        <button wire:click="$set('viewModeMaklon', 'grouped')" class="flex-1 flex items-center justify-center gap-1.5 p-1.5 rounded text-xs {{ $viewModeMaklon === 'grouped' ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-white font-medium' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}" title="Mode Wadah">
+                            <flux:icon.rectangle-group class="w-3.5 h-3.5" /> Wadah
+                        </button>
+                        <button wire:click="$set('viewModeMaklon', 'list')" class="flex-1 flex items-center justify-center gap-1.5 p-1.5 rounded text-xs {{ $viewModeMaklon === 'list' ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-white font-medium' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}" title="Mode Eceran">
+                            <flux:icon.list-bullet class="w-3.5 h-3.5" /> Eceran
+                        </button>
+                    </div>
+                @endif
                     @if($statusKey === 'in_production' && $viewModeMaklon === 'grouped')
                         @php
                             $groupedByPo = collect($this->orders[$statusKey] ?? [])->groupBy('purchase_order_id');
@@ -368,17 +377,18 @@ on(['maklon-po-created' => function () {
     
 
     {{-- Modals remain unchanged --}}
-
-    <livewire:work-order.fulfillment-modal />
-    <livewire:work-order.maklon-modal />
-    <livewire:work-order.po-detail-modal />
-    <livewire:work-order.prod-detail-modal />
-    <livewire:work-order.finish-phase-modal />
-    <livewire:work-order.vendor-cost-modal />
-    <livewire:work-order.po-print-modal />
-    <livewire:work-order.material-receipt-modal />
-    {{-- <livewire:work-order.groq-assistant /> --}}
-    {{-- <livewire:work-order.claude-assistant /> --}}
+    <div wire:ignore>
+        <livewire:work-order.fulfillment-modal />
+        <livewire:work-order.maklon-modal />
+        <livewire:work-order.po-detail-modal />
+        <livewire:work-order.prod-detail-modal />
+        <livewire:work-order.finish-phase-modal />
+        <livewire:work-order.vendor-cost-modal />
+        <livewire:work-order.po-print-modal />
+        <livewire:work-order.material-receipt-modal />
+        {{-- <livewire:work-order.groq-assistant /> --}}
+        {{-- <livewire:work-order.claude-assistant /> --}}
+    </div>
 
     <style>
         .custom-scrollbar::-webkit-scrollbar {

@@ -1,7 +1,7 @@
 @php
     // Cek apakah direquest di dalam iframe secara eksplisit atau via browser header
     $isIframe = request()->query('iframe') || request()->header('X-Is-Iframe') || request()->header('Sec-Fetch-Dest') === 'iframe';
-    $layoutMode = $isIframe ? 'iframe' : request()->cookie('layout_mode', 'floating'); // Options: 'sidebar', 'floating', 'gesture'
+    $layoutMode = $isIframe ? 'iframe' : request()->cookie('layout_mode', 'floating'); // Options: 'sidebar', 'floating', 'dock'
 @endphp
 
 @if($layoutMode === 'iframe')
@@ -14,12 +14,12 @@
             {{ $slot }}
         </flux:main>
     </x-layouts::app.floating>
-@elseif($layoutMode === 'gesture')
-    <x-layouts::app.gesture :title="$title ?? null">
+@elseif($layoutMode === 'dock')
+    <x-layouts::app.dock :title="$title ?? null">
         <flux:main>
             {{ $slot }}
         </flux:main>
-    </x-layouts::app.gesture>
+    </x-layouts::app.dock>
 @else
     <x-layouts::app.sidebar :title="$title ?? null">
         <flux:main>

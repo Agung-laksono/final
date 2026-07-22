@@ -13,9 +13,7 @@
             <livewire:layout.notification-bell class="hidden md:block" />
 
             @php
-                use App\Services\NavigationService;
-                use App\Models\NavigationItem;
-                $navGroups = NavigationItem::active()->orderBy('sort_order')->get()->groupBy('section');
+                $navGroups = \App\Models\NavigationItem::active()->orderBy('sort_order')->get()->groupBy('section');
                 $sectionOrder = ['INVENTORY','PEMBELIAN','PRODUKSI','PENJUALAN','KOMUNIKASI','KEUANGAN'];
                 $sectionPermissions = [
                     'INVENTORY'   => 'inventory.view',

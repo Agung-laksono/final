@@ -26,16 +26,16 @@ class NavigationItemSeeder extends Seeder
             // ── PEMBELIAN ──────────────────────────────────────────
             ['route_name' => 'purchase.index',               'label' => 'Dashboard',          'icon' => 'shopping-cart',              'section' => 'PEMBELIAN',   'sort_order' => 1,  'permission' => 'purchase.dashboard.view'],
             ['route_name' => 'purchase.queues.kanban',       'label' => 'Permintaan',         'icon' => 'queue-list',                 'section' => 'PEMBELIAN',   'sort_order' => 2,  'permission' => 'purchase.queue.view'],
-            ['route_name' => 'purchase.orders.kanban',       'label' => 'Kanban PO',          'icon' => 'clipboard-document-list',    'section' => 'PEMBELIAN',   'sort_order' => 3,  'permission' => 'purchase.order.view'],
+            ['route_name' => 'purchase.orders.kanban',       'label' => 'Pesanan',            'icon' => 'clipboard-document-list',    'section' => 'PEMBELIAN',   'sort_order' => 3,  'permission' => 'purchase.order.view'],
             ['route_name' => 'purchase.vendors.index',       'label' => 'Vendor',             'icon' => 'building-office-2',          'section' => 'PEMBELIAN',   'sort_order' => 4,  'permission' => 'purchase.vendor.view'],
 
             // ── PRODUKSI ───────────────────────────────────────────
-            ['route_name' => 'production.orders',            'label' => 'Kanban',             'icon' => 'wrench-screwdriver',         'section' => 'PRODUKSI',    'sort_order' => 1,  'permission' => 'production.order.view'],
+            ['route_name' => 'production.orders',            'label' => 'Jadwal',             'icon' => 'wrench-screwdriver',         'section' => 'PRODUKSI',    'sort_order' => 1,  'permission' => 'production.order.view'],
             ['route_name' => 'production.recipes',           'label' => 'Resep',              'icon' => 'document-text',              'section' => 'PRODUKSI',    'sort_order' => 2,  'permission' => 'production.order.view'],
 
             // ── PENJUALAN ──────────────────────────────────────────
             ['route_name' => 'sales.customers.index',        'label' => 'Pelanggan',          'icon' => 'user-group',                 'section' => 'PENJUALAN',   'sort_order' => 1,  'permission' => 'sales.customer.view'],
-            ['route_name' => 'sales.orders.index',           'label' => 'Kanban SO',          'icon' => 'clipboard-document-list',    'section' => 'PENJUALAN',   'sort_order' => 2,  'permission' => 'sales.order.view'],
+            ['route_name' => 'sales.orders.index',           'label' => 'Pesanan',            'icon' => 'clipboard-document-list',    'section' => 'PENJUALAN',   'sort_order' => 2,  'permission' => 'sales.order.view'],
 
             // ── KOMUNIKASI ─────────────────────────────────────────
             ['route_name' => 'chat.index',                   'label' => 'WhatsApp',           'icon' => 'chat-bubble-left-right',     'section' => 'KOMUNIKASI',  'sort_order' => 1,  'permission' => null],

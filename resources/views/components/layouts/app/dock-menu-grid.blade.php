@@ -37,13 +37,12 @@
              x-transition:leave-end="opacity-0 -translate-y-2"
              x-cloak
              class="mb-2">
-            <livewire:layout.gesture-notification-strip />
+            <livewire:layout.dock-notification-strip />
         </div>
     </div>
 
     @php
-        use App\Services\NavigationService;
-        $navGroups = NavigationService::getGrouped();
+        $navGroups = \App\Services\NavigationService::getGrouped();
         $sectionOrder = ['INVENTORY','PEMBELIAN','PRODUKSI','PENJUALAN','KOMUNIKASI','KEUANGAN'];
         $sectionPermissions = [
             'INVENTORY'   => 'inventory.view',
@@ -156,3 +155,4 @@
     </div>
     @endif
 </div>
+

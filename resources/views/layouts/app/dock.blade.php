@@ -8,11 +8,11 @@
             .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
         </style>
     </head>
-    <body class="min-h-screen bg-zinc-50 dark:bg-zinc-800 overflow-hidden" x-data="gestureApp()" x-on:livewire:navigated.window="recordVisit()">
+    <body class="min-h-screen bg-zinc-50 dark:bg-zinc-800 overflow-hidden" x-data="dockApp()" x-on:livewire:navigated.window="recordVisit()">
     @include('layouts.app.global-loader')
         
-        {{-- Gesture Detectors --}}
-        <div x-data="gestureHandler()" 
+        {{-- dock Detectors --}}
+        <div x-data="dockHandler()" 
              class="w-full relative touch-pan-y"
              @touchstart="handleTouchStart"
              @touchmove="handleTouchMove"
@@ -117,7 +117,7 @@
                  @touchstart.passive="contentTouchStart"
                  @touchmove="contentTouchMove"
                  @touchend="contentTouchEnd">
-                <x-layouts.app.gesture-menu-grid />
+                <x-layouts.app.dock-menu-grid />
             </div>
         </div>
         
@@ -164,7 +164,7 @@
                         
                         {{-- Delete Button (Visible only when triggered via contextmenu) --}}
                         <button @click.prevent.stop="closeTab(tab.url); activeDeleteUrl = null;"
-                                class="absolute top-1 right-1 p-0.5 bg-zinc-200 hover:bg-red-100 dark:bg-zinc-700 dark:hover:bg-red-900 rounded-full z-30 transition-all duration-200"
+                                class="absolute bottom-1 left-1 p-0.5 bg-zinc-200 hover:bg-red-100 dark:bg-zinc-700 dark:hover:bg-red-900 rounded-full z-[60] transition-all duration-200 shadow-sm"
                                 :class="activeDeleteUrl === tab.url ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'">
                             <svg class="w-3 h-3 text-zinc-600 hover:text-red-600 dark:text-zinc-300 dark:hover:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -218,7 +218,7 @@
                 });
             });
 
-            function gestureApp() {
+            function dockApp() {
                 return {
                     menuState: 0, // 0 = closed, 1 = peek (75%), 2 = expanded (100%)
                     isDragging: false,
@@ -275,7 +275,7 @@
                         
                         // Load saved tabs
                         try {
-                            const saved = localStorage.getItem('gesture_recent_tabs');
+                            const saved = localStorage.getItem('dock_recent_tabs');
                             if (saved) {
                                 this.recentTabs = JSON.parse(saved);
                             }
@@ -469,7 +469,7 @@
                     },
                     
                     init() {
-                        const saved = localStorage.getItem('gesture_recent_tabs');
+                        const saved = localStorage.getItem('dock_recent_tabs');
                         if (saved) {
                             try { this.recentTabs = JSON.parse(saved); } catch(e){}
                         }
@@ -478,6 +478,23 @@
                             this.recentTabs = [];
                         } else {
                             this.recentTabs = this.trimTabs(this.recentTabs);
+                        }
+                        
+                        // Hydrate openTabs from saved state so they don't disappear on reload
+                        this.openTabs = this.recentTabs.map(t => ({...t, loaded: false}));
+                        
+                        // Set activeTabUrl based on current URL
+                        if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
+                            this.activeTabUrl = 'dashboard';
+                        } else {
+                            let exists = this.openTabs.find(t => t.url === window.location.pathname);
+                            if (exists) {
+                                this.activeTabUrl = window.location.pathname;
+                            } else if (this.openTabs.length > 0) {
+                                this.activeTabUrl = this.openTabs[this.openTabs.length - 1].url;
+                            } else {
+                                this.activeTabUrl = 'dashboard';
+                            }
                         }
                         
                         this.recordVisit();
@@ -497,7 +514,7 @@
                             let newTabs = this.trimTabs([...this.recentTabs]);
                             if (newTabs.length !== this.recentTabs.length) {
                                 this.recentTabs = newTabs;
-                                localStorage.setItem('gesture_recent_tabs', JSON.stringify(this.recentTabs));
+                                localStorage.setItem('dock_recent_tabs', JSON.stringify(this.recentTabs));
                             }
                         });
                     },
@@ -510,7 +527,7 @@
                         // Tidak perlu prevent default, biarkan scroll alami
                     },
                     handleTouchEnd(e) {
-                        // Old swipe-from-left gesture disabled to prevent conflict with Android Back gesture
+                        // Old swipe-from-left dock disabled to prevent conflict with Android Back dock
                     },
                     
                     getSvgIcon(iconName, isActive, url = null) {
@@ -595,7 +612,7 @@
                         tabs = this.trimTabs(tabs);
                         
                         this.recentTabs = tabs;
-                        localStorage.setItem('gesture_recent_tabs', JSON.stringify(tabs));
+                        localStorage.setItem('dock_recent_tabs', JSON.stringify(tabs));
                     },
 
                     recordVisit() {
@@ -612,7 +629,7 @@
                     
                     removeTab(url) {
                         this.recentTabs = this.recentTabs.filter(t => t.url !== url);
-                        localStorage.setItem('gesture_recent_tabs', JSON.stringify(this.recentTabs));
+                        localStorage.setItem('dock_recent_tabs', JSON.stringify(this.recentTabs));
                     }
                 }
             }
@@ -623,3 +640,4 @@
         @endif
     </body>
 </html>
+
