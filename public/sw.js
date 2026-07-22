@@ -1,7 +1,11 @@
-// Pusher Beams - WAJIB ada di baris pertama agar push notification bekerja
-importScripts('https://js.pusher.com/beams/service-worker.js');
+// Pusher Beams - Dibungkus try-catch agar jika diblokir AdBlocker, PWA tetap bisa diinstal
+try {
+    importScripts('https://js.pusher.com/beams/service-worker.js');
+} catch (e) {
+    console.warn('[SW] Pusher Beams diblokir atau gagal dimuat:', e);
+}
 
-const CACHE_NAME = 'inventory-pwa-cache-v1784736851159';
+const CACHE_NAME = 'inventory-pwa-cache-v1784737260707';
 const urlsToCache = [
     '/',
     '/manifest.json',
@@ -54,11 +58,12 @@ self.addEventListener('fetch', event => {
 // PWA (Standalone) alih-alih membuka tab browser Chrome biasa.
 // ============================================================
 
-// 1. Override default behavior dari Pusher Beams
-PusherPushNotifications.onNotificationReceived = ({ pushEvent, payload }) => {
-    // Kita tampilkan notifikasi secara manual
-    const notification = payload.notification || {};
-    const data         = payload.data || {};
+// 1. Override default behavior dari Pusher Beams (jika library berhasil dimuat)
+if (typeof PusherPushNotifications !== 'undefined') {
+    PusherPushNotifications.onNotificationReceived = ({ pushEvent, payload }) => {
+        // Kita tampilkan notifikasi secara manual
+        const notification = payload.notification || {};
+        const data         = payload.data || {};
 
     const title   = notification.title || 'Inventory System';
     const options = {
@@ -76,7 +81,8 @@ PusherPushNotifications.onNotificationReceived = ({ pushEvent, payload }) => {
     };
 
     pushEvent.waitUntil(self.registration.showNotification(title, options));
-};
+    };
+}
 
 // 2. Handle klik notifikasi secara manual
 self.addEventListener('notificationclick', event => {
