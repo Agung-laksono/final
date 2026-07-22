@@ -18,7 +18,8 @@ new #[Title('Appearance settings')] class extends Component {
         Cookie::queue('layout_mode', $value, 60 * 24 * 365);
         
         // Force a hard reload to ensure the layout wrapper is completely changed
-        $this->js('window.location.reload()');
+        // Use window.top to ensure it reloads the main parent window if inside an iframe
+        $this->js('window.top.location.reload()');
     }
 }; ?>
 
