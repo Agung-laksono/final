@@ -427,7 +427,7 @@ $save = function () {
                         <!-- Mode Scan -->
                         <div x-show="mode === 'scan'" class="bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20 p-4 rounded-xl flex flex-col sm:flex-row gap-3">
                             <div class="flex-1 relative">
-                                <flux:input type="text" wire:model="scanned_barcode" wire:keydown.enter="scanBarcode" placeholder="Ketik/pindai barcode..." icon="qr-code" autofocus class="bg-white dark:bg-zinc-900" />
+                                <flux:input type="search" inputmode="search" wire:model="scanned_barcode" wire:keydown.enter="scanBarcode" placeholder="Ketik/pindai barcode..." icon="qr-code" autofocus class="bg-white dark:bg-zinc-900" />
                             </div>
                             <div class="flex gap-2 w-full sm:w-auto">
                                 <flux:button type="button" wire:click="scanBarcode" variant="primary" class="flex-1 sm:flex-none">Cari</flux:button>

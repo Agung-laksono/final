@@ -459,7 +459,7 @@ $save = function () {
                         @elseif($inputMode === 'barcode')
                             <div class="flex gap-2 w-full">
                                 <div class="flex-1 relative">
-                                    <flux:input type="text" wire:model.live.debounce.500ms="scanned_barcode" placeholder="Pindai alat..." icon="qr-code" autofocus class="w-full bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-100" />
+                                    <flux:input type="search" inputmode="search" wire:model.live.debounce.500ms="scanned_barcode" placeholder="Pindai alat..." icon="qr-code" autofocus class="w-full bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-100" />
                                 </div>
                                 <flux:button type="button" x-on:click="Flux.modal('camera-scanner-modal').show(); window.dispatchEvent(new Event('camera-scanner-modal-opened'))" variant="filled" class="bg-indigo-600 hover:bg-indigo-700 text-white border-none px-2 shrink-0" icon="camera" tooltip="Gunakan Kamera HP" />
                             </div>
