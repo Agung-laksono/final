@@ -290,7 +290,7 @@ new class extends Component {
                                             'type' => 'Desa/Kelurahan', 'village' => $name, 'district' => $dist['name'], 'city' => $reg['name'], 'province' => $prov['name'],
                                             'province_id' => $reg['parent_id'], 'city_id' => $dist['parent_id'], 'district_id' => $distId
                                         ];
-                                        if (count($results) >= 20) break 2;
+                                        if (count($results) >= 20) break;
                                     }
                                 }
                             }
