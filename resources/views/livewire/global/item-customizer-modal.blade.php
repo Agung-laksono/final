@@ -24,6 +24,8 @@ new class extends Component {
     
     public $activeTab = 'attributes'; // attributes, attachments, history
 
+    public $attributeSuggestions = ['Panjang', 'Lebar', 'Tinggi', 'Warna', 'Bahan', 'Finishing', 'Motif Ukiran', 'Kain Dudukan'];
+
     // History
     public $historyItems = [];
 
@@ -163,6 +165,13 @@ new class extends Component {
         $this->custom_attributes[] = ['key' => '', 'value' => ''];
     }
 
+    public function addSuggestedAttribute($key)
+    {
+        // Jika ada atribut yang valuenya kosong dan key-nya kosong, kita bisa replace.
+        // Tapi untuk simplenya kita tambahkan saja.
+        $this->custom_attributes[] = ['key' => $key, 'value' => ''];
+    }
+
     public function removeAttribute($index)
     {
         unset($this->custom_attributes[$index]);
@@ -242,9 +251,18 @@ new class extends Component {
             @if($activeTab === 'attributes')
                 <div class="space-y-5 sm:space-y-6">
                     <div>
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-2 gap-2">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
                             <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Spesifikasi Custom Dinamis</label>
-                            <flux:button size="sm" icon="plus" wire:click="addAttribute" class="w-full sm:w-auto">Tambah Spek</flux:button>
+                            <flux:button size="sm" icon="plus" wire:click="addAttribute" class="w-full sm:w-auto">Tambah Spek Kosong</flux:button>
+                        </div>
+
+                        <div class="flex flex-wrap gap-1.5 mb-4 items-center">
+                            <span class="text-xs text-zinc-500 dark:text-zinc-400 mr-1">Template Spek Cepat:</span>
+                            @foreach($attributeSuggestions as $sug)
+                                <button type="button" wire:click="addSuggestedAttribute('{{ $sug }}')" class="text-[10px] sm:text-xs px-2 py-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/20 dark:hover:text-emerald-400 dark:hover:border-emerald-500/30 transition-colors text-zinc-600 dark:text-zinc-300 shadow-sm flex items-center gap-1">
+                                    <flux:icon.plus class="w-3 h-3" /> {{ $sug }}
+                                </button>
+                            @endforeach
                         </div>
                         
                         @if(empty($custom_attributes))
