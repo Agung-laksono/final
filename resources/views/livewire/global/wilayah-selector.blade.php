@@ -61,32 +61,35 @@ new class extends Component {
     // --- REGION CSV HELPERS ---
 
     private function getRegions($filename, $parentId = null) {
-        $path = public_path('api-wilayah/data/' . $filename);
-        if (!file_exists($path)) return [];
-        
-        $data = [];
-        if (($handle = fopen($path, "r")) !== FALSE) {
-            while (($row = fgetcsv($handle, 1000, ",")) !== FALSE) {
-                if (count($row) >= 2) {
-                    if ($parentId === null) {
-                        if (count($row) == 2) {
-                            $data[] = ['id' => trim($row[0]), 'name' => trim($row[1])];
-                        }
-                    } else {
-                        if (count($row) >= 3 && trim($row[1]) == $parentId) {
-                            $data[] = ['id' => trim($row[0]), 'parent_id' => trim($row[1]), 'name' => trim($row[2])];
+        $cacheKey = "regions_{$filename}_{$parentId}";
+        return \Illuminate\Support\Facades\Cache::rememberForever($cacheKey, function() use ($filename, $parentId) {
+            $path = public_path('api-wilayah/data/' . $filename);
+            if (!file_exists($path)) return [];
+            
+            $data = [];
+            if (($handle = fopen($path, "r")) !== FALSE) {
+                while (($row = fgetcsv($handle, 1000, ",")) !== FALSE) {
+                    if (count($row) >= 2) {
+                        if ($parentId === null) {
+                            if (count($row) == 2) {
+                                $data[] = ['id' => trim($row[0]), 'name' => trim($row[1])];
+                            }
+                        } else {
+                            if (count($row) >= 3 && trim($row[1]) == $parentId) {
+                                $data[] = ['id' => trim($row[0]), 'parent_id' => trim($row[1]), 'name' => trim($row[2])];
+                            }
                         }
                     }
                 }
+                fclose($handle);
             }
-            fclose($handle);
-        }
-        
-        usort($data, function($a, $b) {
-            return strcmp($a['name'], $b['name']);
+            
+            usort($data, function($a, $b) {
+                return strcmp($a['name'], $b['name']);
+            });
+            
+            return $data;
         });
-        
-        return $data;
     }
 
     private function getIdByName($filename, $name) {
@@ -172,98 +175,101 @@ new class extends Component {
         }
 
         $keywords = explode(' ', strtolower(trim($value)));
-        $results = [];
         
-        $villagesPath = public_path('api-wilayah/data/villages.csv');
-        $districtsPath = public_path('api-wilayah/data/districts.csv');
-        $regenciesPath = public_path('api-wilayah/data/regencies.csv');
-        $provincesPath = public_path('api-wilayah/data/provinces.csv');
+        // Cache full CSV parsing to memory for blazing fast searches
+        $provMap = \Illuminate\Support\Facades\Cache::rememberForever('wilayah_search_provinces', function() {
+            $map = [];
+            if (($handle = fopen(public_path('api-wilayah/data/provinces.csv'), "r")) !== FALSE) {
+                while (($row = fgetcsv($handle, 1000, ",")) !== FALSE) {
+                    if(count($row) >= 2) $map[trim($row[0])] = ['name' => trim($row[1])];
+                }
+                fclose($handle);
+            }
+            return $map;
+        });
+
+        $regMap = \Illuminate\Support\Facades\Cache::rememberForever('wilayah_search_regencies', function() {
+            $map = [];
+            if (($handle = fopen(public_path('api-wilayah/data/regencies.csv'), "r")) !== FALSE) {
+                while (($row = fgetcsv($handle, 1000, ",")) !== FALSE) {
+                    if(count($row) >= 3) $map[trim($row[0])] = ['parent_id' => trim($row[1]), 'name' => trim($row[2])];
+                }
+                fclose($handle);
+            }
+            return $map;
+        });
+
+        $distMap = \Illuminate\Support\Facades\Cache::rememberForever('wilayah_search_districts', function() {
+            $map = [];
+            if (($handle = fopen(public_path('api-wilayah/data/districts.csv'), "r")) !== FALSE) {
+                while (($row = fgetcsv($handle, 1000, ",")) !== FALSE) {
+                    if(count($row) >= 3) $map[trim($row[0])] = ['parent_id' => trim($row[1]), 'name' => trim($row[2])];
+                }
+                fclose($handle);
+            }
+            return $map;
+        });
+
+        $results = [];
 
         // 1. Scan Provinces
-        $provMap = [];
-        if (($handle = fopen($provincesPath, "r")) !== FALSE) {
-            while (($row = fgetcsv($handle, 1000, ",")) !== FALSE) {
-                if (count($row) >= 2) {
-                    $name = trim($row[1]);
-                    $provMap[trim($row[0])] = ['name' => $name];
-                    
-                    $fullString = strtolower($name);
+        foreach ($provMap as $provId => $prov) {
+            $fullString = strtolower($prov['name']);
+            $match = true;
+            foreach ($keywords as $kw) {
+                if (strpos($fullString, $kw) === false) { $match = false; break; }
+            }
+            if ($match) {
+                $results[] = [
+                    'type' => 'Provinsi', 'village' => '', 'district' => '', 'city' => '', 'province' => $prov['name'],
+                    'province_id' => $provId, 'city_id' => null, 'district_id' => null
+                ];
+            }
+        }
+
+        // 2. Scan Regencies
+        foreach ($regMap as $regId => $reg) {
+            $prov = $provMap[$reg['parent_id']] ?? null;
+            if ($prov) {
+                $fullString = strtolower($reg['name'] . ' ' . $prov['name']);
+                $match = true;
+                foreach ($keywords as $kw) {
+                    if (strpos($fullString, $kw) === false) { $match = false; break; }
+                }
+                if ($match) {
+                    $results[] = [
+                        'type' => 'Kota/Kabupaten', 'village' => '', 'district' => '', 'city' => $reg['name'], 'province' => $prov['name'],
+                        'province_id' => $reg['parent_id'], 'city_id' => $regId, 'district_id' => null
+                    ];
+                }
+            }
+        }
+
+        // 3. Scan Districts
+        foreach ($distMap as $distId => $dist) {
+            $reg = $regMap[$dist['parent_id']] ?? null;
+            if ($reg) {
+                $prov = $provMap[$reg['parent_id']] ?? null;
+                if ($prov) {
+                    $fullString = strtolower($dist['name'] . ' ' . $reg['name'] . ' ' . $prov['name']);
                     $match = true;
                     foreach ($keywords as $kw) {
                         if (strpos($fullString, $kw) === false) { $match = false; break; }
                     }
                     if ($match) {
                         $results[] = [
-                            'type' => 'Provinsi', 'village' => '', 'district' => '', 'city' => '', 'province' => $name
+                            'type' => 'Kecamatan', 'village' => '', 'district' => $dist['name'], 'city' => $reg['name'], 'province' => $prov['name'],
+                            'province_id' => $reg['parent_id'], 'city_id' => $dist['parent_id'], 'district_id' => $distId
                         ];
+                        if (count($results) >= 20) break;
                     }
                 }
             }
-            fclose($handle);
         }
 
-        // 2. Scan Regencies
-        $regMap = [];
-        if (($handle = fopen($regenciesPath, "r")) !== FALSE) {
-            while (($row = fgetcsv($handle, 1000, ",")) !== FALSE) {
-                if (count($row) >= 3) {
-                    $name = trim($row[2]);
-                    $parentId = trim($row[1]);
-                    $regMap[trim($row[0])] = ['parent_id' => $parentId, 'name' => $name];
-                    
-                    $prov = $provMap[$parentId] ?? null;
-                    if ($prov) {
-                        $fullString = strtolower($name . ' ' . $prov['name']);
-                        $match = true;
-                        foreach ($keywords as $kw) {
-                            if (strpos($fullString, $kw) === false) { $match = false; break; }
-                        }
-                        if ($match) {
-                            $results[] = [
-                                'type' => 'Kota/Kabupaten', 'village' => '', 'district' => '', 'city' => $name, 'province' => $prov['name']
-                            ];
-                        }
-                    }
-                }
-            }
-            fclose($handle);
-        }
-
-        // 3. Scan Districts
-        $distMap = [];
-        if (($handle = fopen($districtsPath, "r")) !== FALSE) {
-            while (($row = fgetcsv($handle, 1000, ",")) !== FALSE) {
-                if (count($row) >= 3) {
-                    $name = trim($row[2]);
-                    $parentId = trim($row[1]);
-                    $distMap[trim($row[0])] = ['parent_id' => $parentId, 'name' => $name];
-                    
-                    if (count($results) < 20) {
-                        $reg = $regMap[$parentId] ?? null;
-                        if ($reg) {
-                            $prov = $provMap[$reg['parent_id']] ?? null;
-                            if ($prov) {
-                                $fullString = strtolower($name . ' ' . $reg['name'] . ' ' . $prov['name']);
-                                $match = true;
-                                foreach ($keywords as $kw) {
-                                    if (strpos($fullString, $kw) === false) { $match = false; break; }
-                                }
-                                if ($match) {
-                                    $results[] = [
-                                        'type' => 'Kecamatan', 'village' => '', 'district' => $name, 'city' => $reg['name'], 'province' => $prov['name']
-                                    ];
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            fclose($handle);
-        }
-
-        // 4. Scan Villages (only if we need more results)
+        // 4. Scan Villages
         if (count($results) < 20) {
-            if (($handle = fopen($villagesPath, "r")) !== FALSE) {
+            if (($handle = fopen(public_path('api-wilayah/data/villages.csv'), "r")) !== FALSE) {
                 while (($row = fgetcsv($handle, 1000, ",")) !== FALSE) {
                     if (count($row) >= 3) {
                         $name = trim($row[2]);
@@ -281,9 +287,10 @@ new class extends Component {
                                     }
                                     if ($match) {
                                         $results[] = [
-                                            'type' => 'Desa/Kelurahan', 'village' => $name, 'district' => $dist['name'], 'city' => $reg['name'], 'province' => $prov['name']
+                                            'type' => 'Desa/Kelurahan', 'village' => $name, 'district' => $dist['name'], 'city' => $reg['name'], 'province' => $prov['name'],
+                                            'province_id' => $reg['parent_id'], 'city_id' => $dist['parent_id'], 'district_id' => $distId
                                         ];
-                                        if (count($results) >= 20) break;
+                                        if (count($results) >= 20) break 2;
                                     }
                                 }
                             }
@@ -301,21 +308,35 @@ new class extends Component {
         $res = $this->searchResults[$index] ?? null;
         if (!$res) return;
 
-        // Auto-fill and cascade
+        // Populate without sending events immediately
         $this->province = $res['province'];
-        $this->updatedProvince($this->province);
-        
         $this->city = $res['city'];
-        $this->updatedCity($this->city);
-        
         $this->district = $res['district'];
-        $this->updatedDistrict($this->district);
-        
         $this->village = $res['village'];
+        
+        // Load the lists directly via pre-fetched IDs instead of re-scanning everything by name
+        if (!empty($res['province_id'])) {
+            $this->citiesList = $this->getRegions('regencies.csv', $res['province_id']);
+        } else {
+            $this->citiesList = [];
+        }
+        
+        if (!empty($res['city_id'])) {
+            $this->districtsList = $this->getRegions('districts.csv', $res['city_id']);
+        } else {
+            $this->districtsList = [];
+        }
+        
+        if (!empty($res['district_id'])) {
+            $this->villagesList = $this->getRegions('villages.csv', $res['district_id']);
+        } else {
+            $this->villagesList = [];
+        }
 
         $this->searchQuery = '';
         $this->searchResults = [];
         
+        // Notify parent exactly once!
         $this->notifyParent();
     }
 };
