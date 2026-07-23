@@ -195,7 +195,7 @@ $save = function () {
             'vendor_id' => $vendor->id,
             'order_date' => now(),
             'expected_delivery_date' => $this->expected_delivery_date,
-            'status' => 'ordered',
+            'status' => 'pending_approval',
             'total_amount' => $totalAmount,
             'notes' => "Perintah Kerja Vendor/Jasa. Tenggat Waktu: " . $this->expected_delivery_date . ".\n\n" . $this->notes,
             'created_by' => auth()->id()
@@ -224,7 +224,7 @@ $save = function () {
                 foreach ($group['orders'] as $order) {
                     $orderCost = $costPerUnit * $order->requested_qty;
                     
-                    $order->status = 'in_production';
+                    $order->status = 'pending_approval';
                     $order->phase_type = $this->phase_type;
                     $order->vendor_cost = $orderCost;
                     $order->purchase_order_id = $po->id;
@@ -253,7 +253,7 @@ $save = function () {
                     'notes' => $finalNotes
                 ]);
 
-                $order->status = 'in_production';
+                $order->status = 'pending_approval';
                 $order->phase_type = $this->phase_type;
                 $order->vendor_cost = $orderCost;
                 $order->purchase_order_id = $po->id;

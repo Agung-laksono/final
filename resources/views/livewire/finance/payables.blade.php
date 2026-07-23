@@ -24,6 +24,7 @@ new class extends Component {
     public $proof = null;
     
     public $columnLimits = [
+        'pending_approval' => 10,
         'unpaid' => 10,
         'partial' => 10,
         'paid' => 10,
@@ -40,6 +41,7 @@ new class extends Component {
     }
     
     public $columns = [
+        'pending_approval' => ['title' => 'Menunggu ACC', 'color' => 'blue'],
         'unpaid' => ['title' => 'Belum Dibayar', 'color' => 'slate'],
         'partial' => ['title' => 'Dibayar Sebagian', 'color' => 'amber'],
         'paid' => ['title' => 'Lunas', 'color' => 'emerald'],
@@ -83,6 +85,7 @@ new class extends Component {
         $accounts = $queryAcc->get();
 
         $grouped = [
+            'pending_approval' => collect(),
             'unpaid' => collect(),
             'partial' => collect(),
             'paid' => collect(),
@@ -98,6 +101,8 @@ new class extends Component {
                 if ($paidAmount > 0) {
                     $grouped['refund']->push($po);
                 }
+            } elseif ($po->status === 'pending_approval') {
+                $grouped['pending_approval']->push($po);
             } elseif ($po->status === 'hold') {
                 $grouped['hold']->push($po);
             } else {
@@ -275,6 +280,28 @@ new class extends Component {
             $po->save();
         }
     }
+
+    public function approveSpk($poId)
+    {
+        $po = PurchaseOrder::find($poId);
+        if ($po && $po->status === 'pending_approval') {
+            DB::beginTransaction();
+            try {
+                $po->status = 'ordered';
+                $po->save();
+                
+                // Update related ProductionOrders
+                \Modules\Production\Models\ProductionOrder::where('purchase_order_id', $po->id)
+                    ->update(['status' => 'in_production']);
+                    
+                DB::commit();
+                \Flux::toast('SPK berhasil disetujui (ACC).', variant: 'success');
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Flux::toast('Gagal menyetujui SPK: ' . $e->getMessage(), variant: 'danger');
+            }
+        }
+    }
 };
 ?>
 
@@ -390,6 +417,11 @@ new class extends Component {
                                         <span class="text-[8px] font-black text-white bg-rose-500 px-1.5 py-0.5 rounded shadow-sm">REFUND!</span>
                                     @elseif($colKey === 'hold')
                                         <span class="text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm">DITAHAN</span>
+                                    @elseif($colKey === 'pending_approval')
+                                        <button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.approveSpk({{ $po->id }})">
+                                            <flux:icon.check-circle class="w-3 h-3" />
+                                            <span>ACC SPK</span>
+                                        </button>
                                     @elseif($progress < 100)
                                         <button class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.openPaymentModal({{ $po->id }})">
                                             <span>Bayar</span>

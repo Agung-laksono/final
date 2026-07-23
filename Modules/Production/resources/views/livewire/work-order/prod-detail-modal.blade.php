@@ -10,6 +10,10 @@ state([
 ]);
 
 on(['open-prod-detail-modal' => function ($orderId) {
+    if (is_array($orderId)) {
+        $orderId = $orderId['orderId'] ?? null;
+    }
+    
     $this->order = ProductionOrder::with(['item', 'creator', 'histories.vendor', 'purchaseOrder.vendor'])->find($orderId);
     
     if ($this->order) {
@@ -213,7 +217,14 @@ on(['open-prod-detail-modal' => function ($orderId) {
                 </div>
             </div>
 
-            <div class="flex justify-end pt-4 border-t border-zinc-200 dark:border-zinc-700">
+            <div class="flex justify-between items-center pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                <div>
+                    @if(in_array($order->status, ['material_fulfillment', 'waiting_material', 'waiting_vendor', 'pending_approval']) && $order->requested_qty > 1)
+                        <flux:button variant="subtle" icon="arrows-right-left" wire:click.stop="$dispatch('open-split-order-modal', { orderId: {{ $order->id }} })" class="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/50">
+                            Pecah SPK
+                        </flux:button>
+                    @endif
+                </div>
                 <flux:button variant="ghost" wire:click="$set('show', false)"> Tutup </flux:button>
             </div>
         </div>

@@ -6,7 +6,7 @@
         <div x-show="scanMode === 'single'" class="mb-3"></div>
         
         <!-- Wrapper utama (Tanpa Live Video) -->
-        <div class="relative w-full rounded-lg flex flex-col items-center justify-center p-6 text-center shadow-sm border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 min-h-[200px]">
+        <div id="reader-wrapper" class="relative w-full rounded-lg flex flex-col items-center justify-center p-6 text-center shadow-sm border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 min-h-[200px]">
             <!-- Overlay Loader -->
             <div x-show="isLoading" x-transition
                  class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/95 z-20 text-white rounded-lg">
@@ -31,6 +31,15 @@
                 <flux:icon.qr-code class="w-16 h-16 text-zinc-300 dark:text-zinc-600 mb-2" />
                 <p class="text-sm text-zinc-500 dark:text-zinc-400">Ambil foto barcode dengan kamera HP Anda, sistem akan mendeteksinya secara otomatis.</p>
             </div>
+        </div>
+        
+        <!-- Pilihan Kamera -->
+        <div x-show="cameras && cameras.length > 1" style="display: none;" class="w-full max-w-md mx-auto mt-3 px-1">
+            <select x-model="selectedCamera" @change="switchCamera" class="w-full text-xs py-1.5 px-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 cursor-pointer">
+                <template x-for="(cam, index) in cameras" :key="cam.id">
+                    <option :value="cam.id" x-text="cam.label || 'Kamera ' + (index + 1)"></option>
+                </template>
+            </select>
         </div>
         
         <!-- Wadah tersembunyi untuk proses scan file -->
@@ -72,6 +81,9 @@
                 successMsg: '',
                 scanMode: 'single',
                 loadingMessage: 'Memuat...',
+                cameras: [],
+                selectedCamera: null,
+                _STORAGE_KEY: 'preferred_camera_id',
 
                 init() {
                     window._cameraOpenHandler = async (event) => {
@@ -335,6 +347,7 @@
 
                 async onScanSuccess(decodedText) {
                     const code = decodedText.trim();
+                    this.playBeep();
 
                     if (this.scanMode === 'continuous') {
                         // Mode beruntun: jangan tutup modal
@@ -361,6 +374,28 @@
                         }));
                     }
                 },
+
+                playBeep() {
+                    try {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        if (!AudioContext) return;
+                        const ctx = new AudioContext();
+                        const osc = ctx.createOscillator();
+                        const gainNode = ctx.createGain();
+                        
+                        osc.connect(gainNode);
+                        gainNode.connect(ctx.destination);
+                        
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(880, ctx.currentTime); // Frequency (Pitch)
+                        gainNode.gain.setValueAtTime(0.1, ctx.currentTime); // Volume
+                        
+                        osc.start();
+                        osc.stop(ctx.currentTime + 0.15); // Duration
+                    } catch (e) {
+                        console.warn('Audio tidak didukung di peramban ini');
+                    }
+                }
             }));
         };
 

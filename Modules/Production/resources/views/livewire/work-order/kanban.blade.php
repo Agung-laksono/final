@@ -11,6 +11,7 @@ state([
     'columns' => [
         'material_fulfillment' => ['title' => 'Pemenuhan Bahan', 'color' => 'orange'],
         'waiting_vendor' => ['title' => 'Antrean Vendor', 'color' => 'cyan'],
+        'pending_approval' => ['title' => 'Menunggu Finance', 'color' => 'amber'],
         'in_production' => ['title' => 'Diproses Vendor', 'color' => 'blue'],
         'receiving' => ['title' => 'Penerimaan Gudang', 'color' => 'purple'],
         'completed' => ['title' => 'Selesai', 'color' => 'emerald'],
@@ -175,24 +176,25 @@ on(['maklon-po-created' => function () {
                 :count="count($this->orders[$statusKey] ?? [])"
                 :defaultCollapsed="$defaultCollapsed"
             >
-                @if($statusKey === 'waiting_vendor' && count($this->selectedOrders) > 0)
-                    <div class="sticky top-0 z-10 -mx-3 px-3 py-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-b border-zinc-100 dark:border-zinc-800 mb-1">
-                        <flux:button size="sm" variant="primary" icon="plus" class="w-full justify-center" wire:click="openMaklonModal">
+                <x-slot:headerActions>
+                    @if($statusKey === 'waiting_vendor' && count($this->selectedOrders) > 0)
+                        <flux:button size="xs" variant="primary" icon="plus" wire:click="openMaklonModal" class="h-6 text-[10px] px-2 rounded-md">
                             Buat SPK ({{ count($this->selectedOrders) }})
                         </flux:button>
-                    </div>
-                @endif
-                @if($statusKey === 'in_production')
-                    <div class="sticky top-0 z-10 -mx-3 px-3 py-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm border-b border-zinc-100 dark:border-zinc-800 mb-1 flex gap-1">
-                        <button wire:click="$set('viewModeMaklon', 'grouped')" class="flex-1 flex items-center justify-center gap-1.5 p-1.5 rounded text-xs {{ $viewModeMaklon === 'grouped' ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-white font-medium' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}" title="Mode Wadah">
-                            <flux:icon.rectangle-group class="w-3.5 h-3.5" /> Wadah
-                        </button>
-                        <button wire:click="$set('viewModeMaklon', 'list')" class="flex-1 flex items-center justify-center gap-1.5 p-1.5 rounded text-xs {{ $viewModeMaklon === 'list' ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-white font-medium' : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800' }}" title="Mode Eceran">
-                            <flux:icon.list-bullet class="w-3.5 h-3.5" /> Eceran
-                        </button>
-                    </div>
-                @endif
-                    @if($statusKey === 'in_production' && $viewModeMaklon === 'grouped')
+                    @endif
+                    @if($statusKey === 'in_production' || $statusKey === 'pending_approval')
+                        <div class="flex bg-zinc-200/80 dark:bg-zinc-800 p-0.5 rounded gap-0.5 border border-zinc-300 dark:border-zinc-700">
+                            <button wire:click="$set('viewModeMaklon', 'grouped')" class="flex items-center justify-center p-1 rounded-sm text-[10px] {{ $viewModeMaklon === 'grouped' ? 'bg-white dark:bg-zinc-600 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300' }}" title="Wadah">
+                                <flux:icon.rectangle-group class="w-3 h-3" />
+                            </button>
+                            <button wire:click="$set('viewModeMaklon', 'list')" class="flex items-center justify-center p-1 rounded-sm text-[10px] {{ $viewModeMaklon === 'list' ? 'bg-white dark:bg-zinc-600 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300' }}" title="Eceran">
+                                <flux:icon.list-bullet class="w-3 h-3" />
+                            </button>
+                        </div>
+                    @endif
+                </x-slot:headerActions>
+
+                    @if(in_array($statusKey, ['in_production', 'pending_approval']) && $viewModeMaklon === 'grouped')
                         @php
                             $groupedByPo = collect($this->orders[$statusKey] ?? [])->groupBy('purchase_order_id');
                         @endphp
@@ -227,11 +229,17 @@ on(['maklon-po-created' => function () {
                                         <span class="text-[9px] text-zinc-500">{{ $po->order_date ? \Carbon\Carbon::parse($po->order_date)->format('d M') : '' }}</span>
                                     </div>
                                 </div>
+                                @if($statusKey === 'in_production')
                                 <flux:button size="xs" variant="primary" class="w-full justify-center mt-1" 
                                              @click="activeId = 'po-{{ $poId }}'"
                                              wire:click="$dispatch('open-finish-phase-bulk-modal', { poId: {{ $poId }}, phase: 'maklon' })">
                                     &#x2714; Selesaikan Semua (1 SPK)
                                 </flux:button>
+                                @elseif($statusKey === 'pending_approval')
+                                <div class="mt-1 text-center bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold py-1 rounded border border-amber-200 dark:border-amber-800">
+                                    <flux:icon.clock class="w-3 h-3 inline-block" /> Menunggu ACC Finance
+                                </div>
+                                @endif
                             </div>
                                 
                                 <div class="p-2 space-y-2">
@@ -383,6 +391,7 @@ on(['maklon-po-created' => function () {
             <livewire:work-order.maklon-modal />
             <livewire:work-order.po-detail-modal />
             <livewire:work-order.prod-detail-modal />
+            <livewire:work-order.split-order-modal />
             <livewire:work-order.finish-phase-modal />
             <livewire:work-order.vendor-cost-modal />
             <livewire:work-order.po-print-modal />

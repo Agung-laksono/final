@@ -22,6 +22,11 @@
                 :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
         </div>
         <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
+            @if(isset($headerActions))
+                <div x-show="!collapsed" class="flex items-center mr-1">
+                    {{ $headerActions }}
+                </div>
+            @endif
             <flux:badge size="sm" class="bg-zinc-100 dark:bg-zinc-800 shrink-0">{{ $count }}</flux:badge>
             <flux:button size="sm" variant="subtle" class="!px-1.5 !py-1.5 shrink-0" @click.stop="collapsed = !collapsed" x-bind:title="collapsed ? 'Buka Kolom' : 'Tutup Kolom'">
                 <flux:icon.arrows-up-down x-show="collapsed" class="w-4 h-4" />

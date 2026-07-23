@@ -39,13 +39,24 @@ $print = function () {
                             </flux:select>
                         </div>
                         <flux:button variant="ghost" wire:click="$set('show', false)"> Tutup </flux:button>
-                        <flux:button variant="primary" icon="printer" wire:click="print">Cetak Dokumen</flux:button>
+                        @if($po->status !== 'pending_approval')
+                            <flux:button variant="primary" icon="printer" wire:click="print">Cetak Dokumen</flux:button>
+                        @endif
                     </div>
                 </div>
 
                 <!-- Print Area (A4 Simulation) -->
                 <div class="p-8 print:p-0 mx-auto bg-white dark:bg-zinc-900 print:bg-white text-zinc-900 dark:text-zinc-100 print:text-black" id="print-area" style="max-width: 210mm; min-height: 297mm;">
                     
+                    @if($po->status === 'pending_approval')
+                        <div class="flex flex-col items-center justify-center h-[50vh] text-center print:hidden">
+                            <div class="w-20 h-20 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center mb-4">
+                                <flux:icon.clock class="w-10 h-10" />
+                            </div>
+                            <h2 class="text-2xl font-bold text-zinc-900 dark:text-white mb-2">Menunggu Persetujuan Finance</h2>
+                            <p class="text-zinc-500 max-w-md">Dokumen SPK ini belum bisa dicetak atau diberikan ke Vendor karena sedang menunggu validasi dan persetujuan (ACC) dari departemen Keuangan.</p>
+                        </div>
+                    @else
                     <!-- Header -->
                     <div class="flex justify-between items-start border-b-2 border-zinc-900 dark:border-zinc-100 pb-4 mb-6">
                         <div>
@@ -165,7 +176,8 @@ $print = function () {
                         </div>
                     </div>
                     @endif
-
+                    
+                    @endif
                 </div>
             </div>
         @endif

@@ -322,6 +322,30 @@ $save = function () {
                 }
             }
             
+            // Hitung ekuivalen barang jadi berdasarkan suplai bahan terendah
+            $minPercent = 100;
+            foreach ($this->items as $material) {
+                $totalNeeded = (int) $material['needed'];
+                $alreadyConsumed = (int) $material['already_consumed'];
+                $inputQty = (int) $material['input_qty'];
+                
+                if ($totalNeeded > 0) {
+                    $percent = (($alreadyConsumed + $inputQty) / $totalNeeded) * 100;
+                    if ($percent < $minPercent) {
+                        $minPercent = $percent;
+                    }
+                }
+            }
+            
+            $equivalentItems = round(($minPercent / 100) * $this->order->requested_qty);
+            $existingNotes = $this->order->notes ?? '';
+            if (preg_match('/\[MaterialProgress:\s*\d+\]/', $existingNotes)) {
+                $existingNotes = preg_replace('/\[MaterialProgress:\s*\d+\]/', "[MaterialProgress: {$equivalentItems}]", $existingNotes);
+            } else {
+                $existingNotes .= "\n[MaterialProgress: {$equivalentItems}]";
+            }
+            $this->order->notes = trim($existingNotes);
+            
             if ($hasDeficit) {
                 $this->order->status = 'waiting_material';
                 if ($this->notes) {
@@ -370,14 +394,21 @@ $save = function () {
         
         {{-- Scanner Section --}}
         <div class="mt-4 flex flex-col sm:flex-row justify-between items-center gap-2 bg-zinc-50 dark:bg-zinc-800/20 p-2.5 rounded-xl border border-zinc-200/50 dark:border-zinc-700/50">
-            <div class="flex-1 w-full">
+            <div class="flex-1 w-full" x-data="{ hasText: false }">
                 <flux:input 
                     wire:model="manualBarcode" 
-                    x-on:keydown.enter="$dispatch('barcode-scanned', { code: $wire.manualBarcode }); $wire.manualBarcode = ''" 
+                    @input="hasText = $event.target.value.length > 0"
+                    x-on:keydown.enter="$dispatch('barcode-scanned', { code: $wire.manualBarcode }); $wire.manualBarcode = ''; hasText = false" 
                     placeholder="Scan / ketik barcode..." 
                     icon="qr-code" 
                     class="!h-9 text-xs"
-                />
+                >
+                    <x-slot:iconTrailing>
+                        <button x-show="hasText" x-transition type="button" x-on:click="$dispatch('barcode-scanned', { code: $wire.manualBarcode }); $wire.manualBarcode = ''; hasText = false" class="p-1 rounded-md text-blue-600 hover:bg-blue-100 hover:text-blue-700 transition-colors pointer-events-auto" title="Input Barcode">
+                            <flux:icon.paper-airplane class="w-4 h-4" />
+                        </button>
+                    </x-slot:iconTrailing>
+                </flux:input>
             </div>
             <flux:button type="button" x-on:click="Flux.modal('camera-scanner-modal').show(); window.dispatchEvent(new CustomEvent('camera-scanner-modal-opened', { detail: { mode: 'continuous' } }))" variant="filled" icon="camera" class="w-full sm:w-auto shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white border-none text-xs h-9" tooltip="Gunakan Kamera HP">
                 Scanner Kamera
@@ -512,24 +543,20 @@ $save = function () {
             <div class="text-[10px] text-zinc-500 flex items-start gap-1.5 leading-tight">
                 <flux:icon.information-circle class="w-4 h-4 text-blue-500 shrink-0" />
                 <span>
-                    @if($hasIncompleteStockUsage)
-                        Harap lengkapi input/scan bahan baku yang <strong class="text-zinc-700 dark:text-zinc-300">tersedia di gudang</strong>.
-                    @elseif($hasStockDeficit)
-                        Pesanan tetap berstatus <strong class="text-amber-600 dark:text-amber-500">Menunggu Bahan</strong> (tiket pembelian aktif).
+                    @if($hasIncompleteStockUsage || $hasStockDeficit)
+                        Pemenuhan dilakukan secara <strong class="text-amber-600 dark:text-amber-500">Parsial (Sebagian)</strong>. Pesanan akan berstatus Menunggu Bahan.
                     @else
-                        Bahan siap diserahkan ke tim produksi.
+                        Semua bahan lengkap siap diserahkan ke tim produksi.
                     @endif
                 </span>
             </div>
             
             <div class="flex gap-2 w-full">
                 <flux:button variant="ghost" wire:click="$set('show', false)" class="flex-1 text-xs"> Batal </flux:button>
-                @if($hasIncompleteStockUsage)
-                    <flux:button variant="primary" disabled class="flex-1 opacity-50 cursor-not-allowed text-xs">Lengkapi Bahan</flux:button>
-                @elseif($hasStockDeficit)
-                    <flux:button variant="danger" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 text-xs"> Simpan & Tunggu </flux:button>
+                @if($hasIncompleteStockUsage || $hasStockDeficit)
+                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="exclamation-triangle" class="flex-1 text-xs !bg-amber-500 hover:!bg-amber-600 !text-white !border-none"> Simpan Parsial (Tunggu Sisa) </flux:button>
                 @else
-                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 text-xs">Serahkan Bahan</flux:button>
+                    <flux:button variant="primary" wire:click="save" wire:target="save" wire:loading.attr="disabled" icon="check" class="flex-1 text-xs">Serahkan Bahan Lengkap</flux:button>
                 @endif
             </div>
         </div>

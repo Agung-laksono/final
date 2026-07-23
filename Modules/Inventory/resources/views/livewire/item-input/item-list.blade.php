@@ -322,6 +322,78 @@ $delete = function (Item $item) {
         </div>
     </x-sticky-header>
 
+    @php
+        $galleryItems = [];
+        foreach($this->getItems() as $item) {
+            $specs = collect([
+                $item->category?->name,
+                $item->type?->name,
+                $item->unit?->name
+            ])->filter()->implode(' • ');
+            
+            $totalStock = $item->warehouses->sum('pivot.stock');
+            $warehousesInfo = $item->warehouses->map(fn($w) => $w->name . ' (' . $w->pivot->stock . ')')->implode(' | ');
+            
+            $stats = $item->getInventoryStats();
+            
+            if ($item->image) {
+                $galleryItems[] = [
+                    'type' => 'main',
+                    'id' => $item->id,
+                    'image' => asset('storage/' . $item->image),
+                    'alias' => $item->alias,
+                    'name' => $item->name,
+                    'code' => $item->code,
+                    'specs' => $specs,
+                    'description' => $item->description,
+                    'price' => number_format($item->selling_price, 0, ',', '.'),
+                    'purchase_price' => number_format($item->purchase_price, 0, ',', '.'),
+                    'stock' => $totalStock . ' ' . ($item->unit?->name ?? ''),
+                    'po' => $stats['purchase_order'] + $stats['purchase_queue'],
+                    'wip' => $stats['production'],
+                    'book' => $stats['sales_committed'],
+                    'atp' => $item->getATP(),
+                    'warehouses' => $warehousesInfo,
+                    'is_active' => $item->is_active,
+                ];
+            }
+            
+            if (!empty($item->customVariants)) {
+                $groupedVariants = collect($item->customVariants)
+                    ->filter(fn($v) => !empty($v->custom_attachments))
+                    ->groupBy(fn($v) => $v->custom_attachments[0]);
+                
+                foreach($groupedVariants as $imagePath => $group) {
+                    $variant = $group->first();
+                    $attrs = !empty($variant->custom_attributes) ? collect($variant->custom_attributes)->map(function($v, $k) {
+                        $valStr = is_array($v) ? implode(': ', $v) : $v;
+                        return is_numeric($k) ? $valStr : $k . ': ' . $valStr;
+                    })->implode(' | ') : '';
+                    
+                    $galleryItems[] = [
+                        'type' => 'variant',
+                        'id' => $item->id,
+                        'image' => asset('storage/' . $imagePath),
+                        'alias' => $item->alias ? $item->alias . ' (Varian)' : 'Varian ' . $item->name,
+                        'name' => $variant->salesOrder?->customer?->name ? 'Pesanan: ' . $variant->salesOrder->customer->name : 'Varian',
+                        'code' => $item->code,
+                        'specs' => $attrs ? $attrs : 'Varian Custom',
+                        'description' => 'Tgl Pesanan: ' . ($variant->created_at ? $variant->created_at->format('d M Y') : '-'),
+                        'price' => null,
+                        'purchase_price' => null,
+                        'stock' => null,
+                        'po' => null,
+                        'wip' => null,
+                        'book' => null,
+                        'atp' => null,
+                        'warehouses' => null,
+                        'is_active' => null,
+                    ];
+                }
+            }
+        }
+    @endphp
+
     @if ($viewMode === 'table')
         {{-- Tampilan Tabel --}}
         <div class="pl-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6 shadow-sm">
@@ -513,14 +585,14 @@ $delete = function (Item $item) {
                                  @load="loaded = true" 
                                  :class="loaded ? 'opacity-100' : 'opacity-0 scale-95'"
                                  :src="activeVariant && activeVariant.image ? activeVariant.image : '{{ asset('storage/' . $item->image) }}'" 
-                                 @click.stop="$dispatch('open-lightbox', { url: activeVariant && activeVariant.image ? activeVariant.image : '{{ asset('storage/' . $item->image) }}' })"
+                                 @click.stop="$dispatch('open-item-gallery', { image: activeVariant && activeVariant.image ? activeVariant.image : '{{ asset('storage/' . $item->image) }}' })"
                                  loading="lazy" 
                                  decoding="async"
                                  class="w-full h-full object-cover transition-all duration-700 group-hover:scale-110 cursor-zoom-in">
                         @else
                             <img x-show="activeVariant && activeVariant.image" x-cloak
                                  :src="activeVariant ? activeVariant.image : ''"
-                                 @click.stop="$dispatch('open-lightbox', { url: activeVariant ? activeVariant.image : '' })"
+                                 @click.stop="$dispatch('open-item-gallery', { image: activeVariant ? activeVariant.image : '' })"
                                  class="absolute inset-0 w-full h-full object-cover z-10 transition-all duration-700 cursor-zoom-in">
                                  
                             <div class="w-full h-full flex flex-col items-center justify-center text-zinc-300">
@@ -694,5 +766,230 @@ $delete = function (Item $item) {
     <livewire:item-input.item-detail />
     <livewire:global.item-variants-modal />
     
+    <!-- Gallery Lightbox Modal -->
+    <div x-data="itemGallery( {{ json_encode($galleryItems ?? []) }} )" 
+         x-show="isOpen" 
+         @open-item-gallery.window="open($event.detail.image)"
+         @keydown.escape.window="close()"
+         @keydown.arrow-left.window="prev()"
+         @keydown.arrow-right.window="next()"
+         class="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md"
+         style="display: none;"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0">
 
+        <!-- Close Button -->
+        <button @click="close()" class="absolute top-4 right-4 z-[110] text-white/70 hover:text-white p-2 rounded-full bg-black/20 hover:bg-black/40 transition">
+            <flux:icon.x-mark class="w-6 h-6" />
+        </button>
+
+        <!-- Navigation Arrows -->
+        <button x-show="gallery.length > 1" @click.stop="prev()" class="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 z-[110] text-white/70 hover:text-white p-3 rounded-full bg-black/20 hover:bg-black/50 transition">
+            <flux:icon.chevron-left class="w-8 h-8" />
+        </button>
+        <button x-show="gallery.length > 1" @click.stop="next()" class="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 z-[110] text-white/70 hover:text-white p-3 rounded-full bg-black/20 hover:bg-black/50 transition">
+            <flux:icon.chevron-right class="w-8 h-8" />
+        </button>
+
+        <!-- Main Content -->
+        <div class="relative w-full h-full flex flex-col items-center justify-center overflow-hidden"
+             @touchstart="touchStart($event)"
+             @touchmove.passive="touchMove($event)"
+             @touchend="touchEnd($event)"
+             @mousedown="touchStart($event)"
+             @mousemove="touchMove($event)"
+             @mouseup="touchEnd($event)"
+             @mouseleave="touchEnd($event)"
+             @click="if($event.target === $el) close()">
+             
+            <!-- Slider Container -->
+            <div class="flex w-full h-full"
+                 :class="isSwiping ? 'transition-none' : 'transition-transform duration-300 ease-out'"
+                 :style="`transform: translateX(calc(-${currentIndex * 100}% + ${touchOffset}px))`">
+                 
+                <template x-for="(item, index) in gallery" :key="index">
+                    <div class="w-full h-full shrink-0 flex flex-col md:flex-row max-w-7xl mx-auto items-center p-2 sm:p-4 md:p-8 gap-2 sm:gap-4 md:gap-8 pointer-events-none pb-4 md:pb-8">
+                        <!-- Image Container -->
+                        <div class="flex-1 w-full h-[55vh] md:h-full flex items-center justify-center relative pointer-events-auto"
+                             style="touch-action: pan-y pinch-zoom;">
+                            <img :src="item.image" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl pointer-events-none select-none" draggable="false">
+                            <div x-show="item.type === 'variant'" class="absolute top-4 left-4 bg-indigo-600/90 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm">
+                                VARIAN
+                            </div>
+                        </div>
+
+                        <!-- Info Panel -->
+                        <div class="w-full md:w-96 shrink-0 bg-zinc-900/95 backdrop-blur-xl border-t md:border border-zinc-700/50 md:rounded-2xl p-3 md:p-6 shadow-2xl text-left flex flex-col pointer-events-auto max-h-[45vh] md:max-h-full z-10"
+                             @touchstart.stop
+                             @touchmove.stop
+                             @mousedown.stop
+                             @mousemove.stop>
+                            <div class="overflow-y-auto custom-scrollbar flex-1 pr-1 md:pr-2 pb-16 md:pb-4">
+                                <!-- Header: Code & Status -->
+                                <div class="flex items-center justify-between mb-0.5 md:mb-2">
+                                    <div class="text-[9px] md:text-xs font-mono text-zinc-400" x-text="item.code"></div>
+                                    <template x-if="item.type === 'main'">
+                                        <div class="text-[7px] md:text-[9px] font-bold px-1 py-0.5 rounded uppercase" 
+                                             :class="item.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'" 
+                                             x-text="item.is_active ? 'Aktif' : 'Non-Aktif'"></div>
+                                    </template>
+                                </div>
+                                
+                                <!-- Title -->
+                                <h2 class="text-base md:text-2xl font-bold text-white leading-tight truncate" x-text="item.alias || item.name"></h2>
+                                <h3 x-show="item.alias" class="text-[9px] md:text-sm font-medium text-zinc-300 mb-2 truncate" x-text="item.name"></h3>
+                                <h3 x-show="!item.alias" class="text-[9px] md:text-sm font-medium text-zinc-300 mb-2 truncate">&nbsp;</h3>
+                                
+                                <!-- Tabular Data Grid List -->
+                                <div class="flex flex-col gap-1 md:gap-3 mb-2 md:mb-4">
+                                    
+                                    <!-- Harga (Beli & Jual Sejajar) -->
+                                    <template x-if="item.type === 'main'">
+                                        <div class="flex items-center justify-between text-[10px] md:text-sm border-b border-white/5 pb-0.5">
+                                            <div class="flex items-center gap-1.5">
+                                                <span class="text-[8px] md:text-[10px] text-zinc-500 font-bold uppercase">Beli</span>
+                                                <span class="font-bold text-zinc-300">Rp<span x-text="item.purchase_price"></span></span>
+                                            </div>
+                                            <div class="flex items-center gap-1.5">
+                                                <span class="text-[8px] md:text-[10px] text-zinc-500 font-bold uppercase">Jual</span>
+                                                <span class="font-bold text-emerald-400">Rp<span x-text="item.price"></span></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    
+                                    <!-- Stok & Pipeline (Sejajar) -->
+                                    <template x-if="item.type === 'main'">
+                                        <div class="flex flex-wrap items-center justify-between text-[10px] md:text-sm border-b border-white/5 pb-0.5">
+                                            <div class="flex items-center gap-1.5">
+                                                <span class="text-[8px] md:text-[10px] text-zinc-500 font-bold uppercase">Stok</span>
+                                                <span class="font-bold text-sky-400" x-text="item.stock"></span>
+                                            </div>
+                                            <div class="flex items-center gap-1 md:gap-2 text-[9px] md:text-xs">
+                                                <template x-if="item.po > 0"><span class="text-zinc-400 bg-zinc-800 px-1 rounded">PO:<span x-text="item.po"></span></span></template>
+                                                <template x-if="item.wip > 0"><span class="text-zinc-400 bg-zinc-800 px-1 rounded">WIP:<span x-text="item.wip"></span></span></template>
+                                                <template x-if="item.book > 0"><span class="text-zinc-400 bg-zinc-800 px-1 rounded">Book:<span x-text="item.book"></span></span></template>
+                                                <span class="font-bold" :class="item.atp > 0 ? 'text-emerald-400' : 'text-rose-400'">ATP: <span x-text="item.atp"></span></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    
+                                    <!-- Spesifikasi -->
+                                    <div class="flex text-[9px] md:text-sm text-zinc-200 leading-tight">
+                                        <span class="text-[8px] md:text-[10px] text-zinc-500 font-bold uppercase w-16 md:w-24 shrink-0" x-text="item.type === 'variant' ? 'Pesanan' : 'Spek'"></span>
+                                        <span class="flex-1" x-text="item.specs || '-'"></span>
+                                    </div>
+                                    
+                                    <!-- Gudang -->
+                                    <template x-if="item.warehouses">
+                                        <div class="flex text-[9px] md:text-sm text-zinc-400 leading-tight">
+                                            <span class="text-[8px] md:text-[10px] text-zinc-500 font-bold uppercase w-16 md:w-24 shrink-0">Gudang</span>
+                                            <span class="flex-1 text-[8.5px] md:text-xs" x-text="item.warehouses"></span>
+                                        </div>
+                                    </template>
+
+                                    <!-- Deskripsi -->
+                                    <template x-if="item.description">
+                                        <div class="flex flex-col text-[9px] md:text-xs text-zinc-300 leading-tight">
+                                            <span class="text-[8px] md:text-[10px] text-zinc-500 font-bold uppercase mb-0.5">Deskripsi</span>
+                                            <span class="whitespace-pre-line" x-text="item.description"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Footer navigasi -->
+                            <div class="mt-1 md:mt-4 pt-1 md:pt-4 border-t border-white/10 flex items-center justify-between text-[8px] md:text-xs text-zinc-500 shrink-0">
+                                <span x-text="(index + 1) + ' dari ' + gallery.length"></span>
+                                <span>Geser foto untuk navigasi</span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('itemGallery', (items) => ({
+            isOpen: false,
+            gallery: items || [],
+            currentIndex: 0,
+            touchStartX: 0,
+            touchCurrentX: 0,
+            isSwiping: false,
+            
+            get touchOffset() {
+                return this.isSwiping ? (this.touchCurrentX - this.touchStartX) : 0;
+            },
+            
+            get currentItem() {
+                return this.gallery[this.currentIndex] || null;
+            },
+
+            open(imageUrl) {
+                if (this.gallery.length === 0) return;
+                const index = this.gallery.findIndex(item => item.image === imageUrl);
+                this.currentIndex = index !== -1 ? index : 0;
+                this.touchStartX = 0;
+                this.touchCurrentX = 0;
+                this.isSwiping = false;
+                this.isOpen = true;
+                document.body.style.overflow = 'hidden';
+            },
+
+            close() {
+                this.isOpen = false;
+                document.body.style.overflow = '';
+            },
+
+            next() {
+                if (this.currentIndex < this.gallery.length - 1) {
+                    this.currentIndex++;
+                } else {
+                    this.currentIndex = 0;
+                }
+            },
+
+            prev() {
+                if (this.currentIndex > 0) {
+                    this.currentIndex--;
+                } else {
+                    this.currentIndex = this.gallery.length - 1;
+                }
+            },
+
+            touchStart(e) {
+                // Ignore multiple touches
+                if (e.touches && e.touches.length > 1) return;
+                this.touchStartX = e.touches ? e.touches[0].clientX : e.clientX;
+                this.touchCurrentX = this.touchStartX;
+                this.isSwiping = true;
+            },
+            
+            touchMove(e) {
+                if (!this.isSwiping) return;
+                this.touchCurrentX = e.touches ? e.touches[0].clientX : e.clientX;
+            },
+
+            touchEnd(e) {
+                if (!this.isSwiping) return;
+                this.isSwiping = false;
+                let diff = this.touchCurrentX - this.touchStartX;
+                
+                if (diff < -50) {
+                    this.next();
+                } else if (diff > 50) {
+                    this.prev();
+                }
+                
+                this.touchStartX = 0;
+                this.touchCurrentX = 0;
+            }
+        }));
+    });
+    </script>
 </div>

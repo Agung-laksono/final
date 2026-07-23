@@ -1,5 +1,11 @@
 @php
     $isCustom = str_contains($order->notes ?? '', '[CUSTOM]');
+    $isReadyToReceive = $statusKey === 'material_fulfillment' && $order->status === 'material_issued';
+    
+    $cardClasses = 'border-zinc-200 dark:border-zinc-700 hover:-translate-y-0.5 hover:shadow-sm hover:border-blue-400 dark:hover:border-blue-500';
+    if ($isCustom) {
+        $cardClasses = 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:-translate-y-0.5 hover:shadow-amber-500/30 hover:border-amber-500';
+    }
 @endphp
 <div x-data="{ showFooter: false }"
      @click="
@@ -10,7 +16,7 @@
      "
      @click.outside="showFooter = false"
      x-show="processingId !== '{{ isset($hideParentPo) && $hideParentPo ? 'po-'.$hideParentPo : $order->id }}'"
-     class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border transition-all duration-200 active:scale-[0.98] active:shadow-none group relative flex flex-col overflow-hidden {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:-translate-y-0.5 hover:shadow-amber-500/30 hover:border-amber-500' : 'border-zinc-200 dark:border-zinc-700 hover:-translate-y-0.5 hover:shadow-sm hover:border-blue-400 dark:hover:border-blue-500' }}">
+     class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border transition-all duration-200 active:scale-[0.98] active:shadow-none group relative flex flex-col overflow-hidden {{ $cardClasses }}">
     @if($isCustom)
         <div class="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-40 dark:opacity-20">
             <div class="absolute inset-0 bg-gradient-to-bl from-amber-400 to-transparent"></div>
@@ -46,12 +52,51 @@
         </div>
     </div>
     <div class="grid grid-cols-2 gap-2 items-center mt-1">
-        <div class="flex items-center gap-1.5 overflow-hidden">
+        <div class="flex items-start gap-2 mb-1.5 mt-0.5">
             @if($statusKey === 'waiting_vendor')
-                <div class="shrink-0">
+                <div class="shrink-0 mt-0.5">
                     <flux:checkbox wire:click="toggleSelection({{ $order->id }})" :checked="in_array($order->id, $this->selectedOrders)" />
                 </div>
             @endif
+            
+            @if($order->item->image)
+                <div class="shrink-0 relative" x-data="{ openLightbox: false }">
+                    <img 
+                        src="{{ asset('storage/' . $order->item->image) }}" 
+                        alt="{{ $order->item->name }}"
+                        class="w-8 h-8 object-cover rounded-md border border-zinc-200 dark:border-zinc-700 cursor-pointer hover:opacity-80 transition-opacity"
+                        @click="openLightbox = true"
+                    >
+                    
+                    <!-- Lightbox (Teleported to body to avoid overflow issues) -->
+                    <template x-teleport="body">
+                        <div 
+                            x-show="openLightbox" 
+                            style="display: none;"
+                            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+                            x-transition:enter="transition ease-out duration-200"
+                            x-transition:enter-start="opacity-0"
+                            x-transition:enter-end="opacity-100"
+                            x-transition:leave="transition ease-in duration-150"
+                            x-transition:leave-start="opacity-100"
+                            x-transition:leave-end="opacity-0"
+                            @keydown.escape.window="openLightbox = false"
+                        >
+                            <div class="relative max-w-3xl max-h-full" @click.outside="openLightbox = false">
+                                <button @click="openLightbox = false" class="absolute -top-10 right-0 text-white hover:text-zinc-300 p-2">
+                                    <flux:icon.x-mark class="w-6 h-6" />
+                                </button>
+                                <img 
+                                    src="{{ asset('storage/' . $order->item->image) }}" 
+                                    alt="{{ $order->item->name }}"
+                                    class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                                >
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            @endif
+
             <span class="font-bold text-[10px] text-zinc-800 dark:text-zinc-100 leading-tight line-clamp-2" title="{{ $order->item->name }}">
                 {{ $order->item->name }}
             </span>
@@ -60,22 +105,42 @@
         @php
             $target = $order->requested_qty;
             $selesai = $order->fulfilled_qty ?? 0;
-            $progressPercent = $target > 0 ? min(100, round(($selesai / $target) * 100)) : 0;
+            
+            $isMaterialPhase = in_array($order->status, ['pending_approval', 'waiting_vendor', 'waiting_material', 'material_fulfillment', 'material_issued']);
+            
+            if ($isMaterialPhase) {
+                $materialProgress = 0;
+                if (preg_match('/\[MaterialProgress:\s*(\d+)\]/', $order->notes ?? '', $matches)) {
+                    $materialProgress = (int)$matches[1];
+                }
+                
+                $label = 'BAHAN';
+                $current = $materialProgress;
+                $progressPercent = $target > 0 ? min(100, round(($current / $target) * 100)) : 0;
+                $colorClass = $progressPercent >= 100 ? 'bg-emerald-500' : 'bg-orange-400';
+                $textColorClass = $progressPercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-200';
+                $icon = 'archive-box';
+            } else {
+                $label = 'PRODUK';
+                $current = $selesai;
+                $progressPercent = $target > 0 ? min(100, round(($current / $target) * 100)) : 0;
+                $colorClass = $progressPercent >= 100 ? 'bg-emerald-500' : 'bg-blue-500';
+                $textColorClass = $progressPercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-200';
+                $icon = 'cube';
+            }
         @endphp
         
         <div class="flex flex-col gap-1.5 border-l border-zinc-100 dark:border-zinc-800 pl-2">
-            <div>
-                <div class="flex justify-between items-end mb-0.5">
-                    <span class="text-[7px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-0.5">
-                        <flux:icon.cube class="w-1.5 h-1.5" /> PROGRES
-                    </span>
-                    <span class="text-[7px] font-semibold {{ $progressPercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-600 dark:text-zinc-200' }}">
-                        {{ $selesai }}/{{ $target }}
-                    </span>
-                </div>
-                <div class="w-full h-1 bg-zinc-100 dark:bg-zinc-700/50 rounded-full overflow-hidden">
-                    <div class="h-full {{ $progressPercent >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }} rounded-full" style="width: {{ $progressPercent }}%"></div>
-                </div>
+            <div class="flex justify-between items-end">
+                <span class="text-[7px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-0.5">
+                    <flux:icon dynamic :icon="$icon" class="w-1.5 h-1.5" /> {{ $label }}
+                </span>
+                <span class="text-[7px] font-semibold {{ $textColorClass }}">
+                    {{ $current }}/{{ $target }}
+                </span>
+            </div>
+            <div class="w-full h-1 bg-zinc-100 dark:bg-zinc-700/50 rounded-full overflow-hidden">
+                <div class="h-full {{ $colorClass }} rounded-full" style="width: {{ $progressPercent }}%"></div>
             </div>
         </div>
     </div>
@@ -99,11 +164,16 @@
             </div>
         @endif
         @if(count($order->completed_phases) > 0)
-            <div class="bg-zinc-50 dark:bg-zinc-800/40 p-1.5 rounded-lg border border-zinc-100 dark:border-zinc-700/50 text-[9px] text-zinc-500 flex justify-between items-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700" wire:click="$dispatch('open-prod-detail-modal', { orderId: {{ $order->id }} })">
-                <div class="flex items-center gap-1 font-medium">
-                    <flux:icon.clock class="w-2.5 h-2.5 text-emerald-500" /> {{ count($order->completed_phases) }} Riwayat Fase
+            @php
+                $completedPhases = $order->completed_phases;
+                $lastPhase = end($completedPhases);
+            @endphp
+            <div class="bg-zinc-50 dark:bg-zinc-800/40 p-1.5 rounded-lg border border-zinc-100 dark:border-zinc-700/50 text-[9px] text-zinc-500 flex justify-between items-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700" wire:click="$dispatch('open-prod-detail-modal', { orderId: {{ $order->id }} })" title="Klik untuk melihat histori lengkap">
+                <div class="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
+                    <flux:icon.check-circle class="w-3 h-3 text-emerald-500" /> 
+                    <span>Selesai: <strong class="uppercase">{{ $lastPhase['phase'] ?? 'Tahap Sebelumnya' }}</strong></span>
                 </div>
-                <span class="text-blue-600">Detail &rarr;</span>
+                <span class="text-[8px] text-zinc-400">({{ count($completedPhases) }} Fase) &rarr;</span>
             </div>
         @endif
         @if($order->phase_type)
