@@ -11,6 +11,8 @@ class ItemFactory extends Factory
      */
     protected $model = \Modules\Inventory\Models\Item::class;
 
+    private static $sequence = 1;
+
     /**
      * Define the model's default state.
      */
@@ -26,8 +28,10 @@ class ItemFactory extends Factory
 
         $purchase_price = $this->faker->numberBetween(100, 5000) * 1000;
         
+        $code = 'ITM-' . str_pad(self::$sequence++, 4, '0', STR_PAD_LEFT);
+        
         return [
-            'code' => 'ITM-' . $this->faker->unique()->numerify('####'),
+            'code' => $code,
             'name' => $name,
             'description' => $this->faker->sentence(),
             'image' => (function() {
