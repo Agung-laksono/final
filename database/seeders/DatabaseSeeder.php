@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
         // (Ini akan membuat Roles, Permissions, dan assign Super Admin ke user pertama)
         $this->call([
             RolePermissionSeeder::class,
+            NavigationItemSeeder::class,
         ]);
 
         // 3. Buat User untuk masing-masing Divisi / Role
