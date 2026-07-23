@@ -169,109 +169,126 @@ new class extends Component {
 ?>
 
 <div>
-    <flux:modal name="vendor-form-modal" class="md:max-w-3xl space-y-6 px-3">
-        <div>
-            <flux:heading size="lg">{{ $vendor_id ? 'Edit Vendor' : 'Tambah Vendor Baru' }}</flux:heading>
-        </div>
-        
-        <form wire:submit="save" class="flex flex-col h-full">
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-x-8 gap-y-6">
-                
-                {{-- KOLOM KIRI: Foto (Lebar 4/12) --}}
-                <div class="md:col-span-4 space-y-6 flex flex-col items-center">
-                    
-                    {{-- Area Foto (Dibatasi proporsional) --}}
-                    <div class="w-full flex flex-col items-center justify-center pt-2 pb-2">
-                        <div class="w-48 aspect-square">
-                            <x-image-cropper id="vendor-cropper" wire:model="image" :image="$image" accept="image/*" />
-                        </div>
-                        <span class="text-xs text-zinc-500 mt-3 font-medium text-center">Foto/Logo Vendor <span class="text-zinc-400 font-normal">(Opsional)</span></span>
-                    </div>
+    <flux:modal name="vendor-form-modal" class="md:max-w-4xl">
+        <div x-data="{ step: 1 }" x-on:vendor-modal-loaded.window="step = 1">
+            {{-- Modal Header --}}
+            <div class="flex items-center gap-4 mb-4">
+                <div class="p-2.5 bg-blue-50 dark:bg-blue-500/10 rounded-xl text-blue-600 dark:text-blue-400 shadow-sm shrink-0">
+                    <flux:icon.truck class="w-6 h-6" />
+                </div>
+                <div class="flex-1 min-w-0">
+                    <flux:heading size="lg" class="!mb-0">{{ $vendor_id ? 'Edit Vendor' : 'Tambah Vendor Baru' }}</flux:heading>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        <span x-show="step === 1">Langkah 1: Identitas & Kontak</span>
+                        <span x-show="step === 2" style="display: none;">Langkah 2: Alamat & Wilayah</span>
+                        <span x-show="step === 3" style="display: none;">Langkah 3: Tinjauan Akhir (Review)</span>
+                    </p>
+                </div>
+            </div>
 
-                    <div class="w-full space-y-3" x-data="contactPickerData()">
-                        <div class="flex items-end gap-2">
-                            <div class="flex-1">
-                                <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Nama Vendor / Supplier <span class="text-red-500">*</span></label>
-                                <flux:input wire:model="name" placeholder="Contoh: PT. Abadi Makmur" required />
+            {{-- Progress Indicator --}}
+            <div class="flex gap-1.5 mb-8" x-show="step < 3">
+                <div class="h-1.5 flex-1 rounded-full transition-colors duration-300" :class="step >= 1 ? 'bg-blue-600 dark:bg-blue-500' : 'bg-zinc-200 dark:bg-zinc-700'"></div>
+                <div class="h-1.5 flex-1 rounded-full transition-colors duration-300" :class="step >= 2 ? 'bg-blue-600 dark:bg-blue-500' : 'bg-zinc-200 dark:bg-zinc-700'"></div>
+            </div>
+            {{-- Progress Indicator Step 3 (Full) --}}
+            <div class="flex gap-1.5 mb-8" x-show="step === 3" style="display: none;">
+                <div class="h-1.5 w-full rounded-full transition-colors duration-300 bg-emerald-500 dark:bg-emerald-400"></div>
+            </div>
+
+            <form wire:submit="save">
+                <div :class="step === 3 ? 'grid grid-cols-1 md:grid-cols-2 gap-6 w-full' : 'w-full sm:w-[42rem] max-w-full mx-auto'">
+                    
+                    {{-- KOLOM KIRI / STEP 1: IDENTITAS --}}
+                    <div x-show="step === 1 || step === 3" x-transition.opacity :class="step === 3 ? 'p-5 bg-zinc-50/30 dark:bg-zinc-800/10 border border-zinc-200 dark:border-zinc-700 rounded-xl space-y-6' : 'space-y-6'" style="display: none;">
+                        <div class="flex flex-col items-center gap-2 mb-4">
+                            <div class="w-full max-w-[192px] aspect-square">
+                                <x-image-cropper id="vendor-cropper" wire:model="image" :image="$image" accept="image/*" />
                             </div>
-                            
-                            {{-- Native Contact Picker Button (Hanya muncul jika didukung browser/HP) --}}
-                            <div x-show="supported" x-cloak class="shrink-0 mb-[2px]">
-                                <flux:button type="button" @click="pickContact()" icon="users" class="h-10 w-10 p-0" title="Pilih dari Kontak HP" />
+                            <span class="text-xs text-zinc-500 text-center mt-2">Foto/Logo Vendor <br><span class="font-normal">(Opsional)</span></span>
+                        </div>
+
+                        <div class="sm:col-span-2" x-data="contactPickerData()">
+                            <div class="flex items-end gap-2">
+                                <div class="flex-1">
+                                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Nama Vendor / Supplier <span class="text-red-500">*</span></label>
+                                    <flux:input wire:model="name" placeholder="Contoh: PT. Abadi Makmur" required />
+                                </div>
+                                <div x-show="supported" x-cloak class="shrink-0 mb-[2px]">
+                                    <flux:button type="button" @click="pickContact()" icon="users" class="h-10 w-10 p-0" title="Pilih dari Kontak HP" />
+                                </div>
                             </div>
                         </div>
+
                         <div>
                             <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Nomor Telepon/WA <span class="text-red-500">*</span></label>
                             <flux:input wire:model="phone" placeholder="Contoh: 08123456789" icon="phone" required />
                         </div>
-                    </div>
 
-                    <div class="w-full space-y-3" x-data="{ selectedType: @entangle('type') }">
-                        <div>
+                        <div x-data="{ selectedType: @entangle('type') }">
                             <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Tipe Vendor <span class="text-red-500">*</span></label>
                             <flux:select wire:model.live="type" required>
                                 <flux:select.option value="Supplier">Supplier</flux:select.option>
-                            <flux:select.option value="Pengrajin">Pengrajin</flux:select.option>
-                            <flux:select.option value="Ekspedisi">Ekspedisi</flux:select.option>
-                            <flux:select.option value="Packing">Packing</flux:select.option>
-                            @foreach($customOptions as $opt)
-                                <flux:select.option value="{{ $opt }}">{{ $opt }}</flux:select.option>
-                            @endforeach
-                            <flux:select.option value="Lainnya">Lainnya (Ketik Manual)</flux:select.option>
-                        </flux:select>
-                        </div>
-                        
-                        <div x-show="selectedType === 'Lainnya'" x-cloak x-transition>
-                            <div class="flex items-center gap-2">
-                                <div class="flex-1">
-                                    <flux:input wire:model="custom_type" wire:keydown.enter.prevent="addCustomType" placeholder="Ketik tipe baru..." />
+                                <flux:select.option value="Pengrajin">Pengrajin</flux:select.option>
+                                <flux:select.option value="Ekspedisi">Ekspedisi</flux:select.option>
+                                <flux:select.option value="Packing">Packing</flux:select.option>
+                                @foreach($customOptions as $opt)
+                                    <flux:select.option value="{{ $opt }}">{{ $opt }}</flux:select.option>
+                                @endforeach
+                                <flux:select.option value="Lainnya">Lainnya (Ketik Manual)</flux:select.option>
+                            </flux:select>
+                            
+                            <div x-show="selectedType === 'Lainnya'" x-cloak x-transition class="mt-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1">
+                                        <flux:input wire:model="custom_type" wire:keydown.enter.prevent="addCustomType" placeholder="Ketik tipe baru..." />
+                                    </div>
+                                    <flux:button wire:click="addCustomType" variant="primary" icon="check" class="shrink-0 h-10 w-10 p-0 flex items-center justify-center" title="Tambahkan ke daftar" />
                                 </div>
-                                <flux:button wire:click="addCustomType" variant="primary" icon="check" class="shrink-0 h-10 w-10 p-0 flex items-center justify-center" title="Tambahkan ke daftar" />
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </div> <!-- End of Kolom Kiri -->
 
-                {{-- KOLOM KANAN: Data Profil & Alamat (Lebar 8/12) --}}
-                <div class="md:col-span-8 space-y-5">
-                    
-                    <flux:separator text="Alamat Lengkap" />
-
-                    {{-- Alamat --}}
-                    <div>
-                        <flux:textarea wire:model="address" label="Jalan/Detail Alamat (Opsional)" placeholder="Contoh: Jl. Sudirman No. 123" rows="2" />
-                    </div>
-
-                    <!-- WILAYAH SECTION (Komponen Eksternal) -->
-                    <div class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
-                        <div class="flex items-center gap-2 mb-4">
-                            <flux:icon.map-pin class="w-4 h-4 text-zinc-500" />
-                            <h3 class="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Informasi Wilayah</h3>
+                    {{-- KOLOM KANAN / STEP 2: ALAMAT --}}
+                    <div x-show="step === 2 || step === 3" x-transition.opacity :class="step === 3 ? 'p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl space-y-6 shadow-sm' : 'space-y-6'" style="display: none;">
+                        <div>
+                            <livewire:global.wilayah-selector scope="vendor-form" />
                         </div>
+                        <div>
+                            <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Jalan/Detail Alamat (Opsional)</label>
+                            <flux:textarea wire:model="address" placeholder="Contoh: Jl. Sudirman No. 123" rows="4" />
+                        </div>
+                        <div>
+                            <flux:input wire:model="maps_link" label="Tautan Google Maps (Opsional)" placeholder="Contoh: https://goo.gl/maps/..." icon="map-pin" />
+                        </div>
+                    </div> <!-- End of Kolom Kanan -->
+                </div>
 
-                        <livewire:global.wilayah-selector scope="vendor-form" />
+                {{-- FOOTER NAVIGATION --}}
+                <div class="flex items-center justify-between pt-6 mt-8 border-t border-zinc-200 dark:border-zinc-700">
+                    <div class="flex gap-2">
+                        <flux:modal.close x-show="step === 1">
+                            <flux:button variant="ghost">Batal</flux:button>
+                        </flux:modal.close>
+                        <flux:button type="button" x-show="step > 1" variant="ghost" x-on:click="step--" style="display: none;" icon="chevron-left">Sebelumnya</flux:button>
                     </div>
 
-                    <div>
-                        <flux:input wire:model="maps_link" label="Tautan Google Maps (Opsional)" placeholder="Contoh: https://goo.gl/maps/..." icon="map-pin" />
+                    <div class="flex gap-2">
+                        <flux:button type="button" x-show="step < 3" variant="primary" x-on:click="step++" icon-trailing="chevron-right">
+                            <span x-show="step < 2">Selanjutnya</span>
+                            <span x-show="step === 2" style="display: none;">Tinjau Data</span>
+                        </flux:button>
+                        <flux:button x-show="step === 3" type="submit" variant="primary" icon="{{ $vendor_id ? 'check' : 'plus' }}" style="display: none;" wire:loading.attr="disabled">
+                            <span wire:loading.remove wire:target="save">{{ $vendor_id ? 'Simpan Perubahan' : 'Simpan Vendor' }}</span>
+                            <span wire:loading wire:target="save" class="flex items-center gap-2">
+                                <svg class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                Menyimpan...
+                            </span>
+                        </flux:button>
                     </div>
                 </div>
-            </div>
-
-            {{-- FOOTER --}}
-            <div class="flex justify-end mt-8 pt-4 border-t border-zinc-200 dark:border-zinc-800 gap-2">
-                <flux:modal.close>
-                    <flux:button variant="ghost" class="w-full sm:w-auto"> Batal </flux:button>
-                </flux:modal.close>
-                <flux:button type="submit" variant="primary" wire:loading.attr="disabled" class="w-full sm:w-auto">
-                    <span wire:loading.remove wire:target="save">{{ $vendor_id ? 'Simpan Perubahan' : 'Simpan Vendor' }}</span>
-                    <span wire:loading wire:target="save" class="flex items-center gap-2">
-                        <svg class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        Menyimpan...
-                    </span>
-                </flux:button>
-            </div>
-        </form>
+            </form>
+        </div>
     </flux:modal>
 
 <script>
