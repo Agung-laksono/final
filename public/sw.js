@@ -5,7 +5,7 @@ try {
     console.warn('[SW] Pusher Beams diblokir atau gagal dimuat:', e);
 }
 
-const CACHE_NAME = 'inventory-pwa-cache-v1784805288385';
+const CACHE_NAME = 'inventory-pwa-cache-v1784809037171';
 const urlsToCache = [
     '/',
     '/manifest.json',
