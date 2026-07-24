@@ -24,8 +24,6 @@ new class extends Component {
     
     public $activeTab = 'attributes'; // attributes, attachments, history
 
-    public $attributeSuggestions = ['Panjang', 'Lebar', 'Tinggi', 'Warna', 'Bahan', 'Finishing', 'Motif Ukiran', 'Kain Dudukan'];
-
     // History
     public $historyItems = [];
 
@@ -256,13 +254,46 @@ new class extends Component {
                             <flux:button size="sm" icon="plus" wire:click="addAttribute" class="w-full sm:w-auto">Tambah Spek Kosong</flux:button>
                         </div>
 
-                        <div class="flex flex-wrap gap-1.5 mb-4 items-center">
-                            <span class="text-xs text-zinc-500 dark:text-zinc-400 mr-1">Template Spek Cepat:</span>
-                            @foreach($attributeSuggestions as $sug)
-                                <button type="button" wire:click="addSuggestedAttribute('{{ $sug }}')" class="text-[10px] sm:text-xs px-2 py-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/20 dark:hover:text-emerald-400 dark:hover:border-emerald-500/30 transition-colors text-zinc-600 dark:text-zinc-300 shadow-sm flex items-center gap-1">
-                                    <flux:icon.plus class="w-3 h-3" /> {{ $sug }}
+                        <div x-data="{ 
+                            suggestions: $persist(['Panjang', 'Lebar', 'Tinggi', 'Warna', 'Bahan', 'Finishing', 'Motif Ukiran', 'Kain Dudukan']).as('customizer_attribute_suggestions'),
+                            newSuggestion: '',
+                            showInput: false,
+                            addSuggestion() {
+                                let val = this.newSuggestion.trim();
+                                if (val && !this.suggestions.includes(val)) {
+                                    this.suggestions.push(val);
+                                }
+                                this.newSuggestion = '';
+                                this.showInput = false;
+                            },
+                            removeSuggestion(index) {
+                                this.suggestions.splice(index, 1);
+                            }
+                        }" class="mb-4">
+                            <div class="flex flex-wrap gap-1.5 items-center">
+                                <span class="text-xs text-zinc-500 dark:text-zinc-400 mr-1">Template Spek Cepat:</span>
+                                <template x-for="(sug, index) in suggestions" :key="index">
+                                    <div class="group relative flex items-center">
+                                        <button type="button" @click="$wire.addSuggestedAttribute(sug)" class="text-[10px] sm:text-xs pl-2 pr-5 py-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-500/20 dark:hover:text-emerald-400 dark:hover:border-emerald-500/30 transition-colors text-zinc-600 dark:text-zinc-300 shadow-sm flex items-center gap-1">
+                                            <flux:icon.plus class="w-3 h-3 shrink-0" /> <span x-text="sug" class="truncate max-w-[100px]"></span>
+                                        </button>
+                                        <button type="button" @click.stop="removeSuggestion(index)" class="absolute right-1 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-red-500 p-0.5 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity" title="Hapus template ini">
+                                            <flux:icon.x-mark class="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                </template>
+                                
+                                <button x-show="!showInput" @click="showInput = true; $nextTick(() => $refs.sugInput.focus())" type="button" class="text-[10px] sm:text-xs px-2 py-1 bg-zinc-50 dark:bg-zinc-800/50 border border-dashed border-zinc-300 dark:border-zinc-600 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+                                    <flux:icon.plus class="w-3 h-3" /> Tambah
                                 </button>
-                            @endforeach
+                                
+                                <div x-show="showInput" @click.away="showInput = false" style="display: none;" class="flex items-center gap-1">
+                                    <input x-ref="sugInput" type="text" x-model="newSuggestion" @keydown.enter.prevent="addSuggestion()" placeholder="Nama spek..." class="text-xs px-2 py-1 bg-white dark:bg-zinc-900 border border-emerald-300 dark:border-emerald-600 rounded-md outline-none focus:ring-1 focus:ring-emerald-500 w-24 h-[26px] text-zinc-800 dark:text-white">
+                                    <button type="button" @click="addSuggestion()" class="bg-emerald-500 text-white p-1 rounded-md hover:bg-emerald-600 h-[26px] w-[26px] flex items-center justify-center">
+                                        <flux:icon.check class="w-3 h-3" />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         
                         @if(empty($custom_attributes))
