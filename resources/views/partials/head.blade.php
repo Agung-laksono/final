@@ -137,3 +137,10 @@
 })();
 </script>
 @endauth
+
+<script>
+    window.PUSHER_CONFIG = {
+        key: '{{ config('broadcasting.connections.pusher.key') }}',
+        cluster: '{{ config('broadcasting.connections.pusher.options.cluster') }}',
+    };
+</script>

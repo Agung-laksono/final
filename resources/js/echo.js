@@ -4,11 +4,11 @@ import Pusher from 'pusher-js';
 window.Pusher = Pusher;
 Pusher.logToConsole = true;
 
-if (import.meta.env.VITE_PUSHER_KEY) {
+if (window.PUSHER_CONFIG && window.PUSHER_CONFIG.key) {
     window.Echo = new Echo({
         broadcaster: 'pusher',
-        key: import.meta.env.VITE_PUSHER_KEY,
-        cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+        key: window.PUSHER_CONFIG.key,
+        cluster: window.PUSHER_CONFIG.cluster,
         forceTLS: true,
         enabledTransports: ['ws', 'wss'],
     });
@@ -25,6 +25,7 @@ if (import.meta.env.VITE_PUSHER_KEY) {
 } else {
     console.warn("VITE_PUSHER_KEY is missing in .env. Real-time updates are disabled.");
     window.Echo = {
-        channel: () => ({ listen: () => ({}) })
+        channel: () => ({ listen: () => ({}) }),
+        private: () => ({ listen: () => ({}) })
     };
 }

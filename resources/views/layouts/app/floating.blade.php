@@ -388,6 +388,15 @@
                     </div>
 @endcanany
 
+@can('purchase.return.view')
+                    <a href="{{ route('purchase.returns.index') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
+                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
+                            <flux:icon.arrow-uturn-left class="w-4 h-4" />
+                        </div>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Retur Pembelian</span>
+                    </a>
+                    @endcan
+
                     {{-- Tombol Kembali Mobile --}}
                     <button @click="activeMenu = null" class="md:hidden flex items-center gap-2 text-zinc-500 bg-white dark:bg-zinc-800 px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 mb-2 mt-4">
                         <flux:icon.arrow-left class="w-4 h-4" />
@@ -462,6 +471,14 @@
                         <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Master Data</span>
                     </div>
 @endcanany
+@can('sales.quotation.view')
+                    <a href="{{ route('sales.quotations.index') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
+                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-emerald-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
+                            <flux:icon.document-text class="w-4 h-4" />
+                        </div>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Penawaran Harga</span>
+                    </a>
+@endcan
 @can('sales.order.create')
                     <a href="{{ route('sales.orders.create') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-emerald-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors border border-emerald-100 dark:border-emerald-900/50">
@@ -485,6 +502,15 @@
                         <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Transaksi</span>
                     </div>
                     @endcanany
+
+@can('sales.return.view')
+                    <a href="{{ route('sales.returns.index') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
+                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-emerald-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
+                            <flux:icon.arrow-uturn-left class="w-4 h-4" />
+                        </div>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Retur Penjualan</span>
+                    </a>
+                    @endcan
 
                     {{-- Tombol Kembali Mobile --}}
                     <button @click="activeMenu = null" class="md:hidden flex items-center gap-2 text-zinc-500 bg-white dark:bg-zinc-800 px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 mb-2 mt-4">

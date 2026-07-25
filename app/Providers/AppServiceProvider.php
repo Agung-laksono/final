@@ -36,6 +36,35 @@ class AppServiceProvider extends ServiceProvider
             \Illuminate\Support\Facades\URL::forceScheme('https');
         }
 
+        // Inject Integration Settings from DB to Config
+        try {
+            if (!app()->runningInConsole()) {
+                $settings = \Illuminate\Support\Facades\Cache::remember('app_integration_settings', 3600, function () {
+                    return \App\Models\Setting::whereIn('key', [
+                        'pusher_app_id',
+                        'pusher_key',
+                        'pusher_secret',
+                        'pusher_cluster',
+                        'beams_instance_id',
+                        'beams_secret_key'
+                    ])->pluck('value', 'key')->toArray();
+                });
+
+                if (!empty($settings['pusher_app_id'])) \Illuminate\Support\Facades\Config::set('broadcasting.connections.pusher.app_id', $settings['pusher_app_id']);
+                if (!empty($settings['pusher_key'])) \Illuminate\Support\Facades\Config::set('broadcasting.connections.pusher.key', $settings['pusher_key']);
+                if (!empty($settings['pusher_secret'])) \Illuminate\Support\Facades\Config::set('broadcasting.connections.pusher.secret', $settings['pusher_secret']);
+                if (!empty($settings['pusher_cluster'])) {
+                    \Illuminate\Support\Facades\Config::set('broadcasting.connections.pusher.options.cluster', $settings['pusher_cluster']);
+                    \Illuminate\Support\Facades\Config::set('broadcasting.connections.pusher.options.host', 'api-'.$settings['pusher_cluster'].'.pusher.com');
+                }
+                
+                if (!empty($settings['beams_instance_id'])) \Illuminate\Support\Facades\Config::set('beams.instance_id', $settings['beams_instance_id']);
+                if (!empty($settings['beams_secret_key'])) \Illuminate\Support\Facades\Config::set('beams.secret_key', $settings['beams_secret_key']);
+            }
+        } catch (\Exception $e) {
+            // Abaikan error (misal saat DB belum di-migrate)
+        }
+
         $this->configureDefaults();
     }
 

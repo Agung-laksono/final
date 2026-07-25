@@ -21,7 +21,7 @@
         "livewire/volt": "^1.10",
         "nwidart/laravel-modules": "^13.0",
         "pusher/pusher-php-server": "^7.2",
-        "pusher/pusher-push-notifications": "^2.0",
+        "pusher/pusher-push-notifications": "*",
         "spatie/laravel-permission": "^8.0",
         "wikimedia/composer-merge-plugin": "^2.1"
     },

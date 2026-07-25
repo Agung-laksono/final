@@ -10,6 +10,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Volt::route('customers', 'customer.customer-list')->name('customers.index');
         });
         
+        // Quotation Routes
+        Route::middleware(['permission:sales.quotation.view'])->group(function () {
+            Volt::route('quotations', 'quotation.index')->name('quotations.index');
+            Volt::route('quotations/create', 'quotation.create')->name('quotations.create');
+            Volt::route('quotations/{id}', 'quotation.show')->name('quotations.show');
+        });
+        
         // Order Routes
         Route::middleware(['permission:sales.order.view'])->group(function () {
             Volt::route('orders', 'sales-order.index')->name('orders.index');
@@ -23,6 +30,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Invoice Route
         Route::middleware(['permission:sales.order.view'])->group(function () {
             Route::get('orders/{id}/invoice', [\Modules\Sales\Http\Controllers\InvoiceController::class, 'show'])->name('orders.invoice');
+        });
+        
+        // Return Routes
+        Route::middleware(['permission:sales.return.view'])->group(function () {
+            Volt::route('returns', 'returns.index')->name('returns.index');
+        });
+        Route::middleware(['permission:sales.return.create'])->group(function () {
+            Volt::route('returns/create', 'returns.form')->name('returns.create');
+            Volt::route('returns/{id}', 'returns.form')->name('returns.show');
         });
     });
 });
