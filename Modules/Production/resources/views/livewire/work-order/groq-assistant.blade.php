@@ -12,6 +12,13 @@ state([
     'isTyping' => false,
 ]);
 
+on([
+    'open-groq-assistant' => function () {
+        $this->isOpen = true;
+        session()->put('ai_chat_is_open', true);
+    }
+]);
+
 $toggleChat = function () {
     $this->isOpen = !$this->isOpen;
     session()->put('ai_chat_is_open', $this->isOpen);

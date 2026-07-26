@@ -158,12 +158,6 @@ on(['maklon-po-created' => function () {
                     </button>
                 </div>
                 <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1 sm:mx-2 hidden sm:block"></div>
-
-                {{-- Tombol AI Assistant --}}
-                <flux:button variant="primary" size="sm" icon="sparkles" class="px-2 sm:px-4 shrink-0" wire:click="$dispatch('open-groq-assistant')">
-                    <span class="hidden sm:inline">Tanya AI</span>
-                    <span class="sm:hidden text-xs">AI</span>
-                </flux:button>
             </x-slot:actions>
         @foreach($columns as $statusKey => $column)
             @php
@@ -291,11 +285,6 @@ on(['maklon-po-created' => function () {
                 </div>
                 
                 <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 shrink-0 mx-0.5 sm:mx-2 hidden sm:block"></div>
-
-                <flux:button variant="primary" icon="sparkles" class="shrink-0 px-2 sm:px-4" wire:click="$dispatch('open-groq-assistant')">
-                    <span class="hidden sm:inline">Tanya AI</span>
-                    <span class="sm:hidden text-[9px]">AI</span>
-                </flux:button>
         </x-table.header>
 
         <x-table.wrapper>
@@ -406,8 +395,6 @@ on(['maklon-po-created' => function () {
             <livewire:global.vendor-form-modal />
             <livewire:work-order.price-history-modal />
             <livewire:global.template-modal />
-            {{-- <livewire:work-order.groq-assistant /> --}}
-            {{-- <livewire:work-order.claude-assistant /> --}}
         </div>
     </template>
 
