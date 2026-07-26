@@ -398,7 +398,8 @@ $saveCart = function ($cartData) {
     Flux::toast('Sales Order berhasil disimpan!', 'success');
     
     if ($isNew) {
-        session()->flash('new_so_number', $po->so_number);
+        session(['new_so_id' => $po->id]);
+        session(['new_so_number' => $po->so_number]);
     }
     
     $this->redirect(route('sales.orders.index'), navigate: true);

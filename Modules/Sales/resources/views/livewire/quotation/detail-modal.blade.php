@@ -115,7 +115,7 @@ $convertToSalesOrder = function () {
                 <div class="p-0">
                     <!-- Desktop Table View -->
                     <div class="hidden md:block overflow-x-auto">
-                        <table class="w-full text-sm text-left">
+                        <table class="w-full text-sm text-left table-mobile-cards">
                             <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/80 uppercase">
                                 <tr>
                                     <th class="px-5 py-3 font-semibold">Produk</th>

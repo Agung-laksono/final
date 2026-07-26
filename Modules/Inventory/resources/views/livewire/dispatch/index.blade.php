@@ -42,7 +42,7 @@ on(['status-updated' => function () {}]);
 
     <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
+            <table class="w-full text-sm text-left table-mobile-cards">
                 <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800 uppercase">
                     <tr>
                         <th class="px-6 py-3 font-semibold">Tgl Selesai</th>

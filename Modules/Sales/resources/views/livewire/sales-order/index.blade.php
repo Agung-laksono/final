@@ -622,7 +622,7 @@ on([
         </x-table.header>
             
         <x-table.wrapper>
-                <flux:table>
+                <flux:table class="table-mobile-cards">
                     <flux:table.columns>
                         <flux:table.column class="w-12">
                             <div class="pl-2 sm:pl-4 text-zinc-500 text-center">No</div>
@@ -723,8 +723,12 @@ on([
     <livewire:global.vendor-gallery-modal />
     <livewire:global.vendor-form-modal />
 
-    @if(session('new_so_number'))
-        <div x-data x-init="$nextTick(() => { $flux.modal('new-so-success-modal').show() })">
+    @if(session()->has('new_so_number'))
+        @php 
+            $newSoNumber = session()->pull('new_so_number'); 
+            $newSoId = session()->pull('new_so_id');
+        @endphp
+        <div x-data x-init="setTimeout(() => { $flux.modal('new-so-success-modal')?.show() }, 500)">
             <flux:modal name="new-so-success-modal" class="min-w-[22rem]">
                 <div class="p-6 text-center">
                     <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-4">
@@ -735,10 +739,12 @@ on([
                         Sales Order baru berhasil dibuat:
                     </flux:subheading>
                     <div class="mt-3 mb-6 bg-zinc-50 dark:bg-zinc-800/50 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                        <span class="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-wider">{{ session('new_so_number') }}</span>
+                        <span class="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-wider">{{ $newSoNumber }}</span>
                     </div>
                     
-                    <flux:button variant="primary" class="w-full" @click="$flux.modal('new-so-success-modal').close()">Oke, Mengerti</flux:button>
+                    <div class="mt-4">
+                        <flux:button variant="primary" class="w-full" @click="$flux.modal('new-so-success-modal').close()">Oke, Mengerti</flux:button>
+                    </div>
                 </div>
             </flux:modal>
         </div>

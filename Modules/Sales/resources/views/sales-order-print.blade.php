@@ -245,7 +245,7 @@
             @if($salesOrder->notes)
                 <div class="text-xs text-zinc-700 bg-zinc-50 border border-zinc-200 p-3 rounded mt-2">
                     <div class="font-bold mb-1 text-zinc-900">Catatan Khusus:</div>
-                    <div class="whitespace-pre-wrap">{{ $salesOrder->notes }}</div>
+                    <div class="whitespace-pre-wrap">{!! $salesOrder->notes !!}</div>
                 </div>
             @endif
         </div>

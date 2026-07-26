@@ -63,7 +63,7 @@ with(fn () => [
 
     <div class="pl-2 bg-white border dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
         <div class="overflow-x-auto">
-            <flux:table>
+            <flux:table class="table-mobile-cards">
                 <flux:table.columns>
                     <flux:table.column>{{ __('Dokumen') }}</flux:table.column>
                     <flux:table.column>{{ __('Rute Transfer') }}</flux:table.column>

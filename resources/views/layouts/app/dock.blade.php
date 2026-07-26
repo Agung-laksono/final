@@ -640,7 +640,7 @@
             }
         </script>
         <x-loading></x-loading>
-        @if(!request()->is('chat*'))
+        @if(!request()->is('chat*') && \Illuminate\Support\Facades\Cache::get('setting_enable_ai_chat', \App\Models\Setting::where('key', 'enable_ai_chat')->value('value')) == '1')
         <livewire:ai-chat-widget />
         @endif
     </body>

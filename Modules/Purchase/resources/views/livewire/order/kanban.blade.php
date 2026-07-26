@@ -64,12 +64,16 @@ $sort = function ($field) {
 };
 
 $getBaseQuery = function () {
-    $query = PurchaseOrder::with(['vendor', 'creator', 'items', 'payments'])->latest();
+    $query = PurchaseOrder::with(['vendor', 'creator', 'items', 'payments'])
+        ->where('po_number', 'not like', 'GUNJAS-%')
+        ->latest();
     if ($this->search) {
-        $query->where('po_number', 'like', '%' . $this->search . '%')
-              ->orWhereHas('vendor', function($q) {
-                  $q->where('name', 'like', '%' . $this->search . '%');
+        $query->where(function($q) {
+            $q->where('po_number', 'like', '%' . $this->search . '%')
+              ->orWhereHas('vendor', function($v) {
+                  $v->where('name', 'like', '%' . $this->search . '%');
               });
+        });
     }
     return $query;
 };
@@ -106,13 +110,16 @@ $orders = computed(function () {
 
 $tableOrders = computed(function () {
     $query = PurchaseOrder::with(['vendor', 'creator', 'items'])
+        ->where('po_number', 'not like', 'GUNJAS-%')
         ->select('purchase_orders.*');
         
     if ($this->search) {
-        $query->where('po_number', 'like', '%' . $this->search . '%')
-              ->orWhereHas('vendor', function($q) {
-                  $q->where('name', 'like', '%' . $this->search . '%');
+        $query->where(function($q) {
+            $q->where('po_number', 'like', '%' . $this->search . '%')
+              ->orWhereHas('vendor', function($v) {
+                  $v->where('name', 'like', '%' . $this->search . '%');
               });
+        });
     }
     
     $query->orderBy($this->sortBy, $this->sortDirection);
@@ -392,7 +399,7 @@ on([
         </x-table.header>
 
         <x-table.wrapper>
-                    <flux:table>
+                    <flux:table class="table-mobile-cards">
                         <flux:table.columns>
                             <flux:table.column sortable :sorted="$sortBy === 'po_number'" :direction="$sortDirection" wire:click="sort('po_number')">No. PO & Tanggal</flux:table.column>
                             <flux:table.column>Vendor</flux:table.column>
@@ -504,7 +511,7 @@ on([
     <livewire:print-label-modal />
     
     @if(session('new_po_number'))
-        <div x-data x-init="$nextTick(() => { $flux.modal('new-po-success-modal').show() })">
+        <div x-data x-init="setTimeout(() => { $flux.modal('new-po-success-modal')?.show() }, 500)">
             <flux:modal name="new-po-success-modal" class="min-w-[22rem]">
                 <div class="p-6 text-center">
                     <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-4">
@@ -518,7 +525,12 @@ on([
                         <span class="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-wider">{{ session('new_po_number') }}</span>
                     </div>
                     
-                    <flux:button variant="primary" class="w-full" @click="$flux.modal('new-po-success-modal').close()">Oke, Mengerti</flux:button>
+                    <div class="mt-4 flex flex-col gap-2">
+                        @if(session('new_po_id'))
+                            <flux:button variant="primary" class="w-full" icon="printer" href="{{ route('purchase.orders.print', session('new_po_id')) }}" target="_blank">Cetak PO</flux:button>
+                        @endif
+                        <flux:button variant="ghost" class="w-full" @click="$flux.modal('new-po-success-modal').close()">Tutup</flux:button>
+                    </div>
                 </div>
             </flux:modal>
         </div>

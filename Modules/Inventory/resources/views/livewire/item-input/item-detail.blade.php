@@ -747,7 +747,7 @@ $saveInitialStock = function () {
                                 <span class="text-xs text-zinc-500">Urut berdasarkan terbaru</span>
                             </div>
                             <div class="overflow-x-auto">
-                                <table class="w-full text-sm text-left">
+                                <table class="w-full text-sm text-left table-mobile-cards">
                                     <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 uppercase border-b border-zinc-200 dark:border-zinc-700">
                                         <tr>
                                             <th class="px-4 py-3 font-medium">Tanggal</th>

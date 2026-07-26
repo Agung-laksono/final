@@ -141,7 +141,7 @@
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>
                         <strong>{{ $item->item->name }}</strong><br>
-                        <small style="color: #666;">{{ $item->notes }}</small>
+                        <small style="color: #666;">{!! $item->notes !!}</small>
                     </td>
                     <td class="text-center">{{ $item->quantity }}</td>
                     <td class="text-right">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>

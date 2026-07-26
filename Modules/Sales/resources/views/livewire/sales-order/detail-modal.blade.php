@@ -214,7 +214,7 @@ $getStatusBadge = function ($status) {
 
             {{-- Items Table - Ultra Compact --}}
             <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-                <table class="w-full text-xs">
+                <table class="w-full text-xs table-mobile-cards">
                     <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 border-b border-zinc-200 dark:border-zinc-700">
                         <tr>
                             <th class="px-3 py-1.5 font-semibold text-left">Barang</th>
@@ -268,8 +268,9 @@ $getStatusBadge = function ($status) {
                                                 </div>
                                             @endif
                                             @if($item->notes)
-                                                <div class="text-[10px] text-zinc-500 mt-0.5 italic flex items-start gap-0.5">
-                                                    <span class="text-blue-500 mt-px">↳</span> {{ $item->notes }}
+                                                <div class="text-[10px] text-zinc-500 mt-0.5 italic flex items-start gap-1">
+                                                    <span class="text-blue-500 mt-1">↳</span> 
+                                                    <div class="prose prose-xs prose-p:my-0 leading-tight flex-1">{!! $item->notes !!}</div>
                                                 </div>
                                             @endif
                                         </div>

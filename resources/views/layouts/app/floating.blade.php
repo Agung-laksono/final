@@ -476,11 +476,11 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-emerald-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.document-text class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Penawaran Harga</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Penawaran</span>
                     </a>
 @endcan
 @can('sales.order.create')
-                    <a href="{{ route('sales.orders.create') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
+                    <a href="{{ route('sales.orders.create') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2 my-3">
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-emerald-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors border border-emerald-100 dark:border-emerald-900/50">
                             <flux:icon.plus class="w-5 h-5" />
                         </div>
@@ -916,7 +916,7 @@
         <div x-data @barcode-scanned.window="if (window.Livewire) { window.Livewire.dispatch('barcode-scanned', { code: $event.detail.code }); }"></div>
         <x-camera-scanner />
         {{-- AI Chat Widget (standalone, di luar speed dial) --}}
-        @if(!request()->is('chat*'))
+        @if(!request()->is('chat*') && \Illuminate\Support\Facades\Cache::get('setting_enable_ai_chat', \App\Models\Setting::where('key', 'enable_ai_chat')->value('value')) == '1')
         <div class="fixed bottom-3 lg:bottom-8 right-4 lg:right-8 z-[950] print:hidden">
             <livewire:ai-chat-widget />
         </div>

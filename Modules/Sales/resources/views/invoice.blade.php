@@ -221,7 +221,7 @@
                                 <br><span class="font-mono text-[10px] text-zinc-400 normal-case">{{ $item->item->code }}</span>
                             @endif
                             @if($item->notes)
-                                <br><span class="text-[10px] text-zinc-400 normal-case">{{ $item->notes }}</span>
+                                <br><span class="text-[10px] text-zinc-400 normal-case prose prose-sm prose-p:my-0">{!! $item->notes !!}</span>
                             @endif
                         </div>
                     </div>
@@ -240,7 +240,7 @@
             @if($order->notes)
                 <div class="text-xs text-zinc-700 bg-zinc-50 border border-zinc-200 p-3 rounded mt-2">
                     <div class="font-bold mb-1 text-zinc-900">Catatan Khusus:</div>
-                    <div class="whitespace-pre-wrap">{{ $order->notes }}</div>
+                    <div class="whitespace-pre-wrap prose prose-sm max-w-none">{!! $order->notes !!}</div>
                 </div>
             @endif
         </div>
@@ -406,7 +406,7 @@
         @if($item->notes)
         <tr>
             <td class="border border-black p-3 w-48 font-medium text-amber-700">Catatan Custom</td>
-            <td class="border border-black p-3 whitespace-pre-wrap text-amber-800 text-base font-semibold">{{ $item->notes }}</td>
+            <td class="border border-black p-3 whitespace-pre-wrap text-amber-800 text-base font-semibold prose prose-sm prose-p:my-0">{!! $item->notes !!}</td>
             <td class="border border-black p-3 w-16"></td>
         </tr>
         @endif

@@ -72,7 +72,7 @@ new class extends Component {
             <div class="col-span-2">
                 <div class="text-xs text-zinc-500 mb-1">Catatan Tambahan</div>
                 <div class="text-sm text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                    {{ $request->notes }}
+                    <div class="prose prose-sm max-w-none">{!! $request->notes !!}</div>
                 </div>
             </div>
             @endif
@@ -126,7 +126,7 @@ new class extends Component {
                 @if($customOrderItem->notes)
                     <div class="mt-4 pt-3 border-t border-amber-200/60 dark:border-amber-800/60">
                         <h4 class="text-xs font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider mb-1">Catatan Tambahan Sales</h4>
-                        <p class="text-sm text-zinc-700 dark:text-zinc-300 italic">"{{ $customOrderItem->notes }}"</p>
+                        <div class="text-sm text-zinc-700 dark:text-zinc-300 italic prose prose-sm prose-p:my-0">{!! $customOrderItem->notes !!}</div>
                     </div>
                 @endif
                 

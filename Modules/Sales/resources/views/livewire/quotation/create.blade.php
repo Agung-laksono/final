@@ -364,6 +364,7 @@ $saveCart = function ($cartData) {
     Flux::toast('Penawaran berhasil disimpan!', 'success');
     
     if ($isNew) {
+        session()->flash('new_quotation_id', $po->id);
         session()->flash('new_quotation_number', $po->quotation_number);
     }
     

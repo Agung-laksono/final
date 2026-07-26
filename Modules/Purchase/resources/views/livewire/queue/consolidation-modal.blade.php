@@ -63,7 +63,7 @@ $proceedToPO = function () {
                                 <span>Sumber: {{ ucwords(str_replace('_', ' ', $q->source_type)) }}</span>
                             </div>
                             @if($q->notes)
-                                <div class="text-[11px] text-zinc-400 mt-1 italic truncate"><flux:icon.document-text class="w-3 h-3 inline mr-1"/>{{ $q->notes }}</div>
+                                <div class="text-[11px] text-zinc-400 mt-1 italic truncate"><flux:icon.document-text class="w-3 h-3 inline mr-1"/>{{ strip_tags($q->notes) }}</div>
                             @endif
                         </div>
                     </label>

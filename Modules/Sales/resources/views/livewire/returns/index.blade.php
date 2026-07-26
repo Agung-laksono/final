@@ -35,7 +35,7 @@ new class extends Component {
             <flux:input wire:model.live="search" icon="magnifying-glass" placeholder="Cari nomor retur atau pelanggan..." />
         </div>
 
-        <flux:table>
+        <flux:table class="table-mobile-cards">
             <flux:table.columns>
                 <flux:table.column>No. Retur</flux:table.column>
                 <flux:table.column>Tgl Retur</flux:table.column>

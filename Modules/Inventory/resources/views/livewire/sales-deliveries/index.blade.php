@@ -507,7 +507,7 @@ on([
 
     <x-slot:table_layout>
         <div class="p-6">
-            <flux:table>
+            <flux:table class="table-mobile-cards">
                 <flux:table.columns>
                     <flux:table.column>No. SO</flux:table.column>
                     <flux:table.column>Pelanggan</flux:table.column>

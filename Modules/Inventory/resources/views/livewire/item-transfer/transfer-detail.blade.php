@@ -109,7 +109,7 @@ $printTransfer = function () {
             <div>
                 <flux:heading size="md" class="mb-3">Daftar Barang yang Dipindahkan</flux:heading>
                 <div class="bg-white border dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-                    <table class="w-full text-sm text-left">
+                    <table class="w-full text-sm text-left table-mobile-cards">
                         <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-xs uppercase text-zinc-500">
                             <tr>
                                 <th class="px-4 py-3 font-medium">Barang</th>

@@ -80,7 +80,7 @@ $setViewMode = function ($mode) {
     @if ($viewMode === 'table')
         {{-- Tampilan Tabel --}}
         <div wire:key="view-table" class="pl-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6 shadow-sm">
-            <flux:table>
+            <flux:table class="table-mobile-cards">
                 <flux:table.columns>
                     <flux:table.column sortable :sorted="$sortBy === 'name'" :direction="$sortDirection" wire:click="sort('name')">Informasi Gudang</flux:table.column>
                     <flux:table.column sortable :sorted="$sortBy === 'address'" :direction="$sortDirection" wire:click="sort('address')">Alamat</flux:table.column>

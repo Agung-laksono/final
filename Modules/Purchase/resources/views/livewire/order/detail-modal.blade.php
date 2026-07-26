@@ -168,7 +168,7 @@ $getStatusBadge = function ($status) {
 
             {{-- Items Table - Ultra Compact --}}
             <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-                <table class="w-full text-xs">
+                <table class="w-full text-xs table-mobile-cards">
                     <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 border-b border-zinc-200 dark:border-zinc-700">
                         <tr>
                             <th class="px-3 py-1.5 font-semibold text-left">Barang</th>

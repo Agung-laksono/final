@@ -175,7 +175,7 @@ $kanbanQuotations = computed(function () {
         
             
         <x-table.wrapper>
-            <flux:table>
+            <flux:table class="table-mobile-cards">
                 <flux:table.columns>
                     <flux:table.column class="w-12">
                         <div class="pl-2 sm:pl-4 text-zinc-500 text-center">No</div>
@@ -294,7 +294,7 @@ $kanbanQuotations = computed(function () {
     <livewire:quotation.detail-modal />
 
     @if(session('new_quotation_number'))
-        <div x-data x-init="$nextTick(() => { $flux.modal('new-quotation-success-modal').show() })">
+        <div x-data x-init="setTimeout(() => { $flux.modal('new-quotation-success-modal')?.show() }, 500)">
             <flux:modal name="new-quotation-success-modal" class="min-w-[22rem]">
                 <div class="p-6 text-center">
                     <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-4">
@@ -308,7 +308,12 @@ $kanbanQuotations = computed(function () {
                         <span class="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-wider">{{ session('new_quotation_number') }}</span>
                     </div>
                     
-                    <flux:button variant="primary" class="w-full" @click="$flux.modal('new-quotation-success-modal').close()">Oke, Mengerti</flux:button>
+                    <div class="mt-4 flex flex-col gap-2">
+                        @if(session('new_quotation_id'))
+                            <flux:button variant="primary" class="w-full" icon="printer" href="{{ route('sales.quotations.print', session('new_quotation_id')) }}" target="_blank">Cetak Penawaran</flux:button>
+                        @endif
+                        <flux:button variant="ghost" class="w-full" @click="$flux.modal('new-quotation-success-modal').close()">Tutup</flux:button>
+                    </div>
                 </div>
             </flux:modal>
         </div>

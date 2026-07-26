@@ -300,7 +300,7 @@ on(['maklon-po-created' => function () {
 
         <x-table.wrapper>
                 <div class="overflow-x-auto min-h-[50vh]">
-                    <flux:table>
+                    <flux:table class="table-mobile-cards">
                         <flux:table.columns>
                             <flux:table.column sortable :sorted="$sortBy === 'order_number'" :direction="$sortDirection" wire:click="sort('order_number')">No. SPK / Ref</flux:table.column>
                             <flux:table.column>Barang</flux:table.column>

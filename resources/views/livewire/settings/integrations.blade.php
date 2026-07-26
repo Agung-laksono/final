@@ -16,6 +16,7 @@ state([
     'fonnteToken' => '',
     'aiProviders' => [],
     'gudangHandlesShipping' => false,
+    'enableAiChat' => false,
 ]);
 
 mount(function () {
@@ -36,6 +37,7 @@ mount(function () {
     ];
     
     $this->gudangHandlesShipping = Setting::where('key', 'gudang_handles_shipping')->value('value') == '1';
+    $this->enableAiChat = Setting::where('key', 'enable_ai_chat')->value('value') == '1';
 });
 
 $addAiProvider = function () {
@@ -73,13 +75,21 @@ $save = function () {
         ['value' => $shippingValue]
     );
 
+    $enableAiChatValue = $this->enableAiChat ? '1' : '0';
+    Setting::updateOrCreate(
+        ['key' => 'enable_ai_chat'],
+        ['value' => $enableAiChatValue]
+    );
+
     // Cache agar tidak query DB terus (1 jam)
     Cache::put('setting_gudang_handles_shipping', $shippingValue, now()->addHour());
+    Cache::put('setting_enable_ai_chat', $enableAiChatValue, now()->addHour());
     Cache::forget('setting_clarity_id');
     Cache::forget('app_integration_settings');
 
     // Broadcast ke semua client yang sedang membuka halaman Kanban
     SettingUpdated::safeDispatch('gudang_handles_shipping', $shippingValue);
+    SettingUpdated::safeDispatch('enable_ai_chat', $enableAiChatValue);
 
     \Flux::toast('Pengaturan berhasil disimpan!');
 };
@@ -113,6 +123,8 @@ $save = function () {
             <flux:subheading>
                 Tambahkan atau kurangi provider AI sesuai kebutuhan Anda. Anda bisa memilih model mana yang akan digunakan langsung dari antarmuka Chat AI nantinya.
             </flux:subheading>
+
+            <flux:switch wire:model="enableAiChat" label="Tampilkan Chat AI" description="Tampilkan atau sembunyikan fitur asisten Chat AI di antarmuka aplikasi." class="mb-4" />
 
             <div class="space-y-4">
                 @foreach($aiProviders as $index => $provider)
@@ -203,7 +215,7 @@ $save = function () {
         </div>
 
         <div class="flex items-center gap-4 pt-4">
-            <flux:button icon="check" variant="primary" type="submit"> Simpan Peng </flux:button>
+            <flux:button icon="check" variant="primary" type="submit"> Simpan Pengaturan </flux:button>
             <flux:text class="text-sm">Perubahan akan langsung diterapkan ke seluruh aplikasi.</flux:text>
         </div>
     </form>

@@ -70,7 +70,7 @@ $convertToSalesOrder = function () {
                     <h3 class="font-bold text-zinc-800 dark:text-zinc-200">Rincian Penawaran</h3>
                 </div>
                 <div class="p-0">
-                    <table class="w-full text-sm text-left">
+                    <table class="w-full text-sm text-left table-mobile-cards">
                         <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/80 uppercase">
                             <tr>
                                 <th class="px-5 py-3 font-semibold">Produk</th>

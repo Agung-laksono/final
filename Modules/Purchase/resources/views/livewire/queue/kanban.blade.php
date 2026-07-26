@@ -359,7 +359,7 @@ on(['echo:kanban.purchase_queue,KanbanUpdated' => '$refresh']);
         </x-table.header>
 
         <x-table.wrapper>
-                    <flux:table>
+                    <flux:table class="table-mobile-cards">
                         <flux:table.columns>
                             <flux:table.column sortable :sorted="$sortBy === 'id'" :direction="$sortDirection" wire:click="sort('id')">No. Antrean & Tanggal</flux:table.column>
                             <flux:table.column>Barang</flux:table.column>

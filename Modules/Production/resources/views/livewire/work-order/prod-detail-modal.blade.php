@@ -106,7 +106,7 @@ on(['open-prod-detail-modal' => function ($orderId) {
                         @if($customOrderItem->notes)
                             <div class="mt-4 pt-3 border-t border-amber-200/60 dark:border-amber-800/60">
                                 <h4 class="text-xs font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wider mb-1">Catatan Tambahan Sales</h4>
-                                <p class="text-sm text-zinc-700 dark:text-zinc-300 italic">"{{ $customOrderItem->notes }}"</p>
+                                <div class="text-sm text-zinc-700 dark:text-zinc-300 italic prose prose-sm prose-p:my-0">{!! $customOrderItem->notes !!}</div>
                             </div>
                         @endif
                     </div>
@@ -148,7 +148,7 @@ on(['open-prod-detail-modal' => function ($orderId) {
                     <div>
                         <flux:heading size="sm" class="mb-3">Bahan Fisik Terpakai (BOM Consumed)</flux:heading>
                         <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-                            <table class="w-full text-sm text-left">
+                            <table class="w-full text-sm text-left table-mobile-cards">
                                 <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500">
                                     <tr>
                                         <th class="px-3 py-2 font-medium">Material</th>
@@ -177,7 +177,7 @@ on(['open-prod-detail-modal' => function ($orderId) {
                     
                     @if($order->histories && $order->histories->count() > 0)
                         <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-                            <table class="w-full text-sm text-left">
+                            <table class="w-full text-sm text-left table-mobile-cards">
                                 <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500">
                                     <tr>
                                         <th class="px-3 py-2 font-medium">Tanggal</th>
@@ -211,7 +211,7 @@ on(['open-prod-detail-modal' => function ($orderId) {
                     @if($order->notes)
                         <div class="mt-4 text-xs text-zinc-500">
                             <strong>Catatan Sistem:</strong><br>
-                            <div class="whitespace-pre-wrap mt-1">{{ $order->notes }}</div>
+                            <div class="whitespace-pre-wrap mt-1 prose prose-sm max-w-none">{!! $order->notes !!}</div>
                         </div>
                     @endif
                 </div>
