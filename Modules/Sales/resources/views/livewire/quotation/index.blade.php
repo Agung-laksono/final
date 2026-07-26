@@ -118,34 +118,35 @@ $kanbanQuotations = computed(function () {
                 <x-kanban.column :statusKey="$statusKey" :column="$column" componentId="quotations" :count="count($this->kanbanQuotations->get($statusKey, []))">
                     @forelse($this->kanbanQuotations->get($statusKey, []) as $quote)
                         <div wire:key="kanban-quote-{{ $quote->id }}"
-                             class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group select-none relative"
+                             class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-2.5 shadow-sm hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group select-none relative"
                              wire:click="$dispatch('show-quotation-detail', { id: {{ $quote->id }} })" style="cursor: pointer;">
-                            <div class="flex justify-between items-center relative z-10">
-                                <span class="font-mono text-[10px] font-bold text-zinc-600 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 px-1 py-px rounded w-max">
-                                    {{ $quote->quotation_number }}
-                                </span>
-                            </div>
-                            <div class="mt-2 mb-2 relative z-10">
-                                <h4 class="font-semibold text-sm text-zinc-900 dark:text-zinc-100 leading-tight group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                                    {{ $quote->customer->name ?? $quote->customer_name ?? '-' }}
-                                </h4>
-                                @php
-                                    $kanbanPhone = $quote->customer->phone ?? $quote->customer_phone ?? null;
-                                @endphp
-                                @if($kanbanPhone)
-                                <div class="flex items-center gap-1 mt-1 text-[11px] text-zinc-500">
-                                    <flux:icon.phone class="w-3 h-3" />
-                                    <span>{{ $kanbanPhone }}</span>
+                            
+                            <div class="flex justify-between items-start gap-2 relative z-10">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-1.5 mb-1">
+                                        <span class="font-mono text-[9px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 px-1 py-px rounded w-max">
+                                            {{ $quote->quotation_number }}
+                                        </span>
+                                        <span class="text-[9px] font-medium text-zinc-400">{{ \Carbon\Carbon::parse($quote->quotation_date)->format('d M y') }}</span>
+                                    </div>
+                                    <h4 class="font-semibold text-xs text-zinc-900 dark:text-zinc-100 leading-tight group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate">
+                                        {{ $quote->customer->name ?? $quote->customer_name ?? '-' }}
+                                    </h4>
+                                    @php
+                                        $kanbanPhone = $quote->customer->phone ?? $quote->customer_phone ?? null;
+                                    @endphp
+                                    @if($kanbanPhone)
+                                    <div class="flex items-center gap-1 mt-0.5 text-[9px] text-zinc-400">
+                                        <flux:icon.phone class="w-2.5 h-2.5" />
+                                        <span class="truncate">{{ $kanbanPhone }}</span>
+                                    </div>
+                                    @endif
                                 </div>
-                                @endif
+                                <div class="text-right shrink-0 flex flex-col justify-start">
+                                    <span class="text-[11px] font-black text-amber-600 dark:text-amber-500">Rp {{ number_format($quote->total_amount, 0, ',', '.') }}</span>
+                                    <span class="text-[9px] font-medium text-zinc-400">{{ $quote->items->sum('qty') }} SKU</span>
+                                </div>
                             </div>
-                              <div class="flex items-center justify-between mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 relative z-10">
-                                  <span class="text-[10px] font-medium text-zinc-500">{{ \Carbon\Carbon::parse($quote->quotation_date)->format('d M Y') }}</span>
-                                  <div class="flex flex-col items-end">
-                                      <span class="text-[10px] font-medium text-zinc-500 mb-0.5">{{ $quote->items->count() }} Varian</span>
-                                      <span class="text-xs font-black text-amber-600 dark:text-amber-500">Rp {{ number_format($quote->total_amount, 0, ',', '.') }}</span>
-                                  </div>
-                              </div>
                         </div>
                     @empty
                         <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
