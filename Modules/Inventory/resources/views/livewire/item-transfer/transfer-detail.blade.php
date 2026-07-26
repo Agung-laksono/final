@@ -108,39 +108,37 @@ $printTransfer = function () {
             <!-- Daftar Barang Transferred -->
             <div>
                 <flux:heading size="md" class="mb-3">Daftar Barang yang Dipindahkan</flux:heading>
-                <div class="bg-white border dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-                    <table class="w-full text-sm text-left table-mobile-cards">
-                        <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-xs uppercase text-zinc-500">
-                            <tr>
-                                <th class="px-4 py-3 font-medium">Barang</th>
-                                <th class="px-4 py-3 font-medium">Kode / SKU</th>
-                                <th class="px-4 py-3 font-medium text-center">Kuantitas</th>
-                                <th class="px-4 py-3 font-medium">Satuan</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <x-table.wrapper>
+                    <flux:table class="table-mobile-cards">
+                        <flux:table.columns>
+                            <flux:table.column>Barang & Kode</flux:table.column>
+                            <flux:table.column>Kuantitas & Satuan</flux:table.column>
+                        </flux:table.columns>
+                        <flux:table.rows>
                             @foreach($transfer->items as $detail)
-                                <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                                    <td class="px-4 py-3">
-                                        <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $detail->item->name }}</div>
-                                        <div class="text-xs text-zinc-500">{{ $detail->item->category?->name ?? 'Tanpa Kategori' }}</div>
-                                    </td>
-                                    <td class="px-4 py-3 font-mono text-xs text-zinc-600 dark:text-zinc-400">
-                                        {{ $detail->item->code }}
-                                    </td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 font-bold dark:bg-indigo-500/10 dark:text-indigo-400">
-                                            {{ $detail->quantity }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">
-                                        {{ $detail->item->unit?->name ?? '-' }}
-                                    </td>
-                                </tr>
+                                <flux:table.row class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                    <flux:table.cell>
+                                        <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 line-clamp-1">{{ $detail->item->name }}</div>
+                                        <div class="text-[11px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                                            <span class="font-mono bg-zinc-100 dark:bg-zinc-800 px-1 rounded">{{ $detail->item->code }}</span>
+                                            <span>{{ $detail->item->category?->name ?? 'Tanpa Kategori' }}</span>
+                                        </div>
+                                    </flux:table.cell>
+                                    <flux:table.cell>
+                                        <div class="flex items-center gap-2 mt-1 sm:mt-0">
+                                            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400">
+                                                {{ $detail->quantity }}
+                                            </span>
+                                            <span class="text-xs text-zinc-600 dark:text-zinc-400">
+                                                {{ $detail->item->unit?->name ?? '-' }}
+                                            </span>
+                                        </div>
+                                    </flux:table.cell>
+                                </flux:table.row>
                             @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                        </flux:table.rows>
+                    </flux:table>
+                </x-table.wrapper>
             </div>
 
             <!-- Footer -->

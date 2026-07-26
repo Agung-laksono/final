@@ -746,60 +746,58 @@ $saveInitialStock = function () {
                                 <h3 class="font-bold text-zinc-800 dark:text-zinc-200">Riwayat Mutasi Barang (50 Terakhir)</h3>
                                 <span class="text-xs text-zinc-500">Urut berdasarkan terbaru</span>
                             </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-sm text-left table-mobile-cards">
-                                    <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 uppercase border-b border-zinc-200 dark:border-zinc-700">
-                                        <tr>
-                                            <th class="px-4 py-3 font-medium">Tanggal</th>
-                                            <th class="px-4 py-3 font-medium">Referensi</th>
-                                            <th class="px-4 py-3 font-medium">Tipe</th>
-                                            <th class="px-4 py-3 font-medium">Gudang</th>
-                                            <th class="px-4 py-3 font-medium text-right">Kuantitas</th>
-                                            <th class="px-4 py-3 font-medium text-center">Sisa Stok</th>
-                                            <th class="px-4 py-3 font-medium">Petugas & Catatan</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                            <x-table.wrapper>
+                                <flux:table class="table-mobile-cards">
+                                    <flux:table.columns>
+                                        <flux:table.column>Tanggal & Referensi</flux:table.column>
+                                        <flux:table.column>Mutasi</flux:table.column>
+                                        <flux:table.column>Gudang & Sisa Stok</flux:table.column>
+                                        <flux:table.column>Petugas & Catatan</flux:table.column>
+                                    </flux:table.columns>
+                                    <flux:table.rows>
                                         @forelse($movements as $m)
-                                            <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                                <td class="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
-                                                    {{ $m->created_at->format('d M Y H:i') }}
-                                                </td>
-                                                <td class="px-4 py-3 font-mono text-xs">
-                                                    {{ $m->reference_number ?: '-' }}
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    @if(str_contains($m->type, 'in'))
-                                                        <flux:badge color="emerald" size="sm" class="uppercase text-[10px]">Masuk</flux:badge>
-                                                    @elseif(str_contains($m->type, 'out'))
-                                                        <flux:badge color="rose" size="sm" class="uppercase text-[10px]">Keluar</flux:badge>
-                                                    @else
-                                                        <flux:badge color="zinc" size="sm" class="uppercase text-[10px]">{{ str_replace('_', ' ', $m->type) }}</flux:badge>
-                                                    @endif
-                                                </td>
-                                                <td class="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
-                                                    {{ $m->warehouse?->name ?? '-' }}
-                                                </td>
-                                                <td class="px-4 py-3 text-right font-bold {{ str_contains($m->type, 'in') ? 'text-emerald-500' : 'text-rose-500' }}">
-                                                    {{ str_contains($m->type, 'in') ? '+' : '-' }}{{ abs($m->quantity) }}
-                                                </td>
-                                                <td class="px-4 py-3 text-center text-zinc-500 font-mono">
-                                                    {{ $m->stock_after }}
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <div class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{{ $m->user?->name ?? 'Sistem' }}</div>
+                                            <flux:table.row class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                                <flux:table.cell>
+                                                    <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap">{{ $m->created_at->format('d M Y H:i') }}</div>
+                                                    <div class="text-[11px] text-zinc-500 font-mono mt-0.5">{{ $m->reference_number ?: '-' }}</div>
+                                                </flux:table.cell>
+                                                <flux:table.cell>
+                                                    <div class="flex items-center gap-2 mt-1 sm:mt-0">
+                                                        @if(str_contains($m->type, 'in'))
+                                                            <flux:badge color="emerald" size="sm" class="uppercase text-[10px]">Masuk</flux:badge>
+                                                        @elseif(str_contains($m->type, 'out'))
+                                                            <flux:badge color="rose" size="sm" class="uppercase text-[10px]">Keluar</flux:badge>
+                                                        @else
+                                                            <flux:badge color="zinc" size="sm" class="uppercase text-[10px]">{{ str_replace('_', ' ', $m->type) }}</flux:badge>
+                                                        @endif
+                                                        <span class="font-bold {{ str_contains($m->type, 'in') ? 'text-emerald-500' : 'text-rose-500' }}">
+                                                            {{ str_contains($m->type, 'in') ? '+' : '-' }}{{ abs($m->quantity) }}
+                                                        </span>
+                                                    </div>
+                                                </flux:table.cell>
+                                                <flux:table.cell>
+                                                    <div class="flex flex-col mt-1 sm:mt-0">
+                                                        <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $m->warehouse?->name ?? '-' }}</span>
+                                                        <span class="text-[11px] text-zinc-500">Sisa: <span class="font-mono text-zinc-600 dark:text-zinc-400 font-bold">{{ $m->stock_after }}</span></span>
+                                                    </div>
+                                                </flux:table.cell>
+                                                <flux:table.cell>
+                                                    <div class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mt-1 sm:mt-0">{{ $m->user?->name ?? 'Sistem' }}</div>
                                                     @if($m->notes)
-                                                        <div class="text-xs text-zinc-500 mt-0.5 truncate max-w-xs" title="{{ $m->notes }}">{{ $m->notes }}</div>
+                                                        <div class="text-[11px] text-zinc-500 mt-0.5 truncate max-w-xs" title="{{ $m->notes }}">{{ $m->notes }}</div>
                                                     @endif
-                                                </td>
-                                            </tr>
+                                                </flux:table.cell>
+                                            </flux:table.row>
                                         @empty
-                                            <tr>
-                                                <td colspan="7" class="px-4 py-8 text-center text-zinc-500 italic">Belum ada riwayat mutasi stok.</td>
-                                            </tr>
+                                            <flux:table.row>
+                                                <flux:table.cell colspan="4" class="text-center py-8 text-zinc-500 italic">
+                                                    Belum ada riwayat mutasi stok.
+                                                </flux:table.cell>
+                                            </flux:table.row>
                                         @endforelse
-                                </tbody>
-                            </table>
+                                    </flux:table.rows>
+                                </flux:table>
+                            </x-table.wrapper>
                         </div>
                     </div>
                     @endif

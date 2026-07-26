@@ -79,7 +79,7 @@ $setViewMode = function ($mode) {
 
     @if ($viewMode === 'table')
         {{-- Tampilan Tabel --}}
-        <div wire:key="view-table" class="pl-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6 shadow-sm">
+        <x-table.wrapper wire:key="view-table" class="mb-6">
             <flux:table class="table-mobile-cards">
                 <flux:table.columns>
                     <flux:table.column sortable :sorted="$sortBy === 'name'" :direction="$sortDirection" wire:click="sort('name')">Informasi Gudang</flux:table.column>
@@ -153,21 +153,20 @@ $setViewMode = function ($mode) {
                             </flux:table.cell>
 
                             <flux:table.cell>
-                                @can('inventory.warehouse.update')
-                                <flux:button size="sm" x-on:click="$dispatch('open-warehouse-form', { id: {{ $warehouse->id }} })" icon="pencil-square" variant="ghost" class="text-zinc-500 hover:text-blue-600"></flux:button>
-                                @endcan
-                                @can('inventory.warehouse.delete')
-                                <flux:button size="sm" x-on:click="$dispatch('delete-warehouse', { id: {{ $warehouse->id }} })" icon="trash" variant="ghost" class="text-zinc-500 hover:text-red-600"></flux:button>
-                                @endcan
+                                <div class="flex items-center justify-end gap-2 pr-2 sm:pr-4 mt-2 sm:mt-0">
+                                    @can('inventory.warehouse.update')
+                                    <flux:button size="sm" x-on:click="$dispatch('open-warehouse-form', { id: {{ $warehouse->id }} })" icon="pencil-square" variant="subtle" class="h-8 p-2 text-zinc-500 hover:text-blue-600"></flux:button>
+                                    @endcan
+                                    @can('inventory.warehouse.delete')
+                                    <flux:button size="sm" x-on:click="$dispatch('delete-warehouse', { id: {{ $warehouse->id }} })" icon="trash" variant="subtle" class="h-8 p-2 text-zinc-500 hover:text-red-600"></flux:button>
+                                    @endcan
+                                </div>
                             </flux:table.cell>
                         </flux:table.row>
                     @empty
                         <flux:table.row>
-                            <flux:table.cell colspan="4">
-                                <div class="flex flex-col items-center justify-center py-8 text-zinc-500">
-                                    <flux:icon.inbox class="w-12 h-12 mb-3 text-zinc-300" />
-                                    <p>Belum ada data gudang.</p>
-                                </div>
+                            <flux:table.cell colspan="4" class="text-center py-8 text-zinc-500">
+                                Belum ada data gudang.
                             </flux:table.cell>
                         </flux:table.row>
                     @endforelse

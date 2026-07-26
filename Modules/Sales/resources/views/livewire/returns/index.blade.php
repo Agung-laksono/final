@@ -25,36 +25,43 @@ new class extends Component {
 ?>
 
 <div>
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-200">Retur Penjualan (RMA)</h1>
-        <flux:button href="{{ route('sales.returns.create') }}" variant="primary" icon="plus">Buat Retur Baru</flux:button>
-    </div>
+    <x-table.header searchModel="search" searchPlaceholder="Cari nomor retur atau pelanggan...">
+        <flux:button href="{{ route('sales.returns.create') }}" wire:navigate variant="primary" icon="plus" class="shrink-0">Buat Retur Baru</flux:button>
+    </x-table.header>
 
-    <flux:card>
-        <div class="mb-4">
-            <flux:input wire:model.live="search" icon="magnifying-glass" placeholder="Cari nomor retur atau pelanggan..." />
-        </div>
-
+    <x-table.wrapper>
         <flux:table class="table-mobile-cards">
             <flux:table.columns>
-                <flux:table.column>No. Retur</flux:table.column>
-                <flux:table.column>Tgl Retur</flux:table.column>
-                <flux:table.column>Customer</flux:table.column>
-                <flux:table.column>No. Pesanan (SO)</flux:table.column>
+                <flux:table.column>No. Retur & Tanggal</flux:table.column>
+                <flux:table.column>Customer & No. Pesanan</flux:table.column>
                 <flux:table.column>Status</flux:table.column>
                 <flux:table.column>Aksi</flux:table.column>
             </flux:table.columns>
 
             <flux:table.rows>
                 @forelse ($returns as $ret)
-                    <flux:table.row>
+                    <flux:table.row :key="$ret->id" class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
                         <flux:table.cell>
-                            <span class="font-medium text-slate-800 dark:text-slate-200">{{ $ret->return_number }}</span>
+                            <div class="flex items-center gap-2">
+                                <div class="font-medium text-sm text-slate-900 dark:text-slate-100 whitespace-nowrap">{{ $ret->return_number }}</div>
+                                <div class="text-xs text-slate-500 whitespace-nowrap">{{ \Carbon\Carbon::parse($ret->return_date)->format('d M Y') }}</div>
+                            </div>
                         </flux:table.cell>
-                        <flux:table.cell>{{ \Carbon\Carbon::parse($ret->return_date)->format('d M Y') }}</flux:table.cell>
-                        <flux:table.cell>{{ $ret->customer->name ?? '-' }}</flux:table.cell>
-                        <flux:table.cell>{{ $ret->salesOrder->so_number ?? '-' }}</flux:table.cell>
                         <flux:table.cell>
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center text-xs font-bold shrink-0">
+                                    {{ strtoupper(substr($ret->customer->name ?? '?', 0, 2)) }}
+                                </div>
+                                <div>
+                                    <div class="font-medium text-sm text-slate-900 dark:text-slate-100 line-clamp-1">{{ $ret->customer->name ?? '-' }}</div>
+                                    <div class="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                        <flux:icon.document-text class="w-3 h-3" />
+                                        <span>SO: {{ $ret->salesOrder->so_number ?? '-' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </flux:table.cell>
+                        <flux:table.cell class="card-status-overlay">
                             <flux:badge color="{{ match($ret->status) {
                                 'pending' => 'warning',
                                 'approved' => 'info',
@@ -66,19 +73,28 @@ new class extends Component {
                             </flux:badge>
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:button size="sm" variant="ghost" icon="eye" href="{{ route('sales.returns.show', $ret->id) }}" />
+                            <div class="flex items-center justify-end gap-2 pr-2 sm:pr-4">
+                                <flux:button size="sm" variant="subtle" icon="eye" class="h-8 p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50" href="{{ route('sales.returns.show', $ret->id) }}" wire:navigate />
+                            </div>
                         </flux:table.cell>
                     </flux:table.row>
                 @empty
                     <flux:table.row>
-                        <flux:table.cell colspan="6" class="text-center text-slate-500 py-4">Belum ada data retur penjualan.</flux:table.cell>
+                        <flux:table.cell colspan="4">
+                            <div class="flex flex-col items-center justify-center py-12 text-slate-500">
+                                <flux:icon.inbox class="w-12 h-12 mb-3 text-slate-300" />
+                                <p>Belum ada data retur penjualan.</p>
+                            </div>
+                        </flux:table.cell>
                     </flux:table.row>
                 @endforelse
             </flux:table.rows>
         </flux:table>
         
-        <div class="mt-4">
-            {{ $returns->links() }}
-        </div>
-    </flux:card>
+        @if($returns->hasPages())
+            <div class="p-4 border-t border-slate-200 dark:border-slate-800">
+                {{ $returns->links() }}
+            </div>
+        @endif
+    </x-table.wrapper>
 </div>

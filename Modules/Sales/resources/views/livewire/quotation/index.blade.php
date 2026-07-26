@@ -199,7 +199,7 @@ $kanbanQuotations = computed(function () {
                             </flux:table.cell>
                             
                             <flux:table.cell>
-                                <div class="flex items-center gap-3">
+                                <div class="flex items-start gap-3 mt-1">
                                     @php
                                         $custName = $quotation->customer->name ?? $quotation->customer_name ?? 'Umum';
                                         $custPhone = $quotation->customer->phone ?? $quotation->customer_phone ?? null;

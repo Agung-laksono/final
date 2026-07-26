@@ -61,53 +61,52 @@ with(fn () => [
         </div>
     </x-sticky-header>
 
-    <div class="pl-2 bg-white border dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-        <div class="overflow-x-auto">
-            <flux:table class="table-mobile-cards">
-                <flux:table.columns>
-                    <flux:table.column>{{ __('Dokumen') }}</flux:table.column>
-                    <flux:table.column>{{ __('Rute Transfer') }}</flux:table.column>
-                    <flux:table.column>{{ __('Total Barang') }}</flux:table.column>
-                    <flux:table.column>{{ __('Status') }}</flux:table.column>
-                </flux:table.columns>
-                <flux:table.rows>
-                    @forelse ($transfers as $transfer)
-                        <flux:table.row :key="$transfer->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" wire:click="$dispatch('open-transfer-detail', { id: {{ $transfer->id }} })">
-                            <flux:table.cell>
-                                <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $transfer->reference_number }}</div>
-                                <div class="text-xs text-zinc-500">{{ \Carbon\Carbon::parse($transfer->transfer_date)->format('d M Y') }}</div>
-                            </flux:table.cell>
-                            <flux:table.cell>
-                                <div class="flex items-center gap-2 text-sm">
-                                    <span class="text-zinc-600 dark:text-zinc-400">{{ $transfer->fromWarehouse->name ?? '-' }}</span>
-                                    <flux:icon.arrow-right class="w-3 h-3 text-zinc-400" />
-                                    <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $transfer->toWarehouse->name ?? '-' }}</span>
-                                </div>
-                            </flux:table.cell>
-                            <flux:table.cell>
-                                <span class="text-sm">{{ $transfer->items->count() }} Jenis</span>
-                            </flux:table.cell>
-                            <flux:table.cell>
-                                @if($transfer->status === 'completed')
-                                    <flux:badge color="success" size="sm">{{ __('Selesai') }}</flux:badge>
-                                @elseif($transfer->status === 'pending')
-                                    <flux:badge color="warning" size="sm">{{ __('Pending') }}</flux:badge>
-                                @else
-                                    <flux:badge color="zinc" size="sm">{{ ucfirst($transfer->status) }}</flux:badge>
-                                @endif
-                            </flux:table.cell>
-                        </flux:table.row>
-                    @empty
-                        <flux:table.row>
-                            <flux:table.cell colspan="4" class="text-center text-zinc-500 py-8">
-                                {{ __('Belum ada data transfer.') }}
-                            </flux:table.cell>
-                        </flux:table.row>
-                    @endforelse
-                </flux:table.rows>
-            </flux:table>
-        </div>
-    </div>
+    <x-table.wrapper class="mb-6">
+        <flux:table class="table-mobile-cards">
+            <flux:table.columns>
+                <flux:table.column>{{ __('Dokumen') }}</flux:table.column>
+                <flux:table.column>{{ __('Rute Transfer') }}</flux:table.column>
+                <flux:table.column>{{ __('Total Barang') }}</flux:table.column>
+                <flux:table.column>{{ __('Status') }}</flux:table.column>
+            </flux:table.columns>
+            <flux:table.rows>
+                @forelse ($transfers as $transfer)
+                    <flux:table.row :key="$transfer->id" class="cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors" wire:click="$dispatch('open-transfer-detail', { id: {{ $transfer->id }} })">
+                        <flux:table.cell>
+                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap">{{ $transfer->reference_number }}</div>
+                            <div class="text-[11px] text-zinc-500">{{ \Carbon\Carbon::parse($transfer->transfer_date)->format('d M Y') }}</div>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <div class="flex items-center gap-2 text-sm mt-1 sm:mt-0">
+                                <span class="text-zinc-600 dark:text-zinc-400">{{ $transfer->fromWarehouse->name ?? '-' }}</span>
+                                <flux:icon.arrow-right class="w-3 h-3 text-zinc-400 shrink-0" />
+                                <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $transfer->toWarehouse->name ?? '-' }}</span>
+                            </div>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <span class="text-sm text-zinc-600 dark:text-zinc-400 mt-1 sm:mt-0">{{ $transfer->items->count() }} Jenis</span>
+                        </flux:table.cell>
+                        <flux:table.cell class="card-status-overlay">
+                            @if($transfer->status === 'completed')
+                                <flux:badge color="success" size="sm">{{ __('Selesai') }}</flux:badge>
+                            @elseif($transfer->status === 'pending')
+                                <flux:badge color="warning" size="sm">{{ __('Pending') }}</flux:badge>
+                            @else
+                                <flux:badge color="zinc" size="sm">{{ ucfirst($transfer->status) }}</flux:badge>
+                            @endif
+                        </flux:table.cell>
+                    </flux:table.row>
+                @empty
+                    <flux:table.row>
+                        <flux:table.cell colspan="4" class="text-center text-zinc-500 py-8">
+                            <flux:icon.inbox class="w-8 h-8 mx-auto mb-2 text-zinc-300" />
+                            {{ __('Belum ada data transfer.') }}
+                        </flux:table.cell>
+                    </flux:table.row>
+                @endforelse
+            </flux:table.rows>
+        </flux:table>
+    </x-table.wrapper>
     
     {{-- Progress Bar & Load More --}}
     <div class="mt-4">

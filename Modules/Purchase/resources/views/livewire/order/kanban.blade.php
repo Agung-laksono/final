@@ -419,7 +419,7 @@ on([
                                     </flux:table.cell>
                                     
                                     <flux:table.cell>
-                                        <div class="flex items-center gap-3">
+                                        <div class="flex items-start gap-3 mt-1">
                                             <flux:avatar src="{{ $order->vendor?->image ? Storage::url($order->vendor->image) : '' }}" fallback="{{ substr($order->vendor?->name ?? '?', 0, 2) }}" size="sm" />
                                             <div>
                                                 <div class="flex items-center gap-2">

@@ -624,16 +624,13 @@ on([
         <x-table.wrapper>
                 <flux:table class="table-mobile-cards">
                     <flux:table.columns>
-                        <flux:table.column class="w-12">
-                            <div class="pl-2 sm:pl-4 text-zinc-500 text-center">No</div>
-                        </flux:table.column>
                         <flux:table.column sortable :sorted="$this->sortBy === 'created_at'" :direction="$this->sortDirection" wire:click="sort('created_at')">
                             <div class="pl-2 sm:pl-4">No. SO & Tanggal</div>
                         </flux:table.column>
                         <flux:table.column sortable :sorted="$this->sortBy === 'customer'" :direction="$this->sortDirection" wire:click="sort('customer')">Pelanggan</flux:table.column>
                         <flux:table.column sortable :sorted="$this->sortBy === 'total_amount'" :direction="$this->sortDirection" wire:click="sort('total_amount')">Total Transaksi</flux:table.column>
-                        <flux:table.column sortable :sorted="$this->sortBy === 'payment_status'" :direction="$this->sortDirection" wire:click="sort('payment_status')">Pembayaran</flux:table.column>
                         <flux:table.column sortable :sorted="$this->sortBy === 'status'" :direction="$this->sortDirection" wire:click="sort('status')">Status</flux:table.column>
+                        <flux:table.column sortable :sorted="$this->sortBy === 'payment_status'" :direction="$this->sortDirection" wire:click="sort('payment_status')">Pembayaran</flux:table.column>
                     </flux:table.columns>
 
                     <flux:table.rows>
@@ -646,25 +643,26 @@ on([
                             <flux:table.row wire:key="table-order-{{ $order->id }}" 
                                             class="{{ $canInteract ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer' : 'opacity-65 cursor-not-allowed select-none bg-zinc-50/20 dark:bg-zinc-900/10' }} transition-colors" 
                                             @click="{{ $canInteract ? '$dispatch(\'open-detail-modal\', { orderId: '.$order->id.' })' : 'null' }}">
-                                <flux:table.cell class="whitespace-nowrap">
-                                    <div class="pl-2 sm:pl-4 text-center font-medium text-zinc-500">
-                                        {{ $loop->iteration }}
-                                    </div>
-                                </flux:table.cell>
                                 <flux:table.cell>
-                                    <div class="pl-2 sm:pl-4">
-                                        <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $order->so_number }}</div>
-                                        <div class="text-xs text-zinc-500">{{ \Carbon\Carbon::parse($order->order_date)->format('d M Y') }}</div>
+                                    <div class="pl-2 sm:pl-4 flex items-center gap-2">
+                                        <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap">{{ $order->so_number }}</div>
+                                        <div class="text-xs text-zinc-500 whitespace-nowrap">{{ \Carbon\Carbon::parse($order->order_date)->format('d M Y') }}</div>
                                     </div>
                                 </flux:table.cell>
                                 
                                 <flux:table.cell>
-                                    <div class="flex items-center gap-3">
+                                    <div class="flex items-start gap-3 mt-1">
                                         <flux:avatar src="{{ $order->customer->image ? Storage::url($order->customer->image) : '' }}" fallback="{{ substr($order->customer->name, 0, 2) }}" size="sm" />
                                         <div>
                                             <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $order->customer->name }}</div>
-                                            <div class="text-[11px] text-zinc-500 flex items-center gap-1 mt-0.5">
-                                                <flux:avatar src="{{ $order->creator->avatar ? Storage::url($order->creator->avatar) : '' }}" fallback="{{ substr($order->creator->name ?? 'S', 0, 2) }}" class="w-3.5 h-3.5 text-[8px]" />
+                                            <div class="text-[11px] text-zinc-500 flex items-center gap-1.5">
+                                                @if($order->creator->avatar ?? false)
+                                                    <img src="{{ Storage::url($order->creator->avatar) }}" class="w-3.5 h-3.5 rounded-full object-cover" />
+                                                @else
+                                                    <div class="w-3.5 h-3.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 flex items-center justify-center text-[8px] font-bold">
+                                                        {{ strtoupper(substr($order->creator->name ?? 'A', 0, 1)) }}
+                                                    </div>
+                                                @endif
                                                 <span>{{ $isOwn ? 'Anda' : explode(' ', $order->creator->name ?? '-')[0] }}</span>
                                                 @if($order->brand)
                                                     <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
@@ -680,6 +678,11 @@ on([
                                     <div class="text-[10px] text-zinc-500">{{ $order->items->sum('qty') }} Item</div>
                                 </flux:table.cell>
                                 
+                                <flux:table.cell class="card-status-overlay">
+                                    @php $col = $this->columns[$order->status] ?? ['title' => $order->status, 'color' => 'zinc']; @endphp
+                                    <flux:badge size="sm" color="{{ $col['color'] }}" class="whitespace-nowrap">{{ $col['title'] }}</flux:badge>
+                                </flux:table.cell>
+                                
                                 <flux:table.cell>
                                     @if($order->payment_status === 'paid')
                                         <flux:badge size="sm" color="green" icon="check-circle">Lunas</flux:badge>
@@ -688,11 +691,6 @@ on([
                                     @else
                                         <flux:badge size="sm" color="red" icon="x-circle">Belum</flux:badge>
                                     @endif
-                                </flux:table.cell>
-                                
-                                <flux:table.cell>
-                                    @php $col = $this->columns[$order->status] ?? ['title' => $order->status, 'color' => 'zinc']; @endphp
-                                    <flux:badge size="sm" color="{{ $col['color'] }}" class="whitespace-nowrap">{{ $col['title'] }}</flux:badge>
                                 </flux:table.cell>
                             </flux:table.row>
                         @empty

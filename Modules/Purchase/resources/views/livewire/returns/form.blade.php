@@ -74,7 +74,7 @@ new class extends Component {
 <div>
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-200">{{ $return_id ? 'Detail Retur' : 'Buat Retur Pembelian' }}</h1>
-        <flux:button href="{{ route('purchase.returns.index') }}" variant="ghost" icon="arrow-left">Kembali</flux:button>
+        <flux:button href="{{ route('purchase.returns.index') }}" wire:navigate variant="ghost" icon="arrow-left">Kembali</flux:button>
     </div>
 
     <flux:card>

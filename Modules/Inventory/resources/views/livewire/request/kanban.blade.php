@@ -450,8 +450,7 @@ on([
         <div class="p-6">
             <flux:table class="table-mobile-cards">
                 <flux:table.columns>
-                    <flux:table.column>Referensi</flux:table.column>
-                    <flux:table.column>Barang</flux:table.column>
+                    <flux:table.column>Referensi & Barang</flux:table.column>
                     <flux:table.column>Kebutuhan</flux:table.column>
                     <flux:table.column>Status</flux:table.column>
                     <flux:table.column>Tindakan</flux:table.column>
@@ -460,18 +459,36 @@ on([
                 <flux:table.rows>
                     @if($this->tableRequests)
                         @forelse($this->tableRequests as $req)
-                            <flux:table.row wire:key="row-{{ $req->id }}">
+                            <flux:table.row wire:key="row-{{ $req->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
                                 <flux:table.cell>
-                                    <span wire:click="$dispatch('open-request-detail-modal', { requestId: {{ $req->id }} })" class="cursor-pointer text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors" title="Lihat Detail">{{ $req->reference_number }}</span>
+                                    <div class="flex items-start gap-3 mt-1 sm:mt-0">
+                                        <div class="w-10 h-10 rounded-md bg-zinc-100 overflow-hidden border border-zinc-200 shrink-0">
+                                            @if ($req->item?->image)
+                                                <img src="{{ asset('storage/' . $req->item->image) }}" loading="lazy" class="w-full h-full object-cover">
+                                            @else
+                                                <div class="w-full h-full flex items-center justify-center text-zinc-400">
+                                                    <flux:icon.photo class="w-5 h-5" />
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-sm text-zinc-900 dark:text-white line-clamp-1">
+                                                {{ $req->item->name }}
+                                            </div>
+                                            <div class="text-[11px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                                                <span wire:click="$dispatch('open-request-detail-modal', { requestId: {{ $req->id }} })" class="cursor-pointer font-mono bg-zinc-100 dark:bg-zinc-800 px-1 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors" title="Lihat Detail">{{ $req->reference_number }}</span>
+                                                <flux:badge size="sm" color="{{ $req->item->type->name === 'Produk Jadi' ? 'purple' : 'blue' }}">{{ $req->item->type->name ?? 'Unknown' }}</flux:badge>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </flux:table.cell>
                                 <flux:table.cell>
-                                    <div class="font-medium text-zinc-900 dark:text-white">{{ $req->item->name }}</div>
-                                    <flux:badge size="sm" color="{{ $req->item->type->name === 'Produk Jadi' ? 'purple' : 'blue' }}">{{ $req->item->type->name ?? 'Unknown' }}</flux:badge>
+                                    <div class="flex items-center gap-1.5 mt-1 sm:mt-0">
+                                        <span class="text-[11px] text-zinc-500 sm:hidden">Kebutuhan:</span>
+                                        <span class="font-bold text-red-600">{{ $req->requested_qty }}</span> <span class="text-[11px] text-zinc-500">{{ $req->item->unit->name ?? 'pcs' }}</span>
+                                    </div>
                                 </flux:table.cell>
-                                <flux:table.cell>
-                                    <span class="font-bold text-red-600">{{ $req->requested_qty }}</span> <span class="text-xs text-zinc-500">{{ $req->item->unit->name ?? 'pcs' }}</span>
-                                </flux:table.cell>
-                                <flux:table.cell>
+                                <flux:table.cell class="card-status-overlay">
                                     @php
                                         $col = $columns[$req->status] ?? null;
                                         $color = $col ? $col['color'] : 'zinc';
@@ -479,11 +496,11 @@ on([
                                     <flux:badge size="sm" color="{{ $color }}">{{ $col['title'] ?? ucfirst($req->status) }}</flux:badge>
                                     
                                     @if($req->status === 'routed')
-                                        <div class="text-[10px] text-emerald-600 mt-1">Dialihkan: {{ strtoupper($req->routed_to) }}</div>
+                                        <div class="text-[10px] text-emerald-600 mt-1 hidden sm:block">Dialihkan: {{ strtoupper($req->routed_to) }}</div>
                                     @endif
                                 </flux:table.cell>
                                 <flux:table.cell>
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center justify-end gap-2 pr-2 sm:pr-4">
                                         @if($req->status === 'draft')
                                             <flux:button size="sm" variant="subtle" wire:click="review({{ $req->id }})">Tinjau</flux:button>
                                         @elseif($req->status === 'review')
@@ -511,8 +528,8 @@ on([
                                             <flux:button size="sm" variant="subtle" wire:click="archive({{ $req->id }})">Arsipkan</flux:button>
                                         @endif
                                     </div>
-                                </flux:cell>
-                            </flux:row>
+                                </flux:table.cell>
+                            </flux:table.row>
                         @empty
                             <flux:table.row>
                                 <flux:table.cell colspan="5" class="text-center text-zinc-500 py-8">Tidak ada data permintaan barang.</flux:table.cell>

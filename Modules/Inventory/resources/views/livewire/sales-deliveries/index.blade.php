@@ -506,11 +506,10 @@ on([
     </x-slot:kanban_layout>
 
     <x-slot:table_layout>
-        <div class="p-6">
+        <x-table.wrapper class="mb-6">
             <flux:table class="table-mobile-cards">
                 <flux:table.columns>
-                    <flux:table.column>No. SO</flux:table.column>
-                    <flux:table.column>Pelanggan</flux:table.column>
+                    <flux:table.column>No. SO & Pelanggan</flux:table.column>
                     <flux:table.column>Progres Tarik Barang</flux:table.column>
                     <flux:table.column>Status</flux:table.column>
                     <flux:table.column>Tindakan</flux:table.column>
@@ -519,15 +518,17 @@ on([
                 <flux:table.rows>
                     @if($this->tableDeliveries)
                         @forelse($this->tableDeliveries as $order)
-                            <flux:table.row wire:key="row-{{ $order->id }}">
+                            <flux:table.row wire:key="row-{{ $order->id }}" class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
                                 <flux:table.cell>
-                                    <span class="text-xs font-mono font-medium text-zinc-600 dark:text-zinc-400">{{ $order->so_number }}</span>
-                                    <div class="text-[10px] text-zinc-500">{{ \Carbon\Carbon::parse($order->order_date)->format('d M Y') }}</div>
-                                </flux:table.cell>
-                                <flux:table.cell>
-                                    <div class="flex items-center gap-2">
-                                        <flux:avatar src="{{ $order->customer->image ? Storage::url($order->customer->image) : '' }}" fallback="{{ substr($order->customer->name ?? 'T', 0, 2) }}" size="xs" />
-                                        <div class="font-bold text-sm text-zinc-900 dark:text-white">{{ $order->customer->name ?? 'Pelanggan Tunai' }}</div>
+                                    <div class="flex items-start gap-3 mt-1 sm:mt-0">
+                                        <flux:avatar src="{{ $order->customer->image ? Storage::url($order->customer->image) : '' }}" fallback="{{ substr($order->customer->name ?? 'T', 0, 2) }}" size="sm" class="shrink-0" />
+                                        <div>
+                                            <div class="font-medium text-sm text-zinc-900 dark:text-white line-clamp-1">{{ $order->customer->name ?? 'Pelanggan Tunai' }}</div>
+                                            <div class="text-[11px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                                                <span class="font-mono bg-zinc-100 dark:bg-zinc-800 px-1 rounded text-zinc-600 dark:text-zinc-400">{{ $order->so_number }}</span>
+                                                <span>{{ \Carbon\Carbon::parse($order->order_date)->format('d M Y') }}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </flux:table.cell>
                                 <flux:table.cell>
@@ -536,16 +537,17 @@ on([
                                         $fulfilledQty = $order->fulfillments->sum('scanned_qty');
                                         $progressPercent = $orderedQty > 0 ? min(100, round(($fulfilledQty / $orderedQty) * 100)) : 0;
                                     @endphp
-                                    <div class="w-48">
+                                    <div class="w-full sm:w-48 mt-1 sm:mt-0">
                                         <div class="flex justify-between text-[10px] font-medium mb-1">
-                                            <span>{{ $fulfilledQty }} / {{ $orderedQty }} ({{ $progressPercent }}%)</span>
+                                            <span class="text-zinc-600 dark:text-zinc-400">Progres</span>
+                                            <span class="text-zinc-900 dark:text-zinc-100">{{ $fulfilledQty }} / {{ $orderedQty }} ({{ $progressPercent }}%)</span>
                                         </div>
                                         <div class="h-1.5 w-full bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
                                             <div class="h-full {{ $progressPercent === 100 ? 'bg-emerald-500' : 'bg-blue-500' }} transition-all duration-500" style="width: {{ $progressPercent }}%"></div>
                                         </div>
                                     </div>
                                 </flux:table.cell>
-                                <flux:table.cell>
+                                <flux:table.cell class="card-status-overlay">
                                     @php
                                         $col = $this->activeColumns[$order->status] ?? null;
                                         $color = $col ? $col['color'] : 'zinc';
@@ -553,38 +555,47 @@ on([
                                     <flux:badge size="sm" color="{{ $color }}">{{ $col['title'] ?? ucfirst($order->status) }}</flux:badge>
                                 </flux:table.cell>
                                 <flux:table.cell>
-                                    @if($order->status === 'processing')
-                                        <flux:button variant="primary" size="sm" wire:click.stop="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })">
-                                            Proses Barang
-                                        </flux:button>
-                                    @elseif($order->status === 'packing')
-                                        <div class="flex gap-2">
-                                            <flux:button variant="primary" size="sm" class="bg-purple-600 hover:bg-purple-700 text-white border-none" wire:click.stop="$dispatch('open-packing-modal', { orderId: {{ $order->id }} })">
-                                                Packing
+                                    <div class="flex items-center justify-end gap-2 pr-2 sm:pr-4 mt-1 sm:mt-0">
+                                        @if($order->status === 'processing')
+                                            <flux:button variant="primary" size="sm" wire:click.stop="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })">
+                                                Proses
                                             </flux:button>
-                                            @php
-                                                $gudangHandlesShipping = \Illuminate\Support\Facades\Cache::remember('setting_gudang_handles_shipping', 3600, function () {
-                                                    return \App\Models\Setting::where('key', 'gudang_handles_shipping')->value('value');
-                                                }) == '1';
-                                            @endphp
-                                            @if($order->is_packed && $gudangHandlesShipping)
-                                                @if($order->courier_vendor_id)
-                                                    <flux:button variant="primary" size="sm" class="bg-blue-600 hover:bg-blue-700 text-white border-none" wire:click.stop="markAsShipped({{ $order->id }})">
-                                                        Telah Diambil
-                                                    </flux:button>
-                                                @else
-                                                    <flux:button variant="subtle" size="sm" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })">
-                                                        Input Ekspedisi
-                                                    </flux:button>
+                                        @elseif($order->status === 'packing')
+                                            <div class="flex gap-2">
+                                                <flux:button variant="primary" size="sm" class="!bg-purple-600 hover:!bg-purple-700 !text-white border-none" wire:click.stop="$dispatch('open-packing-modal', { orderId: {{ $order->id }} })">
+                                                    Packing
+                                                </flux:button>
+                                                @php
+                                                    $gudangHandlesShipping = \Illuminate\Support\Facades\Cache::remember('setting_gudang_handles_shipping', 3600, function () {
+                                                        return \App\Models\Setting::where('key', 'gudang_handles_shipping')->value('value');
+                                                    }) == '1';
+                                                @endphp
+                                                @if($order->is_packed && $gudangHandlesShipping)
+                                                    @if($order->courier_vendor_id)
+                                                        <flux:button variant="primary" size="sm" class="!bg-blue-600 hover:!bg-blue-700 !text-white border-none" wire:click.stop="markAsShipped({{ $order->id }})">
+                                                            Diambil
+                                                        </flux:button>
+                                                    @else
+                                                        <flux:button variant="subtle" size="sm" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })">
+                                                            Ekspedisi
+                                                        </flux:button>
+                                                    @endif
                                                 @endif
-                                            @endif
-                                        </div>
-                                    @endif
+                                            </div>
+                                        @elseif($order->status === 'shipping')
+                                            <flux:button variant="subtle" size="sm" wire:click.stop="$dispatch('open-shipping-modal', { orderId: {{ $order->id }} })">
+                                                Resi
+                                            </flux:button>
+                                        @endif
+                                    </div>
                                 </flux:table.cell>
                             </flux:table.row>
                         @empty
                             <flux:table.row>
-                                <flux:table.cell colspan="5" class="text-center text-zinc-500 py-8">Tidak ada data pemenuhan pesanan.</flux:table.cell>
+                                <flux:table.cell colspan="5" class="text-center py-8 text-zinc-500">
+                                    <flux:icon.inbox class="w-8 h-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                                    Tidak ada data pengiriman.
+                                </flux:table.cell>
                             </flux:table.row>
                         @endforelse
                     @endif

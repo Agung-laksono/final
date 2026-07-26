@@ -313,14 +313,14 @@ on(['maklon-po-created' => function () {
                             @forelse($this->tableOrders as $order)
                                 <flux:table.row :key="$order->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:click="$dispatch('open-prod-detail-modal', { orderId: {{ $order->id }} })">
                                     <flux:table.cell>
-                                        <div class="pl-2 sm:pl-4">
-                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $order->order_number }}</div>
-                                            <div class="text-xs text-zinc-500">Ref: {{ $order->reference_number ?? '-' }}</div>
+                                        <div class="pl-2 sm:pl-4 flex items-center gap-2">
+                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap">{{ $order->order_number }}</div>
+                                            <div class="text-xs text-zinc-500 whitespace-nowrap">Ref: {{ $order->reference_number ?? '-' }}</div>
                                         </div>
                                     </flux:table.cell>
                                     
                                     <flux:table.cell>
-                                        <div class="flex items-center gap-3">
+                                        <div class="flex items-start gap-3 mt-1">
                                             <div class="w-10 h-10 rounded-md bg-zinc-100 overflow-hidden border border-zinc-200 shrink-0">
                                                 @if ($order->item?->image)
                                                     <img src="{{ asset('storage/' . $order->item->image) }}" loading="lazy" class="w-full h-full object-cover">
@@ -341,13 +341,19 @@ on(['maklon-po-created' => function () {
                                     
                                     <flux:table.cell>
                                         <div class="text-sm text-zinc-900 dark:text-zinc-100">{{ \Carbon\Carbon::parse($order->created_at)->format('d M Y') }}</div>
-                                        <div class="flex items-center gap-1 mt-1 text-[11px] text-zinc-500">
-                                            <flux:icon.user class="w-3 h-3" />
+                                        <div class="flex items-center gap-1.5 mt-1 text-[11px] text-zinc-500">
+                                            @if($order->creator->avatar ?? false)
+                                                <img src="{{ Storage::url($order->creator->avatar) }}" class="w-3.5 h-3.5 rounded-full object-cover" />
+                                            @else
+                                                <div class="w-3.5 h-3.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 flex items-center justify-center text-[8px] font-bold">
+                                                    {{ strtoupper(substr($order->creator->name ?? 'A', 0, 1)) }}
+                                                </div>
+                                            @endif
                                             {{ explode(' ', $order->creator->name ?? '-')[0] }}
                                         </div>
                                     </flux:table.cell>
                                     
-                                    <flux:table.cell>
+                                    <flux:table.cell class="card-status-overlay">
                                         @if(array_key_exists($order->status, $columns))
                                             @php $col = $columns[$order->status]; @endphp
                                             <flux:badge size="sm" color="{{ $col['color'] }}">{{ $col['title'] }}</flux:badge>

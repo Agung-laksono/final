@@ -392,9 +392,9 @@ on(['echo:kanban.purchase_queue,KanbanUpdated' => '$refresh']);
                                 @endphp
                                 <flux:table.row :key="$queue->id" class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors">
                                     <flux:table.cell>
-                                        <div class="pl-2 sm:pl-4">
-                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">#ANT-{{ str_pad($queue->id, 4, '0', STR_PAD_LEFT) }}</div>
-                                            <div class="text-xs text-zinc-500">{{ \Carbon\Carbon::parse($queue->created_at)->format('d M Y') }}</div>
+                                        <div class="pl-2 sm:pl-4 flex items-center gap-2">
+                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap">#ANT-{{ str_pad($queue->id, 4, '0', STR_PAD_LEFT) }}</div>
+                                            <div class="text-xs text-zinc-500 whitespace-nowrap">{{ \Carbon\Carbon::parse($queue->created_at)->format('d M Y') }}</div>
                                         </div>
                                     </flux:table.cell>
                                     
@@ -440,7 +440,7 @@ on(['echo:kanban.purchase_queue,KanbanUpdated' => '$refresh']);
                                     </flux:table.cell>
                                     
                                     <flux:table.cell>
-                                        <div class="flex flex-col">
+                                        <div class="flex items-center gap-3">
                                             <div class="text-sm">Diminta: <span class="font-bold">{{ $queue->requested_qty }}</span></div>
                                             @if($queue->approved_qty !== null && $queue->status !== 'rejected')
                                                 <div class="text-sm">Disetujui: <span class="font-bold text-{{ $queue->approved_qty < $queue->requested_qty ? 'amber' : ($queue->approved_qty > $queue->requested_qty ? 'blue' : 'emerald') }}-600">{{ $queue->approved_qty }}</span></div>
@@ -451,7 +451,7 @@ on(['echo:kanban.purchase_queue,KanbanUpdated' => '$refresh']);
                                         </div>
                                     </flux:table.cell>
 
-                                    <flux:table.cell>
+                                    <flux:table.cell class="card-status-overlay">
                                         @if(array_key_exists($queue->status, $columns))
                                             @php $col = $columns[$queue->status]; @endphp
                                             <flux:badge size="sm" color="{{ $col['color'] }}">{{ $col['title'] }}</flux:badge>

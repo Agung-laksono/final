@@ -30,69 +30,72 @@ on(['status-updated' => function () {}]);
 ?>
 
 <div class="space-y-6">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <flux:heading size="xl">Alokasi Kedatangan (Dispatcher)</flux:heading>
-            <flux:subheading>Atur penempatan gudang untuk barang jadi yang baru tiba dari produksi/vendor.</flux:subheading>
-        </div>
-        <div class="w-full md:w-64">
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari PO, Ref, atau Barang..." />
-        </div>
-    </div>
+    <x-table.header searchModel="search" searchPlaceholder="Cari PO, Ref, atau Barang..."></x-table.header>
 
-    <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left table-mobile-cards">
-                <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200 dark:border-zinc-800 uppercase">
-                    <tr>
-                        <th class="px-6 py-3 font-semibold">Tgl Selesai</th>
-                        <th class="px-6 py-3 font-semibold">No. SPK</th>
-                        <th class="px-6 py-3 font-semibold">Barang</th>
-                        <th class="px-6 py-3 font-semibold text-center">Kuantitas</th>
-                        <th class="px-6 py-3 font-semibold">Vendor/Asal</th>
-                        <th class="px-6 py-3 font-semibold text-center">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
-                    @forelse($this->receipts as $req)
-                        <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                            <td class="px-6 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
-                                {{ $req->updated_at->format('d M Y, H:i') }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap font-mono text-zinc-900 dark:text-zinc-100">
-                                {{ $req->order_number }}
-                            </td>
-                            <td class="px-6 py-4">
-                                <div class="font-bold text-zinc-900 dark:text-white">{{ $req->item->name }}</div>
-                                <div class="text-xs text-zinc-500">{{ $req->item->type->name ?? '-' }}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-center">
-                                <span class="font-bold text-blue-600 dark:text-blue-400">{{ $req->requested_qty }}</span> <span class="text-xs text-zinc-500">{{ $req->item->unit->name ?? 'pcs' }}</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
+    <x-table.wrapper>
+        <flux:table class="table-mobile-cards">
+            <flux:table.columns>
+                <flux:table.column>Tanggal & SPK</flux:table.column>
+                <flux:table.column>Barang & Kuantitas</flux:table.column>
+                <flux:table.column>Vendor/Asal</flux:table.column>
+                <flux:table.column>Aksi</flux:table.column>
+            </flux:table.columns>
+            <flux:table.rows>
+                @forelse($this->receipts as $req)
+                    <flux:table.row class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                        <flux:table.cell>
+                            <div class="font-mono text-sm text-zinc-900 dark:text-zinc-100">{{ $req->order_number }}</div>
+                            <div class="text-[11px] text-zinc-500">{{ $req->updated_at->format('d M Y, H:i') }}</div>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <div class="flex items-start gap-3 mt-1 sm:mt-0">
+                                <div class="w-10 h-10 rounded-md bg-zinc-100 overflow-hidden border border-zinc-200 shrink-0">
+                                    @if ($req->item?->image)
+                                        <img src="{{ asset('storage/' . $req->item->image) }}" loading="lazy" class="w-full h-full object-cover">
+                                    @else
+                                        <div class="w-full h-full flex items-center justify-center text-zinc-400">
+                                            <flux:icon.photo class="w-5 h-5" />
+                                        </div>
+                                    @endif
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm text-zinc-900 dark:text-white line-clamp-1">{{ $req->item->name }}</div>
+                                    <div class="text-[11px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                                        <span class="font-bold text-blue-600 dark:text-blue-400">{{ $req->requested_qty }}</span>
+                                        <span>{{ $req->item->unit->name ?? 'pcs' }}</span>
+                                        <span class="mx-1">•</span>
+                                        <span>{{ $req->item->type->name ?? '-' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <div class="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1 sm:mt-0">
+                                <span class="text-zinc-500">Dari:</span>
                                 @if($req->purchaseOrder)
-                                    {{ $req->purchaseOrder->vendor->name ?? 'Vendor Maklon' }}
-                                    <div class="text-[10px] text-zinc-400">PO: {{ $req->purchaseOrder->po_number }}</div>
+                                    {{ $req->purchaseOrder->vendor->name ?? 'Vendor Maklon' }} (PO: {{ $req->purchaseOrder->po_number }})
                                 @else
                                     <span class="text-indigo-600 dark:text-indigo-400 font-medium">Internal Produksi</span>
                                 @endif
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                            </div>
+                        </flux:table.cell>
+                        <flux:table.cell>
+                            <div class="flex items-center justify-end gap-2 pr-2 sm:pr-4 mt-1 sm:mt-0">
                                 <flux:button size="sm" variant="primary" icon="map-pin" wire:click="$dispatch('open-allocate-modal', { orderId: {{ $req->id }} })">Alokasikan Rute</flux:button>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="px-6 py-8 text-center text-zinc-500">
-                                <flux:icon.inbox class="w-8 h-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
-                                Tidak ada barang yang perlu dialokasikan.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
+                            </div>
+                        </flux:table.cell>
+                    </flux:table.row>
+                @empty
+                    <flux:table.row>
+                        <flux:table.cell colspan="4" class="text-center py-8 text-zinc-500">
+                            <flux:icon.inbox class="w-8 h-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                            Tidak ada barang yang perlu dialokasikan.
+                        </flux:table.cell>
+                    </flux:table.row>
+                @endforelse
+            </flux:table.rows>
+        </flux:table>
+    </x-table.wrapper>
     
     <livewire:dispatch.allocate-modal />
 </div>
