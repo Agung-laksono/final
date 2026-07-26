@@ -180,12 +180,7 @@ $kanbanQuotations = computed(function () {
         <x-table.wrapper>
             <flux:table class="table-mobile-cards">
                 <flux:table.columns>
-                    <flux:table.column class="w-12">
-                        <div class="pl-2 sm:pl-4 text-zinc-500 text-center">No</div>
-                    </flux:table.column>
-                    <flux:table.column sortable :sorted="$this->sortBy === 'created_at'" :direction="$this->sortDirection" wire:click="sort('created_at')">
-                        <div class="pl-2 sm:pl-4">No. SQ & Tanggal</div>
-                    </flux:table.column>
+                    <flux:table.column sortable :sorted="$this->sortBy === 'quotation_number'" :direction="$this->sortDirection" wire:click="sort('quotation_number')">No. Penawaran & Tanggal</flux:table.column>
                     <flux:table.column sortable :sorted="$this->sortBy === 'customer'" :direction="$this->sortDirection" wire:click="sort('customer')">Pelanggan</flux:table.column>
                     <flux:table.column sortable :sorted="$this->sortBy === 'total_amount'" :direction="$this->sortDirection" wire:click="sort('total_amount')">Total Penawaran</flux:table.column>
                     <flux:table.column sortable :sorted="$this->sortBy === 'status'" :direction="$this->sortDirection" wire:click="sort('status')">Status</flux:table.column>
@@ -196,15 +191,10 @@ $kanbanQuotations = computed(function () {
                     @forelse($this->tableQuotations as $index => $quotation)
                         <flux:table.row wire:key="table-quotation-{{ $quotation->id }}" 
                                         class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                            <flux:table.cell class="whitespace-nowrap">
-                                <div class="pl-2 sm:pl-4 text-center font-medium text-zinc-500">
-                                    {{ $this->tableQuotations->firstItem() + $index }}
-                                </div>
-                            </flux:table.cell>
                             <flux:table.cell>
-                                <div class="pl-2 sm:pl-4">
-                                    <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100"><a href="#" wire:click.prevent="$dispatch('show-quotation-detail', { id: {{ $quotation->id }} })" class="hover:underline">{{ $quotation->quotation_number }}</a></div>
-                                    <div class="text-xs text-zinc-500">{{ \Carbon\Carbon::parse($quotation->created_at)->format('d M Y') }}</div>
+                                <div class="pl-2 sm:pl-4 flex items-center gap-2">
+                                    <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap"><a href="#" wire:click.prevent="$dispatch('show-quotation-detail', { id: {{ $quotation->id }} })" class="hover:underline">{{ $quotation->quotation_number }}</a></div>
+                                    <div class="text-xs text-zinc-500 whitespace-nowrap">{{ \Carbon\Carbon::parse($quotation->created_at)->format('d M Y') }}</div>
                                 </div>
                             </flux:table.cell>
                             
@@ -217,17 +207,25 @@ $kanbanQuotations = computed(function () {
                                     @endphp
                                     <flux:avatar src="{{ $custImage ? Storage::url($custImage) : '' }}" fallback="{{ substr($custName, 0, 2) }}" size="sm" />
                                     <div>
-                                        <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $custName }}</div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $custName }}</div>
+                                            <div class="text-[11px] text-zinc-500 flex items-center gap-1.5">
+                                                @if($quotation->creator->avatar ?? false)
+                                                    <img src="{{ Storage::url($quotation->creator->avatar) }}" class="w-3.5 h-3.5 rounded-full object-cover" />
+                                                @else
+                                                    <div class="w-3.5 h-3.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 flex items-center justify-center text-[8px] font-bold">
+                                                        {{ strtoupper(substr($quotation->creator->name ?? 'A', 0, 1)) }}
+                                                    </div>
+                                                @endif
+                                                <span>{{ explode(' ', $quotation->creator->name ?? '-')[0] }}</span>
+                                            </div>
+                                        </div>
                                         @if($custPhone)
                                         <div class="text-[11px] text-zinc-500 flex items-center gap-1 mt-0.5">
                                             <flux:icon.phone class="w-3 h-3" />
                                             <span>{{ $custPhone }}</span>
                                         </div>
                                         @endif
-                                        <div class="text-[11px] text-zinc-500 flex items-center gap-1 mt-1">
-                                            <flux:avatar src="{{ $quotation->creator->avatar ? Storage::url($quotation->creator->avatar) : '' }}" fallback="{{ substr($quotation->creator->name ?? 'S', 0, 2) }}" class="w-3.5 h-3.5 text-[8px]" />
-                                            <span>{{ explode(' ', $quotation->creator->name ?? '-')[0] }}</span>
-                                        </div>
                                     </div>
                                 </div>
                             </flux:table.cell>
@@ -237,7 +235,7 @@ $kanbanQuotations = computed(function () {
                                 <div class="text-[10px] text-zinc-500">{{ $quotation->items->sum('qty') }} Item</div>
                             </flux:table.cell>
                             
-                            <flux:table.cell>
+                            <flux:table.cell class="card-status-overlay">
                                 @if($quotation->status === 'draft')
                                     <flux:badge size="sm" color="zinc">Draft</flux:badge>
                                 @elseif($quotation->status === 'sent')

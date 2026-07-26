@@ -412,9 +412,9 @@ on([
                             @forelse($this->tableOrders as $order)
                                 <flux:table.row :key="$order->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:click="$dispatch('open-detail-modal', { orderId: {{ $order->id }} })">
                                     <flux:table.cell>
-                                        <div class="pl-2 sm:pl-4">
-                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $order->po_number }}</div>
-                                            <div class="text-xs text-zinc-500">{{ \Carbon\Carbon::parse($order->order_date)->format('d M Y') }}</div>
+                                        <div class="pl-2 sm:pl-4 flex items-center gap-2">
+                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap">{{ $order->po_number }}</div>
+                                            <div class="text-xs text-zinc-500 whitespace-nowrap">{{ \Carbon\Carbon::parse($order->order_date)->format('d M Y') }}</div>
                                         </div>
                                     </flux:table.cell>
                                     
@@ -422,10 +422,18 @@ on([
                                         <div class="flex items-center gap-3">
                                             <flux:avatar src="{{ $order->vendor?->image ? Storage::url($order->vendor->image) : '' }}" fallback="{{ substr($order->vendor?->name ?? '?', 0, 2) }}" size="sm" />
                                             <div>
-                                                <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $order->vendor?->name ?? 'Vendor Terhapus' }}</div>
-                                                <div class="text-[11px] text-zinc-500 flex items-center gap-1 mt-0.5">
-                                                    <flux:icon.user class="w-3 h-3" />
-                                                    {{ explode(' ', $order->creator->name ?? '-')[0] }}
+                                                <div class="flex items-center gap-2">
+                                                    <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $order->vendor?->name ?? 'Vendor Terhapus' }}</div>
+                                                    <div class="text-[11px] text-zinc-500 flex items-center gap-1.5">
+                                                        @if($order->creator->avatar ?? false)
+                                                            <img src="{{ Storage::url($order->creator->avatar) }}" class="w-3.5 h-3.5 rounded-full object-cover" />
+                                                        @else
+                                                            <div class="w-3.5 h-3.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 flex items-center justify-center text-[8px] font-bold">
+                                                                {{ strtoupper(substr($order->creator->name ?? 'A', 0, 1)) }}
+                                                            </div>
+                                                        @endif
+                                                        <span>{{ explode(' ', $order->creator->name ?? '-')[0] }}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -441,7 +449,7 @@ on([
                                         </div>
                                     </flux:table.cell>
                                     
-                                    <flux:table.cell>
+                                    <flux:table.cell class="card-status-overlay">
                                         @if(array_key_exists($order->status, $columns))
                                             @php $col = $columns[$order->status]; @endphp
                                             <flux:badge size="sm" color="{{ $col['color'] }}">{{ $col['title'] }}</flux:badge>
