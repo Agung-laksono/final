@@ -22,6 +22,15 @@ $convertToSalesOrder = function () {
     $this->redirect(route('sales.orders.create', ['token' => $token]), navigate: true);
 };
 
+$updateStatus = function ($newStatus) {
+    if ($this->quotation && $this->quotation->status !== 'converted') {
+        $this->quotation->status = $newStatus;
+        $this->quotation->save();
+        $this->dispatch('quotation-updated');
+        \Flux::toast('Status berhasil diperbarui.', variant: 'success');
+    }
+};
+
 ?>
 
 <flux:modal name="quotation-detail" class="md:max-w-5xl w-full">
@@ -36,17 +45,30 @@ $convertToSalesOrder = function () {
             <div class="flex-1 min-w-0">
                 <flux:heading size="lg" class="!mb-0 flex items-center gap-2">
                     {{ $quotation->quotation_number }}
-                    @if($quotation->status === 'draft')
-                        <flux:badge size="sm" color="zinc">Draft</flux:badge>
-                    @elseif($quotation->status === 'sent')
-                        <flux:badge size="sm" color="blue">Terkirim</flux:badge>
-                    @elseif($quotation->status === 'accepted')
-                        <flux:badge size="sm" color="emerald">Diterima</flux:badge>
-                    @elseif($quotation->status === 'rejected')
-                        <flux:badge size="sm" color="red">Ditolak</flux:badge>
-                    @elseif($quotation->status === 'converted')
-                        <flux:badge size="sm" color="purple" icon="check-badge">Jadi SO</flux:badge>
-                    @endif
+                    <flux:dropdown>
+                        <flux:button size="sm" class="!px-1.5 !py-0.5" variant="subtle" icon-trailing="chevron-down">
+                            @if($quotation->status === 'draft')
+                                <flux:badge size="sm" color="zinc" class="cursor-pointer">Draft</flux:badge>
+                            @elseif($quotation->status === 'sent')
+                                <flux:badge size="sm" color="blue" class="cursor-pointer">Terkirim</flux:badge>
+                            @elseif($quotation->status === 'accepted')
+                                <flux:badge size="sm" color="emerald" class="cursor-pointer">Diterima</flux:badge>
+                            @elseif($quotation->status === 'rejected')
+                                <flux:badge size="sm" color="red" class="cursor-pointer">Ditolak</flux:badge>
+                            @elseif($quotation->status === 'converted')
+                                <flux:badge size="sm" color="purple" icon="check-badge">Jadi SO</flux:badge>
+                            @endif
+                        </flux:button>
+                        
+                        @if($quotation->status !== 'converted')
+                        <flux:menu>
+                            <flux:menu.item wire:click="updateStatus('draft')">Draft / Konsep</flux:menu.item>
+                            <flux:menu.item wire:click="updateStatus('sent')">Terkirim</flux:menu.item>
+                            <flux:menu.item wire:click="updateStatus('accepted')">Diterima</flux:menu.item>
+                            <flux:menu.item wire:click="updateStatus('rejected')">Ditolak</flux:menu.item>
+                        </flux:menu>
+                        @endif
+                    </flux:dropdown>
                 </flux:heading>
                 <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Dibuat oleh {{ $quotation->creator->name ?? 'Sistem' }} pada {{ \Carbon\Carbon::parse($quotation->quotation_date)->format('d M Y') }}</p>
             </div>
@@ -379,7 +401,7 @@ $convertToSalesOrder = function () {
                             @if($diff > 0)
                                 <span class="text-red-500 text-xs ml-2 font-normal">(Kadaluarsa)</span>
                             @else
-                                <span class="text-emerald-500 text-xs ml-2 font-normal">(Berlaku {{ abs($diff) }} hari lagi)</span>
+                                <span class="text-emerald-500 text-xs ml-2 font-normal">(Berlaku {{ round(abs($diff)) }} hari lagi)</span>
                             @endif
                         @else
                             -

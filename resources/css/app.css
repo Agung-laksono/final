@@ -182,22 +182,7 @@ select:focus[data-flux-control] {
         font-size: 0.75rem;
     }
     
-    table.table-mobile-cards > tbody > tr > td::before {
-        content: attr(data-label) ": ";
-        display: inline-block;
-        font-weight: 500;
-        font-size: 0.7rem;
-        color: var(--color-zinc-500);
-        margin-right: 0.25rem;
-    }
-    .dark table.table-mobile-cards > tbody > tr > td::before {
-        color: var(--color-zinc-400);
-    }
-    
-    /* Don't show label for the main item */
-    table.table-mobile-cards > tbody > tr > td:first-child::before {
-        display: none; 
-    }
+    /* Removed mobile table labels to keep layout flat and compact */
 
     table.table-mobile-cards > tfoot {
         display: block;

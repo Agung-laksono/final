@@ -20,6 +20,8 @@ state([
     'perPage' => 10,
 ]);
 
+on(['quotation-updated' => function () {}]);
+
 $sort = function ($field) {
     if ($this->sortBy === $field) {
         $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';

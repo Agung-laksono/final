@@ -219,7 +219,7 @@ $convertToSalesOrder = function () {
                             @if($diff > 0)
                                 <span class="text-red-500 text-xs ml-2 font-normal">(Kadaluarsa)</span>
                             @else
-                                <span class="text-emerald-500 text-xs ml-2 font-normal">(Berlaku {{ abs($diff) }} hari lagi)</span>
+                                <span class="text-emerald-500 text-xs ml-2 font-normal">(Berlaku {{ round(abs($diff)) }} hari lagi)</span>
                             @endif
                         @else
                             -
