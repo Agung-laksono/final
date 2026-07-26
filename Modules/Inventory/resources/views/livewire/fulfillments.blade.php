@@ -444,95 +444,67 @@ on([
         </x-table.header>
 
         <x-table.wrapper>
-                {{-- Desktop Table --}}
-                <div class="hidden md:block">
-                    <flux:table>
-                        <flux:table.columns>
-                            <flux:table.column>No. WO</flux:table.column>
-                            <flux:table.column>Barang yang Diproduksi</flux:table.column>
-                            <flux:table.column>Target Produksi</flux:table.column>
-                            <flux:table.column>Status Bahan</flux:table.column>
-                        </flux:table.columns>
-        
-                        <flux:table.rows>
-                            @forelse($this->tableOrders as $order)
-                                <flux:table.row wire:key="table-order-{{ $order->id }}" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:click="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })">
-                                    <flux:table.cell>
-                                        <span class="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded">{{ $order->order_number }}</span>
-                                        <div class="text-[11px] text-zinc-500 mt-1.5 flex items-center gap-1 font-medium">
-                                            <flux:icon.clock class="w-3 h-3 text-zinc-400" />
-                                            {{ $order->created_at->format('d M Y') }}
-                                        </div>
-                                    </flux:table.cell>
-                                    <flux:table.cell>
-                                        <div class="flex items-center gap-3">
-                                            <flux:avatar src="{{ $order->item->image ? Storage::url($order->item->image) : '' }}" fallback="{{ substr($order->item->name ?? '?', 0, 2) }}" size="sm" class="shrink-0 rounded-md ring-1 ring-zinc-200 dark:ring-zinc-700" />
-                                            <div class="flex flex-col min-w-0">
-                                                <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">{{ $order->item->name }}</span>
-                                                <span class="text-[11px] text-zinc-500 font-mono flex items-center gap-1 mt-0.5">
-                                                    <flux:icon.qr-code class="w-3 h-3" />
-                                                    {{ $order->item->code ?? '-' }}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </flux:table.cell>
-                                    <flux:table.cell>
-                                        <span class="font-bold text-zinc-800 dark:text-zinc-200 text-base">{{ $order->requested_qty }}</span> <span class="text-xs font-medium text-zinc-500 uppercase tracking-wider">{{ $order->item->unit->name ?? 'pcs' }}</span>
-                                    </flux:table.cell>
-                                    <flux:table.cell>
-                                        @if($order->status === 'waiting_material')
-                                            <flux:badge size="sm" color="red">Kurang Bahan</flux:badge>
-                                        @else
-                                            <flux:badge size="sm" color="amber">Menunggu Bahan</flux:badge>
-                                        @endif
-                                    </flux:table.cell>
-                                </flux:table.row>
-                            @empty
-                                <flux:table.row>
-                                    <flux:table.cell colspan="4">
-                                        <div class="flex flex-col items-center justify-center py-12 text-zinc-500">
-                                            <flux:icon.clipboard-document-check class="w-12 h-12 mb-3 text-zinc-300 dark:text-zinc-600" />
-                                            <p>Tidak ada pesanan produksi yang mengantre bahan.</p>
-                                        </div>
-                                    </flux:table.cell>
-                                </flux:table.row>
-                            @endforelse
-                        </flux:table.rows>
-                    </flux:table>
-                </div>
+            <flux:table class="table-mobile-cards">
+                <flux:table.columns>
+                    <flux:table.column>No. WO & Tanggal</flux:table.column>
+                    <flux:table.column>Barang yang Diproduksi</flux:table.column>
+                    <flux:table.column>Target Produksi</flux:table.column>
+                    <flux:table.column>Status Bahan</flux:table.column>
+                </flux:table.columns>
 
-                {{-- Mobile Card List --}}
-                <div class="md:hidden flex flex-col divide-y divide-zinc-200 dark:divide-zinc-700">
+                <flux:table.rows>
                     @forelse($this->tableOrders as $order)
-                        <div class="p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer" x-on:click="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })">
-                            <div class="flex items-center justify-between mb-3">
-                                <span class="text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded">{{ $order->order_number }}</span>
-                                @if($order->status === 'waiting_material')
-                                    <flux:badge size="sm" color="red">Kurang</flux:badge>
-                                @else
-                                    <flux:badge size="sm" color="amber">Menunggu</flux:badge>
-                                @endif
-                            </div>
-                            <div class="flex gap-3 mb-4 items-center">
-                                <flux:avatar src="{{ $order->item->image ? Storage::url($order->item->image) : '' }}" fallback="{{ substr($order->item->name ?? '?', 0, 2) }}" size="md" class="shrink-0 rounded-lg shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700" />
-                                <div class="flex flex-col min-w-0 flex-1">
-                                    <div class="font-bold text-zinc-900 dark:text-zinc-100 mb-1 leading-snug truncate">{{ $order->item->name }}</div>
-                                    <div class="text-sm text-zinc-500 flex items-center gap-1.5 flex-wrap">
-                                        <span>Target: <span class="font-bold text-zinc-800 dark:text-zinc-200">{{ $order->requested_qty }}</span> <span class="text-[10px] uppercase">{{ $order->item->unit->name ?? 'pcs' }}</span></span>
-                                        <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
-                                        <span class="text-xs text-zinc-400">{{ $order->created_at->format('d M') }}</span>
+                        <flux:table.row wire:key="table-order-{{ $order->id }}" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:click="$dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} })">
+                            <flux:table.cell>
+                                <span class="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded">{{ $order->order_number }}</span>
+                                <div class="text-[11px] text-zinc-500 mt-1.5 flex items-center gap-1 font-medium">
+                                    <flux:icon.clock class="w-3 h-3 text-zinc-400" />
+                                    {{ $order->created_at->format('d M Y') }}
+                                </div>
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <div class="flex items-center gap-3 mt-1 sm:mt-0">
+                                    <flux:avatar src="{{ $order->item->image ? Storage::url($order->item->image) : '' }}" fallback="{{ substr($order->item->name ?? '?', 0, 2) }}" size="sm" class="shrink-0 rounded-md ring-1 ring-zinc-200 dark:ring-zinc-700" />
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">{{ $order->item->name }}</span>
+                                        <span class="text-[11px] text-zinc-500 font-mono flex items-center gap-1 mt-0.5">
+                                            <flux:icon.qr-code class="w-3 h-3" />
+                                            {{ $order->item->code ?? '-' }}
+                                        </span>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <div class="mt-1 sm:mt-0">
+                                    <span class="font-bold text-zinc-800 dark:text-zinc-200 text-base">{{ $order->requested_qty }}</span> <span class="text-xs font-medium text-zinc-500 uppercase tracking-wider">{{ $order->item->unit->name ?? 'pcs' }}</span>
+                                </div>
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                <div class="mt-1 sm:mt-0">
+                                    @if($order->status === 'waiting_material')
+                                        <flux:badge size="sm" color="red">Kurang Bahan</flux:badge>
+                                    @else
+                                        <flux:badge size="sm" color="amber">Menunggu Bahan</flux:badge>
+                                    @endif
+                                </div>
+                            </flux:table.cell>
+                        </flux:table.row>
                     @empty
-                        <div class="p-8 text-center text-zinc-500">Tidak ada pesanan produksi yang mengantre bahan.</div>
+                        <flux:table.row>
+                            <flux:table.cell colspan="4">
+                                <div class="flex flex-col items-center justify-center py-12 text-zinc-500">
+                                    <flux:icon.clipboard-document-check class="w-12 h-12 mb-3 text-zinc-300 dark:text-zinc-600" />
+                                    <p>Tidak ada pesanan produksi yang mengantre bahan.</p>
+                                </div>
+                            </flux:table.cell>
+                        </flux:table.row>
                     @endforelse
-                </div>
+                </flux:table.rows>
+            </flux:table>
 
-                <div class="mt-4 mb-8">
-                    {{ $this->tableOrders->links() }}
-                </div>
+            <div class="p-4 sm:p-6 sm:pt-0 border-t sm:border-t-0 border-zinc-200 dark:border-zinc-700/50 bg-white sm:bg-transparent">
+                {{ $this->tableOrders->links() }}
+            </div>
         </x-table.wrapper>
     </div>
     
