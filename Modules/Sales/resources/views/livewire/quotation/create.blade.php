@@ -1,7 +1,7 @@
 <?php
 use function Livewire\Volt\{state, layout, title, computed, on, mount, updated};
-use Modules\Sales\Models\quotation;
-use Modules\Sales\Models\quotationItem;
+use Modules\Sales\Models\Quotation;
+use Modules\Sales\Models\QuotationItem;
 use Modules\Sales\Models\Customer;
 use Modules\Inventory\Models\Item;
 use Illuminate\Support\Str;
