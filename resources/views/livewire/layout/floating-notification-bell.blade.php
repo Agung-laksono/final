@@ -73,7 +73,7 @@ on([
         
         $title = $event['title'] ?? 'Notifikasi Baru';
         $message = strip_tags($event['message'] ?? 'Anda memiliki notifikasi baru.');
-        \Flux::toast($title)->text($message);
+        \Flux::toast(text: $message, heading: $title);
     },
     // Tab lain menandai notifikasi sudah dibaca
     'echo-private:App.Models.User.{authId},.NotificationsRead' => function ($event) {
