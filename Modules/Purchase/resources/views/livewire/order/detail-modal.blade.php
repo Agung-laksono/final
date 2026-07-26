@@ -33,7 +33,7 @@ $getStatusBadge = function ($status) {
     <flux:modal wire:model="show" class="w-full md:w-[680px] space-y-3">
         @if($order)
             {{-- Header: PO Number + Status + Date --}}
-            <div class="pb-2 border-b border-zinc-200 dark:border-zinc-700 pr-6">
+            <div class="pb-2 border-b border-zinc-200 dark:border-zinc-700 pr-6 relative">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-mono text-base font-black text-zinc-800 dark:text-zinc-100">{{ $order->po_number }}</span>
                     {!! $this->getStatusBadge($order->status) !!}
@@ -46,38 +46,82 @@ $getStatusBadge = function ($status) {
                         <span class="font-medium">{{ explode(' ', $order->creator?->name ?? 'Sistem')[0] }}</span>
                     </div>
                 </div>
-                <div class="flex items-center gap-4 text-[11px] text-zinc-400 mt-0.5 flex-wrap">
-                    <span class="flex items-center gap-1">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        Order: {{ \Carbon\Carbon::parse($order->order_date)->translatedFormat('d F Y') }}
-                    </span>
-                    @if($order->expected_delivery_date)
-                        @php
-                            $deadline = \Carbon\Carbon::parse($order->expected_delivery_date);
-                            $now = \Carbon\Carbon::now();
-                            $isCompleted = in_array($order->status, ['completed', 'cancelled']);
-                            if ($isCompleted) {
-                                $dlColor = 'text-emerald-600'; $dlIcon = '✅';
-                            } elseif ($deadline->isPast()) {
-                                $dlColor = 'text-red-600 font-semibold'; $dlIcon = '🔴';
-                            } elseif ($deadline->diffInDays($now) <= 3) {
-                                $dlColor = 'text-amber-600 font-semibold'; $dlIcon = '⚠️';
-                            } else {
-                                $dlColor = 'text-zinc-500'; $dlIcon = '📅';
+                <div class="flex items-center justify-between mt-1">
+                    <div class="flex items-center gap-4 text-[11px] text-zinc-400 flex-wrap">
+                        <span class="flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            Order: {{ \Carbon\Carbon::parse($order->order_date)->translatedFormat('d F Y') }}
+                        </span>
+                        @if($order->expected_delivery_date)
+                            @php
+                                $deadline = \Carbon\Carbon::parse($order->expected_delivery_date);
+                                $now = \Carbon\Carbon::now();
+                                $isCompleted = in_array($order->status, ['completed', 'cancelled']);
+                                if ($isCompleted) {
+                                    $dlColor = 'text-emerald-600'; $dlIcon = '✅';
+                                } elseif ($deadline->isPast()) {
+                                    $dlColor = 'text-red-600 font-semibold'; $dlIcon = '🔴';
+                                } elseif ($deadline->diffInDays($now) <= 3) {
+                                    $dlColor = 'text-amber-600 font-semibold'; $dlIcon = '⚠️';
+                                } else {
+                                    $dlColor = 'text-zinc-500'; $dlIcon = '📅';
+                                }
+                            @endphp
+                            <span class="flex items-center gap-1 {{ $dlColor }}">
+                                {{ $dlIcon }} Deadline: {{ $deadline->translatedFormat('d F Y') }}
+                                @if(!$isCompleted && $deadline->isPast())
+                                    <span class="text-[10px]">({{ $deadline->locale('id')->diffForHumans() }})</span>
+                                @elseif(!$isCompleted && $deadline->isFuture())
+                                    <span class="text-[10px] text-zinc-400">({{ $deadline->locale('id')->diffForHumans() }})</span>
+                                @endif
+                            </span>
+                        @else
+                            <span class="flex items-center gap-1 text-zinc-400 italic">
+                                📅 Deadline: Tidak ditentukan
+                            </span>
+                        @endif
+                    </div>
+                    
+                    {{-- Tombol Print PO --}}
+                    @if(!in_array($order->status, ['pending_approval', 'rejected']))
+                        <div x-data="{
+                            printing: false,
+                            printPO(url, filename) {
+                                if (this.printing) return;
+                                
+                                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                                
+                                if (isMobile) {
+                                    window.open(url, '_blank');
+                                    return;
+                                }
+                                
+                                this.printing = true;
+                                
+                                const originalTitle = document.title;
+                                document.title = filename;
+
+                                const iframe = document.createElement('iframe');
+                                iframe.style.display = 'none';
+                                iframe.src = url;
+                                document.body.appendChild(iframe);
+                                iframe.onload = () => {
+                                    iframe.contentWindow.focus();
+                                    iframe.contentWindow.print();
+                                    this.printing = false;
+                                    
+                                    setTimeout(() => {
+                                        document.title = originalTitle;
+                                        document.body.removeChild(iframe);
+                                    }, 5000);
+                                };
                             }
-                        @endphp
-                        <span class="flex items-center gap-1 {{ $dlColor }}">
-                            {{ $dlIcon }} Deadline: {{ $deadline->translatedFormat('d F Y') }}
-                            @if(!$isCompleted && $deadline->isPast())
-                                <span class="text-[10px]">({{ $deadline->locale('id')->diffForHumans() }})</span>
-                            @elseif(!$isCompleted && $deadline->isFuture())
-                                <span class="text-[10px] text-zinc-400">({{ $deadline->locale('id')->diffForHumans() }})</span>
-                            @endif
-                        </span>
-                    @else
-                        <span class="flex items-center gap-1 text-zinc-400 italic">
-                            📅 Deadline: Tidak ditentukan
-                        </span>
+                        }">
+                            <flux:button size="sm" variant="subtle" class="!px-2 !py-1 h-auto text-[10px]" icon="printer" x-on:click="printPO('{{ route('purchase.orders.print', $order->id) }}', '{{ $order->po_number }} {{ addslashes($order->vendor?->name ?? '') }}')" x-bind:disabled="printing">
+                                <span x-show="!printing">Cetak PO</span>
+                                <span x-show="printing" style="display: none;">Mencetak...</span>
+                            </flux:button>
+                        </div>
                     @endif
                 </div>
             </div>

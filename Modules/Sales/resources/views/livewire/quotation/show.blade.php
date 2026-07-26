@@ -16,10 +16,12 @@ mount(function ($id) {
 $convertToSalesOrder = function () {
     abort_unless(auth()->user()->can('sales.order.create'), 403);
     
-    // Konversi SQ ke SO logic
-    $latestPo = \Modules\Sales\Models\SalesOrder::orderBy('id', 'desc')->first();
+    // Buat one-time token yang disimpan di cache (berlaku 5 menit)
+    $token = \Illuminate\Support\Str::random(40);
+    \Illuminate\Support\Facades\Cache::put('sq_convert_' . $token, $this->quotation->id, now()->addMinutes(5));
+    
     \Flux::toast('Memuat data penawaran ke form Sales Order...', variant: 'success');
-    return redirect()->route('sales.orders.create', ['from_quotation' => $this->quotation->id]);
+    $this->redirect(route('sales.orders.create', ['token' => $token]), navigate: true);
 };
 
 ?>
@@ -46,10 +48,17 @@ $convertToSalesOrder = function () {
         
         <div class="flex items-center gap-2 print:hidden">
             <flux:button variant="subtle" icon="arrow-left" href="{{ route('sales.quotations.index') }}" wire:navigate>Kembali</flux:button>
-            <flux:button variant="subtle" icon="printer" onclick="window.print()">Cetak</flux:button>
+            <flux:button variant="subtle" icon="printer" href="{{ route('sales.quotations.print', $quotation->id) }}" wire:navigate>Cetak</flux:button>
             
             @if(in_array($quotation->status, ['draft', 'sent', 'accepted']) && auth()->user()->can('sales.order.create'))
-                <flux:button variant="primary" icon="document-duplicate" wire:click="convertToSalesOrder" wire:confirm="Konversi penawaran ini ke Sales Order?">Konversi ke SO</flux:button>
+                <flux:button variant="primary" wire:click="convertToSalesOrder">
+                    <div class="flex items-center gap-1.5">
+                        <flux:icon.document-duplicate class="w-4 h-4" wire:loading.remove wire:target="convertToSalesOrder" />
+                        <flux:icon.loading class="w-4 h-4 animate-spin" wire:loading wire:target="convertToSalesOrder" />
+                        <span wire:loading.remove wire:target="convertToSalesOrder">Konversi ke SO</span>
+                        <span wire:loading wire:target="convertToSalesOrder">Memproses...</span>
+                    </div>
+                </flux:button>
             @endif
         </div>
     </div>

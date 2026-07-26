@@ -29,7 +29,7 @@
                 margin: 0 !important;
                 padding: 1cm;
                 box-shadow: none !important;
-                min-height: 100vh !important;
+                min-height: auto !important;
                 background-color: transparent !important;
             }
             table { page-break-inside: auto; }
@@ -94,6 +94,12 @@
 
 <!-- Action Bar -->
 <div class="flex justify-end mb-8 no-print border-b pb-4 p-4 bg-zinc-50">
+    <button onclick="window.close()" class="px-4 py-2 bg-white border border-zinc-300 text-zinc-700 rounded-md text-sm font-medium hover:bg-zinc-50 flex items-center gap-2 shadow-sm transition-all mr-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        Tutup Tab
+    </button>
     <button onclick="window.print()" class="px-4 py-2 bg-zinc-900 text-white rounded-md text-sm font-medium hover:bg-zinc-800 flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />

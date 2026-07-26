@@ -68,7 +68,12 @@
         }
         .clear { clear: both; }
         @media print {
-            body { padding: 0; }
+            @page {
+                size: A4 portrait;
+                margin: 1cm;
+            }
+            body { padding: 0; min-height: auto !important; }
+            .no-print { display: none !important; }
             .btn-print { display: none; }
         }
         .btn-print {
@@ -86,7 +91,10 @@
 </head>
 <body>
 
-    <button onclick="window.print()" class="btn-print">🖨️ Cetak Dokumen</button>
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;" class="no-print">
+        <button onclick="window.close()" class="btn-print" style="background: #dc2626; margin-bottom: 0;">✖️ Tutup Tab</button>
+        <button onclick="window.print()" class="btn-print" style="margin-bottom: 0;">🖨️ Cetak Dokumen</button>
+    </div>
 
     <div class="header">
         <h1>PT. AGUNG LAKSONO</h1>

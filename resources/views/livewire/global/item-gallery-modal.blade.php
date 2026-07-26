@@ -86,7 +86,7 @@ new class extends Component {
                 ->where('custom_attachments', '!=', '[]')
                 ->where('custom_attachments', '!=', '')
                 ->latest('id')
-                ->limit(5)
+                ->limit(30)
         ])->withCount('customVariants');
 
         if (strlen($this->searchQuery) >= 2) {
@@ -307,7 +307,7 @@ new class extends Component {
                 </div>
             </div>
 
-            <div wire:loading.remove wire:target="searchQuery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
+            <div x-data="{ expandedIds: [] }" wire:loading.remove wire:target="searchQuery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-2">
                 @forelse($galleryItems as $item)
                     @php
                         // Group by the first image attachment to avoid identical avatars
@@ -415,50 +415,7 @@ new class extends Component {
                                 </div>
                             @endif
 
-                             {{-- Thumbnail Slider (Bertumpuk Vertikal di Kanan Atas Gambar) --}}
-                             @if($groupedVariants->isNotEmpty())
-                                 <div class="absolute right-1.5 md:right-2 top-1.5 md:top-2 bottom-1.5 md:bottom-2 flex flex-col gap-1 md:gap-2 overflow-y-auto custom-scrollbar snap-y z-30 items-end pointer-events-auto variant-slider" style="scrollbar-width: none;">
-                                     {{-- Thumbnail Variasi --}}
-                                     @foreach($groupedVariants as $imagePath => $group)
-                                         @php
-                                             $variant = $group->first();
-                                             $customer = $variant->salesOrder?->customer?->name;
-                                             
-                                             $attrs = !empty($variant->custom_attributes) ? collect($variant->custom_attributes)->map(function($v, $k) {
-                                                 $valStr = is_array($v) ? implode(': ', $v) : $v;
-                                                 return is_numeric($k) ? $valStr : $k . ': ' . $valStr;
-                                             })->implode(' | ') : '';
-                                             
-                                             $desc = [];
-                                             if ($customer) $desc[] = 'Pesanan: ' . $customer;
-                                             if ($attrs) $desc[] = $attrs;
-                                             
-                                             $variantData = [
-                                                 'image' => asset('storage/' . $imagePath),
-                                                 'image_raw' => $imagePath,
-                                                 'description' => empty($desc) ? 'Varian tanpa detail' : implode(' • ', $desc),
-                                                 'customer' => $customer ?? 'Pelanggan Umum',
-                                                 'date' => $variant->created_at?->format('d M Y') ?? '',
-                                                 'attributes' => $attrs,
-                                                 'custom_attributes' => $variant->custom_attributes ?? [],
-                                                 'custom_attachments' => $variant->custom_attachments ?? [],
-                                                 'note' => $variant->note ?? '',
-                                                 'unit_price' => (float) $variant->unit_price
-                                             ];
-                                         @endphp
-                                         <div @click.stop="activeVariants[{{ $item->id }}] = @js($variantData); $el.parentElement.scrollTo({ top: $el.offsetTop - $el.parentElement.clientHeight / 2 + $el.clientHeight / 2, behavior: 'smooth' })"
-                                              class="relative w-7 h-7 xl:w-8 xl:h-8 rounded md:rounded-lg border-2 shrink-0 overflow-hidden cursor-pointer snap-start transition-all bg-white/40 dark:bg-zinc-900/40 shadow-md backdrop-blur-md opacity-60 hover:opacity-100"
-                                              :class="activeVariants[{{ $item->id }}] && activeVariants[{{ $item->id }}].image === '{{ $variantData['image'] }}' ? 'border-indigo-500' : 'border-white/80 dark:border-zinc-600/80 hover:border-white dark:hover:border-zinc-500'">
-                                             <img src="{{ $variantData['image'] }}" class="w-full h-full object-cover">
-                                         </div>
-                                     @endforeach
-                                     @if(collect($item->customVariants)->filter(fn($v) => !empty($v->custom_attachments))->groupBy(fn($v) => $v->custom_attachments[0])->count() > 0)
-                                         <div wire:click.stop="toggleVariants({{ $item->id }})" class="w-7 h-5 xl:w-8 shrink-0 bg-white/90 dark:bg-zinc-800/90 rounded md:rounded-lg border shadow-sm text-[8px] font-black flex items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors text-indigo-600 dark:text-indigo-400 mt-1 mb-1">
-                                             {{ in_array($item->id, $expandedItemIds) ? 'Less' : 'More' }}
-                                         </div>
-                                     @endif
-                                 </div>
-                             @endif
+                             {{-- Thumbnail Slider Dihapus Sesuai Permintaan --}}
                         </div>
                          <div class="p-3 flex flex-col flex-1 relative">
                              {{-- Badge Tipe Barang & Varian Kustom (Straddling Kiri & Kanan Bawah Gambar) --}}
@@ -565,12 +522,34 @@ new class extends Component {
                                     <span class="text-[8px] font-medium text-zinc-400 dark:text-zinc-500">{{ $item->unit?->name ?? '-' }}</span>
                                 </div>
                             </div>
-                        </div>
+                             
+                             {{-- Tombol Lihat Varian (Alpine Client-Side) --}}
+                             @if(collect($item->customVariants)->filter(fn($v) => !empty($v->custom_attachments))->count() > 0)
+                                 <button type="button" @click.stop="expandedIds.includes({{ $item->id }}) ? expandedIds = expandedIds.filter(id => id !== {{ $item->id }}) : expandedIds.push({{ $item->id }})"
+                                         :class="expandedIds.includes({{ $item->id }}) ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600'"
+                                         class="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all">
+                                     <flux:icon.squares-2x2 class="w-3 h-3" />
+                                     <span x-show="expandedIds.includes({{ $item->id }})" x-cloak>Tutup Varian</span>
+                                     <span x-show="!expandedIds.includes({{ $item->id }})">Lihat Varian Kustom</span>
+                                 </button>
+                             @endif</div>
                     </div>
                     
-                    {{-- Expanded Variant Cards (Sibling to Master Card) --}}
-                    @if(in_array($item->id, $expandedItemIds))
-                        @foreach($item->customVariants->sortByDesc('created_at')->take(12) as $v)
+                    {{-- Expanded Variant Cards (Sibling to Master Card) - Client Side Rendering via Alpine --}}
+                    @php
+                        $dedupedVariants = collect($item->customVariants)
+                            ->filter(fn($v) => !empty($v->custom_attachments))
+                            ->unique(function($v) {
+                                $imgKey = $v->custom_attachments[0] ?? '';
+                                $attrKey = is_array($v->custom_attributes) ? json_encode($v->custom_attributes) : ($v->custom_attributes ?? '');
+                                return md5($imgKey . '|' . $attrKey);
+                            })
+                            ->sortByDesc('created_at')
+                            ->take(12)
+                            ->values();
+                    @endphp
+                    @foreach($dedupedVariants as $v)
+                        <template x-if="expandedIds.includes({{ $item->id }})">
                             @php
                                 $customer = $v->salesOrder?->customer?->name;
                                 $attrs = !empty($v->custom_attributes) ? collect($v->custom_attributes)->map(function($val, $k) {
@@ -659,8 +638,8 @@ new class extends Component {
                                     </div>
                                 </div>
                             </div>
+                        </template>
                         @endforeach
-                    @endif
                 @empty
                     <div class="col-span-full py-12 text-center flex flex-col items-center justify-center">
                         <flux:icon.inbox class="w-12 h-12 text-zinc-300 mb-3" />

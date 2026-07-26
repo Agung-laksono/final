@@ -23,9 +23,11 @@ $proceedToPO = function () {
         return;
     }
     
-    // Redirect ke halaman Create PO dengan membawa parameter queues
-    $queueIds = implode(',', $this->selected_queues);
-    return redirect()->route('purchase.orders.create', ['queues' => $queueIds]);
+    // Simpan daftar queue ke cache dengan one-time token (berlaku 5 menit)
+    $token = \Illuminate\Support\Str::random(40);
+    \Illuminate\Support\Facades\Cache::put('pq_create_' . $token, $this->selected_queues, now()->addMinutes(5));
+    
+    return redirect()->route('purchase.orders.create', ['token' => $token]);
 };
 
 ?>

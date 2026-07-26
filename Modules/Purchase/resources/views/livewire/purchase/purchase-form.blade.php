@@ -94,8 +94,16 @@ mount(function ($id = null) {
     } else {
         $this->po_number = ''; // Will be generated on save
 
-        if (request()->has('queues')) {
-            $queueIds = explode(',', request()->query('queues'));
+        if (request()->has('token')) {
+            $token = request('token');
+            $queueIds = \Illuminate\Support\Facades\Cache::pull('pq_create_' . $token);
+            
+            if (!$queueIds) {
+                // Token tidak valid / sudah dipakai / kadaluarsa
+                \Flux::toast('Sesi pembuatan PO tidak valid atau sudah kadaluarsa. Silakan pilih antrean lagi.', variant: 'danger');
+                return;
+            }
+            
             $this->source_queues = $queueIds;
             
             $queues = \Modules\Purchase\Models\PurchaseQueue::with('item')

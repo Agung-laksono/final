@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ strtolower($quotation->quotation_number) }}</title>
+    <title>{{ strtolower($salesOrder->so_number) }}</title>
     @vite(['resources/css/app.css'])
     <style>
         body {
@@ -104,29 +104,29 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
         </svg>
-        Cetak Penawaran
+        Cetak Sales Order
     </button>
 </div>
 
-<!-- PAGE 1: Penawaran MAIN -->
+<!-- PAGE 1: Sales Order MAIN -->
 <div class="page-container px-8 py-8 relative flex flex-col">
     <!-- Header Section -->
     <div class="flex justify-between items-start mb-8">
         <div>
-            @if($quotation->creator->brand && $quotation->creator->brand->logo)
-                <img src="{{ Storage::url($quotation->creator->brand->logo) }}" alt="Logo" class="h-20 w-auto object-contain">
+            @if($salesOrder->creator->brand && $salesOrder->creator->brand->logo)
+                <img src="{{ Storage::url($salesOrder->creator->brand->logo) }}" alt="Logo" class="h-20 w-auto object-contain">
             @else
                 <h1 class="text-3xl font-bold text-amber-700 font-serif tracking-tighter">
-                    {{ $quotation->creator->brand ? substr($quotation->creator->brand->name, 0, 2) : 'SO' }}
+                    {{ $salesOrder->creator->brand ? substr($salesOrder->creator->brand->name, 0, 2) : 'SO' }}
                 </h1>
                 <div class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">PRODUSEN KAMI</div>
             @endif
         </div>
         <div class="text-right">
-            <div class="text-2xl mb-1"><span class="text-zinc-900 font-medium">Penawaran</span> <span class="font-black">{{ $quotation->quotation_number }}</span></div>
-            <div class="text-sm text-zinc-900">Tgl: <span class="font-bold">{{ \Carbon\Carbon::parse($quotation->quotation_date)->format('d-m-Y') }}</span></div>
-            @if($quotation->deadline)
-                <div class="text-sm text-red-600 mt-0.5">Tenggat: <span class="font-bold">{{ \Carbon\Carbon::parse($quotation->deadline)->format('d-m-Y') }}</span></div>
+            <div class="text-2xl mb-1"><span class="text-zinc-900 font-medium">Sales Order</span> <span class="font-black">{{ $salesOrder->so_number }}</span></div>
+            <div class="text-sm text-zinc-900">Tgl: <span class="font-bold">{{ \Carbon\Carbon::parse($salesOrder->order_date)->format('d-m-Y') }}</span></div>
+            @if($salesOrder->deadline)
+                <div class="text-sm text-red-600 mt-0.5">Tenggat: <span class="font-bold">{{ \Carbon\Carbon::parse($salesOrder->deadline)->format('d-m-Y') }}</span></div>
             @endif
         </div>
     </div>
@@ -138,28 +138,28 @@
             <div class="font-semibold text-zinc-500 mb-1">DARI :</div>
             @php 
                 $senderPhone = null;
-                if($quotation->creator->brand && $quotation->creator->brand->phone) { $senderPhone = $quotation->creator->brand->phone; }
-                elseif($quotation->creator->phone) { $senderPhone = $quotation->creator->phone; }
+                if($salesOrder->creator->brand && $salesOrder->creator->brand->phone) { $senderPhone = $salesOrder->creator->brand->phone; }
+                elseif($salesOrder->creator->phone) { $senderPhone = $salesOrder->creator->phone; }
             @endphp
             <div class="font-bold text-base uppercase text-black">
-                {{ $quotation->creator->brand ? $quotation->creator->brand->name : 'PERUSAHAAN' }}
+                {{ $salesOrder->creator->brand ? $salesOrder->creator->brand->name : 'PERUSAHAAN' }}
                 @if($senderPhone) <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $senderPhone }})</span> @endif
             </div>
-            @if($quotation->creator->brand && $quotation->creator->brand->address)
-                <div class="whitespace-pre-line">{{ $quotation->creator->brand->address }}</div>
+            @if($salesOrder->creator->brand && $salesOrder->creator->brand->address)
+                <div class="whitespace-pre-line">{{ $salesOrder->creator->brand->address }}</div>
             @endif
             
             <div class="mt-1.5 text-zinc-700">
                 @php $contacts = []; @endphp
-                @if($quotation->creator->brand && $quotation->creator->brand->email) @php $contacts[] = $quotation->creator->brand->email; @endphp @endif
-                @if($quotation->creator->brand && $quotation->creator->brand->website) @php $contacts[] = $quotation->creator->brand->website; @endphp @endif
+                @if($salesOrder->creator->brand && $salesOrder->creator->brand->email) @php $contacts[] = $salesOrder->creator->brand->email; @endphp @endif
+                @if($salesOrder->creator->brand && $salesOrder->creator->brand->website) @php $contacts[] = $salesOrder->creator->brand->website; @endphp @endif
                 
                 @if(!empty($contacts))
                     <div>{{ implode(' • ', $contacts) }}</div>
                 @endif
                 
-                @if($quotation->creator->brand && $quotation->creator->brand->npwp)
-                    <div>NPWP: {{ $quotation->creator->brand->npwp }}</div>
+                @if($salesOrder->creator->brand && $salesOrder->creator->brand->npwp)
+                    <div>NPWP: {{ $salesOrder->creator->brand->npwp }}</div>
                 @endif
             </div>
         </div>
@@ -168,21 +168,21 @@
         <div class="w-1/2 text-[13px] leading-relaxed">
             <div class="font-semibold text-zinc-500 mb-1">KEPADA :</div>
             <div class="font-bold text-base uppercase text-black">
-                {{ $quotation->customer->name ?? $quotation->customer_name ?? 'Pelanggan Umum' }}
-                @if($quotation->customer && $quotation->customer->phone) 
-                    <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $quotation->customer->phone }})</span> 
-                @elseif($quotation->customer_phone)
-                    <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $quotation->customer_phone }})</span>
+                {{ $salesOrder->customer->name ?? $salesOrder->customer_name ?? 'Pelanggan Umum' }}
+                @if($salesOrder->customer && $salesOrder->customer->phone) 
+                    <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $salesOrder->customer->phone }})</span> 
+                @elseif($salesOrder->customer_phone)
+                    <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $salesOrder->customer_phone }})</span>
                 @endif
             </div>
             @php
-                $customerRegion = $quotation->customer ? collect([
-                    $quotation->customer->province,
-                    $quotation->customer->city,
-                    $quotation->customer->district,
-                    $quotation->customer->village
+                $customerRegion = $salesOrder->customer ? collect([
+                    $salesOrder->customer->province,
+                    $salesOrder->customer->city,
+                    $salesOrder->customer->district,
+                    $salesOrder->customer->village
                 ])->filter()->implode(', ') : '';
-                $customerDetail = $quotation->shipping_address ?? ($quotation->customer ? $quotation->customer->address : '-');
+                $customerDetail = $salesOrder->shipping_address ?? ($salesOrder->customer ? $salesOrder->customer->address : '-');
             @endphp
             @if($customerRegion)
                 <div>{{ $customerRegion }}</div>
@@ -204,7 +204,7 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($quotation->items as $index => $item)
+            @foreach($salesOrder->items as $index => $item)
             <tr>
                 <td class="text-zinc-500">{{ $index + 1 }}</td>
                 <td>
@@ -242,16 +242,16 @@
     <!-- Totals -->
     <div class="flex justify-between mt-2">
         <div class="w-1/2 pr-8">
-            @if($quotation->notes)
+            @if($salesOrder->notes)
                 <div class="text-xs text-zinc-700 bg-zinc-50 border border-zinc-200 p-3 rounded mt-2">
                     <div class="font-bold mb-1 text-zinc-900">Catatan Khusus:</div>
-                    <div class="whitespace-pre-wrap">{{ $quotation->notes }}</div>
+                    <div class="whitespace-pre-wrap">{{ $salesOrder->notes }}</div>
                 </div>
             @endif
         </div>
         <div class="w-1/2">
             @php
-                $subtotal = collect($quotation->items)->sum('subtotal');
+                $subtotal = collect($salesOrder->items)->sum('subtotal');
             @endphp
             <table class="totals-table text-sm">
                 <tr>
@@ -260,15 +260,15 @@
                 </tr>
                 <tr>
                     <td>Biaya pengiriman</td>
-                    <td>{{ number_format($quotation->shipping_fee + $quotation->packing_fee, 0, ',', '.') }}</td>
+                    <td>{{ number_format($salesOrder->shipping_fee + $salesOrder->packing_fee, 0, ',', '.') }}</td>
                 </tr>
                 <tr>
                     <td>Diskon</td>
-                    <td>{{ number_format($quotation->discount, 0, ',', '.') }}</td>
+                    <td>{{ number_format($salesOrder->discount, 0, ',', '.') }}</td>
                 </tr>
                 <tr class="bg-gray font-bold text-lg">
                     <td>Total</td>
-                    <td>{{ number_format($quotation->total_amount, 0, ',', '.') }}</td>
+                    <td>{{ number_format($salesOrder->total_amount, 0, ',', '.') }}</td>
                 </tr>
             </table>
         </div>
@@ -277,28 +277,28 @@
 </div>
 
 <!-- PAGE 2, 3..: DETAILS -->
-@foreach($quotation->items as $index => $item)
+@foreach($salesOrder->items as $index => $item)
 <div style="page-break-before: always;"></div>
 <div class="page-container px-8 py-8 relative">
     <div class="watermark">
-        {{ strtoupper($quotation->creator->brand ? $quotation->creator->brand->name : 'PERUSAHAAN') }}
+        {{ strtoupper($salesOrder->creator->brand ? $salesOrder->creator->brand->name : 'PERUSAHAAN') }}
     </div>
 
     <!-- Header -->
     <div class="flex justify-between items-start mb-8">
         <div>
-            @if($quotation->creator->brand && $quotation->creator->brand->logo)
-                <img src="{{ Storage::url($quotation->creator->brand->logo) }}" alt="Logo" class="h-16 w-auto object-contain">
+            @if($salesOrder->creator->brand && $salesOrder->creator->brand->logo)
+                <img src="{{ Storage::url($salesOrder->creator->brand->logo) }}" alt="Logo" class="h-16 w-auto object-contain">
             @else
                 <h1 class="text-3xl font-bold text-amber-700 font-serif tracking-tighter">
-                    {{ $quotation->creator->brand ? substr($quotation->creator->brand->name, 0, 2) : 'SO' }}
+                    {{ $salesOrder->creator->brand ? substr($salesOrder->creator->brand->name, 0, 2) : 'SO' }}
                 </h1>
                 <div class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">PRODUSEN KAMI</div>
             @endif
         </div>
         <div class="text-right">
             <div class="text-2xl font-black mb-1">Detail No {{ $index + 1 }}</div>
-            <div class="text-sm text-zinc-600">Code: <span class="font-bold text-zinc-900">{{ $quotation->quotation_number }}</span></div>
+            <div class="text-sm text-zinc-600">Code: <span class="font-bold text-zinc-900">{{ $salesOrder->so_number }}</span></div>
         </div>
     </div>
 

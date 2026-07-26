@@ -129,8 +129,8 @@ $getStatusBadge = function ($status) {
                                     }, 5000);
                                 };
                             }
-                        }">
-                            <flux:button size="sm" variant="subtle" class="!px-2 !py-1 h-auto text-[10px]" icon="printer" x-on:click="printInvoice('{{ route('sales.orders.invoice', $order->id) }}', '{{ $order->so_number }} {{ addslashes($order->customer?->name ?? '') }}')" x-bind:disabled="printing">
+                        }" class="flex items-center gap-2">
+                            <flux:button size="sm" variant="subtle" class="!px-2 !py-1 h-auto text-[10px]" icon="document-text" x-on:click="printInvoice('{{ route('sales.orders.invoice', $order->id) }}', '{{ $order->so_number }} {{ addslashes($order->customer?->name ?? '') }}')" x-bind:disabled="printing">
                                 <span x-show="!printing">Cetak Nota</span>
                                 <span x-show="printing" style="display: none;">Mencetak...</span>
                             </flux:button>

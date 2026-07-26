@@ -161,9 +161,11 @@ $proceedToPO = function () {
         return;
     }
     
-    // Redirect ke halaman Create PO dengan membawa parameter queues
-    $queueIds = implode(',', $this->selectedQueues);
-    return $this->redirectRoute('purchase.orders.create', ['queues' => $queueIds], navigate: true);
+    // Simpan daftar queue ke cache dengan one-time token (berlaku 5 menit)
+    $token = \Illuminate\Support\Str::random(40);
+    \Illuminate\Support\Facades\Cache::put('pq_create_' . $token, $this->selectedQueues, now()->addMinutes(5));
+    
+    return $this->redirectRoute('purchase.orders.create', ['token' => $token], navigate: true);
 };
 
 on(['status-updated' => function () {

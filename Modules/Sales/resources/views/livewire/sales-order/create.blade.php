@@ -109,8 +109,16 @@ mount(function ($id = null) {
                 'has_history' => $hasHistory,
             ];
         }
-    } elseif (request()->has('from_quotation')) {
-        $quotationId = request('from_quotation');
+    } elseif (request()->has('token')) {
+        $token = request('token');
+        $quotationId = \Illuminate\Support\Facades\Cache::pull('sq_convert_' . $token);
+        
+        if (!$quotationId) {
+            // Token tidak valid / sudah kadaluarsa / sudah dipakai
+            \Flux::toast('Sesi konversi tidak valid atau sudah kadaluarsa. Silakan klik tombol Konversi lagi.', variant: 'danger');
+            return;
+        }
+        
         $this->from_quotation_id = $quotationId;
         
         $quotation = \Modules\Sales\Models\Quotation::with(['items.item.unit', 'customer'])->findOrFail($quotationId);
@@ -140,17 +148,23 @@ mount(function ($id = null) {
         $this->notes = $notesText . "[Konversi dari Penawaran: " . $quotation->quotation_number . "]";
         
         $this->items = $quotation->items->map(function($item) {
+            $hasHistory = \Modules\Sales\Models\SalesOrderItem::where('item_id', $item->item_id)
+                ->whereHas('salesOrder', function($q) {
+                    $q->where('status', '!=', 'draft');
+                })->exists();
+                
             return [
                 'id' => null,
                 'item_id' => $item->item_id,
-                'name' => $item->item->name,
-                'sku' => $item->item->sku,
-                'image' => $item->item->image,
+                'name' => $item->item->name ?? 'Unknown',
+                'code' => $item->item->code ?? '0001',
+                'image' => $item->item->image ?? null,
                 'unit' => $item->item->unit->name ?? 'pcs',
                 'qty' => $item->qty,
                 'unit_price' => $item->unit_price,
                 'subtotal' => $item->subtotal,
-                'note' => $item->note,
+                'note' => $item->notes ?? '',
+                'has_history' => $hasHistory,
             ];
         })->toArray();
         
@@ -880,7 +894,7 @@ $saveCart = function ($cartData) {
                             
                             {{-- Tombol Edit & Silang Batal Pilih --}}
                             <div class="shrink-0 flex items-center gap-1">
-                                <flux:button type="button" variant="subtle" size="sm" icon="pencil-square" 
+                                <flux:button x-show="$wire.from_quotation_id" x-cloak type="button" variant="subtle" size="sm" icon="pencil-square" 
 class="text-zinc-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors rounded-full w-8 h-8 flex items-center justify-center p-0" @click="$dispatch('open-customer-modal', { id: customer.id })" tooltip="Edit Customer"></flux:button>
                                 <flux:button type="button" variant="subtle" size="sm" icon="x-mark" 
 class="text-zinc-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors rounded-full w-8 h-8 flex items-center justify-center p-0" @click="customer = null; $wire.customer_id = ''; $wire.selected_customer = null" tooltip="Ganti Customer"></flux:button>

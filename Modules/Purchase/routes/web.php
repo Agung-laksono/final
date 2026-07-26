@@ -21,6 +21,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     \Livewire\Volt\Volt::route('purchase/queues', 'queue.kanban')->name('purchase.queues.kanban')->middleware('permission:purchase.queue.view');
     \Livewire\Volt\Volt::route('purchase/orders', 'order.kanban')->name('purchase.orders.kanban')->middleware('permission:purchase.order.view');
     
+    // Rute Print Purchase Order
+    Route::get('purchase/orders/{id}/print', [\Modules\Purchase\Http\Controllers\PurchaseOrderPrintController::class, 'show'])
+        ->name('purchase.orders.print')
+        ->middleware('permission:purchase.order.view');
+    
     // Rute Volt untuk Retur Pembelian
     \Livewire\Volt\Volt::route('purchase/returns', 'returns.index')->name('purchase.returns.index')->middleware('permission:purchase.return.view');
     \Livewire\Volt\Volt::route('purchase/returns/create', 'returns.form')->name('purchase.returns.create')->middleware('permission:purchase.return.create');
