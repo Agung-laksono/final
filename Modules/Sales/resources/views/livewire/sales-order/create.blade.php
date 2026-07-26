@@ -1239,8 +1239,17 @@ $saveCart = function ($cartData) {
                 this.updateItemSubtotal(index);
             },
 
-            addItem(newItem) {
-                let existingIndex = this.items.findIndex(i => i.item_id == newItem.item_id);
+            addItem(newItem, forceNew = false) {
+                let existingIndex = -1;
+                if (!forceNew) {
+                    existingIndex = this.items.findIndex(i => {
+                        let isSameId = i.item_id == newItem.item_id;
+                        let hasNoCustomAttrs = !i.custom_attributes || (typeof i.custom_attributes === 'object' && Object.keys(i.custom_attributes).length === 0);
+                        let hasNoCustomAttachs = !i.custom_attachments || i.custom_attachments.length === 0;
+                        return isSameId && hasNoCustomAttrs && hasNoCustomAttachs;
+                    });
+                }
+                
                 if (existingIndex !== -1) {
                     // Update qty
                     this.items[existingIndex].qty = (parseInt(this.items[existingIndex].qty) || 0) + 1;
@@ -1344,7 +1353,7 @@ $saveCart = function ($cartData) {
                 if (cartElement) {
                     let cart = Alpine.$data(cartElement);
                     if (cart) {
-                        cart.addItem(detail.item);
+                        cart.addItem(detail.item, true);
                         // The newly added or updated item is now at index 0
                         cart.items[0].custom_attributes = detail.custom_attributes;
                         cart.items[0].custom_attachments = detail.custom_attachments;

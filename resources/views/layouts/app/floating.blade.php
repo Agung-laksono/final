@@ -34,7 +34,7 @@
                  class="fixed inset-0 bg-gradient-to-t from-white/90 via-white/60 to-white/20 dark:from-zinc-950/90 dark:via-zinc-950/60 dark:to-zinc-950/20 backdrop-blur-xl z-[890]"
                  @click="close()"></div>
                  
-            <div class="fixed bottom-1 lg:bottom-6 left-3 lg:left-8 z-[900] pointer-events-none">
+            <div class="fixed bottom-1 lg:bottom-6 left-3 lg:left-8 z-[900] pointer-events-none print:hidden">
                 <div class="pointer-events-auto">
                     <style>
                         .speed-dial-menu span {
@@ -917,7 +917,7 @@
         <x-camera-scanner />
         {{-- AI Chat Widget (standalone, di luar speed dial) --}}
         @if(!request()->is('chat*'))
-        <div class="fixed bottom-3 lg:bottom-8 right-4 lg:right-8 z-[950]">
+        <div class="fixed bottom-3 lg:bottom-8 right-4 lg:right-8 z-[950] print:hidden">
             <livewire:ai-chat-widget />
         </div>
         @endif

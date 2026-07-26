@@ -1,17 +1,15 @@
 <?php
-use function Livewire\Volt\{state, layout, title, computed, mount};
+use function Livewire\Volt\{state, on};
 use Modules\Sales\Models\Quotation;
-
-layout('layouts.app');
-title('Detail Penawaran Harga');
 
 state([
     'quotation' => null,
 ]);
 
-mount(function ($id) {
+on(['show-quotation-detail' => function ($id) {
     $this->quotation = Quotation::with(['customer', 'items.item.unit', 'creator'])->findOrFail($id);
-});
+    \Flux::modal('quotation-detail')->show();
+}]);
 
 $convertToSalesOrder = function () {
     abort_unless(auth()->user()->can('sales.order.create'), 403);
@@ -19,7 +17,7 @@ $convertToSalesOrder = function () {
     // Konversi SQ ke SO logic
     $latestPo = \Modules\Sales\Models\SalesOrder::orderBy('id', 'desc')->first();
     $nextId = $latestPo ? $latestPo->id + 1 : 1000;
-    $soNumber = 'SO-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+    $soNumber = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
     
     $so = \Modules\Sales\Models\SalesOrder::create([
         'so_number' => $soNumber,
@@ -57,10 +55,16 @@ $convertToSalesOrder = function () {
 
 ?>
 
-<div class="max-w-5xl mx-auto py-6 space-y-6">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+<flux:modal name="quotation-detail" class="md:max-w-5xl w-full">
+@if($quotation)
+<div class="py-0 space-y-6">
+    {{-- Modal Header --}}
+    <div class="flex items-center gap-4 mb-2 pb-4 border-b border-zinc-200 dark:border-zinc-700">
+        <div class="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400 shadow-sm shrink-0">
+            <flux:icon.document-text class="w-6 h-6" />
+        </div>
+        <div class="flex-1 min-w-0">
+            <flux:heading size="lg" class="!mb-0 flex items-center gap-2">
                 {{ $quotation->quotation_number }}
                 @if($quotation->status === 'draft')
                     <flux:badge size="sm" color="zinc">Draft</flux:badge>
@@ -73,17 +77,18 @@ $convertToSalesOrder = function () {
                 @elseif($quotation->status === 'converted')
                     <flux:badge size="sm" color="purple" icon="check-badge">Jadi SO</flux:badge>
                 @endif
-            </h1>
-            <p class="text-sm text-zinc-500">Dibuat oleh {{ $quotation->creator->name ?? 'Sistem' }} pada {{ \Carbon\Carbon::parse($quotation->quotation_date)->format('d M Y') }}</p>
+            </flux:heading>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Dibuat oleh {{ $quotation->creator->name ?? 'Sistem' }} pada {{ \Carbon\Carbon::parse($quotation->quotation_date)->format('d M Y') }}</p>
         </div>
         
-        <div class="flex items-center gap-2 print:hidden">
-            <flux:button variant="subtle" icon="arrow-left" href="{{ route('sales.quotations.index') }}" wire:navigate>Kembali</flux:button>
-            <flux:button variant="subtle" icon="printer" onclick="window.print()">Cetak</flux:button>
-            
+        <div class="flex items-center gap-2 print:hidden shrink-0">
             @if(in_array($quotation->status, ['draft', 'sent', 'accepted']) && auth()->user()->can('sales.order.create'))
-                <flux:button variant="primary" icon="document-duplicate" wire:click="convertToSalesOrder" wire:confirm="Konversi penawaran ini ke Sales Order?">Konversi ke SO</flux:button>
+                <flux:button size="sm" variant="primary" icon="document-duplicate" wire:click="convertToSalesOrder" wire:confirm="Konversi penawaran ini ke Sales Order?">Konversi ke SO</flux:button>
             @endif
+            <flux:button size="sm" variant="subtle" icon="printer" onclick="window.print()">Cetak</flux:button>
+            <flux:modal.close>
+                <flux:button size="sm" variant="ghost" icon="x-mark"></flux:button>
+            </flux:modal.close>
         </div>
     </div>
     
@@ -258,3 +263,6 @@ $convertToSalesOrder = function () {
         </div>
     </div>
 </div>
+
+@endif
+</flux:modal>

@@ -119,7 +119,7 @@ $kanbanQuotations = computed(function () {
                     @forelse($this->kanbanQuotations->get($statusKey, []) as $quote)
                         <div wire:key="kanban-quote-{{ $quote->id }}"
                              class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group select-none relative"
-                             onclick="window.Livewire.navigate('{{ route('sales.quotations.show', $quote->id) }}')" style="cursor: pointer;">
+                             wire:click="$dispatch('show-quotation-detail', { id: {{ $quote->id }} })" style="cursor: pointer;">
                             <div class="flex justify-between items-center relative z-10">
                                 <span class="font-mono text-[10px] font-bold text-zinc-600 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 px-1 py-px rounded w-max">
                                     {{ $quote->quotation_number }}
@@ -188,7 +188,7 @@ $kanbanQuotations = computed(function () {
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="pl-2 sm:pl-4">
-                                    <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100"><a href="{{ route('sales.quotations.show', $quotation->id) }}" wire:navigate class="hover:underline">{{ $quotation->quotation_number }}</a></div>
+                                    <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100"><a href="#" wire:click.prevent="$dispatch('show-quotation-detail', { id: {{ $quotation->id }} })" class="hover:underline">{{ $quotation->quotation_number }}</a></div>
                                     <div class="text-xs text-zinc-500">{{ \Carbon\Carbon::parse($quotation->created_at)->format('d M Y') }}</div>
                                 </div>
                             </flux:table.cell>
@@ -229,7 +229,7 @@ $kanbanQuotations = computed(function () {
                             
                             <flux:table.cell>
                                 <div class="flex items-center gap-2">
-                                    <flux:button size="sm" variant="subtle" icon="eye" href="{{ route('sales.quotations.show', $quotation->id) }}" wire:navigate title="Lihat Detail"></flux:button>
+                                    <flux:button size="sm" variant="subtle" icon="eye" wire:click="$dispatch('show-quotation-detail', { id: {{ $quotation->id }} })" title="Lihat Detail"></flux:button>
                                     @can('sales.quotation.delete')
                                         <flux:modal.trigger name="delete-quotation-{{ $quotation->id }}">
                                             <flux:button size="sm" variant="subtle" icon="trash" class="text-red-500 hover:text-red-700"></flux:button>
@@ -268,13 +268,5 @@ $kanbanQuotations = computed(function () {
             </div>
         </x-table.wrapper>
     </div>
+    <livewire:quotation.detail-modal />
 </div>
-
-
-
-
-
-
-
-
-

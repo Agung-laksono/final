@@ -23,6 +23,17 @@ new class extends Component {
     public $context = 'inventory';
     public $lastContext = null;
 
+    public $expandedItemIds = [];
+
+    public function toggleVariants($itemId)
+    {
+        if (in_array($itemId, $this->expandedItemIds)) {
+            $this->expandedItemIds = array_diff($this->expandedItemIds, [$itemId]);
+        } else {
+            $this->expandedItemIds[] = $itemId;
+        }
+    }
+
     public function updated($property)
     {
         if (in_array($property, ['searchQuery', 'categoryId', 'subCategoryId', 'typeId', 'stockFilter', 'statusFilter', 'historyFilter'])) {
@@ -326,30 +337,6 @@ new class extends Component {
                                     custom_attachments: activeV.custom_attachments || [],
                                     note: activeV.note ? activeV.note + '<br><strong>Salinan Pesanan: ' + activeV.customer + '</strong>' : '<strong>Salinan Pesanan: ' + activeV.customer + '</strong>'
                                 } });
-                            } else if (hasVariants && !isAlreadyInCart) {
-                                currentItem = {
-                                    item_id: {{ $item->id }},
-                                    name: @js($item->name),
-                                    code: @js($item->code ?? '0001'),
-                                    unit_price: {{ $context === 'sales' ? ($item->selling_price ?? 0) : ($item->purchase_price ?? 0) }},
-                                    image: @js($item->image),
-                                    unit: @js($item->unit?->name ?? 'pcs'),
-                                    has_history: true
-                                };
-                                variantsList = @js(collect($item->customVariants)->filter(fn($v) => !empty($v->custom_attachments))->map(function($variant) {
-                                    return [
-                                        'image' => asset('storage/' . $variant->custom_attachments[0]),
-                                        'image_raw' => $variant->custom_attachments[0],
-                                        'customer' => $variant->salesOrder?->customer?->name ?? 'Pelanggan Umum',
-                                        'date' => $variant->created_at?->format('d M Y') ?? '',
-                                        'custom_attributes' => $variant->custom_attributes ?? [],
-                                        'custom_attachments' => $variant->custom_attachments ?? [],
-                                        'note' => $variant->note ?? '',
-                                        'unit_price' => (float) $variant->unit_price,
-                                        'attributes' => !empty($variant->custom_attributes) ? collect($variant->custom_attributes)->map(fn($v, $k) => is_numeric($k) ? (is_array($v) ? implode(': ', $v) : $v) : $k . ': ' . (is_array($v) ? implode(': ', $v) : $v))->implode(' | ') : ''
-                                    ];
-                                })->values()->take(10)->toArray());
-                                $flux.modal('select-variant-modal').show();
                             } else {
                                 $dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: @js($item->name), code: @js($item->code ?? '0001'), unit_price: {{ $context === 'sales' ? ($item->selling_price ?? 0) : ($item->purchase_price ?? 0) }}, image: @js($item->image), unit: @js($item->unit?->name ?? 'pcs'), has_history: {{ in_array($item->id, $itemsWithHistory) ? 'true' : 'false' }}, custom_attributes: [], custom_attachments: [], note: '' } });
                             }
@@ -365,13 +352,13 @@ new class extends Component {
                         </div>
                         @endif
                         {{-- Selection Badge (Elegan & Bersih) --}}
-                        <template x-if="$data.items?.find(i => i.item_id == {{ $item->id }})">
+                        <template x-if="$data.items?.find(i => i.item_id == {{ $item->id }} && (!i.custom_attachments || i.custom_attachments.length === 0))">
                             <div class="absolute inset-0 z-40 pointer-events-none flex items-center justify-center bg-transparent transition-all">
                                 {{-- Tombol Batal Seleksi (Kanan Atas) --}}
                                 <button type="button" 
                                         @click.stop="
                                             playSelectSound('click');
-                                            const idx = $data.items.findIndex(i => i.item_id == {{ $item->id }});
+                                            const idx = $data.items.findIndex(i => i.item_id == {{ $item->id }} && (!i.custom_attachments || i.custom_attachments.length === 0));
                                             if (idx !== -1) {
                                                 $data.removeItem(idx);
                                                 activeVariants[{{ $item->id }}] = null;
@@ -384,10 +371,10 @@ new class extends Component {
 
                                 {{-- Badge Checkmark di Tengah --}}
                                 <div class="bg-cyan-600 text-white font-bold rounded-full flex items-center justify-center shadow-lg border border-white/40 dark:border-zinc-700/50 transition-all"
-                                     x-bind:class="($data.items?.find(i => i.item_id == {{ $item->id }})?.qty || 1) > 1 ? 'px-3 py-1 gap-1.5 text-xs' : 'w-8 h-8'">
+                                     x-bind:class="($data.items?.find(i => i.item_id == {{ $item->id }} && (!i.custom_attachments || i.custom_attachments.length === 0))?.qty || 1) > 1 ? 'px-3 py-1 gap-1.5 text-xs' : 'w-8 h-8'">
                                     <flux:icon.check-circle class="w-4 h-4" />
-                                    <span x-show="($data.items?.find(i => i.item_id == {{ $item->id }})?.qty || 1) > 1" 
-                                          x-text="($data.items?.find(i => i.item_id == {{ $item->id }})?.qty || 1) + 'x'"></span>
+                                    <span x-show="($data.items?.find(i => i.item_id == {{ $item->id }} && (!i.custom_attachments || i.custom_attachments.length === 0))?.qty || 1) > 1" 
+                                          x-text="($data.items?.find(i => i.item_id == {{ $item->id }} && (!i.custom_attachments || i.custom_attachments.length === 0))?.qty || 1) + 'x'"></span>
                                 </div>
                             </div>
                         </template>
@@ -465,6 +452,11 @@ new class extends Component {
                                              <img src="{{ $variantData['image'] }}" class="w-full h-full object-cover">
                                          </div>
                                      @endforeach
+                                     @if(collect($item->customVariants)->filter(fn($v) => !empty($v->custom_attachments))->groupBy(fn($v) => $v->custom_attachments[0])->count() > 0)
+                                         <div wire:click.stop="toggleVariants({{ $item->id }})" class="w-7 h-5 xl:w-8 shrink-0 bg-white/90 dark:bg-zinc-800/90 rounded md:rounded-lg border shadow-sm text-[8px] font-black flex items-center justify-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors text-indigo-600 dark:text-indigo-400 mt-1 mb-1">
+                                             {{ in_array($item->id, $expandedItemIds) ? 'Less' : 'More' }}
+                                         </div>
+                                     @endif
                                  </div>
                              @endif
                         </div>
@@ -575,6 +567,100 @@ new class extends Component {
                             </div>
                         </div>
                     </div>
+                    
+                    {{-- Expanded Variant Cards (Sibling to Master Card) --}}
+                    @if(in_array($item->id, $expandedItemIds))
+                        @foreach($item->customVariants->sortByDesc('created_at')->take(12) as $v)
+                            @php
+                                $customer = $v->salesOrder?->customer?->name;
+                                $attrs = !empty($v->custom_attributes) ? collect($v->custom_attributes)->map(function($val, $k) {
+                                    $valStr = is_array($val) ? implode(': ', $val) : $val;
+                                    return is_numeric($k) ? $valStr : $k . ': ' . $valStr;
+                                })->implode(' | ') : '';
+                            @endphp
+                            <div @click="
+                                playSelectSound();
+                                $dispatch('item-selected', { item: {
+                                    item_id: {{ $item->id }},
+                                    name: @js($item->name),
+                                    code: @js($item->code ?? '0001'),
+                                    unit_price: {{ (float) $v->unit_price }},
+                                    image: '{{ $v->custom_attachments ? $v->custom_attachments[0] : '' }}',
+                                    unit: @js($item->unit?->name ?? 'pcs'),
+                                    has_history: true,
+                                    custom_attributes: @js($v->custom_attributes ?? []),
+                                    custom_attachments: @js($v->custom_attachments ?? []),
+                                    note: @js($v->note ? $v->note . '<br><strong>Salinan Pesanan: ' . ($customer ?? 'Pelanggan Umum') . '</strong>' : '<strong>Salinan Pesanan: ' . ($customer ?? 'Pelanggan Umum') . '</strong>')
+                                } });
+                             "
+                             :class="$data.items?.find(i => i.item_id == {{ $item->id }} && i.image === '{{ $v->custom_attachments ? $v->custom_attachments[0] : '' }}') ? 'border-cyan-600 ring-2 ring-cyan-600 shadow-lg scale-[1.02]' : 'border-indigo-200 dark:border-indigo-900/60 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-lg hover:scale-[1.02]'"
+                             class="relative bg-white dark:bg-zinc-900 border-2 rounded-xl overflow-hidden cursor-pointer transition-all duration-300 flex flex-col h-full group">
+                                
+                                {{-- Selection Badge untuk Varian --}}
+                                <template x-if="$data.items?.find(i => i.item_id == {{ $item->id }} && i.image === '{{ $v->custom_attachments ? $v->custom_attachments[0] : '' }}')">
+                                    <div class="absolute inset-0 z-40 pointer-events-none flex items-center justify-center bg-transparent transition-all">
+                                        {{-- Tombol Batal Seleksi (Kiri Atas untuk varian) --}}
+                                        <button type="button" 
+                                                @click.stop="
+                                                    playSelectSound('click');
+                                                    const idx = $data.items.findIndex(i => i.item_id == {{ $item->id }} && i.image === '{{ $v->custom_attachments ? $v->custom_attachments[0] : '' }}');
+                                                    if (idx !== -1) {
+                                                        $data.removeItem(idx);
+                                                    }
+                                                "
+                                                class="absolute top-2 left-2 z-50 pointer-events-auto bg-black/35 hover:bg-rose-600 dark:bg-zinc-800/40 dark:hover:bg-rose-600 text-white rounded-full p-1 shadow border border-white/20 backdrop-blur-sm active:scale-95 transition-all focus:outline-none"
+                                                title="Batalkan Pilihan">
+                                            <flux:icon.x-mark class="w-3 h-3" stroke-width="3" />
+                                        </button>
+
+                                        {{-- Badge Checkmark di Tengah --}}
+                                        <div class="bg-cyan-600 text-white font-bold rounded-full flex items-center justify-center shadow-lg border border-white/40 dark:border-zinc-700/50 transition-all"
+                                             x-bind:class="($data.items?.find(i => i.item_id == {{ $item->id }} && i.image === '{{ $v->custom_attachments ? $v->custom_attachments[0] : '' }}')?.qty || 1) > 1 ? 'px-3 py-1 gap-1.5 text-xs' : 'w-8 h-8'">
+                                            <flux:icon.check-circle class="w-4 h-4" />
+                                             <span x-show="($data.items?.find(i => i.item_id == {{ $item->id }} && i.image === '{{ $v->custom_attachments ? $v->custom_attachments[0] : '' }}')?.qty || 1) > 1" 
+                                                  x-text="($data.items?.find(i => i.item_id == {{ $item->id }} && i.image === '{{ $v->custom_attachments ? $v->custom_attachments[0] : '' }}')?.qty || 1) + 'x'"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                                
+                                {{-- Badge Pemesan --}}
+                                <div class="absolute right-2 top-2 z-10">
+                                    <span class="inline-block px-1.5 py-0.5 text-[8px] font-bold bg-indigo-600/90 text-white rounded border border-white/20 backdrop-blur-sm shadow-sm">{{ $customer ?? 'Pelanggan Umum' }}</span>
+                                </div>
+    
+                                {{-- Gambar Atas --}}
+                                <div class="relative w-full aspect-[4/3] bg-zinc-100 dark:bg-zinc-900/50 overflow-hidden border-b border-indigo-100 dark:border-indigo-900/40">
+                                    @if($v->custom_attachments)
+                                        <img src="{{ asset('storage/' . $v->custom_attachments[0]) }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+                                    @else
+                                        <div class="w-full h-full flex flex-col items-center justify-center text-zinc-300"><flux:icon.photo class="w-10 h-10 mb-1 opacity-50" /></div>
+                                    @endif
+                                </div>
+                                
+                                {{-- Informasi Bawah --}}
+                                <div class="p-3 flex flex-col flex-1 relative">
+                                    {{-- Badge Varian Code/SKU (Mengekor Badge Tipe) --}}
+                                    <div class="absolute left-0 top-0 -translate-y-1/2 z-10 pointer-events-none">
+                                        <span class="inline-block px-2 py-0.5 text-[8px] sm:text-[10px] font-black uppercase tracking-wider text-white rounded-r-md shadow-sm bg-indigo-600">
+                                            VARIAN
+                                        </span>
+                                    </div>
+
+                                    <div class="mb-2 flex-1 pt-1">
+                                        <h4 class="font-bold text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm leading-tight flex items-center gap-1.5 flex-wrap">
+                                            <span>{{ $item->code ?? '0001' }}-V{{ str_pad($loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
+                                            <span class="px-1 py-0.2 rounded bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 text-[7px] font-black uppercase tracking-wider border border-indigo-200 dark:border-indigo-800">CUSTOM</span>
+                                        </h4>
+                                        <div class="text-[9px] text-zinc-500 mt-1 line-clamp-2">{{ $attrs ?: ($v->note ?: 'Tanpa detail atribut') }}</div>
+                                    </div>
+                                    <div class="mt-auto flex items-end justify-between pt-1.5 border-t border-indigo-100 dark:border-zinc-800/50">
+                                        <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">Rp{{ number_format($v->unit_price, 0, ',', '.') }}</span>
+                                        <span class="text-[8px] text-zinc-400 font-mono">{{ $v->created_at?->format('d M Y') }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    @endif
                 @empty
                     <div class="col-span-full py-12 text-center flex flex-col items-center justify-center">
                         <flux:icon.inbox class="w-12 h-12 text-zinc-300 mb-3" />
@@ -596,90 +682,8 @@ new class extends Component {
             </button>
         </div>
         {{-- Popup Pilihan Varian Kustom (Menggunakan Native Flux Modal agar Konsisten dan Bersih) --}}
-        <flux:modal name="select-variant-modal" class="md:max-w-2xl max-sm:!p-2">
-            <div class="space-y-4">
-                <div>
-                    <flux:heading size="lg">Pilih Varian Barang</flux:heading>
-                    <flux:subheading>Barang ini memiliki beberapa riwayat kustomisasi.</flux:subheading>
-                </div>
-                
-                {{-- List Pilihan (Grid Vertical Cards) --}}
-                <div class="grid grid-cols-2 gap-4 max-h-[65vh] overflow-y-auto custom-scrollbar pr-1 p-1">
-                    {{-- Opsi 1: Barang Standar --}}
-                    <div @click="selectStandard()"
-                         class="relative bg-white dark:bg-zinc-900 border-2 border-cyan-100 dark:border-cyan-900/40 rounded-xl overflow-hidden hover:border-cyan-500 hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col h-full">
-                        
-                        {{-- Badge Standar Kanan Atas --}}
-                        <div class="absolute right-2 top-2 z-10">
-                            <span class="inline-block px-1.5 py-0.5 text-[8px] font-bold bg-cyan-600/90 text-white rounded border border-white/20 backdrop-blur-sm shadow-sm">✨ STANDAR</span>
-                        </div>
+        
 
-                        {{-- Gambar Atas --}}
-                        <div class="relative w-full aspect-[4/3] bg-zinc-100 dark:bg-zinc-900/50 overflow-hidden border-b border-cyan-100 dark:border-cyan-900/40">
-                            <template x-if="currentItem && currentItem.image">
-                                <img :src="'/storage/' + currentItem.image" class="w-full h-full object-cover">
-                            </template>
-                            <template x-if="currentItem && !currentItem.image">
-                                <div class="w-full h-full flex items-center justify-center text-zinc-300 dark:text-zinc-700">
-                                    <flux:icon.photo class="w-10 h-10" />
-                                </div>
-                            </template>
-                        </div>
-                        
-                        {{-- Informasi Bawah --}}
-                        <div class="p-3 flex flex-col flex-1">
-                            <div class="mb-2 flex-1">
-                                <h4 class="font-bold text-zinc-800 dark:text-zinc-200 text-xs sm:text-sm leading-tight flex items-center gap-1.5 flex-wrap">
-                                    <span>Barang Standar</span>
-                                    <span class="px-1 py-0.2 rounded bg-cyan-50 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400 text-[7px] font-black uppercase tracking-wider">ORIGINAL</span>
-                                </h4>
-                                <div class="text-[9px] text-zinc-400 mt-1 font-mono" x-text="currentItem ? currentItem.code : ''"></div>
-                            </div>
-                            <div class="mt-auto flex items-end justify-between pt-1.5 border-t border-cyan-50 dark:border-zinc-800/50">
-                                <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300" x-text="currentItem ? 'Rp' + formatRupiah(currentItem.unit_price) : ''"></span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {{-- Opsi Kustom --}}
-                    <template x-for="v in variantsList">
-                        <div @click="selectVariant(v)"
-                             class="relative bg-white dark:bg-zinc-900 border-2 border-indigo-100 dark:border-indigo-900/40 rounded-xl overflow-hidden hover:border-indigo-500 hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col h-full">
-                            
-                            {{-- Badge Pemesan --}}
-                            <div class="absolute right-2 top-2 z-10">
-                                <span class="inline-block px-1.5 py-0.5 text-[8px] font-bold bg-indigo-600/90 text-white rounded border border-white/20 backdrop-blur-sm shadow-sm" x-text="v.customer"></span>
-                            </div>
-
-                            {{-- Gambar Atas --}}
-                            <div class="relative w-full aspect-[4/3] bg-zinc-100 dark:bg-zinc-900/50 overflow-hidden border-b border-indigo-100 dark:border-indigo-900/40">
-                                <img :src="v.image" class="w-full h-full object-cover">
-                            </div>
-                            
-                            {{-- Informasi Bawah --}}
-                            <div class="p-3 flex flex-col flex-1">
-                                <div class="mb-2 flex-1">
-                                    <h4 class="font-bold text-zinc-850 dark:text-zinc-150 text-xs sm:text-sm leading-tight flex items-center gap-1.5 flex-wrap">
-                                        <span>Custom Order</span>
-                                        <span class="px-1 py-0.2 rounded bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 text-[7px] font-black uppercase">CUSTOM</span>
-                                    </h4>
-                                    <div class="text-[9px] text-zinc-500 mt-1 line-clamp-2" x-text="v.attributes ? v.attributes : (v.note ? v.note : 'Tanpa detail atribut')"></div>
-                                </div>
-                                <div class="mt-auto flex items-end justify-between pt-1.5 border-t border-indigo-50 dark:border-zinc-800/50">
-                                    <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400" x-text="'Rp' + formatRupiah(v.unit_price)"></span>
-                                    <span class="text-[8px] text-zinc-400 font-mono" x-text="v.date"></span>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-
-                {{-- Footer Batal --}}
-                <div class="flex justify-end pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                    <flux:button variant="ghost" size="sm" @click="$flux.modal('select-variant-modal').close()">Batal</flux:button>
-                </div>
-            </div>
-        </flux:modal>
     </flux:modal>
 
     @script
@@ -760,3 +764,8 @@ new class extends Component {
     </script>
     @endscript
 </div>
+
+
+
+
+

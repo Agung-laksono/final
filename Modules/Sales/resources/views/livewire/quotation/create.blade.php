@@ -287,7 +287,7 @@ $saveCart = function ($cartData) {
         // Filter out the creator if they are also recipient
         $recipients = $recipients->filter(fn($u) => $u->id !== auth()->id());
         
-        \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\quotationWaitingApprovalNotification($po, auth()->user()));
+        \Illuminate\Support\Facades\Notification::send($recipients, new \App\Notifications\QuotationWaitingApprovalNotification($po, auth()->user()));
 
         // Push Notification via Beams ke semua staf yang perlu approve
         $creatorName = auth()->user()->name;
@@ -504,7 +504,7 @@ $saveCart = function ($cartData) {
 
                 {{-- Daftar Barang Terpilih (Modern List) --}}
                 <div class="flex-1 space-y-4">
-                    <template x-for="(item, index) in items" :key="item.item_id">
+                    <template x-for="(item, index) in items" :key="item.item_id + '_' + index">
                         <div class="relative flex flex-col sm:flex-row bg-amber-50/30 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 rounded-2xl shadow-sm transition-colors">
                             {{-- Delete Button (Top Left over Image) --}}
                             <div class="absolute top-2 left-2 sm:-top-3 sm:-left-3 z-10" x-show="!item.min_qty" x-cloak>
@@ -1244,8 +1244,26 @@ $saveCart = function ($cartData) {
                 this.updateItemSubtotal(index);
             },
 
-            addItem(newItem) {
-                let existingIndex = this.items.findIndex(i => i.item_id == newItem.item_id);
+            addItem(newItem, forceNew = false) {
+                  let existingIndex = -1;
+                  if (!forceNew) {
+                      existingIndex = this.items.findIndex(i => {
+                          let isSameId = i.item_id == newItem.item_id;
+                          let isSameImage = i.image == newItem.image;
+                          
+                          let normalize = (val) => {
+                              if (!val) return "";
+                              if (typeof val === 'object' && Object.keys(val).length === 0) return "";
+                              return JSON.stringify(val);
+                          };
+                          
+                          let isSameAttrs = normalize(i.custom_attributes) === normalize(newItem.custom_attributes);
+                          let isSameAttachs = normalize(i.custom_attachments) === normalize(newItem.custom_attachments);
+                          
+                          return isSameId && isSameImage && isSameAttrs && isSameAttachs;
+                      });
+                  }
+                
                 if (existingIndex !== -1) {
                     // Update qty
                     this.items[existingIndex].qty = (parseInt(this.items[existingIndex].qty) || 0) + 1;
@@ -1349,8 +1367,8 @@ $saveCart = function ($cartData) {
                 if (cartElement) {
                     let cart = Alpine.$data(cartElement);
                     if (cart) {
-                        cart.addItem(detail.item);
-                        // The newly added or updated item is now at index 0
+                        cart.addItem(detail.item, true);
+                        // The newly added item is now at index 0
                         cart.items[0].custom_attributes = detail.custom_attributes;
                         cart.items[0].custom_attachments = detail.custom_attachments;
                     }

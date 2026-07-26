@@ -19,7 +19,7 @@ class QuotationItem extends Model
 
     public function item()
     {
-        return $this->belongsTo(\App\Models\Item::class);
+        return $this->belongsTo(\Modules\Inventory\Models\Item::class);
     }
 
     protected static function newFactory(): QuotationItemFactory
