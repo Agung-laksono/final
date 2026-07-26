@@ -185,7 +185,7 @@ new class extends Component {
             has_history: true,
             custom_attributes: v.custom_attributes || [],
             custom_attachments: v.custom_attachments || [],
-            note: v.note ? v.note + '<br><strong>Salinan Pesanan: ' + v.customer + '</strong>' : '<strong>Salinan Pesanan: ' + v.customer + '</strong>'
+            note: v.note || ''
         } });
         this.activeVariants[this.currentItem.item_id] = v;
         $flux.modal('select-variant-modal').close();
@@ -335,7 +335,7 @@ new class extends Component {
                                     has_history: true,
                                     custom_attributes: activeV.custom_attributes || [],
                                     custom_attachments: activeV.custom_attachments || [],
-                                    note: activeV.note ? activeV.note + '<br><strong>Salinan Pesanan: ' + activeV.customer + '</strong>' : '<strong>Salinan Pesanan: ' + activeV.customer + '</strong>'
+                                    note: activeV.note || ''
                                 } });
                             } else {
                                 $dispatch('item-selected', { item: { item_id: {{ $item->id }}, name: @js($item->name), code: @js($item->code ?? '0001'), unit_price: {{ $context === 'sales' ? ($item->selling_price ?? 0) : ($item->purchase_price ?? 0) }}, image: @js($item->image), unit: @js($item->unit?->name ?? 'pcs'), has_history: {{ in_array($item->id, $itemsWithHistory) ? 'true' : 'false' }}, custom_attributes: [], custom_attachments: [], note: '' } });
@@ -590,7 +590,7 @@ new class extends Component {
                                     has_history: true,
                                     custom_attributes: @js($v->custom_attributes ?? []),
                                     custom_attachments: @js($v->custom_attachments ?? []),
-                                    note: @js($v->note ? $v->note . '<br><strong>Salinan Pesanan: ' . ($customer ?? 'Pelanggan Umum') . '</strong>' : '<strong>Salinan Pesanan: ' . ($customer ?? 'Pelanggan Umum') . '</strong>')
+                                    note: @js($v->note ?? '')
                                 } });
                              "
                              :class="$data.items?.find(i => i.item_id == {{ $item->id }} && i.image === '{{ $v->custom_attachments ? $v->custom_attachments[0] : '' }}') ? 'border-cyan-600 ring-2 ring-cyan-600 shadow-lg scale-[1.02]' : 'border-indigo-200 dark:border-indigo-900/60 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-lg hover:scale-[1.02]'"

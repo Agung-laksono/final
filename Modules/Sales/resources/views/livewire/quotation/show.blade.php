@@ -18,41 +18,8 @@ $convertToSalesOrder = function () {
     
     // Konversi SQ ke SO logic
     $latestPo = \Modules\Sales\Models\SalesOrder::orderBy('id', 'desc')->first();
-    $nextId = $latestPo ? $latestPo->id + 1 : 1000;
-    $soNumber = 'SO-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
-    
-    $so = \Modules\Sales\Models\SalesOrder::create([
-        'so_number' => $soNumber,
-        'customer_id' => $this->quotation->customer_id,
-        'order_date' => now()->format('Y-m-d'),
-        'status' => 'pending_approval',
-        'shipping_fee' => $this->quotation->shipping_fee,
-        'discount' => $this->quotation->discount,
-        'pajak' => $this->quotation->tax,
-        'total_amount' => $this->quotation->total_amount,
-        'notes' => $this->quotation->notes . "\n[Konversi dari Penawaran: " . $this->quotation->quotation_number . "]",
-        'created_by' => auth()->id(),
-        'brand_id' => auth()->user()->brand_id ?? null,
-    ]);
-    
-    foreach ($this->quotation->items as $item) {
-        \Modules\Sales\Models\SalesOrderItem::create([
-            'sales_order_id' => $so->id,
-            'item_id' => $item->item_id,
-            'qty' => $item->qty,
-            'unit_price' => $item->unit_price,
-            'subtotal' => $item->subtotal,
-            'notes' => $item->notes,
-        ]);
-    }
-    
-    $this->quotation->update([
-        'status' => 'converted',
-        'converted_to_so_id' => $so->id
-    ]);
-    
-    \Flux::toast('Penawaran berhasil dikonversi ke Sales Order!', variant: 'success');
-    return redirect()->route('sales.orders.index');
+    \Flux::toast('Memuat data penawaran ke form Sales Order...', variant: 'success');
+    return redirect()->route('sales.orders.create', ['from_quotation' => $this->quotation->id]);
 };
 
 ?>
@@ -198,23 +165,27 @@ $convertToSalesOrder = function () {
                     </h3>
                 </div>
                 <div class="p-5 flex items-start gap-4">
-                    <flux:avatar src="{{ $quotation->customer->image ? Storage::url($quotation->customer->image) : '' }}" fallback="{{ substr($quotation->customer->name, 0, 2) }}" size="lg" />
+                    @php
+                        $custName = $quotation->customer->name ?? $quotation->customer_name ?? 'Pelanggan Umum';
+                        $custImage = $quotation->customer->image ?? null;
+                    @endphp
+                    <flux:avatar src="{{ $custImage ? Storage::url($custImage) : '' }}" fallback="{{ substr($custName, 0, 2) }}" size="lg" />
                     <div>
-                        <h4 class="font-bold text-zinc-900 dark:text-zinc-100">{{ $quotation->customer->name }}</h4>
+                        <h4 class="font-bold text-zinc-900 dark:text-zinc-100">{{ $custName }}</h4>
                         <div class="mt-2 space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-                            @if($quotation->customer->email)
+                            @if($quotation->customer && $quotation->customer->email)
                             <div class="flex items-center gap-2">
                                 <flux:icon.envelope class="w-3.5 h-3.5 text-zinc-400" />
                                 <span>{{ $quotation->customer->email }}</span>
                             </div>
                             @endif
-                            @if($quotation->customer->phone)
+                            @if($quotation->customer && $quotation->customer->phone)
                             <div class="flex items-center gap-2">
                                 <flux:icon.phone class="w-3.5 h-3.5 text-zinc-400" />
                                 <span>{{ $quotation->customer->phone }}</span>
                             </div>
                             @endif
-                            @if($quotation->customer->address)
+                            @if($quotation->customer && $quotation->customer->address)
                             <div class="flex items-start gap-2 mt-2">
                                 <flux:icon.map-pin class="w-3.5 h-3.5 text-zinc-400 shrink-0 mt-0.5" />
                                 <span>{{ $quotation->customer->address }}

@@ -127,13 +127,25 @@ $kanbanQuotations = computed(function () {
                             </div>
                             <div class="mt-2 mb-2 relative z-10">
                                 <h4 class="font-semibold text-sm text-zinc-900 dark:text-zinc-100 leading-tight group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                                    {{ $quote->customer->name ?? '-' }}
+                                    {{ $quote->customer->name ?? $quote->customer_name ?? '-' }}
                                 </h4>
+                                @php
+                                    $kanbanPhone = $quote->customer->phone ?? $quote->customer_phone ?? null;
+                                @endphp
+                                @if($kanbanPhone)
+                                <div class="flex items-center gap-1 mt-1 text-[11px] text-zinc-500">
+                                    <flux:icon.phone class="w-3 h-3" />
+                                    <span>{{ $kanbanPhone }}</span>
+                                </div>
+                                @endif
                             </div>
-                            <div class="flex items-center justify-between mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 relative z-10">
-                                <span class="text-[10px] font-medium text-zinc-500">{{ \Carbon\Carbon::parse($quote->quotation_date)->format('d M Y') }}</span>
-                                <span class="text-xs font-black text-amber-600 dark:text-amber-500">Rp {{ number_format($quote->total_amount, 0, ',', '.') }}</span>
-                            </div>
+                              <div class="flex items-center justify-between mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 relative z-10">
+                                  <span class="text-[10px] font-medium text-zinc-500">{{ \Carbon\Carbon::parse($quote->quotation_date)->format('d M Y') }}</span>
+                                  <div class="flex flex-col items-end">
+                                      <span class="text-[10px] font-medium text-zinc-500 mb-0.5">{{ $quote->items->count() }} Varian</span>
+                                      <span class="text-xs font-black text-amber-600 dark:text-amber-500">Rp {{ number_format($quote->total_amount, 0, ',', '.') }}</span>
+                                  </div>
+                              </div>
                         </div>
                     @empty
                         <div class="h-24 flex items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-sm text-zinc-400 dark:text-zinc-500">
@@ -195,10 +207,21 @@ $kanbanQuotations = computed(function () {
                             
                             <flux:table.cell>
                                 <div class="flex items-center gap-3">
-                                    <flux:avatar src="{{ $quotation->customer->image ? Storage::url($quotation->customer->image) : '' }}" fallback="{{ substr($quotation->customer->name, 0, 2) }}" size="sm" />
+                                    @php
+                                        $custName = $quotation->customer->name ?? $quotation->customer_name ?? 'Umum';
+                                        $custPhone = $quotation->customer->phone ?? $quotation->customer_phone ?? null;
+                                        $custImage = $quotation->customer->image ?? null;
+                                    @endphp
+                                    <flux:avatar src="{{ $custImage ? Storage::url($custImage) : '' }}" fallback="{{ substr($custName, 0, 2) }}" size="sm" />
                                     <div>
-                                        <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $quotation->customer->name }}</div>
+                                        <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $custName }}</div>
+                                        @if($custPhone)
                                         <div class="text-[11px] text-zinc-500 flex items-center gap-1 mt-0.5">
+                                            <flux:icon.phone class="w-3 h-3" />
+                                            <span>{{ $custPhone }}</span>
+                                        </div>
+                                        @endif
+                                        <div class="text-[11px] text-zinc-500 flex items-center gap-1 mt-1">
                                             <flux:avatar src="{{ $quotation->creator->avatar ? Storage::url($quotation->creator->avatar) : '' }}" fallback="{{ substr($quotation->creator->name ?? 'S', 0, 2) }}" class="w-3.5 h-3.5 text-[8px]" />
                                             <span>{{ explode(' ', $quotation->creator->name ?? '-')[0] }}</span>
                                         </div>
@@ -269,4 +292,25 @@ $kanbanQuotations = computed(function () {
         </x-table.wrapper>
     </div>
     <livewire:quotation.detail-modal />
+
+    @if(session('new_quotation_number'))
+        <div x-data x-init="$nextTick(() => { $flux.modal('new-quotation-success-modal').show() })">
+            <flux:modal name="new-quotation-success-modal" class="min-w-[22rem]">
+                <div class="p-6 text-center">
+                    <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-4">
+                        <flux:icon.check-circle class="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <flux:heading size="xl">Berhasil!</flux:heading>
+                    <flux:subheading class="mt-2 text-sm">
+                        Penawaran baru berhasil dibuat:
+                    </flux:subheading>
+                    <div class="mt-3 mb-6 bg-zinc-50 dark:bg-zinc-800/50 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                        <span class="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-wider">{{ session('new_quotation_number') }}</span>
+                    </div>
+                    
+                    <flux:button variant="primary" class="w-full" @click="$flux.modal('new-quotation-success-modal').close()">Oke, Mengerti</flux:button>
+                </div>
+            </flux:modal>
+        </div>
+    @endif
 </div>

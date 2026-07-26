@@ -16,41 +16,8 @@ $convertToSalesOrder = function () {
     
     // Konversi SQ ke SO logic
     $latestPo = \Modules\Sales\Models\SalesOrder::orderBy('id', 'desc')->first();
-    $nextId = $latestPo ? $latestPo->id + 1 : 1000;
-    $soNumber = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
-    
-    $so = \Modules\Sales\Models\SalesOrder::create([
-        'so_number' => $soNumber,
-        'customer_id' => $this->quotation->customer_id,
-        'order_date' => now()->format('Y-m-d'),
-        'status' => 'pending_approval',
-        'shipping_fee' => $this->quotation->shipping_fee,
-        'discount' => $this->quotation->discount,
-        'pajak' => $this->quotation->tax,
-        'total_amount' => $this->quotation->total_amount,
-        'notes' => $this->quotation->notes . "\n[Konversi dari Penawaran: " . $this->quotation->quotation_number . "]",
-        'created_by' => auth()->id(),
-        'brand_id' => auth()->user()->brand_id ?? null,
-    ]);
-    
-    foreach ($this->quotation->items as $item) {
-        \Modules\Sales\Models\SalesOrderItem::create([
-            'sales_order_id' => $so->id,
-            'item_id' => $item->item_id,
-            'qty' => $item->qty,
-            'unit_price' => $item->unit_price,
-            'subtotal' => $item->subtotal,
-            'notes' => $item->notes,
-        ]);
-    }
-    
-    $this->quotation->update([
-        'status' => 'converted',
-        'converted_to_so_id' => $so->id
-    ]);
-    
-    \Flux::toast('Penawaran berhasil dikonversi ke Sales Order!', variant: 'success');
-    return redirect()->route('sales.orders.index');
+    \Flux::toast('Memuat data penawaran ke form Sales Order...', variant: 'success');
+    return redirect()->route('sales.orders.create', ['from_quotation' => $this->quotation->id]);
 };
 
 ?>
@@ -81,14 +48,46 @@ $convertToSalesOrder = function () {
             <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Dibuat oleh {{ $quotation->creator->name ?? 'Sistem' }} pada {{ \Carbon\Carbon::parse($quotation->quotation_date)->format('d M Y') }}</p>
         </div>
         
-        <div class="flex items-center gap-2 print:hidden shrink-0">
+        <div x-data="{
+            printing: false,
+            printDocument(url, filename) {
+                if (this.printing) return;
+                
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                
+                if (isMobile) {
+                    window.open(url, '_blank');
+                    return;
+                }
+                
+                this.printing = true;
+                
+                const originalTitle = document.title;
+                document.title = filename;
+
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = url;
+                document.body.appendChild(iframe);
+                iframe.onload = () => {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                    this.printing = false;
+                    
+                    setTimeout(() => {
+                        document.title = originalTitle;
+                        document.body.removeChild(iframe);
+                    }, 5000);
+                };
+            }
+        }" class="flex items-center gap-2 print:hidden shrink-0">
             @if(in_array($quotation->status, ['draft', 'sent', 'accepted']) && auth()->user()->can('sales.order.create'))
                 <flux:button size="sm" variant="primary" icon="document-duplicate" wire:click="convertToSalesOrder" wire:confirm="Konversi penawaran ini ke Sales Order?">Konversi ke SO</flux:button>
             @endif
-            <flux:button size="sm" variant="subtle" icon="printer" onclick="window.print()">Cetak</flux:button>
-            <flux:modal.close>
-                <flux:button size="sm" variant="ghost" icon="x-mark"></flux:button>
-            </flux:modal.close>
+            <flux:button size="sm" variant="subtle" icon="printer" x-on:click="printDocument('{{ route('sales.quotations.print', $quotation->id) }}', '{{ $quotation->quotation_number }} {{ addslashes($quotation->customer?->name ?? '') }}')" x-bind:disabled="printing">
+                <span x-show="!printing">Cetak</span>
+                <span x-show="printing" style="display: none;">Mencetak...</span>
+            </flux:button>
         </div>
     </div>
     
@@ -113,22 +112,41 @@ $convertToSalesOrder = function () {
                                 <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors">
                                     <td class="px-5 py-4">
                                         <div class="flex items-center gap-3">
-                                            @if($item->item->image)
-                                                <img src="{{ Storage::url($item->item->image) }}" class="w-10 h-10 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700" alt="img">
-                                            @else
-                                                <div class="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center">
-                                                    <flux:icon.cube class="w-5 h-5 text-zinc-400" />
-                                                </div>
-                                            @endif
-                                            <div>
-                                                <p class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $item->item->name }}</p>
-                                                @if($item->notes)
-                                                    @php
-                                                        $displayNote = str_replace('Salinan Pesanan: ', '', strip_tags($item->notes));
-                                                    @endphp
-                                                    <p class="text-xs text-zinc-500 mt-0.5 line-clamp-1" title="{{ $displayNote }}">{{ $displayNote }}</p>
-                                                @endif
-                                            </div>
+                                              @if($item->custom_attachments && count($item->custom_attachments) > 0)
+                                                  <img src="{{ Storage::url($item->custom_attachments[0]) }}" class="w-10 h-10 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700" alt="img">
+                                              @elseif($item->item->image)
+                                                  <img src="{{ Storage::url($item->item->image) }}" class="w-10 h-10 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700" alt="img">
+                                              @else
+                                                  <div class="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center">
+                                                      <flux:icon.cube class="w-5 h-5 text-zinc-400" />
+                                                  </div>
+                                              @endif
+                                              <div>
+                                                  <p class="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                                      {{ $item->item->name }}
+                                                      @if(($item->custom_attributes && count($item->custom_attributes) > 0) || ($item->custom_attachments && count($item->custom_attachments) > 0))
+                                                          <span class="inline-flex items-center gap-0.5 text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded shadow-sm">
+                                                              <flux:icon.sparkles class="w-2.5 h-2.5 text-emerald-600" /> CUSTOM
+                                                          </span>
+                                                      @endif
+                                                  </p>
+                                                  
+                                                  @if($item->custom_attributes && count($item->custom_attributes) > 0)
+                                                      <div class="flex flex-wrap gap-1 mt-1">
+                                                          @foreach($item->custom_attributes as $attr)
+                                                              @if(is_array($attr))
+                                                                  <span class="inline-block px-1.5 py-0.5 text-[9px] font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-sm">{{ $attr['key'] ?? '' }}: {{ $attr['value'] ?? '' }}</span>
+                                                              @endif
+                                                          @endforeach
+                                                      </div>
+                                                  @endif
+                                                  
+                                                  @if($item->notes)
+                                                      <div class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 italic prose prose-xs prose-p:my-0 leading-tight">
+                                                          {!! $item->notes !!}
+                                                      </div>
+                                                  @endif
+                                              </div>
                                         </div>
                                     </td>
                                     <td class="px-5 py-4 text-center font-medium text-zinc-700 dark:text-zinc-300">
@@ -203,23 +221,32 @@ $convertToSalesOrder = function () {
                     </h3>
                 </div>
                 <div class="p-5 flex items-start gap-4">
-                    <flux:avatar src="{{ $quotation->customer->image ? Storage::url($quotation->customer->image) : '' }}" fallback="{{ substr($quotation->customer->name, 0, 2) }}" size="lg" />
+                    @php
+                        $custName = $quotation->customer->name ?? $quotation->customer_name ?? 'Pelanggan Umum';
+                        $custImage = $quotation->customer->image ?? null;
+                    @endphp
+                    <flux:avatar src="{{ $custImage ? Storage::url($custImage) : '' }}" fallback="{{ substr($custName, 0, 2) }}" size="lg" />
                     <div>
-                        <h4 class="font-bold text-zinc-900 dark:text-zinc-100">{{ $quotation->customer->name }}</h4>
+                        <h4 class="font-bold text-zinc-900 dark:text-zinc-100">{{ $custName }}</h4>
                         <div class="mt-2 space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-                            @if($quotation->customer->email)
+                            @if($quotation->customer && $quotation->customer->email)
                             <div class="flex items-center gap-2">
                                 <flux:icon.envelope class="w-3.5 h-3.5 text-zinc-400" />
                                 <span>{{ $quotation->customer->email }}</span>
                             </div>
                             @endif
-                            @if($quotation->customer->phone)
+                            @if($quotation->customer && $quotation->customer->phone)
                             <div class="flex items-center gap-2">
                                 <flux:icon.phone class="w-3.5 h-3.5 text-zinc-400" />
                                 <span>{{ $quotation->customer->phone }}</span>
                             </div>
+                            @elseif($quotation->customer_phone)
+                            <div class="flex items-center gap-2">
+                                <flux:icon.phone class="w-3.5 h-3.5 text-zinc-400" />
+                                <span>{{ $quotation->customer_phone }}</span>
+                            </div>
                             @endif
-                            @if($quotation->customer->address)
+                            @if($quotation->customer && $quotation->customer->address)
                             <div class="flex items-start gap-2 mt-2">
                                 <flux:icon.map-pin class="w-3.5 h-3.5 text-zinc-400 shrink-0 mt-0.5" />
                                 <span>{{ $quotation->customer->address }}

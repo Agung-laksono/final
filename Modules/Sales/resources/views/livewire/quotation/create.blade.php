@@ -13,6 +13,8 @@ state([
     'quotation_id' => null,
     'quotation_number' => '',
     'customer_id' => '',
+    'customer_name' => '',
+    'customer_phone' => '',
     'quotation_date' => date('Y-m-d'),
     'shipping_fee' => 0,
     'discount' => 0,
@@ -71,6 +73,8 @@ mount(function ($id = null) {
         $this->quotation_id = $po->id;
         $this->quotation_number = $po->quotation_number;
         $this->customer_id = $po->customer_id;
+        $this->customer_name = $po->customer_name;
+        $this->customer_phone = $po->customer_phone;
         $this->quotation_date = $po->quotation_date;
         $this->shipping_fee = $po->shipping_fee ?? 0;
         $this->discount = $po->discount ?? 0;
@@ -81,6 +85,13 @@ mount(function ($id = null) {
         
         if ($po->customer) {
             $this->selected_customer = $po->customer->toArray();
+        } elseif ($po->customer_name) {
+            $this->selected_customer = [
+                'id' => null,
+                'name' => $po->customer_name,
+                'phone' => $po->customer_phone,
+                'type' => 'Pelanggan Baru (Belum Disimpan)'
+            ];
         }
         
         // Coba hitung tax_percent dari tax jika ada
@@ -130,6 +141,30 @@ $customerSearchResults = computed(function () {
 $clearCustomer = function () {
     $this->selected_customer = null;
     $this->customer_id = '';
+};
+
+$quickCreateCustomer = function () {
+    $name = trim($this->customer_search_query);
+    if (strlen($name) < 2) return;
+    
+    // Jangan simpan ke database pelanggan asli
+    $this->customer_id = null;
+    $this->customer_name = $name;
+    // customer_phone is already bound
+    
+    $this->selected_customer = [
+        'id' => null,
+        'name' => $name,
+        'phone' => $this->customer_phone,
+        'type' => 'Pelanggan Baru (Belum Disimpan)'
+    ];
+    
+    $this->customer_search_query = '';
+    $this->show_customer_suggestions = false;
+    
+    $this->dispatch('customer-selected', customer: $this->selected_customer);
+    
+    \Flux::toast('Menggunakan nama pelanggan sementara.', 'success');
 };
 
 $searchResults = computed(function () {
@@ -208,12 +243,19 @@ $saveCart = function ($cartData) {
     }
 
     $this->validate([
-        'customer_id' => 'required|exists:customers,id',
+        'customer_id' => 'nullable|exists:customers,id',
+        'customer_name' => 'nullable|string|max:255',
+        'customer_phone' => 'nullable|string|max:255',
         'quotation_date' => 'required|date',
         'items' => 'required|array|min:1',
         'items.*.qty' => 'required|integer|min:1',
         'items.*.unit_price' => 'required|numeric|min:0',
     ]);
+    
+    if (!$this->customer_id && !$this->customer_name) {
+        $this->addError('customer_id', 'Pelanggan harus dipilih atau diisi.');
+        return;
+    }
 
 
 
@@ -232,6 +274,8 @@ $saveCart = function ($cartData) {
     $data = [
         'quotation_number' => $this->quotation_number,
         'customer_id' => $this->customer_id,
+        'customer_name' => $this->customer_name,
+        'customer_phone' => $this->customer_phone,
         'quotation_date' => $this->quotation_date,
         'status' => $this->status,
         'shipping_fee' => $this->shipping_fee,
@@ -316,8 +360,8 @@ $saveCart = function ($cartData) {
         }
     }
 
-    \App\Events\KanbanUpdated::safeDispatch('sales_order');
-    Flux::toast('Sales Order berhasil disimpan!', 'success');
+    \App\Events\KanbanUpdated::safeDispatch('quotation');
+    Flux::toast('Penawaran berhasil disimpan!', 'success');
     
     if ($isNew) {
         session()->flash('new_quotation_number', $po->quotation_number);
@@ -504,7 +548,7 @@ $saveCart = function ($cartData) {
 
                 {{-- Daftar Barang Terpilih (Modern List) --}}
                 <div class="flex-1 space-y-4">
-                    <template x-for="(item, index) in items" :key="item.item_id + '_' + index">
+                    <template x-for="(item, index) in items" :key="item._cart_id || (item.item_id + '_' + index)">
                         <div class="relative flex flex-col sm:flex-row bg-amber-50/30 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 rounded-2xl shadow-sm transition-colors">
                             {{-- Delete Button (Top Left over Image) --}}
                             <div class="absolute top-2 left-2 sm:-top-3 sm:-left-3 z-10" x-show="!item.min_qty" x-cloak>
@@ -557,9 +601,10 @@ $saveCart = function ($cartData) {
                                         </div>
                                         
                                         {{-- Popover Quick Note / Rich Editor --}}
+                                        <div x-show="open" x-cloak class="fixed inset-0 bg-zinc-900/50 z-[50] sm:hidden" x-transition.opacity></div>
                                         <div x-show="open" @click.away="open = false" x-transition 
-                                             class="absolute right-0 w-[calc(100vw-2rem)] sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 cursor-auto z-50" 
-                                             :class="placement === 'top' ? 'bottom-full mb-3 origin-bottom-right' : 'top-full mt-3 origin-top-right'"
+                                             class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] sm:absolute sm:translate-x-0 sm:translate-y-0 sm:right-0 sm:left-auto sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 cursor-auto z-[60]" 
+                                             :class="placement === 'top' ? 'sm:bottom-full sm:mb-3 sm:origin-bottom-right' : 'sm:top-full sm:mt-3 sm:origin-top-right'"
                                              style="display: none;">
                                             <div x-data="{
                                                 get isRichText() {
@@ -637,10 +682,11 @@ $saveCart = function ($cartData) {
                                             </button>
                                             
                                             {{-- Popover Price History (Livewire) --}}
+                                            <div x-show="open" x-cloak class="fixed inset-0 bg-zinc-900/50 z-[50] sm:hidden" x-transition.opacity></div>
                                             <div x-show="open" @click.away="open = false" x-transition 
-                                                 class="absolute right-0 sm:right-auto sm:left-0 w-[310px] sm:w-[380px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-0 cursor-auto overflow-hidden z-50 transition-all duration-300" 
+                                                 class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] sm:absolute sm:translate-x-0 sm:translate-y-0 sm:right-auto sm:left-0 sm:w-[380px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-0 cursor-auto overflow-hidden z-[60] transition-all duration-300" 
                                                  :class="[
-                                                    placement === 'top' ? 'bottom-full mb-3 origin-bottom-right sm:origin-bottom-left' : 'top-full mt-3 origin-top-right sm:origin-top-left',
+                                                    placement === 'top' ? 'sm:bottom-full sm:mb-3 sm:origin-bottom-left' : 'sm:top-full sm:mt-3 sm:origin-top-left',
                                                     expanded ? 'sm:w-[500px] sm:-left-20' : ''
                                                  ]"
                                                  style="display: none;">
@@ -663,11 +709,11 @@ $saveCart = function ($cartData) {
                                                                  class="p-3 cursor-pointer">
                                                                 <div class="flex justify-between items-center">
                                                                     <div class="flex-1">
-                                                                        <div class="text-[11px] text-zinc-500 font-medium group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors" x-text="(new Date(history.purchase_order?.quotation_date || Date.now())).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) + ' &bull; ' + (history.purchase_order?.quotation_number || 'INV-0000')">
+                                                                        <div class="text-[11px] text-zinc-500 font-medium group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors" x-text="(new Date(history.quotation?.quotation_date || Date.now())).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) + ' &bull; ' + (history.quotation?.quotation_number || 'INV-0000')">
                                                                         </div>
                                                                         <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                                                                             <flux:icon.building-storefront class="w-3.5 h-3.5 text-zinc-400 group-hover:text-cyan-500 transition-colors" />
-                                                                            <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors truncate max-w-[120px]" x-text="history.purchase_order?.customer?.name || 'Customer Tidak Diketahui'"></span>
+                                                                            <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors truncate max-w-[120px]" x-text="history.quotation?.customer?.name || 'Customer Tidak Diketahui'"></span>
                                                                             <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
                                                                             <span class="text-[10px] font-bold text-zinc-500 uppercase group-hover:text-cyan-600/70 dark:group-hover:text-cyan-400/70 transition-colors bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded" x-text="'Beli: ' + history.quantity + ' ' + (history.item?.unit?.name || '')"></span>
                                                                         </div>
@@ -770,9 +816,12 @@ $saveCart = function ($cartData) {
             {{-- Step 0: Keranjang Terisi --}}
             <div x-show="step === 0" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
                 <div class="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col items-center justify-center text-center space-y-4">
-                    <flux:button class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white w-full mt-2" @click="step = 1">
-                        Lanjut ke Data Pelanggan <flux:icon.arrow-right class="w-4 h-4 ml-2" />
-                    </flux:button>
+                    <div class="flex gap-2 w-full mt-2">
+                        <flux:button variant="subtle" class="w-1/3" href="{{ route('sales.quotations.index') }}" wire:navigate>Batal</flux:button>
+                        <flux:button class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white flex-1" @click="step = 1">
+                            Lanjut ke Data Pelanggan <flux:icon.arrow-right class="w-4 h-4 ml-2" />
+                        </flux:button>
+                    </div>
                 </div>
             </div>
 
@@ -780,8 +829,14 @@ $saveCart = function ($cartData) {
             <div x-show="step >= 1" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="bg-amber-50/50 dark:bg-amber-900/10 p-6 rounded-xl border border-amber-100 dark:border-amber-800/30 shadow-sm space-y-6">
 
                 {{-- Pilih Customer --}}
-                <div>
-                    <flux:heading size="lg" class="mb-3">Customer / Affiliate</flux:heading>
+                <div x-data="{ showManualInput: false }">
+                    <div class="flex items-center justify-between mb-3">
+                        <flux:heading size="lg">Customer / Affiliate</flux:heading>
+                        <flux:button size="sm" variant="subtle" class="!px-2 h-7" @click="showManualInput = !showManualInput" x-show="!customer">
+                            <span x-show="!showManualInput"><flux:icon.plus class="w-3 h-3 inline-block mr-1" />Baru</span>
+                            <span x-show="showManualInput">Batal</span>
+                        </flux:button>
+                    </div>
                     
                     <template x-if="customer">
                         {{-- Customer Card Terpilih --}}
@@ -817,54 +872,78 @@ $saveCart = function ($cartData) {
                                 </div>
                             </div>
                             
-                            {{-- Tombol Silang Batal Pilih --}}
-                            <div class="shrink-0">
+                            {{-- Tombol Edit & Silang Batal Pilih --}}
+                            <div class="shrink-0 flex items-center gap-1">
+                                <template x-if="customer.id">
+                                    <flux:button type="button" variant="subtle" size="sm" icon="pencil-square" class="text-zinc-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors rounded-full w-8 h-8 flex items-center justify-center p-0" @click="$dispatch('open-customer-modal', { id: customer.id })" tooltip="Edit Customer"></flux:button>
+                                </template>
                                 <flux:button type="button" variant="subtle" size="sm" icon="x-mark" class="text-zinc-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors rounded-full w-8 h-8 flex items-center justify-center p-0" @click="customer = null; $wire.customer_id = ''; $wire.selected_customer = null" tooltip="Ganti Customer"></flux:button>
                             </div>
                         </div>
                     </template>
 
                     <template x-if="!customer">
-                        {{-- Customer Search & Gallery Button --}}
-                        <div class="flex items-end gap-2 relative">
-                            <div class="flex-1 relative" x-data="{ focused: false }" @click.outside="focused = false">
-                                <flux:input 
-                                    wire:model.live.debounce.300ms="customer_search_query" 
-                                    @focus="focused = true; $wire.set('show_customer_suggestions', true)"
-                                    icon="building-storefront" 
-                                    placeholder="Cari customer..." />
+                        <div>
+                            {{-- Customer Search & Gallery Button (Khusus Database) --}}
+                            <div x-show="!showManualInput" class="flex items-end gap-2 relative">
+                                <div class="flex-1 relative" x-data="{ focused: false }" @click.outside="focused = false">
+                                    <flux:input 
+                                        wire:model.live.debounce.300ms="customer_search_query" 
+                                        @focus="focused = true; $wire.set('show_customer_suggestions', true)"
+                                        icon="building-storefront" 
+                                        placeholder="Cari customer..." />
+                                    
+                                    {{-- Dropdown Customer Suggestion --}}
+                                    <div x-show="focused && $wire.show_customer_suggestions && $wire.customer_search_query.length >= 2" 
+                                         x-cloak
+                                         class="absolute z-20 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl overflow-hidden">
+                                        @if(count($this->customerSearchResults) > 0)
+                                            <ul class="divide-y divide-zinc-100 dark:divide-zinc-700 max-h-64 overflow-y-auto">
+                                                @foreach($this->customerSearchResults as $v)
+                                                    <li @click="customer = {{ json_encode($v->toArray()) }}; $wire.customer_id = customer.id; $wire.customer_search_query = ''; $wire.show_customer_suggestions = false;"
+                                                        class="px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-3 transition-colors">
+                                                        <flux:avatar src="{{ $v->image ? Storage::url($v->image) : '' }}" fallback="{{ substr($v->name, 0, 2) }}" size="sm" />
+                                                        <div>
+                                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $v->name }}</div>
+                                                            <div class="text-[10px] text-zinc-500">{{ $v->type }}</div>
+                                                        </div>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            <div class="px-4 py-6 text-center text-zinc-500 dark:text-zinc-400">
+                                                <flux:icon.user class="w-8 h-8 mx-auto mb-2 text-zinc-300 dark:text-zinc-600" />
+                                                <p class="text-sm">Pelanggan tidak ditemukan.</p>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
                                 
-                                {{-- Dropdown Customer Suggestion --}}
-                                <div x-show="focused && $wire.show_customer_suggestions && $wire.customer_search_query.length >= 2" 
-                                     x-cloak
-                                     class="absolute z-20 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl overflow-hidden">
-                                    @if(count($this->customerSearchResults) > 0)
-                                        <ul class="divide-y divide-zinc-100 dark:divide-zinc-700 max-h-64 overflow-y-auto">
-                                            @foreach($this->customerSearchResults as $v)
-                                                <li @click="customer = {{ json_encode($v->toArray()) }}; $wire.customer_id = customer.id; $wire.customer_search_query = ''; $wire.show_customer_suggestions = false;"
-                                                    class="px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-3 transition-colors">
-                                                    <flux:avatar src="{{ $v->image ? Storage::url($v->image) : '' }}" fallback="{{ substr($v->name, 0, 2) }}" size="sm" />
-                                                    <div>
-                                                        <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $v->name }}</div>
-                                                        <div class="text-[10px] text-zinc-500">{{ $v->type }}</div>
-                                                    </div>
-                                                </li>
-                                            @endforeach
-                                        </ul>
-                                    @else
-                                        <div class="px-4 py-3 text-sm text-zinc-500 text-center">Customer tidak ditemukan.</div>
-                                    @endif
+                                {{-- Tombol Galeri Customer --}}
+                                <flux:button class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('customer-gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
+                                    <flux:icon.users class="w-4 h-4 mr-2" />
+                                    <span class="hidden sm:inline">Galeri</span>
+                                </flux:button>
+                            </div>
+
+                            {{-- Manual Input untuk Pelanggan Sementara --}}
+                            <div x-show="showManualInput" x-cloak class="flex flex-col gap-2 relative">
+                                <flux:input 
+                                    wire:model="customer_search_query" 
+                                    icon="user" 
+                                    placeholder="Nama pelanggan baru..." />
+                                <div class="flex gap-2 w-full">
+                                    <div class="flex-1">
+                                        <flux:input 
+                                            wire:model="customer_phone" 
+                                            icon="phone" 
+                                            placeholder="Nomor HP (opsional)..." />
+                                    </div>
+                                    <flux:button variant="primary" class="shrink-0" wire:click="quickCreateCustomer" @click="if($wire.customer_search_query.length >= 2) { showManualInput = false; }">
+                                        Simpan
+                                    </flux:button>
                                 </div>
                             </div>
-                            
-                            {{-- Tombol Galeri Customer --}}
-                            <flux:button class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white shrink-0" x-data="{ loading: false }" x-on:click="loading = true; setTimeout(() => { $flux.modal('customer-gallery-modal').show(); loading = false; }, 300)" x-bind:disabled="loading">
-                                <div class="flex items-center gap-2">
-                                    <flux:icon.users class="w-4 h-4" x-show="!loading" />
-                                    <svg x-show="loading" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    <span class="hidden xl:block">Galeri</span>
-                                </div>
-                            </flux:button>
                         </div>
                     </template>
                 </div>
@@ -898,9 +977,12 @@ $saveCart = function ($cartData) {
                 {{-- Tombol Lanjut (Hanya muncul jika di Step 1) --}}
                 <div x-show="step === 1" x-transition>
                     <flux:separator class="my-4" />
-                    <flux:button class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white w-full" @click="step = 2">
-                        Lanjut ke Tanggal Penawaran <flux:icon.arrow-right class="w-4 h-4 ml-2" />
-                    </flux:button>
+                    <div class="flex gap-2 w-full">
+                        <flux:button variant="subtle" class="w-1/3" href="{{ route('sales.quotations.index') }}" wire:navigate>Batal</flux:button>
+                        <flux:button class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white flex-1" @click="step = 2">
+                            Lanjut ke Tanggal Penawaran <flux:icon.arrow-right class="w-4 h-4 ml-2" />
+                        </flux:button>
+                    </div>
                 </div>
             </div>
 
@@ -981,9 +1063,12 @@ $saveCart = function ($cartData) {
                 {{-- Tombol Lanjut (Hanya muncul jika di Step 2) --}}
                 <div x-show="step === 2" x-transition>
                     <flux:separator class="my-4" />
-                    <flux:button class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white w-full" @click="step = 3">
-                        Lanjut ke Ringkasan Biaya <flux:icon.arrow-right class="w-4 h-4 ml-2" />
-                    </flux:button>
+                    <div class="flex gap-2 w-full">
+                        <flux:button variant="subtle" class="w-1/3" href="{{ route('sales.quotations.index') }}" wire:navigate>Batal</flux:button>
+                        <flux:button class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white flex-1" @click="step = 3">
+                            Lanjut ke Ringkasan Biaya <flux:icon.arrow-right class="w-4 h-4 ml-2" />
+                        </flux:button>
+                    </div>
                 </div>
             </div>
 
@@ -1278,6 +1363,7 @@ $saveCart = function ($cartData) {
                     this.items = newItems;
                 } else {
                     this.items.unshift({
+                        _cart_id: Date.now() + Math.random().toString(36).substr(2, 9),
                         id: null,
                         item_id: newItem.item_id,
                         name: newItem.name,

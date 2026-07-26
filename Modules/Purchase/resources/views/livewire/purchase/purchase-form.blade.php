@@ -509,7 +509,7 @@ $saveCart = function ($cartData) {
 
                 {{-- Daftar Barang Terpilih (Modern List) --}}
                 <div class="flex-1 space-y-4">
-                    <template x-for="(item, index) in items" :key="item.item_id">
+                    <template x-for="(item, index) in items" :key="item._cart_id || (item.item_id + '_' + index)">
                         <div class="relative flex flex-col sm:flex-row bg-emerald-50/30 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30 rounded-2xl shadow-sm transition-colors">
                             {{-- Delete Button (Top Left over Image) --}}
                             <div class="absolute top-2 left-2 sm:-top-3 sm:-left-3 z-10" x-show="!item.min_qty" x-cloak>
@@ -561,9 +561,11 @@ $saveCart = function ($cartData) {
                                         </div>
 
                                         <!-- Popover Catatan -->
-                                        <div x-show="open" x-transition @click.outside="open = false" style="display: none;" 
-                                             class="absolute right-0 w-[calc(100vw-2rem)] sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 z-50"
-                                             :class="placement === 'top' ? 'bottom-full mb-3 origin-bottom-right' : 'top-full mt-3 origin-top-right'">
+                                        <div x-show="open" x-cloak class="fixed inset-0 bg-zinc-900/50 z-[50] sm:hidden" x-transition.opacity></div>
+                                        <div x-show="open" @click.away="open = false" x-transition 
+                                             class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] sm:absolute sm:translate-x-0 sm:translate-y-0 sm:right-0 sm:left-auto sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 cursor-auto z-[60]" 
+                                             :class="placement === 'top' ? 'sm:bottom-full sm:mb-3 sm:origin-bottom-right' : 'sm:top-full sm:mt-3 sm:origin-top-right'"
+                                             style="display: none;">
                                             
                                             <div class="flex justify-between items-center mb-4 gap-2">
                                                 <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">CATATAN ITEM</h3>
@@ -636,10 +638,11 @@ $saveCart = function ($cartData) {
                                             </button>
                                             
                                             {{-- Popover Price History (Livewire) --}}
+                                            <div x-show="open" x-cloak class="fixed inset-0 bg-zinc-900/50 z-[50] sm:hidden" x-transition.opacity></div>
                                             <div x-show="open" @click.away="open = false" x-transition 
-                                                 class="absolute right-0 sm:right-auto sm:left-0 w-[310px] sm:w-[380px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-0 cursor-auto overflow-hidden z-50 transition-all duration-300" 
+                                                 class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] sm:absolute sm:translate-x-0 sm:translate-y-0 sm:right-auto sm:left-0 sm:w-[380px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-0 cursor-auto overflow-hidden z-[60] transition-all duration-300" 
                                                  :class="[
-                                                    placement === 'top' ? 'bottom-full mb-3 origin-bottom-right sm:origin-bottom-left' : 'top-full mt-3 origin-top-right sm:origin-top-left',
+                                                    placement === 'top' ? 'sm:bottom-full sm:mb-3 sm:origin-bottom-left' : 'sm:top-full sm:mt-3 sm:origin-top-left',
                                                     expanded ? 'sm:w-[500px] sm:-left-20' : ''
                                                  ]"
                                                  style="display: none;">
@@ -1199,9 +1202,27 @@ $saveCart = function ($cartData) {
                 this.updateItemSubtotal(index);
             },
 
-            addItem(newItem) {
-                let existingIndex = this.items.findIndex(i => i.item_id == newItem.item_id);
-                if (existingIndex !== -1) {
+            addItem(newItem, forceNew = false) {
+                  let existingIndex = -1;
+                  if (!forceNew) {
+                      existingIndex = this.items.findIndex(i => {
+                          let isSameId = i.item_id == newItem.item_id;
+                          let isSameImage = i.image == newItem.image;
+                          
+                          let normalize = (val) => {
+                              if (!val) return "";
+                              if (typeof val === 'object' && Object.keys(val).length === 0) return "";
+                              return JSON.stringify(val);
+                          };
+                          
+                          let isSameAttrs = normalize(i.custom_attributes) === normalize(newItem.custom_attributes);
+                          let isSameAttachs = normalize(i.custom_attachments) === normalize(newItem.custom_attachments);
+                          
+                          return isSameId && isSameImage && isSameAttrs && isSameAttachs;
+                      });
+                  }
+                  
+                  if (existingIndex !== -1) {
                     // Update qty
                     this.items[existingIndex].qty = (parseInt(this.items[existingIndex].qty) || 0) + 1;
                     this.updateItemSubtotal(existingIndex);
@@ -1215,6 +1236,7 @@ $saveCart = function ($cartData) {
                     this.items = newItems;
                 } else {
                     this.items.unshift({
+                        _cart_id: Date.now() + Math.random().toString(36).substr(2, 9),
                         id: null,
                         item_id: newItem.item_id,
                         name: newItem.name,
@@ -1338,7 +1360,7 @@ $saveCart = function ($cartData) {
                 if (cartElement) {
                     let cart = Alpine.$data(cartElement);
                     if (cart) {
-                        cart.addItem(detail.item);
+                        cart.addItem(detail.item, true);
                         // The newly added or updated item is now at index 0
                         cart.items[0].custom_attributes = detail.custom_attributes;
                         cart.items[0].custom_attachments = detail.custom_attachments;

@@ -15,6 +15,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Volt::route('quotations', 'quotation.index')->name('quotations.index');
             Volt::route('quotations/create', 'quotation.create')->name('quotations.create');
             Volt::route('quotations/{id}', 'quotation.show')->name('quotations.show');
+            Route::get('quotations/{id}/print', [\Modules\Sales\Http\Controllers\QuotationPrintController::class, 'show'])->name('quotations.print');
         });
         
         // Order Routes

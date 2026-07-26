@@ -12,6 +12,11 @@ class QuotationItem extends Model
 
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'custom_attributes' => 'array',
+        'custom_attachments' => 'array',
+    ];
+
     public function quotation()
     {
         return $this->belongsTo(Quotation::class);

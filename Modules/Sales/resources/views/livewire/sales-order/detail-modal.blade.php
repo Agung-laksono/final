@@ -101,6 +101,14 @@ $getStatusBadge = function ($status) {
                             printing: false,
                             printInvoice(url, filename) {
                                 if (this.printing) return;
+                                
+                                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                                
+                                if (isMobile) {
+                                    window.open(url, '_blank');
+                                    return;
+                                }
+                                
                                 this.printing = true;
                                 
                                 const originalTitle = document.title;
