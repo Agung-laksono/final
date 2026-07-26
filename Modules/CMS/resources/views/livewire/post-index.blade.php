@@ -50,7 +50,8 @@ new class extends Component {
                 <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari judul artikel..." class="max-w-md" />
             </div>
 
-            <flux:table>
+            <x-table.wrapper>
+    <flux:table class="table-mobile-cards">
                 <flux:table.columns>
                     <flux:table.column>Judul</flux:table.column>
                     <flux:table.column>Kategori</flux:table.column>
@@ -101,6 +102,7 @@ new class extends Component {
                     @endforelse
                 </flux:table.rows>
             </flux:table>
+</x-table.wrapper>
             <div class="mt-4">
                 {{ $posts->links() }}
             </div>

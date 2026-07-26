@@ -247,4 +247,95 @@ select:focus[data-flux-control] {
         font-size: 0.7rem;
         color: var(--color-zinc-500);
     }
+
+    /* Table for Items List in Modals/Subcomponents */
+    table.table-mobile-items {
+        background: transparent;
+        border: none;
+        padding: 0;
+        box-shadow: none;
+    }
+    table.table-mobile-items > thead {
+        display: none;
+    }
+    table.table-mobile-items > tbody > tr {
+        @apply bg-white dark:bg-zinc-900;
+        border: 1px solid var(--color-zinc-200);
+        border-radius: 0.75rem;
+        padding: 0.75rem 0.875rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.375rem 0.5rem;
+    }
+    table.table-mobile-items > tbody > tr:last-child {
+        margin-bottom: 0;
+    }
+    table.table-mobile-items > tbody > tr > td {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 0;
+        border: none;
+        text-align: left;
+        font-size: 0.75rem;
+    }
+    table.table-mobile-items > tbody > tr > td:first-child {
+        width: 100%;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-zinc-900);
+        line-height: 1.25;
+        padding-bottom: 0.375rem;
+        border-bottom: 1px dashed var(--color-zinc-200);
+        margin-bottom: 0.125rem;
+    }
+    .dark table.table-mobile-items > tbody > tr > td:first-child {
+        color: var(--color-zinc-100);
+        border-bottom-color: var(--color-zinc-700);
+    }
+    table.table-mobile-items > tbody > tr > td:not(:first-child) {
+        flex: 1;
+        min-width: 0; /* prevent overflow */
+    }
+    table.table-mobile-items > tbody > tr > td:not(:first-child)::before {
+        content: attr(data-label);
+        font-weight: 500;
+        color: var(--color-zinc-500);
+        font-size: 0.65rem;
+        margin-bottom: 0.125rem;
+        text-transform: uppercase;
+    }
+    table.table-mobile-items > tfoot {
+        display: block;
+        width: 100%;
+        margin-top: 1rem;
+        background-color: var(--color-zinc-50);
+        border: 1px solid var(--color-zinc-200);
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+    }
+    .dark table.table-mobile-items > tfoot {
+        background-color: var(--color-zinc-800);
+        border-color: var(--color-zinc-700);
+    }
+    table.table-mobile-items > tfoot > tr {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        padding: 0.25rem 0;
+    }
+    table.table-mobile-items > tfoot > tr > td {
+        display: block;
+        border: none;
+        padding: 0;
+        text-align: right;
+    }
+    table.table-mobile-items > tfoot > tr > td[colspan] {
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.7rem;
+        color: var(--color-zinc-500);
+    }
 }

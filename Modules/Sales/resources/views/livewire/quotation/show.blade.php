@@ -70,7 +70,7 @@ $convertToSalesOrder = function () {
                     <h3 class="font-bold text-zinc-800 dark:text-zinc-200">Rincian Penawaran</h3>
                 </div>
                 <div class="p-0">
-                    <table class="w-full text-sm text-left table-mobile-cards">
+                    <table class="w-full text-sm text-left table-mobile-items">
                         <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/80 uppercase">
                             <tr>
                                 <th class="px-5 py-3 font-semibold">Produk</th>
@@ -102,13 +102,13 @@ $convertToSalesOrder = function () {
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-5 py-4 text-center font-medium text-zinc-700 dark:text-zinc-300">
-                                        {{ $item->qty }} <span class="text-[10px] text-zinc-500 font-normal">{{ $item->item->unit->name ?? 'pcs' }}</span>
+                                    <td class="px-5 py-4 text-center font-medium text-zinc-700 dark:text-zinc-300" data-label="Qty">
+                                        <span>{{ $item->qty }} <span class="text-[10px] text-zinc-500 font-normal">{{ $item->item->unit->name ?? 'pcs' }}</span></span>
                                     </td>
-                                    <td class="px-5 py-4 text-right font-medium text-zinc-700 dark:text-zinc-300">
+                                    <td class="px-5 py-4 text-right font-medium text-zinc-700 dark:text-zinc-300" data-label="Harga Satuan">
                                         Rp {{ number_format($item->unit_price, 0, ',', '.') }}
                                     </td>
-                                    <td class="px-5 py-4 text-right font-bold text-zinc-900 dark:text-zinc-100">
+                                    <td class="px-5 py-4 text-right font-bold text-zinc-900 dark:text-zinc-100" data-label="Subtotal">
                                         Rp {{ number_format($item->subtotal, 0, ',', '.') }}
                                     </td>
                                 </tr>

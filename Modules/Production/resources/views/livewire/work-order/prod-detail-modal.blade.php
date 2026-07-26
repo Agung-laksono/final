@@ -148,7 +148,7 @@ on(['open-prod-detail-modal' => function ($orderId) {
                     <div>
                         <flux:heading size="sm" class="mb-3">Bahan Fisik Terpakai (BOM Consumed)</flux:heading>
                         <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-                            <table class="w-full text-sm text-left table-mobile-cards">
+                            <table class="w-full text-sm text-left table-mobile-items">
                                 <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500">
                                     <tr>
                                         <th class="px-3 py-2 font-medium">Material</th>
@@ -161,9 +161,9 @@ on(['open-prod-detail-modal' => function ($orderId) {
                                     @foreach($stockMovements as $movement)
                                         <tr>
                                             <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">{{ $movement->item_name }}</td>
-                                            <td class="px-3 py-2 text-zinc-500">{{ $movement->item_sku }}</td>
-                                            <td class="px-3 py-2 text-right text-red-600 font-medium">-{{ $movement->quantity }}</td>
-                                            <td class="px-3 py-2 text-zinc-500">{{ \Carbon\Carbon::parse($movement->created_at)->format('d M Y H:i') }}</td>
+                                            <td class="px-3 py-2 text-zinc-500" data-label="SKU">{{ $movement->item_sku }}</td>
+                                            <td class="px-3 py-2 text-right text-red-600 font-medium" data-label="Qty Terpotong">-{{ $movement->quantity }}</td>
+                                            <td class="px-3 py-2 text-zinc-500" data-label="Tanggal Keluar">{{ \Carbon\Carbon::parse($movement->created_at)->format('d M Y H:i') }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -177,7 +177,7 @@ on(['open-prod-detail-modal' => function ($orderId) {
                     
                     @if($order->histories && $order->histories->count() > 0)
                         <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-                            <table class="w-full text-sm text-left table-mobile-cards">
+                            <table class="w-full text-sm text-left table-mobile-items">
                                 <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500">
                                     <tr>
                                         <th class="px-3 py-2 font-medium">Tanggal</th>
@@ -191,10 +191,10 @@ on(['open-prod-detail-modal' => function ($orderId) {
                                             <td class="px-3 py-2 text-zinc-600 dark:text-zinc-400">
                                                 {{ \Carbon\Carbon::parse($history->created_at)->format('d M Y H:i') }}
                                             </td>
-                                            <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                                            <td class="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100" data-label="Fase Selesai">
                                                 {{ ucfirst($history->phase) }}
                                             </td>
-                                            <td class="px-3 py-2">
+                                            <td class="px-3 py-2" data-label="Vendor / Eksekutor">
                                                 {{ $history->vendor->name ?? 'Internal / Unknown' }}
                                             </td>
                                         </tr>

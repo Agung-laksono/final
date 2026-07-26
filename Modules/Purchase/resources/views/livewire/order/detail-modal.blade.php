@@ -30,7 +30,7 @@ $getStatusBadge = function ($status) {
 ?>
 
 <div>
-    <flux:modal wire:model="show" class="w-full md:w-[680px] space-y-3">
+    <x-modal wire:model="show">
         @if($order)
             {{-- Header: PO Number + Status + Date --}}
             <div class="pb-2 border-b border-zinc-200 dark:border-zinc-700 pr-6 relative">
@@ -168,7 +168,7 @@ $getStatusBadge = function ($status) {
 
             {{-- Items Table - Ultra Compact --}}
             <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-                <table class="w-full text-xs table-mobile-cards">
+                <table class="w-full text-xs table-mobile-items">
                     <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 border-b border-zinc-200 dark:border-zinc-700">
                         <tr>
                             <th class="px-3 py-1.5 font-semibold text-left">Barang</th>
@@ -240,18 +240,20 @@ $getStatusBadge = function ($status) {
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-2 py-2 text-right text-zinc-700 dark:text-zinc-300">{{ number_format($item->quantity, 0, ',', '.') }}</td>
-                                <td class="px-2 py-2 text-right">
+                                <td class="px-2 py-2 text-right text-zinc-700 dark:text-zinc-300" data-label="Qty">
+                                    <span>{{ number_format($item->quantity, 0, ',', '.') }} <span class="text-[10px] text-zinc-500 font-normal">{{ $item->item->unit->name ?? 'pcs' }}</span></span>
+                                </td>
+                                <td class="px-2 py-2 text-right" data-label="Terima">
                                     @if($item->received_quantity >= $item->quantity)
-                                        <span class="text-emerald-600 font-semibold">{{ number_format($item->received_quantity, 0, ',', '.') }}</span>
+                                        <span class="text-emerald-600 font-semibold inline-flex items-baseline gap-1">{{ number_format($item->received_quantity, 0, ',', '.') }} <span class="text-[10px] font-normal opacity-70">{{ $item->item->unit->name ?? 'pcs' }}</span></span>
                                     @elseif($item->received_quantity > 0)
-                                        <span class="text-amber-600 font-semibold">{{ number_format($item->received_quantity, 0, ',', '.') }}</span>
+                                        <span class="text-amber-600 font-semibold inline-flex items-baseline gap-1">{{ number_format($item->received_quantity, 0, ',', '.') }} <span class="text-[10px] font-normal opacity-70">{{ $item->item->unit->name ?? 'pcs' }}</span></span>
                                     @else
-                                        <span class="text-zinc-400">0</span>
+                                        <span class="text-zinc-400 inline-flex items-baseline gap-1">0 <span class="text-[10px] font-normal opacity-70">{{ $item->item->unit->name ?? 'pcs' }}</span></span>
                                     @endif
                                 </td>
-                                <td class="px-2 py-2 text-right text-zinc-600 dark:text-zinc-400">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
-                                <td class="px-3 py-2 text-right font-semibold text-zinc-800 dark:text-zinc-200">{{ number_format($item->quantity * $item->unit_price, 0, ',', '.') }}</td>
+                                <td class="px-2 py-2 text-right text-zinc-600 dark:text-zinc-400" data-label="Harga">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                                <td class="px-3 py-2 text-right font-semibold text-zinc-800 dark:text-zinc-200" data-label="Subtotal">{{ number_format($item->quantity * $item->unit_price, 0, ',', '.') }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -285,5 +287,5 @@ $getStatusBadge = function ($status) {
         @else
             <div class="p-8 text-center text-zinc-500">Memuat data...</div>
         @endif
-    </flux:modal>
+    </x-modal>
 </div>

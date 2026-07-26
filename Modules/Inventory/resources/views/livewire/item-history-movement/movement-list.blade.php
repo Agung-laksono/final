@@ -107,7 +107,8 @@ on([
 
     <div class="bg-white border dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden pl-3">
         <div class="overflow-x-auto">
-            <flux:table>
+            <x-table.wrapper>
+    <flux:table class="table-mobile-cards">
                 <flux:table.columns>
                     <flux:table.column>{{ __('Waktu') }}</flux:table.column>
                     <flux:table.column>{{ __('No. Ref') }}</flux:table.column>
@@ -177,6 +178,7 @@ on([
                     @endforelse
                 </flux:table.rows>
             </flux:table>
+</x-table.wrapper>
         </div>
     </div>
     <x-load-more :paginator="$movements" item-name="mutasi" />

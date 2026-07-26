@@ -396,8 +396,8 @@ $delete = function (Item $item) {
 
     @if ($viewMode === 'table')
         {{-- Tampilan Tabel --}}
-        <div class="pl-2 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6 shadow-sm">
-            <flux:table>
+        <x-table.wrapper>
+    <flux:table class="table-mobile-cards">
                 <flux:table.columns>
                     <flux:table.column sortable :sorted="$sortBy === 'name'" :direction="$sortDirection" wire:click="sort('name')">Info Barang</flux:table.column>
                     <flux:table.column sortable :sorted="$sortBy === 'purchase_price'" :direction="$sortDirection" wire:click="sort('purchase_price')">Harga</flux:table.column>
@@ -410,79 +410,82 @@ $delete = function (Item $item) {
                         <flux:table.row :key="$item->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:dblclick="$dispatch('open-item-detail', { id: {{ $item->id }} })">
                             <flux:table.cell>
                                 <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-md bg-zinc-100 overflow-hidden border border-zinc-200 shrink-0">
+                                    <div class="relative w-10 h-10 rounded-md bg-zinc-100 border border-zinc-200 shrink-0">
                                         @if ($item->image)
-                                            <img src="{{ asset('storage/' . $item->image) }}" loading="lazy" class="w-full h-full object-cover">
+                                            <img src="{{ asset('storage/' . $item->image) }}" loading="lazy" class="w-full h-full object-cover rounded-md">
                                         @else
-                                            <div class="w-full h-full flex items-center justify-center text-zinc-400">
+                                            <div class="w-full h-full flex items-center justify-center text-zinc-400 rounded-md">
                                                 <flux:icon.photo class="w-5 h-5" />
                                             </div>
                                         @endif
-                                    </div>
-                                    <div>
-                                        <div class="flex items-center gap-2">
-                                            <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $item->name }}</div>
-                                            @if ($item->custom_variants_count > 0)
-                                                <div x-data="{ showTooltip: false }" 
-                                                     class="relative flex items-center gap-1.5 ml-2 cursor-pointer hover:opacity-80 transition-opacity"
-                                                     @mouseenter="showTooltip = true"
-                                                     @mouseleave="showTooltip = false"
-                                                     @click.stop="showTooltip = !showTooltip">
-                                                    
-                                                    <div class="flex -space-x-1 overflow-hidden">
-                                                        @foreach($item->customVariants as $variant)
-                                                            @if(!empty($variant->custom_attachments))
-                                                                <img class="inline-block h-5 w-5 rounded-full ring-1 ring-white object-cover bg-white shadow-sm" 
-                                                                     src="{{ asset('storage/' . $variant->custom_attachments[0]) }}" 
-                                                                     alt="Varian">
-                                                            @endif
-                                                        @endforeach
-                                                    </div>
-                                                    <span class="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
-                                                        {{ $item->custom_variants_count }} Varian
+                                        
+                                        @php
+                                            $uniqueVariants = collect();
+                                            if ($item->custom_variants_count > 0) {
+                                                $uniqueVariants = collect($item->customVariants)->unique(function($v) {
+                                                    return json_encode($v->custom_attributes) . json_encode($v->custom_attachments);
+                                                });
+                                            }
+                                        @endphp
+                                        
+                                        @if ($uniqueVariants->count() > 0)
+                                            <div x-data="{ showTooltip: false }" 
+                                                 class="absolute -top-2.5 -left-2.5 z-10 flex items-center cursor-pointer hover:scale-105 transition-transform"
+                                                 @mouseenter="showTooltip = true"
+                                                 @mouseleave="showTooltip = false"
+                                                 @click.stop="showTooltip = !showTooltip">
+                                                
+                                                <div class="flex -space-x-1.5 overflow-visible items-center drop-shadow-sm">
+                                                    @foreach($uniqueVariants->take(2) as $variant)
+                                                        @if(!empty($variant->custom_attachments))
+                                                            <img class="inline-block h-5 w-5 rounded-full ring-2 ring-white object-cover bg-white" 
+                                                                 src="{{ asset('storage/' . $variant->custom_attachments[0]) }}" 
+                                                                 alt="Varian">
+                                                        @endif
+                                                    @endforeach
+                                                    <span class="inline-flex items-center justify-center h-4.5 px-1.5 text-[9px] font-bold text-white bg-indigo-600 rounded-full ring-2 ring-white z-10 whitespace-nowrap">
+                                                        {{ $uniqueVariants->count() }} Varian
                                                     </span>
-                                                    
-                                                    {{-- Popover Overlay --}}
-                                                    <div x-show="showTooltip" 
-                                                         x-transition:enter="transition ease-out duration-200"
-                                                         x-transition:enter-start="opacity-0 translate-y-2 scale-95"
-                                                         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                                                         x-transition:leave="transition ease-in duration-150"
-                                                         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-                                                         x-transition:leave-end="opacity-0 translate-y-2 scale-95"
-                                                         class="absolute top-6 left-0 w-64 bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden pointer-events-none z-50"
-                                                         style="display: none; transform-origin: top left;">
-                                                         
-                                                        <div class="bg-indigo-600 px-3 py-2 text-white flex justify-between items-center">
-                                                            <div class="font-bold text-xs flex items-center gap-1.5">
-                                                                <flux:icon.swatch class="w-3.5 h-3.5" /> 
-                                                                Riwayat Varian
-                                                            </div>
-                                                            <div class="text-[10px] bg-indigo-800/50 px-1.5 py-0.5 rounded">{{ $item->custom_variants_count }} Total</div>
+                                                </div>
+                                                
+                                                {{-- Popover Overlay --}}
+                                                <div x-show="showTooltip" 
+                                                     x-transition:enter="transition ease-out duration-200"
+                                                     x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+                                                     x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                                     x-transition:leave="transition ease-in duration-150"
+                                                     x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                                     x-transition:leave-end="opacity-0 translate-y-2 scale-95"
+                                                     class="absolute top-6 left-0 w-64 bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden pointer-events-none z-50"
+                                                     style="display: none; transform-origin: top left;">
+                                                     
+                                                    <div class="bg-indigo-600 px-3 py-2 text-white flex justify-between items-center">
+                                                        <div class="font-bold text-xs flex items-center gap-1.5">
+                                                            <flux:icon.swatch class="w-3.5 h-3.5" /> 
+                                                            Varian Spesifikasi
                                                         </div>
-                                                        
-                                                        <div class="p-2 flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar">
-                                                            @foreach($item->customVariants as $variant)
-                                                                <div class="flex gap-2 p-1.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-100 dark:border-zinc-700/50 shadow-sm">
-                                                                    @if(!empty($variant->custom_attachments))
-                                                                        <img src="{{ asset('storage/' . $variant->custom_attachments[0]) }}" 
-                                                                             class="w-10 h-10 rounded-md object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm shrink-0 bg-white">
-                                                                    @else
-                                                                        <div class="w-10 h-10 rounded-md bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700">
-                                                                            <flux:icon.photo class="w-4 h-4 text-zinc-400" />
-                                                                        </div>
-                                                                    @endif
-                                                                    <div class="flex-1 min-w-0 flex flex-col justify-center">
-                                                                        <div class="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 truncate">
-                                                                            {{ $variant->salesOrder?->customer?->name ?? 'Pelanggan Umum' }}
-                                                                        </div>
-                                                                        <div class="text-[9px] text-zinc-500 mb-0.5">
-                                                                            {{ $variant->created_at?->format('d M Y') ?? 'Tidak diketahui' }}
-                                                                        </div>
+                                                        <div class="text-[10px] bg-indigo-800/50 px-1.5 py-0.5 rounded">{{ $uniqueVariants->count() }} Unik</div>
+                                                    </div>
+                                                    
+                                                    <div class="p-2 flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                                                        @foreach($uniqueVariants as $variant)
+                                                            <div class="flex gap-2 p-1.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-100 dark:border-zinc-700/50 shadow-sm">
+                                                                @if(!empty($variant->custom_attachments))
+                                                                    <img src="{{ asset('storage/' . $variant->custom_attachments[0]) }}" 
+                                                                         class="w-10 h-10 rounded-md object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm shrink-0 bg-white">
+                                                                @else
+                                                                    <div class="w-10 h-10 rounded-md bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700">
+                                                                        <flux:icon.photo class="w-4 h-4 text-zinc-400" />
+                                                                    </div>
+                                                                @endif
+                                                                <div class="flex-1 min-w-0 flex flex-col justify-center">
+                                                                    <div class="text-[9px] text-zinc-600 dark:text-zinc-400 leading-tight">
                                                                         @if(!empty($variant->custom_attributes))
-                                                                            <div class="text-[9px] text-indigo-600 dark:text-indigo-400 truncate font-medium">
-                                                                                {{ collect($variant->custom_attributes)->map(fn($v, $k) => $k . ': ' . (is_array($v) ? implode(', ', $v) : $v))->implode(' | ') }}
-                                                                            </div>
+                                                                            @foreach($variant->custom_attributes as $key => $val)
+                                                                                <span class="font-medium text-zinc-800 dark:text-zinc-200">{{ is_numeric($key) ? '' : $key.':' }}</span> {{ is_array($val) ? implode(', ', $val) : $val }}@if(!$loop->last), @endif
+                                                                            @endforeach
+                                                                        @else
+                                                                            Varian custom
                                                                         @endif
                                                                     </div>
                                                                 </div>
@@ -538,7 +541,7 @@ $delete = function (Item $item) {
                     @endforelse
                 </flux:table.rows>
             </flux:table>
-        </div>
+        </x-table.wrapper>
     @else
         {{-- Tampilan Grid (Vertical Cards dengan Gambar Mencolok) --}}
         <div class="@container w-full">

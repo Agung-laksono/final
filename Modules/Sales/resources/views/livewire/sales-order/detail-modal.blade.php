@@ -43,7 +43,7 @@ $getStatusBadge = function ($status) {
 ?>
 
 <div>
-    <flux:modal wire:model="show" class="w-[92vw] md:w-[680px] space-y-3" scroll="body">
+    <x-modal wire:model="show" scroll="body">
         @if($order)
             @php
                 // Tim gudang biasa (tanpa role manajerial) tidak boleh melihat harga
@@ -214,7 +214,7 @@ $getStatusBadge = function ($status) {
 
             {{-- Items Table - Ultra Compact --}}
             <div class="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
-                <table class="w-full text-xs table-mobile-cards">
+                <table class="w-full text-xs table-mobile-items">
                     <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 border-b border-zinc-200 dark:border-zinc-700">
                         <tr>
                             <th class="px-3 py-1.5 font-semibold text-left">Barang</th>
@@ -276,10 +276,12 @@ $getStatusBadge = function ($status) {
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-2 py-2 text-right text-zinc-700 dark:text-zinc-300">{{ number_format($item->qty, 0, ',', '.') }}</td>
+                                <td class="px-2 py-2 text-right text-zinc-700 dark:text-zinc-300" data-label="Qty">
+                                    <span>{{ number_format($item->qty, 0, ',', '.') }} <span class="text-[10px] text-zinc-500 font-normal">{{ $item->item->unit->name ?? 'pcs' }}</span></span>
+                                </td>
                                 @if($canViewPrices)
-                                <td class="px-2 py-2 text-right text-zinc-600 dark:text-zinc-400">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
-                                <td class="px-3 py-2 text-right font-semibold text-zinc-800 dark:text-zinc-200">{{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                                <td class="px-2 py-2 text-right text-zinc-600 dark:text-zinc-400" data-label="Harga">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                                <td class="px-3 py-2 text-right font-semibold text-zinc-800 dark:text-zinc-200" data-label="Subtotal">{{ number_format($item->subtotal, 0, ',', '.') }}</td>
                                 @endif
                             </tr>
                         @endforeach
@@ -322,5 +324,5 @@ $getStatusBadge = function ($status) {
         @else
             <div class="p-8 text-center text-zinc-500">Memuat data...</div>
         @endif
-    </flux:modal>
+    </x-modal>
 </div>

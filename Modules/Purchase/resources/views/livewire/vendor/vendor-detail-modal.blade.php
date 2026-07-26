@@ -114,8 +114,8 @@ new class extends Component {
                     <span class="text-xs text-zinc-500">Menampilkan maks. 5 PO terbaru</span>
                 </div>
                 
-                <div class="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
-                    <flux:table>
+                <x-table.wrapper>
+    <flux:table class="table-mobile-cards">
                         <flux:table.columns>
                             <flux:table.column>Tanggal</flux:table.column>
                             <flux:table.column>No. PO</flux:table.column>
@@ -145,7 +145,7 @@ new class extends Component {
                             @endforelse
                         </flux:table.rows>
                     </flux:table>
-                </div>
+                </x-table.wrapper>
             </div>
             
             <div class="pt-4 flex justify-end gap-2 border-t border-zinc-200 dark:border-zinc-800">

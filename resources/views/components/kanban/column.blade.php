@@ -8,7 +8,7 @@
 
 <div x-data="{ collapsed: $persist({{ $defaultCollapsed ? 'true' : 'false' }}).as('kanban-col-{{ $componentId }}-{{ $statusKey }}-user-{{ auth()->id() }}') }"
      style="height: 100%; display: flex; flex-direction: column;"
-     class="flex-shrink-0 rounded-xl transition-all duration-300 snap-center bg-zinc-100/50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-700/50"
+     class="flex-shrink-0 rounded-xl transition-all duration-300 snap-center bg-zinc-50/50 dark:bg-zinc-800/40"
      :class="(collapsed ? 'w-16 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/80' : 'w-80')"
      @click="if(collapsed) collapsed = false"
      wire:key="kanban-column-{{ $componentId }}-{{ $statusKey }}">

@@ -136,8 +136,8 @@ $updateStatus = function ($newStatus) {
                 </div>
                 <div class="p-0">
                     <!-- Desktop Table View -->
-                    <div class="hidden md:block overflow-x-auto">
-                        <table class="w-full text-sm text-left table-mobile-cards">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left table-mobile-items">
                             <thead class="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/80 uppercase">
                                 <tr>
                                     <th class="px-5 py-3 font-semibold">Produk</th>
@@ -188,13 +188,13 @@ $updateStatus = function ($newStatus) {
                                                   </div>
                                             </div>
                                         </td>
-                                        <td class="px-5 py-4 text-center font-medium text-zinc-700 dark:text-zinc-300">
-                                            {{ $item->qty }} <span class="text-[10px] text-zinc-500 font-normal">{{ $item->item->unit->name ?? 'pcs' }}</span>
+                                        <td class="px-5 py-4 text-center font-medium text-zinc-700 dark:text-zinc-300" data-label="Qty">
+                                            <span>{{ $item->qty }} <span class="text-[10px] text-zinc-500 font-normal">{{ $item->item->unit->name ?? 'pcs' }}</span></span>
                                         </td>
-                                        <td class="px-5 py-4 text-right font-medium text-zinc-700 dark:text-zinc-300">
+                                        <td class="px-5 py-4 text-right font-medium text-zinc-700 dark:text-zinc-300" data-label="Harga Satuan">
                                             Rp {{ number_format($item->unit_price, 0, ',', '.') }}
                                         </td>
-                                        <td class="px-5 py-4 text-right font-bold text-zinc-900 dark:text-zinc-100">
+                                        <td class="px-5 py-4 text-right font-bold text-zinc-900 dark:text-zinc-100" data-label="Subtotal">
                                             Rp {{ number_format($item->subtotal, 0, ',', '.') }}
                                         </td>
                                     </tr>
@@ -229,96 +229,6 @@ $updateStatus = function ($newStatus) {
                                 </tr>
                             </tfoot>
                         </table>
-                    </div>
-                    
-                    <!-- Mobile Card List View -->
-                    <div class="block md:hidden divide-y divide-zinc-100 dark:divide-zinc-800">
-                        @foreach($quotation->items as $item)
-                            <div class="p-4 space-y-3">
-                                <div class="flex items-start gap-3">
-                                      @if($item->custom_attachments && count($item->custom_attachments) > 0)
-                                          <img src="{{ Storage::url($item->custom_attachments[0]) }}" class="w-12 h-12 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity" alt="img" x-on:click.stop="$dispatch('open-lightbox', { url: '{{ Storage::url($item->custom_attachments[0]) }}' })">
-                                      @elseif($item->item->image)
-                                          <img src="{{ Storage::url($item->item->image) }}" class="w-12 h-12 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 cursor-zoom-in hover:opacity-80 transition-opacity" alt="img" x-on:click.stop="$dispatch('open-lightbox', { url: '{{ Storage::url($item->item->image) }}' })">
-                                      @else
-                                          <div class="w-12 h-12 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
-                                              <flux:icon.cube class="w-6 h-6 text-zinc-400" />
-                                          </div>
-                                      @endif
-                                      <div class="flex-1 min-w-0">
-                                          <p class="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center flex-wrap gap-1.5">
-                                              {{ $item->item->name }}
-                                              @if(($item->custom_attributes && count($item->custom_attributes) > 0) || ($item->custom_attachments && count($item->custom_attachments) > 0))
-                                                  <span class="inline-flex items-center gap-0.5 text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded shadow-sm">
-                                                      <flux:icon.sparkles class="w-2.5 h-2.5 text-emerald-600" /> CUSTOM
-                                                  </span>
-                                              @endif
-                                          </p>
-                                          
-                                          @if($item->custom_attributes && count($item->custom_attributes) > 0)
-                                              <div class="flex flex-wrap gap-1 mt-1.5">
-                                                  @foreach($item->custom_attributes as $attr)
-                                                      @if(is_array($attr))
-                                                          <span class="inline-block px-1.5 py-0.5 text-[9px] font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-sm">{{ $attr['key'] ?? '' }}: {{ $attr['value'] ?? '' }}</span>
-                                                      @endif
-                                                  @endforeach
-                                              </div>
-                                          @endif
-                                          
-                                          @if($item->notes)
-                                              <div class="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1.5 italic prose prose-xs prose-p:my-0 leading-tight">
-                                                  {!! $item->notes !!}
-                                              </div>
-                                          @endif
-                                      </div>
-                                </div>
-                                
-                                <div class="flex items-center justify-between text-sm bg-zinc-50 dark:bg-zinc-800/50 p-3 rounded-lg border border-zinc-100 dark:border-zinc-800 mt-2">
-                                    <div class="text-center">
-                                        <p class="text-xs text-zinc-500 mb-0.5">Qty</p>
-                                        <p class="font-bold text-zinc-900 dark:text-white">{{ $item->qty }} <span class="text-[10px] text-zinc-500 font-normal">{{ $item->item->unit->name ?? 'pcs' }}</span></p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="text-xs text-zinc-500 mb-0.5">Harga Satuan</p>
-                                        <p class="font-medium text-zinc-700 dark:text-zinc-300">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="text-xs text-zinc-500 mb-0.5">Subtotal</p>
-                                        <p class="font-black text-zinc-900 dark:text-white">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                        
-                        <!-- Mobile Totals -->
-                        <div class="p-4 bg-zinc-50 dark:bg-zinc-800/30 space-y-2.5">
-                            <div class="flex justify-between text-sm items-center">
-                                <span class="text-zinc-500 dark:text-zinc-400 font-medium">Subtotal</span>
-                                <span class="font-bold text-zinc-800 dark:text-zinc-200">Rp {{ number_format($quotation->items->sum('subtotal'), 0, ',', '.') }}</span>
-                            </div>
-                            @if($quotation->discount > 0)
-                            <div class="flex justify-between text-sm items-center text-red-500">
-                                <span class="font-medium">Diskon</span>
-                                <span class="font-bold">- Rp {{ number_format($quotation->discount, 0, ',', '.') }}</span>
-                            </div>
-                            @endif
-                            @if($quotation->shipping_fee > 0)
-                            <div class="flex justify-between text-sm items-center">
-                                <span class="text-zinc-500 dark:text-zinc-400 font-medium">Biaya Pengiriman</span>
-                                <span class="font-bold text-zinc-800 dark:text-zinc-200">Rp {{ number_format($quotation->shipping_fee, 0, ',', '.') }}</span>
-                            </div>
-                            @endif
-                            @if($quotation->tax > 0)
-                            <div class="flex justify-between text-sm items-center">
-                                <span class="text-zinc-500 dark:text-zinc-400 font-medium">Pajak (PPN)</span>
-                                <span class="font-bold text-zinc-800 dark:text-zinc-200">Rp {{ number_format($quotation->tax, 0, ',', '.') }}</span>
-                            </div>
-                            @endif
-                            <div class="flex justify-between text-base pt-3 border-t border-zinc-200 dark:border-zinc-700/50 mt-3 items-center">
-                                <span class="font-black text-zinc-900 dark:text-white">TOTAL</span>
-                                <span class="font-black text-emerald-600 dark:text-emerald-400 text-lg">Rp {{ number_format($quotation->total_amount, 0, ',', '.') }}</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

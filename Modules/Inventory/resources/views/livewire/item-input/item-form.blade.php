@@ -44,8 +44,8 @@ $openModal = function ($id = null) {
     </div>
 
     {{-- Tabel Daftar Barang --}}
-    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden mb-6">
-        <flux:table class="pl-5">
+    <x-table.wrapper>
+        <flux:table class="table-mobile-cards">
             <flux:table.columns>
                 <flux:table.column>Info Barang</flux:table.column>
                 <flux:table.column>Klasifikasi</flux:table.column>
@@ -58,7 +58,7 @@ $openModal = function ($id = null) {
             <flux:table.rows>
                 @forelse($items as $i)
                     <flux:table.row>
-                        <flux:table.cell>
+                        <flux:table.cell data-label="Info Barang">
                             <div class="flex items-center gap-3">
                                 @if($i->image)
                                     <img src="{{ asset('storage/' . $i->image) }}" class="w-auto h-10 rounded-lg  ring-1 ring-zinc-200 dark:ring-zinc-700">
@@ -90,7 +90,7 @@ $openModal = function ($id = null) {
                             </div>
                         </flux:table.cell>
                         
-                        <flux:table.cell>
+                        <flux:table.cell data-label="Klasifikasi">
                             <div class="flex flex-col gap-1.5">
                                 <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                                     {{ $i->category?->name ?? '-' }}
@@ -102,7 +102,7 @@ $openModal = function ($id = null) {
                             </div>
                         </flux:table.cell>
                         
-                        <flux:table.cell>
+                        <flux:table.cell data-label="Batas Stok">
                             <div class="flex items-center gap-1.5">
                                 <div class="flex flex-col items-center justify-center bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-1 rounded border border-rose-100 dark:border-rose-500/20 min-w-[40px]">
                                     <span class="text-[9px] font-bold uppercase tracking-widest opacity-80 mb-0.5">Min</span>
@@ -116,14 +116,14 @@ $openModal = function ($id = null) {
                             </div>
                         </flux:table.cell>
 
-                        <flux:table.cell>
+                        <flux:table.cell data-label="Harga Dasar">
                             <div class="flex flex-col gap-1">
                                 <span class="text-[11px] text-zinc-500">Beli: Rp {{ number_format($i->purchase_price, 0, ',', '.') }}</span>
                                 <span class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Rp {{ number_format($i->selling_price, 0, ',', '.') }}</span>
                             </div>
                         </flux:table.cell>
 
-                        <flux:table.cell>
+                        <flux:table.cell data-label="Status">
                             <div class="flex flex-col gap-1.5 items-start">
                                 @if(!$i->is_approved)
                                     <flux:badge color="amber" size="sm" icon="clock">Menunggu</flux:badge>
@@ -139,7 +139,7 @@ $openModal = function ($id = null) {
                             </div>
                         </flux:table.cell>
 
-                        <flux:table.cell>
+                        <flux:table.cell data-label="Aksi">
                             <div class="flex gap-1">
                                 @can('inventory.item.update')
                                     <flux:button wire:click="openModal({{ $i->id }})" variant="ghost" size="sm" icon="pencil" class="text-blue-500 hover:text-blue-600" />
@@ -162,7 +162,7 @@ $openModal = function ($id = null) {
                 @endforelse
             </flux:table.rows>
         </flux:table>
-    </div>
+    </x-table.wrapper>
     @endif
     
     <livewire:global.item-form-modal />

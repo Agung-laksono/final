@@ -173,6 +173,7 @@ with(fn () => [
                 @endforelse
             </flux:table.rows>
         </flux:table>
+</x-table.wrapper>
     </div>
     
     <x-load-more :paginator="$labels" item-name="label" />

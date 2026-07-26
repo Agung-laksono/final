@@ -84,6 +84,7 @@
                                 @endforelse
                             </flux:table.rows>
                         </flux:table>
+</x-table.wrapper>
                     </div>
                 @else
                     <div>
@@ -152,6 +153,7 @@
                                 @endforelse
                             </flux:table.rows>
                         </flux:table>
+</x-table.wrapper>
                     </div>
                 @endif
             </div>
@@ -234,6 +236,7 @@
                             @endforeach
                         </flux:table.rows>
                     </flux:table>
+</x-table.wrapper>
                 </div>
             </div>
 
