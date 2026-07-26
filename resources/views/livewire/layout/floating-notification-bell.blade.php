@@ -66,10 +66,14 @@ $markAllAsRead = function () {
 // Realtime update via Laravel Echo (Pusher/Reverb)
 on([
     // Notifikasi baru masuk
-    'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function () {
+    'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function ($event) {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
         $this->dispatch('$refresh');
         $this->js("document.getElementById('notif-sound') && document.getElementById('notif-sound').play().catch(() => {})");
+        
+        $title = $event['title'] ?? 'Notifikasi Baru';
+        $message = strip_tags($event['message'] ?? 'Anda memiliki notifikasi baru.');
+        \Flux::toast($title)->text($message);
     },
     // Tab lain menandai notifikasi sudah dibaca
     'echo-private:App.Models.User.{authId},.NotificationsRead' => function ($event) {
