@@ -337,17 +337,16 @@ on([
                                      :class="{ 'animate-pulse opacity-60 pointer-events-none': loading }"
                                  x-on:click="
                                     if(isDesktop) {
-                                        @if($statusKey === 'processing') $dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} });
-                                        @elseif($statusKey === 'packing') $dispatch('open-packing-modal', { orderId: {{ $order->id }} });
-                                        @elseif($statusKey === 'shipping') $dispatch('open-shipping-modal', { orderId: {{ $order->id }} });
-                                        @endif
+                                        let status = '{{ $statusKey }}';
+                                        if (status === 'processing') $dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} });
+                                        else if (status === 'packing') $dispatch('open-packing-modal', { orderId: {{ $order->id }} });
+                                        else if (status === 'shipping') $dispatch('open-shipping-modal', { orderId: {{ $order->id }} });
                                     } else {
                                         let now = Date.now();
                                         if (now - lastClick < 400) {
-                                            @if($statusKey === 'processing') $dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} });
-                                            @elseif($statusKey === 'packing') $dispatch('open-packing-modal', { orderId: {{ $order->id }} });
-                                            @elseif($statusKey === 'shipping') $dispatch('open-shipping-modal', { orderId: {{ $order->id }} });
-                                            @endif
+                                            if (status === 'processing') $dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} });
+                                            else if (status === 'packing') $dispatch('open-packing-modal', { orderId: {{ $order->id }} });
+                                            else if (status === 'shipping') $dispatch('open-shipping-modal', { orderId: {{ $order->id }} });
                                         } else {
                                             expanded = !expanded;
                                         }
@@ -607,7 +606,7 @@ on([
                     {{ $this->tableDeliveries->links() }}
                 </div>
             @endif
-        </div>
+        </x-table.wrapper>
     </x-slot:table_layout>
 </x-kanban.board>
 
