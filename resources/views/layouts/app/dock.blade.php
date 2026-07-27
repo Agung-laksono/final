@@ -105,7 +105,7 @@
         </div>
         
         {{-- Bottom Tab Bar (Recent Pages & Drag Handle) --}}
-        <div class="fixed bottom-0 md:bottom-6 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 w-full md:w-max md:min-w-[400px] xl:min-w-[448px] md:max-w-[95vw] md:rounded-[24px] md:border md:px-3 xl:px-4 md:py-1.5 xl:py-2 min-h-[64px] md:min-h-[56px] xl:min-h-[84px] bg-white/60 dark:bg-zinc-900/60 backdrop-blur-3xl border-t md:border-t-0 border-zinc-200/50 dark:border-zinc-700/50 z-[9999] flex flex-col justify-center shadow-[0_-4px_25px_rgba(0,0,0,0.08)] md:shadow-[0_15px_40px_rgba(0,0,0,0.2)] md:dark:shadow-zinc-900/60 pb-safe transition-all duration-300"
+        <div class="fixed bottom-0 md:bottom-6 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 w-full md:w-max md:min-w-[400px] xl:min-w-[448px] md:max-w-[95vw] md:rounded-[24px] md:border md:px-3 xl:px-4 md:py-1.5 xl:py-2 min-h-[52px] md:min-h-[56px] xl:min-h-[84px] bg-white/60 dark:bg-zinc-900/60 backdrop-blur-3xl border-t md:border-t-0 border-zinc-200/50 dark:border-zinc-700/50 z-[9999] flex flex-col justify-center shadow-[0_-4px_25px_rgba(0,0,0,0.08)] md:shadow-[0_15px_40px_rgba(0,0,0,0.2)] md:dark:shadow-zinc-900/60 pb-safe transition-all duration-300"
              @pointerenter="if($event.pointerType === 'mouse') { clearTimeout(dockTimer); isDockHidden = false; }"
              @pointerleave="if($event.pointerType === 'mouse') { resetDockTimer(); }"
              @touchstart.passive="if(!isDockHidden) resetDockTimer()"
@@ -121,7 +121,7 @@
              ]">
             
             {{-- Integrated Drag Handle --}}
-            <div class="w-full h-4 flex justify-center items-start pt-1.5 cursor-pointer touch-none z-10"
+            <div class="w-full h-3 flex justify-center items-start pt-1 cursor-pointer touch-none z-10"
                  x-show="menuState === 0"
                  @touchstart.passive="if(!isDockHidden) startMenuDrag($event)"
                  @touchmove.passive="if(!isDockHidden) onMenuDrag($event)"
@@ -131,7 +131,7 @@
             </div>
             
             {{-- Placeholder for Drag Handle when menu is open so height doesn't shift --}}
-            <div class="w-full h-4" x-show="menuState > 0" x-cloak></div>
+            <div class="w-full h-3" x-show="menuState > 0" x-cloak></div>
 
             {{-- Tabs Container --}}
             <div class="flex-1 flex items-center justify-center md:gap-2 px-2 relative">
@@ -155,7 +155,7 @@
                         </button>
 
                         <a :href="tab.url" @click.prevent="if(editMode) { $event.preventDefault(); } else { Livewire.navigate(tab.url); }" 
-                           class="flex flex-col items-center justify-center w-full md:w-[50px] lg:w-[60px] xl:w-[86px] h-[64px] md:h-[48px] lg:h-[50px] xl:h-[76px] gap-1 md:gap-0.5 xl:gap-1 px-1 relative select-none md:rounded-xl xl:rounded-2xl transition-all duration-300 md:border group hover:z-50"
+                           class="flex flex-col items-center justify-center w-full md:w-[50px] lg:w-[60px] xl:w-[86px] h-[50px] md:h-[48px] lg:h-[50px] xl:h-[76px] gap-1 md:gap-0.5 xl:gap-1 px-1 relative select-none md:rounded-xl xl:rounded-2xl transition-all duration-300 md:border group hover:z-50"
                            :class="[
                                 currentUrl === tab.url 
                                  ? 'text-indigo-600 dark:text-indigo-400 md:bg-indigo-50/70 md:dark:bg-indigo-900/40 md:shadow-[0_4px_16px_rgba(79,70,229,0.25)] md:border-indigo-200/60 md:dark:border-indigo-500/40' 
@@ -166,7 +166,7 @@
                            @click="if(tabWasDragged) { $event.preventDefault(); $event.stopPropagation(); }">
                             
                             {{-- Active Indicator (Garis Atas) - Hanya untuk HP/Mobile --}}
-                            <div x-show="currentUrl === tab.url" class="absolute top-0 w-8 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-b-full md:hidden"></div>
+                            <div x-show="currentUrl === tab.url" class="absolute top-0 w-6 h-[3px] bg-indigo-600 dark:bg-indigo-400 rounded-b-full md:hidden"></div>
                             
                             <div class="relative flex justify-center group-active:scale-[1.1] transition-all duration-300 ease-out xl:group-hover:scale-[1.4] xl:group-hover:-translate-y-4">
                                 <div x-html="getSvgIcon(tab.icon, currentUrl === tab.url, tab.url)"></div>
@@ -176,10 +176,10 @@
                             </div>
                             
                             {{-- Full Text for Mobile (< md) and PC (>= xl) --}}
-                            <span class="block md:hidden xl:block text-[10px] xl:text-[11px] font-medium truncate w-14 xl:w-20 text-center pointer-events-none xl:group-hover:text-indigo-600 xl:dark:group-hover:text-indigo-400 xl:group-hover:-translate-y-1 transition-all duration-300" x-text="tab.title"></span>
+                            <span class="hidden xl:block text-[10px] xl:text-[11px] font-medium truncate w-14 xl:w-20 text-center pointer-events-none xl:group-hover:text-indigo-600 xl:dark:group-hover:text-indigo-400 xl:group-hover:-translate-y-1 transition-all duration-300" x-text="tab.title"></span>
                             
                             {{-- 1-Word Text for Tablet (md to lg) to save extreme vertical space --}}
-                            <span class="hidden md:block xl:hidden text-[9px] lg:text-[10px] font-medium truncate w-full text-center pointer-events-none opacity-80" x-text="tab.title.split(' ')[0]"></span>
+                            <span class="block xl:hidden text-[9px] lg:text-[10px] font-medium truncate w-full text-center pointer-events-none opacity-80" x-text="tab.title.split(' ')[0]"></span>
                         </a>
                     </div>
                 </template>
