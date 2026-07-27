@@ -161,8 +161,21 @@ $kanbanQuotations = computed(function () {
                 <x-kanban.column :statusKey="$statusKey" :column="$column" componentId="quotations" :count="count($this->kanbanQuotations->get($statusKey, []))">
                     @forelse($this->kanbanQuotations->get($statusKey, []) as $quote)
                         <div wire:key="kanban-quote-{{ $quote->id }}"
-                             class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/80 rounded-xl p-2.5 shadow-sm hover:shadow-md hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 transition-all duration-300 group select-none relative"
-                             wire:click="$dispatch('show-quotation-detail', { id: {{ $quote->id }} })" style="cursor: pointer;">
+                             x-data="{ showFooter: false }"
+                             @click="
+                                 if (window.matchMedia('(hover: hover)').matches) {
+                                     $dispatch('show-quotation-detail', { id: {{ $quote->id }} });
+                                 } else {
+                                     if (!showFooter) {
+                                         showFooter = true;
+                                     } else {
+                                         $dispatch('show-quotation-detail', { id: {{ $quote->id }} });
+                                     }
+                                 }
+                             "
+                             @click.outside="showFooter = false"
+                             class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 transition-all duration-200 active:scale-[0.98] active:shadow-none hover:-translate-y-0.5 hover:shadow-sm hover:border-{{ $column['color'] }}-400 dark:hover:border-{{ $column['color'] }}-500 group relative cursor-pointer flex flex-col"
+                             x-transition:leave="transition ease-in duration-200">
                             
                             <div class="flex justify-between items-start gap-2 relative z-10">
                                 <div class="flex-1 min-w-0">
@@ -188,6 +201,40 @@ $kanbanQuotations = computed(function () {
                                 <div class="text-right shrink-0 flex flex-col justify-start">
                                     <span class="text-[11px] font-black text-amber-600 dark:text-amber-500">Rp {{ number_format($quote->total_amount, 0, ',', '.') }}</span>
                                     <span class="text-[9px] font-medium text-zinc-400">{{ $quote->items->sum('qty') }} SKU</span>
+                                </div>
+                            </div>
+
+                            {{-- Footer Actions Wrapper (Collapsible) --}}
+                            <div class="grid transition-all duration-300 grid-rows-[0fr] [@media(hover:hover)]:group-hover:grid-rows-[1fr]"
+                                 :class="showFooter ? '!grid-rows-[1fr]' : ''">
+                                <div class="overflow-hidden">
+                                    {{-- Footer Kartu (Pembuat) --}}
+                                    <div class="flex items-center justify-between mt-1 pt-1 border-t border-zinc-100 dark:border-zinc-800 transition-opacity duration-300 opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+                                         :class="showFooter ? '!opacity-100' : ''">
+                                        @php
+                                            $isOwn = $quote->created_by === auth()->id();
+                                        @endphp
+                                        @if($isOwn)
+                                            <div class="flex items-center gap-1.5" title="Dibuat oleh Anda">
+                                                <flux:avatar src="{{ $quote->creator->avatar ? Storage::url($quote->creator->avatar) : '' }}" fallback="{{ substr($quote->creator->name ?? 'A', 0, 2) }}" class="!w-4 !h-4 text-[7px]" />
+                                                <div class="flex flex-col">
+                                                    <span class="text-[9px] font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[80px]">Anda</span>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <div class="flex items-center gap-1.5" title="Dibuat oleh {{ $quote->creator->name ?? 'Sistem' }}">
+                                                <flux:avatar src="{{ $quote->creator->avatar ? Storage::url($quote->creator->avatar) : '' }}" fallback="{{ substr($quote->creator->name ?? 'S', 0, 2) }}" class="!w-4 !h-4 text-[7px] opacity-75" />
+                                                <div class="flex flex-col">
+                                                    <span class="text-[9px] font-medium text-zinc-500 truncate max-w-[80px]">
+                                                        {{ explode(' ', $quote->creator->name ?? 'Sistem')[0] }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        @endif
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[9px] text-zinc-400 sm:hidden">Ketuk lagi untuk detail</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
