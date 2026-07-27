@@ -55,7 +55,13 @@ $history = computed(function () {
                     <flux:icon.cube class="w-5 h-5" />
                 </div>
                 <div>
-                    <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ $item->name }}</div>
+                    <div class="font-bold text-zinc-900 dark:text-zinc-100">
+                        @if($item->alias)
+                            {{ $item->alias }} <span class="text-xs text-zinc-500 normal-case font-medium ml-1">- {{ $item->name }}</span>
+                        @else
+                            {{ $item->name }}
+                        @endif
+                    </div>
                     <div class="text-xs text-zinc-500">{{ $item->code }}</div>
                 </div>
             </div>

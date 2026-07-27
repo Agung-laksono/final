@@ -478,7 +478,11 @@ on([
                                                 <div class="flex items-center justify-between p-1.5 rounded bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 text-[10px]">
                                                     <div class="flex flex-col min-w-0 pr-2">
                                                         <div class="flex items-center gap-1.5">
-                                                            <span class="font-bold text-zinc-700 dark:text-zinc-300 truncate" title="{{ $item->item->name }}">{{ $item->item->name }}</span>
+                                                            @if($item->item->alias)
+                                                                <span class="font-bold text-zinc-700 dark:text-zinc-300 truncate" title="{{ $item->item->alias }} - {{ $item->item->name }}">{{ $item->item->alias }} <span class="text-[8px] font-normal text-zinc-500 normal-case">- {{ $item->item->name }}</span></span>
+                                                            @else
+                                                                <span class="font-bold text-zinc-700 dark:text-zinc-300 truncate" title="{{ $item->item->name }}">{{ $item->item->name }}</span>
+                                                            @endif
                                                             @if($isSoItemCustom)
                                                                 <span class="text-[7px] font-black text-amber-600 bg-amber-100 border border-amber-200 px-1 py-px rounded shadow-sm shrink-0 flex items-center gap-0.5">
                                                                     <flux:icon.sparkles class="w-2 h-2" /> CUSTOM

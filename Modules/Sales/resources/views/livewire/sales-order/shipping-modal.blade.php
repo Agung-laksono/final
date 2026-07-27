@@ -31,7 +31,7 @@ on(['open-shipping-modal' => function ($orderId) {
         $this->items = $this->order->items->map(function ($item) {
             return [
                 'id' => $item->id,
-                'name' => $item->item->name,
+                'name' => ($item->item->alias ?? false) ? $item->item->alias . ' - ' . $item->item->name : $item->item->name,
                 'qty' => $item->qty,
                 'actual_shipping_fee' => $item->actual_shipping_fee ?? 0,
             ];

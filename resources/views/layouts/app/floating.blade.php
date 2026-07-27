@@ -42,6 +42,9 @@
                         }
                     </style>
                     {{-- Speed Dial Container --}}
+            @php
+    $groupedItems = app(\App\Services\NavigationService::class)->getGrouped();
+@endphp
             <div class="speed-dial-menu absolute bottom-full left-1 mb-4 origin-bottom-left flex flex-row gap-6 items-end w-max">
                 {{-- MAIN MENU --}}
                 <div x-show="open"
@@ -165,237 +168,82 @@
                         </button>
                     </div>
 
-                    {{-- COLUMN 1: Master Data --}}
+                    @php
+                        $items = $groupedItems['INVENTORY'] ?? [];
+                        // Kelompokkan berdasarkan kolom
+                        $col1 = collect($items)->where('menu_column', 1);
+                        $col2 = collect($items)->where('menu_column', 2);
+                        $col3 = collect($items)->where('menu_column', 3);
+                    @endphp
+                    
+                    {{-- COLUMN 1 --}}
                     <div class="flex flex-col gap-3 items-start min-w-[220px]">
-                        
-                        @canany(['inventory.warehouse.view', 'inventory.item.view', 'inventory.dashboard.view'])
-                        <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
-                            <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
-                            <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Master Data</span>
-                        </div>
-                        @endcanany
-
-                        @can('inventory.warehouse.view')
-                        <a href="{{ route('inventory.warehouses') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.building-storefront class="w-4 h-4" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Gudang & Lokasi</span>
-                        </a>
-                        @endcan
-
-                        @can('inventory.item.view')
-                        <a href="{{ route('inventory.items') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.cube class="w-4 h-4" />
-                                <livewire:layout.sidebar-badge type="inventory_item" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Data Barang</span>
-                        </a>
-                        @endcan
-
-                        @can('inventory.dashboard.view')
-                        <a href="{{ route('inventory') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.chart-pie class="w-4 h-4" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Dashboard Inventory</span>
-                        </a>
-                        @endcan
-                        
+                        @php $currentGroup = null; @endphp
+                        @foreach($col1 as $item)
+                            @if($currentGroup !== $item['sub_group'] && $item['sub_group'])
+                                <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
+                                    <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
+                                    <span class="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest">{{ $item['sub_group'] }}</span>
+                                </div>
+                                @php $currentGroup = $item['sub_group']; @endphp
+                            @endif
+                            <a href="{{ route($item['route_name']) }}" wire:navigate class="flex items-center gap-3 cursor-pointer group speed-dial-item w-full">
+                                <div class="relative flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full shadow-md group-hover:bg-amber-50 dark:group-hover:bg-amber-900/20 transition-colors text-zinc-600 dark:text-zinc-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:border-amber-200 dark:group-hover:border-amber-800 shrink-0">
+                                    <flux:icon icon="{{ $item['icon'] }}" class="w-4 h-4" />
+                                    @if($item['badge_type'])
+                                        <livewire:layout.sidebar-badge type="{{ $item['badge_type'] }}" />
+                                    @endif
+                                </div>
+                                <span class="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl shadow-lg text-sm font-medium group-hover:scale-105 group-hover:border-amber-200 dark:group-hover:border-amber-800 group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-all origin-left whitespace-nowrap">{{ $item['label'] }}</span>
+                            </a>
+                        @endforeach
                     </div>
 
-                    {{-- COLUMN 2: Inbound & Transfer --}}
+                    {{-- COLUMN 2 --}}
                     <div class="flex flex-col gap-3 items-start min-w-[220px]">
-                        
-                        @canany(['inventory.dispatch.view', 'inventory.receipt.view'])
-                        <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
-                            <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
-                            <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Inbound (Masuk)</span>
-                        </div>
-                        @endcanany
-
-                        @can('inventory.dispatch.view')
-                        <a href="{{ route('inventory.dispatch') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.arrow-right-end-on-rectangle class="w-4 h-4" />
-                                <livewire:layout.sidebar-badge type="inventory_inbound" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Alokasi Kedatangan</span>
-                        </a>
-                        @endcan
-
-                        @can('inventory.receipt.view')
-                        <a href="{{ route('inventory.production-receipts') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.arrow-down-tray class="w-4 h-4" />
-                                <livewire:layout.sidebar-badge type="inventory_physical_receipt" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Penerimaan Fisik (QC)</span>
-                        </a>
-                        @endcan
-
-                        @canany(['inventory.request.view', 'inventory.transfer.view'])
-                        <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
-                            <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
-                            <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Transfer & Permintaan</span>
-                        </div>
-                        @endcanany
-
-                        @can('inventory.request.view')
-                        <a href="{{ route('inventory.requests') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.inbox-arrow-down class="w-4 h-4" />
-                                <livewire:layout.sidebar-badge type="inventory_request" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Permintaan Barang</span>
-                        </a>
-                        @endcan
-
-                        @can('inventory.transfer.view')
-                        <a href="{{ route('inventory.transfers') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.arrows-right-left class="w-4 h-4" />
-                                <livewire:layout.sidebar-badge type="inventory_transfer" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Transfer Barang</span>
-                        </a>
-                        @endcan
-
+                        @php $currentGroup = null; @endphp
+                        @foreach($col2 as $item)
+                            @if($currentGroup !== $item['sub_group'] && $item['sub_group'])
+                                <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
+                                    <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
+                                    <span class="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest">{{ $item['sub_group'] }}</span>
+                                </div>
+                                @php $currentGroup = $item['sub_group']; @endphp
+                            @endif
+                            <a href="{{ route($item['route_name']) }}" wire:navigate class="flex items-center gap-3 cursor-pointer group speed-dial-item w-full">
+                                <div class="relative flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full shadow-md group-hover:bg-amber-50 dark:group-hover:bg-amber-900/20 transition-colors text-zinc-600 dark:text-zinc-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:border-amber-200 dark:group-hover:border-amber-800 shrink-0">
+                                    <flux:icon icon="{{ $item['icon'] }}" class="w-4 h-4" />
+                                    @if($item['badge_type'])
+                                        <livewire:layout.sidebar-badge type="{{ $item['badge_type'] }}" />
+                                    @endif
+                                </div>
+                                <span class="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl shadow-lg text-sm font-medium group-hover:scale-105 group-hover:border-amber-200 dark:group-hover:border-amber-800 group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-all origin-left whitespace-nowrap">{{ $item['label'] }}</span>
+                            </a>
+                        @endforeach
                     </div>
 
-                    {{-- COLUMN 3: Outbound & Laporan --}}
+                    {{-- COLUMN 3 --}}
                     <div class="flex flex-col gap-3 items-start min-w-[220px]">
-                        
-                        @canany(['inventory.production.fulfillment', 'inventory.sales.delivery'])
-                        <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
-                            <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
-                            <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Outbound (Keluar)</span>
-                        </div>
-                        @endcanany
-
-                        @can('inventory.production.fulfillment')
-                        <a href="{{ route('inventory.fulfillments') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.clipboard-document-check class="w-4 h-4" />
-                                <livewire:layout.sidebar-badge type="inventory_production_fulfillment" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Pemenuhan Produksi</span>
-                        </a>
-                        @endcan
-
-                        @can('inventory.sales.delivery')
-                        <a href="{{ route('inventory.sales-deliveries') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.truck class="w-4 h-4" />
-                                <livewire:layout.sidebar-badge type="inventory_sales_delivery" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Pengiriman Penjualan</span>
-                        </a>
-                        @endcan
-
-                        @canany(['inventory.movement.view', 'inventory.opname.view'])
-                        <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
-                            <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
-                            <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Laporan & Stok</span>
-                        </div>
-                        @endcanany
-
-                        @can('inventory.movement.view')
-                        <a href="{{ route('inventory.movements') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.clock class="w-4 h-4" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Riwayat Mutasi</span>
-                        </a>
-                        @endcan
-
-                        @can('inventory.opname.view')
-                        <a href="{{ route('inventory.stock-opname') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                            <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-amber-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                                <flux:icon.adjustments-horizontal class="w-4 h-4" />
-                            </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Opname</span>
-                        </a>
-                        @endcan
-                        
+                        @php $currentGroup = null; @endphp
+                        @foreach($col3 as $item)
+                            @if($currentGroup !== $item['sub_group'] && $item['sub_group'])
+                                <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
+                                    <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
+                                    <span class="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest">{{ $item['sub_group'] }}</span>
+                                </div>
+                                @php $currentGroup = $item['sub_group']; @endphp
+                            @endif
+                            <a href="{{ route($item['route_name']) }}" wire:navigate class="flex items-center gap-3 cursor-pointer group speed-dial-item w-full">
+                                <div class="relative flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full shadow-md group-hover:bg-amber-50 dark:group-hover:bg-amber-900/20 transition-colors text-zinc-600 dark:text-zinc-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:border-amber-200 dark:group-hover:border-amber-800 shrink-0">
+                                    <flux:icon icon="{{ $item['icon'] }}" class="w-4 h-4" />
+                                    @if($item['badge_type'])
+                                        <livewire:layout.sidebar-badge type="{{ $item['badge_type'] }}" />
+                                    @endif
+                                </div>
+                                <span class="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl shadow-lg text-sm font-medium group-hover:scale-105 group-hover:border-amber-200 dark:group-hover:border-amber-800 group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-all origin-left whitespace-nowrap">{{ $item['label'] }}</span>
+                            </a>
+                        @endforeach
                     </div>
-                </div>{{-- PURCHASE SUBMENU --}}
-                <div x-show="open && activeMenu === 'purchase'"
-                     x-transition:enter="transition ease-out duration-300 transform delay-75"
-                     x-transition:enter-start="opacity-0 translate-y-4 scale-95"
-                     x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                     x-transition:leave="transition-none"
-                     class="flex flex-col-reverse gap-3 items-start max-h-[calc(100vh-10rem)]  custom-scrollbar px-6 -mx-6">
-@can('purchase.vendor.view')
-                    <a href="{{ route('purchase.vendors.index') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                            <flux:icon.building-office-2 class="w-4 h-4" />
-                        </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Data Vendor</span>
-                    </a>
-                    @endcan
-                    @canany(['purchase.vendor.view'])
-<div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
-                        <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
-                        <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Master Data</span>
-                    </div>
-@endcanany
-@can('purchase.order.create')
-                    <a href="{{ route('purchase.orders.create') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors border border-sky-100 dark:border-sky-900/50">
-                            <flux:icon.plus class="w-5 h-5" />
-                        </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left text-sky-600 dark:text-sky-400">Buat PO Baru</span>
-                    </a>
-@endcan
-@can('purchase.order.view')
-                    <a href="{{ route('purchase.orders.kanban') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                            <flux:icon.clipboard-document-list class="w-4 h-4" />
-                            <livewire:layout.sidebar-badge type="purchase_order" />
-                        </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Purchase Order</span>
-                    </a>
-                    @endcan
-@can('purchase.queue.view')
-                    <a href="{{ route('purchase.queues.kanban') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                            <flux:icon.queue-list class="w-4 h-4" />
-                            <livewire:layout.sidebar-badge type="purchase_queue" />
-                        </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Permintaan</span>
-                    </a>
-                    @endcan
-                    @canany(['purchase.order.view', 'purchase.order.create', 'purchase.queue.view'])
-                    <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
-                        <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
-                        <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Transaksi</span>
-                    </div>
-                    @endcanany
-@can('purchase.dashboard.view')
-                    <a href="{{ route('purchase.index') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                            <flux:icon.shopping-cart class="w-4 h-4" />
-                        </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Dashboard Pembelian</span>
-                    </a>
-                    @endcan
-                    @canany(['purchase.dashboard.view'])
-<div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
-                        <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
-                        <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Dashboard</span>
-                    </div>
-@endcanany
-
-@can('purchase.return.view')
-                    <a href="{{ route('purchase.returns.index') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
-                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
-                            <flux:icon.arrow-uturn-left class="w-4 h-4" />
-                        </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Retur Pembelian</span>
-                    </a>
-                    @endcan
 
                     {{-- Tombol Kembali Mobile --}}
                     <button @click="activeMenu = null" class="md:hidden flex items-center gap-2 text-zinc-500 bg-white dark:bg-zinc-800 px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 mb-2 mt-4">

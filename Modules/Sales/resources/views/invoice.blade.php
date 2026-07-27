@@ -216,7 +216,11 @@
                             @endif
                         </div>
                         <div class="text-zinc-600 font-medium uppercase text-xs pt-1">
-                            {{ $item->item->name }}
+                            @if($item->item->alias)
+                                <span class="font-bold text-zinc-900">{{ $item->item->alias }}</span> <span class="text-[10px] text-zinc-500 normal-case">- {{ $item->item->name }}</span>
+                            @else
+                                {{ $item->item->name }}
+                            @endif
                             @if($item->item->code)
                                 <br><span class="font-mono text-[10px] text-zinc-400 normal-case">{{ $item->item->code }}</span>
                             @endif
@@ -356,7 +360,11 @@
 
     <!-- Title -->
     <h2 class="text-3xl font-black text-black uppercase leading-tight mb-8">
-        {{ $item->item->name }}
+        @if($item->item->alias)
+            {{ $item->item->alias }} <span class="text-[28px] text-zinc-500 normal-case font-medium ml-1">- {{ $item->item->name }}</span>
+        @else
+            {{ $item->item->name }}
+        @endif
     </h2>
 
     <!-- Image -->

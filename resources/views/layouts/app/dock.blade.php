@@ -59,29 +59,11 @@
                 window.AppIconSvgs = {!! json_encode($iconSvgs) !!};
             </script>
             
-            {{-- Tab System (App Shell) --}}
+            {{-- Standard App View --}}
             <div class="relative w-full min-h-screen">
-                {{-- Default Slot (The App Shell Page) --}}
-                <div x-show="activeTabUrl === 'dashboard' || activeTabUrl === window.location.pathname" class="w-full min-h-screen">
+                <div class="w-full min-h-screen">
                     {{ $slot }}
                 </div>
-
-                {{-- Open Tabs (Iframes) --}}
-                <template x-for="tab in openTabs" :key="tab.url">
-                    <div x-show="activeTabUrl === tab.url" class="absolute inset-0 z-[5] bg-white dark:bg-zinc-900 w-full min-h-screen">
-                        
-                        {{-- Loading Indicator Overlay --}}
-                        <div x-show="!tab.loaded" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm">
-                            <flux:icon.arrow-path class="w-8 h-8 text-indigo-500 animate-spin mb-4" />
-                            <div class="text-sm font-semibold text-zinc-500 dark:text-zinc-400 animate-pulse" x-text="'Memuat ' + tab.title + '...'"></div>
-                        </div>
-
-                        <iframe :src="tab.url + (tab.url.includes('?') ? '&' : '?') + 'iframe=1'" 
-                                @load="tab.loaded = true"
-                                allow="camera; microphone; fullscreen; clipboard-read; clipboard-write; display-capture"
-                                class="w-full h-full border-0"></iframe>
-                    </div>
-                </template>
             </div>
         </div>
 
@@ -153,7 +135,7 @@
 
             {{-- Tabs Container --}}
             <div class="flex-1 flex items-center justify-center md:gap-2 px-2 relative">
-                <template x-for="tab in openTabs" :key="tab.url">
+                <template x-for="tab in recentTabs" :key="tab.url">
                     <div class="relative group flex-1 md:flex-none"
                          :style="draggedTabUrl === tab.url ? `transform: translateY(${tabCurrentY}px); opacity: ${Math.max(0, 1 - (Math.abs(tabCurrentY)/100))};` : ''"
                          @mousedown="startTabDrag($event, tab.url)"
@@ -164,7 +146,7 @@
                          @touchend.window="endTabDrag($event)">
                         
                         {{-- Delete Button (Visible when editMode is active) --}}
-                        <button @click.prevent.stop="closeTab(tab.url)"
+                        <button @click.prevent.stop="removeTab(tab.url)"
                                 class="absolute top-0 right-0 w-5 h-5 flex items-center justify-center bg-zinc-200/90 text-zinc-600 hover:bg-red-500 hover:text-white dark:bg-zinc-700/90 dark:text-zinc-300 dark:hover:bg-red-500 dark:hover:text-white rounded-full z-[60] transition-all duration-200 shadow-sm border border-white dark:border-zinc-800"
                                 :class="editMode ? 'opacity-100 scale-100 pointer-events-auto animate-bounce' : 'opacity-0 scale-75 pointer-events-none'">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -172,22 +154,22 @@
                             </svg>
                         </button>
 
-                        <a :href="tab.url" @click.prevent="if(editMode) { $event.preventDefault(); } else { openTab(tab.url); }" 
+                        <a :href="tab.url" @click.prevent="if(editMode) { $event.preventDefault(); } else { Livewire.navigate(tab.url); }" 
                            class="flex flex-col items-center justify-center w-full md:w-[50px] lg:w-[60px] xl:w-[86px] h-[64px] md:h-[48px] lg:h-[50px] xl:h-[76px] gap-1 md:gap-0.5 xl:gap-1 px-1 relative select-none md:rounded-xl xl:rounded-2xl transition-all duration-300 md:border group hover:z-50"
                            :class="[
-                               activeTabUrl === tab.url 
-                                ? 'text-indigo-600 dark:text-indigo-400 md:bg-indigo-50/70 md:dark:bg-indigo-900/40 md:shadow-[0_4px_16px_rgba(79,70,229,0.25)] md:border-indigo-200/60 md:dark:border-indigo-500/40' 
-                                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 md:border-transparent md:hover:bg-zinc-100/50 md:dark:hover:bg-zinc-800/50',
+                                currentUrl === tab.url 
+                                 ? 'text-indigo-600 dark:text-indigo-400 md:bg-indigo-50/70 md:dark:bg-indigo-900/40 md:shadow-[0_4px_16px_rgba(79,70,229,0.25)] md:border-indigo-200/60 md:dark:border-indigo-500/40' 
+                                 : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 md:border-transparent md:hover:bg-zinc-100/50 md:dark:hover:bg-zinc-800/50',
                                draggedTabUrl === tab.url ? '' : 'transition-transform duration-300',
                                editMode ? 'animate-pulse opacity-70' : ''
                            ]"
                            @click="if(tabWasDragged) { $event.preventDefault(); $event.stopPropagation(); }">
                             
                             {{-- Active Indicator (Garis Atas) - Hanya untuk HP/Mobile --}}
-                            <div x-show="activeTabUrl === tab.url" class="absolute top-0 w-8 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-b-full md:hidden"></div>
+                            <div x-show="currentUrl === tab.url" class="absolute top-0 w-8 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-b-full md:hidden"></div>
                             
                             <div class="relative flex justify-center group-active:scale-[1.1] transition-all duration-300 ease-out xl:group-hover:scale-[1.4] xl:group-hover:-translate-y-4">
-                                <div x-html="getSvgIcon(tab.icon, activeTabUrl === tab.url, tab.url)"></div>
+                                <div x-html="getSvgIcon(tab.icon, currentUrl === tab.url, tab.url)"></div>
                                 <template x-if="badges[tab.url]">
                                     <div x-html="badges[tab.url]" class="absolute -top-1 -right-1"></div>
                                 </template>
@@ -241,10 +223,6 @@
                     clickCount: 0,
                     clickTimer: null,
                     
-                    // Tab System (Workspace)
-                    openTabs: [],
-                    activeTabUrl: 'dashboard',
-                    
                     toggleEditMode(e) {
                         this.clickCount++;
                         clearTimeout(this.clickTimer);
@@ -257,36 +235,6 @@
                             this.clickTimer = setTimeout(() => {
                                 this.clickCount = 0;
                             }, 500); // 500ms time window for 3 clicks
-                        }
-                    },
-                    
-                    openTab(url, title = null, icon = null) {
-                        this.menuState = 0; // Close drawer
-                        
-                        if (!title) title = this.determineTitle(url, 'Dashboard');
-                        if (!icon) icon = this.determineIcon(url);
-                        
-                        if (url === '/' || url === '/dashboard') {
-                            this.activeTabUrl = 'dashboard';
-                            this.recordVisitExplicit(url, title, icon);
-                            return;
-                        }
-                        
-                        let existing = this.openTabs.find(t => t.url === url);
-                        if (!existing) {
-                            if (this.openTabs.length >= 10) {
-                                this.openTabs.shift(); // Auto-trim oldest tab to save RAM
-                            }
-                            this.openTabs.push({ url: url, title: title, icon: icon, loaded: false });
-                        }
-                        this.activeTabUrl = url;
-                        this.recordVisitExplicit(url, title, icon);
-                    },
-                    
-                    closeTab(url) {
-                        this.openTabs = this.openTabs.filter(t => t.url !== url);
-                        if (this.activeTabUrl === url) {
-                            this.activeTabUrl = this.openTabs.length > 0 ? this.openTabs[this.openTabs.length - 1].url : 'dashboard';
                         }
                     },
                     
@@ -485,22 +433,7 @@
                             this.recentTabs = this.trimTabs(this.recentTabs);
                         }
                         
-                        // Hydrate openTabs from saved state so they don't disappear on reload
-                        this.openTabs = this.recentTabs.map(t => ({...t, loaded: false}));
-                        
-                        // Set activeTabUrl based on current URL
-                        if (window.location.pathname === '/' || window.location.pathname === '/dashboard') {
-                            this.activeTabUrl = 'dashboard';
-                        } else {
-                            let exists = this.openTabs.find(t => t.url === window.location.pathname);
-                            if (exists) {
-                                this.activeTabUrl = window.location.pathname;
-                            } else if (this.openTabs.length > 0) {
-                                this.activeTabUrl = this.openTabs[this.openTabs.length - 1].url;
-                            } else {
-                                this.activeTabUrl = 'dashboard';
-                            }
-                        }
+                        this.currentUrl = window.location.pathname;
                         
                         this.recordVisit();
                         this.resetDockTimer();

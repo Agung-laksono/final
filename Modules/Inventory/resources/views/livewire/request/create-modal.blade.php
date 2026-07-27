@@ -35,7 +35,7 @@ $addItem = function ($id) {
     if ($item) {
         $this->items[] = [
             'item_id' => $item->id,
-            'name' => $item->name,
+            'name' => $item->alias ? $item->alias . ' - ' . $item->name : $item->name,
             'code' => $item->code,
             'image' => $item->image,
             'unit' => $item->unit ? $item->unit->name : 'unit',

@@ -101,7 +101,13 @@ $print = function () {
                             @foreach($po->items as $index => $item)
                             <tr>
                                 <td class="py-3 px-2 text-sm text-zinc-800 dark:text-zinc-200 print:text-black align-top">{{ $index + 1 }}</td>
-                                <td class="py-3 px-2 text-sm font-medium text-zinc-900 dark:text-white print:text-black align-top">{{ $item->item->name }}</td>
+                                <td class="py-3 px-2 text-sm font-medium text-zinc-900 dark:text-white print:text-black align-top">
+                                    @if($item->item->alias)
+                                        <span class="font-bold">{{ $item->item->alias }}</span> <span class="text-xs text-zinc-500 normal-case font-normal">- {{ $item->item->name }}</span>
+                                    @else
+                                        {{ $item->item->name }}
+                                    @endif
+                                </td>
                                 <td class="py-3 px-2 text-sm text-zinc-800 dark:text-zinc-200 print:text-black text-center capitalize align-top">{{ \Modules\Production\Models\ProductionOrder::where('purchase_order_id', $po->id)->where('item_id', $item->item_id)->value('phase_type') ?? 'Jasa Luar' }}</td>
                                 <td class="py-3 px-2 text-sm text-zinc-800 dark:text-zinc-200 print:text-black text-center align-top">{{ $item->quantity }}</td>
                                 <td class="py-3 px-2 text-sm text-zinc-800 dark:text-zinc-200 print:text-black text-right align-top">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
@@ -162,7 +168,13 @@ $print = function () {
                                 {{ $printMode === 'half' ? 'print:min-h-[125mm]' : '' }}
                                 {{ $printMode === 'full' ? 'print:min-h-[250mm] break-before-page' : '' }}
                             ">
-                                <h4 class="text-lg font-bold text-zinc-900 dark:text-white print:text-black mb-1">{{ $item->item->name }}</h4>
+                                <h4 class="text-lg font-bold text-zinc-900 dark:text-white print:text-black mb-1">
+                                    @if($item->item->alias)
+                                        {{ $item->item->alias }} <span class="text-sm text-zinc-500 normal-case font-medium ml-1">- {{ $item->item->name }}</span>
+                                    @else
+                                        {{ $item->item->name }}
+                                    @endif
+                                </h4>
                                 <div class="text-sm text-zinc-500 print:text-zinc-700 mb-4 border-b border-zinc-200 dark:border-zinc-700 print:border-zinc-300 pb-2">
                                     Qty: <strong class="text-zinc-800 dark:text-zinc-200 print:text-black">{{ $item->quantity }}</strong> &nbsp;|&nbsp; 
                                     Fase: <strong class="capitalize text-zinc-800 dark:text-zinc-200 print:text-black">{{ \Modules\Production\Models\ProductionOrder::where('purchase_order_id', $po->id)->where('item_id', $item->item_id)->value('phase_type') ?? 'Jasa Luar' }}</strong>

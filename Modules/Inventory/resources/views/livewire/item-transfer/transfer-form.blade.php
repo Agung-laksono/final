@@ -76,7 +76,7 @@ $selectItem = function (Item $item) {
 
     $this->selected_item_data = [
         'id' => $item->id,
-        'name' => $item->name,
+        'name' => $item->alias ? $item->alias . ' - ' . $item->name : $item->name,
         'code' => $item->code,
         'stock' => $stock,
         'requires_label' => $item->requires_label,
@@ -199,7 +199,7 @@ $scanBarcode = function () {
         // Tambahkan sebagai baris baru
         $this->transfer_items[] = [
             'item_id' => $item->id,
-            'item_name' => $item->name,
+            'item_name' => $item->alias ? $item->alias . ' - ' . $item->name : $item->name,
             'sku' => $item->code,
             'quantity' => 1,
             'available_stock' => $availableStock,

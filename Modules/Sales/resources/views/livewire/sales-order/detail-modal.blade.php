@@ -252,7 +252,11 @@ $getStatusBadge = function ($status) {
                                         @endif
                                         <div>
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100 leading-snug flex items-center gap-1.5 flex-wrap">
-                                                {{ $item->item->name }}
+                                                @if($item->item->alias)
+                                                    <span class="font-bold">{{ $item->item->alias }}</span> <span class="text-xs text-zinc-500 normal-case font-normal">- {{ $item->item->name }}</span>
+                                                @else
+                                                    {{ $item->item->name }}
+                                                @endif
                                                 @if(!empty($item->custom_attributes) || !empty($item->custom_attachments) || str_contains(strtoupper($item->notes ?? ''), '[CUSTOM]'))
                                                     <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-500 border border-amber-200 dark:border-amber-800">CUSTOM</span>
                                                 @endif

@@ -274,7 +274,13 @@ $cancelSPK = function () {
                             <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-900/30 shadow-sm">
                                 <div class="bg-zinc-50 dark:bg-zinc-800/80 p-4 border-b border-zinc-200 dark:border-zinc-700 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                                     <div>
-                                        <div class="font-bold text-lg text-zinc-900 dark:text-zinc-100">{{ $item->item->name }}</div>
+                                        <div class="font-bold text-lg text-zinc-900 dark:text-zinc-100">
+                                            @if($item->item->alias)
+                                                {{ $item->item->alias }} <span class="text-sm text-zinc-500 normal-case font-medium ml-1">- {{ $item->item->name }}</span>
+                                            @else
+                                                {{ $item->item->name }}
+                                            @endif
+                                        </div>
                                         <div class="flex items-center gap-2 mt-1">
                                             <span class="text-xs bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded font-mono">ID: {{ $item->id }}</span>
                                             <span class="text-sm text-zinc-500">Qty: <strong class="text-zinc-900 dark:text-zinc-200">{{ $item->quantity }}</strong> &nbsp;•&nbsp; Rp {{ number_format($item->unit_price, 0, ',', '.') }}/pcs</span>

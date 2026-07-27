@@ -140,7 +140,11 @@
                 <tr>
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td>
-                        <strong>{{ $item->item->name }}</strong><br>
+                        @if($item->item->alias)
+                            <strong>{{ $item->item->alias }}</strong> <span style="font-size: 11px; color: #666; font-weight: normal;">- {{ $item->item->name }}</span><br>
+                        @else
+                            <strong>{{ $item->item->name }}</strong><br>
+                        @endif
                         <small style="color: #666;">{!! $item->notes !!}</small>
                     </td>
                     <td class="text-center">{{ $item->quantity }}</td>

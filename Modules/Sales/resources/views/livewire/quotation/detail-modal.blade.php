@@ -162,7 +162,11 @@ $updateStatus = function ($newStatus) {
                                                   @endif
                                                   <div>
                                                       <p class="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                                                          {{ $item->item->name }}
+                                                          @if($item->item->alias)
+                                                              <span class="font-bold">{{ $item->item->alias }}</span> <span class="text-xs text-zinc-500 normal-case font-normal">- {{ $item->item->name }}</span>
+                                                          @else
+                                                              {{ $item->item->name }}
+                                                          @endif
                                                           @if(($item->custom_attributes && count($item->custom_attributes) > 0) || ($item->custom_attachments && count($item->custom_attachments) > 0))
                                                               <span class="inline-flex items-center gap-0.5 text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded shadow-sm">
                                                                   <flux:icon.sparkles class="w-2.5 h-2.5 text-emerald-600" /> CUSTOM

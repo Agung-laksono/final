@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Cache;
 class NavigationItem extends Model
 {
     protected $fillable = [
-        'route_name', 'label', 'icon_type', 'icon', 'image_path', 'section', 'sort_order', 'permission', 'is_active',
+        'route_name', 'label', 'icon_type', 'icon', 'image_path', 'section', 'sub_group', 'badge_type', 'menu_column', 'sort_order', 'permission', 'is_active',
     ];
 
     protected $casts = [

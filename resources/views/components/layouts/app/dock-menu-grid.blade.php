@@ -81,7 +81,7 @@
                         @if($routeExists)
                             @if(!$item['permission'] || auth()->user()->can($item['permission']))
                             
-                            <a href="{{ route($item['route_name']) }}" data-drawer-url="{{ route($item['route_name'], [], false) }}" @click.prevent="openTab('{{ route($item['route_name'], [], false) }}')" class="flex flex-col items-center gap-2 md:gap-3 group">
+                            <a href="{{ route($item['route_name']) }}" data-drawer-url="{{ route($item['route_name'], [], false) }}" wire:navigate class="flex flex-col items-center gap-2 md:gap-3 group">
                                 <div class="w-12 h-12 md:w-14 md:h-14 xl:w-16 xl:h-16 rounded-2xl md:rounded-[1.25rem] xl:rounded-3xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                     @if($hasBadge)
                                         <div class="relative">

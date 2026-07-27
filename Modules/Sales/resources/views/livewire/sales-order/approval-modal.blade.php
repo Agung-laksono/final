@@ -155,7 +155,13 @@ $redirectToEdit = function ($orderId) {
                                     </div>
                                 @endif
                                 <div class="flex flex-col">
-                                    <span class="font-bold text-[11px] text-zinc-800 dark:text-zinc-200 leading-tight">{{ $item->item->name }}</span>
+                                    <span class="font-bold text-[11px] text-zinc-800 dark:text-zinc-200 leading-tight">
+                                        @if($item->item->alias)
+                                            {{ $item->item->alias }} <span class="text-[9px] font-normal text-zinc-500 normal-case">- {{ $item->item->name }}</span>
+                                        @else
+                                            {{ $item->item->name }}
+                                        @endif
+                                    </span>
                                     <div class="flex items-center gap-1.5 mt-0.5 text-[10px]">
                                         <span class="font-mono text-zinc-500">{{ $item->item->code }}</span>
                                         <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>

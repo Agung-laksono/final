@@ -53,7 +53,7 @@ on(['open-recipe-modal' => function ($recipeId = null, $itemId = null, $params =
         $item = Item::find($itemId);
         if ($item) {
             $this->item_id = $item->id;
-            $this->product_name = $item->code . ' - ' . $item->name;
+            $this->product_name = $item->code . ' - ' . ($item->alias ? $item->alias . ' - ' . $item->name : $item->name);
         }
     } else {
         // Start empty

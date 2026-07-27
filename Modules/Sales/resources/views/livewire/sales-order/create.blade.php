@@ -156,7 +156,7 @@ mount(function ($id = null) {
             return [
                 'id' => null,
                 'item_id' => $item->item_id,
-                'name' => $item->item->name ?? 'Unknown',
+                'name' => ($item->item->alias ?? false) ? $item->item->alias . ' - ' . $item->item->name : ($item->item->name ?? 'Unknown'),
                 'code' => $item->item->code ?? '0001',
                 'image' => $item->item->image ?? null,
                 'unit' => $item->item->unit->name ?? 'pcs',
