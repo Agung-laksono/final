@@ -24,7 +24,7 @@ mount(function () {
     
     $limits = [];
     foreach (['processing', 'packing', 'ready_to_ship'] as $key) {
-        $limits[$key] =?? 24;
+        $limits[$key] = 24;
     }
     $this->columnLimits = $limits;
 });
@@ -32,9 +32,9 @@ mount(function () {
 $loadMoreColumn = function ($status) {
     $limits = $this->columnLimits;
     if (!isset($limits[$status])) {
-        $limits[$status] =?? 24;
+        $limits[$status] = 24;
     }
-    $limits[$status] +=?? 24;
+    $limits[$status] += 24;
     $this->columnLimits = $limits;
 };
 
@@ -155,7 +155,7 @@ $orders = computed(function () {
     
     $ids = [];
     foreach (array_keys($this->activeColumns) as $colKey) {
-        $limit = $this->columnLimits[$colKey] ???? 24;
+        $limit = $this->columnLimits[$colKey] ?? 24;
         $q = clone $baseQuery;
         
         if ($colKey === 'ready_to_ship') {
