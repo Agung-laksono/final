@@ -5,7 +5,7 @@ use Modules\Communication\Http\Controllers\CommunicationController;
 use Modules\Communication\Http\Controllers\FonnteWebhookController;
 
 Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
-    Route::apiResource('communications', CommunicationController::class)->names('communication');
+// Route::apiResource('communications', CommunicationController::class)->names('communication');
 });
 
 // Fonnte Webhook endpoint (biasanya tidak pakai auth sanctum karena diakses oleh server Fonnte)

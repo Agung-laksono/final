@@ -79,12 +79,14 @@
                     @endcanany
                     {{-- Penjualan --}}
                     @can('sales.dashboard.view')
-                    <div class="relative flex items-center gap-3 cursor-pointer group w-max" @click="setActiveMenu('sales')" @mouseenter="setActiveMenu('sales')" x-bind:class="activeMenu !== null && activeMenu !== 'sales' ? 'opacity-40 scale-95 grayscale' : 'opacity-100 scale-100'">
+                    <div wire:key="menu-sales" class="relative flex items-center gap-3 cursor-pointer group w-max" @click="setActiveMenu('sales')" @mouseenter="setActiveMenu('sales')" x-bind:class="activeMenu !== null && activeMenu !== 'sales' ? 'opacity-40 scale-95 grayscale' : 'opacity-100 scale-100'">
                         <div class="relative flex items-center justify-center w-12 h-12 bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 rounded-full shadow-lg group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/60 transition-colors text-emerald-600 dark:text-emerald-400" x-bind:class="activeMenu === 'sales' ? 'bg-emerald-200 dark:bg-emerald-800' : ''">
                             <flux:icon.calculator class="w-5 h-5" />
-                            <livewire:layout.sidebar-badge type="module_sales" />
+                            <livewire:layout.sidebar-badge type="module_sales" wire:key="badge-sales" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl shadow-lg text-sm font-semibold group-hover:scale-105 transition-transform origin-left" x-bind:class="activeMenu === 'sales' ? 'scale-105' : ''">Penjualan</span>
+                        <div wire:ignore class="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl shadow-lg text-sm font-semibold group-hover:scale-105 transition-transform origin-left" x-bind:class="activeMenu === 'sales' ? 'scale-105' : ''" x-text="'Penjualan'">
+                            Penjualan
+                        </div>
                         <div class="absolute -right-8 transition-all duration-300 transform flex items-center h-full z-[-1]"
                              x-bind:class="activeMenu === 'sales' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'">
                             <flux:icon.chevron-right class="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
@@ -251,6 +253,82 @@
                         <span class="text-sm font-semibold">Kembali</span>
                     </button>
                 </div>
+                {{-- PURCHASE SUBMENU --}}
+                <div x-show="open && activeMenu === 'purchase'"
+                     x-transition:enter="transition ease-out duration-300 transform delay-75"
+                     x-transition:enter-start="opacity-0 translate-y-4 scale-95"
+                     x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                     x-transition:leave="transition-none"
+                     class="flex flex-col-reverse gap-3 items-start max-h-[calc(100vh-10rem)]  custom-scrollbar px-6 -mx-6">
+
+                    @can('purchase.vendor.view')
+                    <a href="{{ route('purchase.vendors.index') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
+                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
+                            <flux:icon.building-storefront class="w-4 h-4" />
+                        </div>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Data Vendor/Supplier</span>
+                    </a>
+                    @endcan
+                    
+                    @canany(['purchase.vendor.view'])
+                    <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
+                        <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
+                        <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Master Data</span>
+                    </div>
+                    @endcanany
+
+                    @can('purchase.order.create')
+                    <a href="{{ route('purchase.orders.create') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2 my-3">
+                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors border border-sky-100 dark:border-sky-900/50">
+                            <flux:icon.plus class="w-5 h-5" />
+                        </div>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left text-sky-600 dark:text-sky-400">Buat PO Baru</span>
+                    </a>
+                    @endcan
+
+                    @can('purchase.order.view')
+                    <a href="{{ route('purchase.orders.kanban') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
+                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
+                            <flux:icon.clipboard-document-check class="w-4 h-4" />
+                            <livewire:layout.sidebar-badge type="purchase_order" />
+                        </div>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Purchase Order</span>
+                    </a>
+                    @endcan
+
+                    @can('purchase.queue.view')
+                    <a href="{{ route('purchase.queues.kanban') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
+                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
+                            <flux:icon.queue-list class="w-4 h-4" />
+                            <livewire:layout.sidebar-badge type="purchase_queue" />
+                        </div>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Request/Permintaan Purchase Order</span>
+                    </a>
+                    @endcan
+
+                    @canany(['purchase.order.view', 'purchase.order.create', 'purchase.queue.view'])
+                    <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
+                        <div class="w-10 flex justify-center"><div class="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600"></div></div>
+                        <span class="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Transaksi</span>
+                    </div>
+                    @endcanany
+
+                    @can('purchase.return.view')
+                    <a href="{{ route('purchase.returns.index') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
+                        <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
+                            <flux:icon.arrow-uturn-left class="w-4 h-4" />
+                        </div>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Retur Pembelian</span>
+                    </a>
+                    @endcan
+
+                    {{-- Tombol Kembali Mobile --}}
+                    <button @click="activeMenu = null" class="md:hidden flex items-center gap-2 text-zinc-500 bg-white dark:bg-zinc-800 px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 mb-2 mt-4">
+                        <flux:icon.arrow-left class="w-4 h-4" />
+                        <span class="text-sm font-semibold">Kembali</span>
+                    </button>
+                </div>
+
                 {{-- PRODUCTION SUBMENU --}}
                 <div x-show="open && activeMenu === 'production'"
                      x-transition:enter="transition ease-out duration-300 transform delay-75"
