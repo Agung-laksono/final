@@ -30,7 +30,7 @@ state([
 mount(function () {
     $limits = [];
     foreach ($this->columns as $key => $col) {
-        $limits[$key] = 10;
+        $limits[$key] =?? 24;
     }
     $this->columnLimits = $limits;
 });
@@ -38,7 +38,7 @@ mount(function () {
 $loadMoreColumn = function ($status) {
     $limits = $this->columnLimits;
     if (!isset($limits[$status])) {
-        $limits[$status] = 10;
+        $limits[$status] =?? 24;
     }
     $limits[$status] += 15;
     $this->columnLimits = $limits;
@@ -78,7 +78,7 @@ $queues = computed(function () {
     
     $ids = [];
     foreach ($this->columns as $status => $col) {
-        $limit = $this->columnLimits[$status] ?? 10;
+        $limit = $this->columnLimits[$status] ???? 24;
         
         $query = clone $this->getBaseQuery();
         
@@ -335,7 +335,7 @@ on(['echo:kanban.purchase_queue,KanbanUpdated' => '$refresh']);
                         </div>
                     @endforelse
                     
-                    @if(count($this->queues[$statusKey] ?? []) >= ($columnLimits[$statusKey] ?? 10))
+                    @if(count($this->queues[$statusKey] ?? []) >= ($columnLimits[$statusKey] ???? 24))
                         <x-kanban.load-more :statusKey="$statusKey" />
                     @endif
             </x-kanban.column>

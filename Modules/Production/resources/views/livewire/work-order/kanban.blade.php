@@ -26,7 +26,26 @@ state([
     'sortBy' => 'created_at',
     'sortDirection' => 'desc',
     'perPage' => 15,
+    'columnLimits' => [],
 ]);
+
+
+mount(function () {
+    $limits = [];
+    foreach ($this->columns as $key => $col) {
+        $limits[$key] = 24;
+    }
+    $this->columnLimits = $limits;
+});
+
+$loadMoreColumn = function ($status) {
+    $limits = $this->columnLimits;
+    if (!isset($limits[$status])) {
+        $limits[$status] = 24;
+    }
+    $limits[$status] += 24;
+    $this->columnLimits = $limits;
+};
 
 $loadMore = function () {
     $this->perPage += 15;
@@ -46,8 +65,8 @@ $sort = function ($field) {
     }
 };
 
-$orders = computed(function () {
-    $query = ProductionOrder::with(['item', 'creator'])->latest();
+$getBaseQuery = function () {
+    $query = ProductionOrder::query();
     if ($this->search) {
         $query->where('order_number', 'like', '%' . $this->search . '%')
               ->orWhere('reference_number', 'like', '%' . $this->search . '%')
@@ -55,25 +74,39 @@ $orders = computed(function () {
                   $q->where('name', 'like', '%' . $this->search . '%');
               });
     }
+    return $query;
+};
+
+$orders = computed(function () {
+    if ($this->viewMode !== 'kanban') return collect();
     
-    $grouped = $query->get()->groupBy('status');
-    
-    // Merge waiting_material dan material_issued ke dalam material_fulfillment
-    $fulfillment = $grouped['material_fulfillment'] ?? collect();
-    
-    if (isset($grouped['waiting_material'])) {
-        $fulfillment = $fulfillment->merge($grouped['waiting_material']);
-        unset($grouped['waiting_material']);
+    $ids = [];
+    foreach ($this->columns as $status => $col) {
+        $limit = $this->columnLimits[$status] ?? 24;
+        $q = clone $this->getBaseQuery();
+        
+        if ($status === 'material_fulfillment') {
+            $q->whereIn('status', ['material_fulfillment', 'waiting_material', 'material_issued']);
+        } else {
+            $q->where('status', $status);
+        }
+        
+        $ids = array_merge($ids, $q->latest()->limit($limit)->pluck('id')->toArray());
     }
     
-    if (isset($grouped['material_issued'])) {
-        $fulfillment = $fulfillment->merge($grouped['material_issued']);
-        unset($grouped['material_issued']);
-    }
+    if (empty($ids)) return collect();
     
-    if ($fulfillment->count() > 0) {
-        $grouped['material_fulfillment'] = $fulfillment->sortByDesc('created_at');
-    }
+    $result = ProductionOrder::with(['item', 'creator'])
+        ->whereIn('id', $ids)
+        ->get()
+        ->sortByDesc('created_at');
+        
+    $grouped = $result->groupBy(function($order) {
+        if (in_array($order->status, ['waiting_material', 'material_issued'])) {
+            return 'material_fulfillment';
+        }
+        return $order->status;
+    });
     
     return $grouped;
 });

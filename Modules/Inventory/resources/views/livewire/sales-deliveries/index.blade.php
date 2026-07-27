@@ -15,12 +15,28 @@ state([
     'transparent_columns' => false,
     'search' => '',
     'setting_version' => 0, // bumped saat setting berubah → paksa re-render
+    'columnLimits' => [],
 ]);
 
 mount(function () {
     $this->viewMode = session()->get('sales_delivery_view_mode', 'kanban');
     $this->groupBy = session()->get('sales_delivery_group_by', 'so');
+    
+    $limits = [];
+    foreach (['processing', 'packing', 'ready_to_ship'] as $key) {
+        $limits[$key] =?? 24;
+    }
+    $this->columnLimits = $limits;
 });
+
+$loadMoreColumn = function ($status) {
+    $limits = $this->columnLimits;
+    if (!isset($limits[$status])) {
+        $limits[$status] =?? 24;
+    }
+    $limits[$status] +=?? 24;
+    $this->columnLimits = $limits;
+};
 
 $updatedViewMode = function ($value) {
     session()->put('sales_delivery_view_mode', $value);
@@ -119,18 +135,17 @@ $orders = computed(function () {
     }) == '1';
     $statuses = ['processing', 'packing'];
     
-    $query = SalesOrder::with(['customer', 'creator', 'items.item.unit', 'fulfillments'])
-        ->whereIn('status', $statuses);
+    $baseQuery = SalesOrder::whereIn('status', $statuses);
         
     if (!$showShipping) {
-        $query->where(function($q) {
+        $baseQuery->where(function($q) {
             $q->where('status', '!=', 'packing')->orWhere('is_packed', false);
         });
     }
-    $query->latest();
+    $baseQuery->latest();
     
     if ($this->search) {
-        $query->where(function($q) {
+        $baseQuery->where(function($q) {
             $q->where('so_number', 'like', '%' . $this->search . '%')
               ->orWhereHas('customer', function($q2) {
                   $q2->where('name', 'like', '%' . $this->search . '%');
@@ -138,7 +153,32 @@ $orders = computed(function () {
         });
     }
     
-    $result = $query->get();
+    $ids = [];
+    foreach (array_keys($this->activeColumns) as $colKey) {
+        $limit = $this->columnLimits[$colKey] ???? 24;
+        $q = clone $baseQuery;
+        
+        if ($colKey === 'ready_to_ship') {
+            $q->where('status', 'packing')->where('is_packed', true);
+        } elseif ($colKey === 'packing') {
+            $q->where('status', 'packing')->where('is_packed', false);
+        } else {
+            $q->where('status', $colKey);
+        }
+        
+        $statusIds = $q->limit($limit)->pluck('id')->toArray();
+        $ids = array_merge($ids, $statusIds);
+    }
+    
+    if (empty($ids)) return [];
+    
+    $result = SalesOrder::with(['customer', 'creator', 'items.item.unit', 'fulfillments'])
+        ->whereIn('id', $ids)
+        ->get()
+        ->sortBy(function($order) use ($ids) {
+            return array_search($order->id, $ids);
+        });
+        
     $groupedByColumn = [];
     
     foreach (array_keys($this->activeColumns) as $colKey) {

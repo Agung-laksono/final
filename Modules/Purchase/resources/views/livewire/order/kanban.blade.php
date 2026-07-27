@@ -31,7 +31,7 @@ mount(function () {
     // Inisialisasi limit per kolom
     $limits = [];
     foreach ($this->columns as $key => $col) {
-        $limits[$key] = 10;
+        $limits[$key] =?? 24;
     }
     $this->columnLimits = $limits;
 });
@@ -43,7 +43,7 @@ $loadMore = function () {
 $loadMoreColumn = function ($status) {
     $limits = $this->columnLimits;
     if (!isset($limits[$status])) {
-        $limits[$status] = 10;
+        $limits[$status] =?? 24;
     }
     $limits[$status] += 15;
     $this->columnLimits = $limits;
@@ -83,7 +83,7 @@ $orders = computed(function () {
     
     $ids = [];
     foreach ($this->columns as $status => $col) {
-        $limit = $this->columnLimits[$status] ?? 10;
+        $limit = $this->columnLimits[$status] ???? 24;
         
         $query = clone $this->getBaseQuery();
         $statusIds = $query->where('status', $status)
@@ -366,7 +366,7 @@ on([
                         </div>
                     @endforelse
                     
-                    @if(count($this->orders[$statusKey] ?? []) >= ($columnLimits[$statusKey] ?? 10))
+                    @if(count($this->orders[$statusKey] ?? []) >= ($columnLimits[$statusKey] ???? 24))
                         <x-kanban.load-more :statusKey="$statusKey" />
                     @endif
             </x-kanban.column>

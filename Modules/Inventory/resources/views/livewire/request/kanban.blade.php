@@ -26,11 +26,26 @@ state([
     'woTargetItemName' => '',
     'woTargetQty' => 1,
     'woNotes' => '',
+    'columnLimits' => [],
 ]);
 
 mount(function () {
     $this->viewMode = session()->get('inventory_request_view_mode', 'kanban');
+    $limits = [];
+    foreach ($this->columns as $key => $col) {
+        $limits[$key] = 24;
+    }
+    $this->columnLimits = $limits;
 });
+
+$loadMoreColumn = function ($status) {
+    $limits = $this->columnLimits;
+    if (!isset($limits[$status])) {
+        $limits[$status] = 24;
+    }
+    $limits[$status] += 24;
+    $this->columnLimits = $limits;
+};
 
 $updatedViewMode = function ($value) {
     session()->put('inventory_request_view_mode', $value);
@@ -51,19 +66,37 @@ $tableRequests = computed(function () {
     return $query->paginate(15);
 });
 
-$requests = computed(function () {
-    if ($this->viewMode !== 'kanban') {
-        return [];
-    }
-    
-    $query = InventoryRequest::with(['item', 'item.type', 'productionOrder', 'purchaseQueue'])->latest();
+$getBaseQuery = function () {
+    $query = InventoryRequest::query();
     if ($this->search) {
         $query->where('reference_number', 'like', '%' . $this->search . '%')
               ->orWhereHas('item', function($q) {
                   $q->where('name', 'like', '%' . $this->search . '%');
               });
     }
-    return $query->get()->groupBy('status');
+    return $query;
+};
+
+$requests = computed(function () {
+    if ($this->viewMode !== 'kanban') {
+        return [];
+    }
+    
+    $ids = [];
+    foreach ($this->columns as $status => $col) {
+        $limit = $this->columnLimits[$status] ?? 24;
+        $q = clone $this->getBaseQuery();
+        
+        $ids = array_merge($ids, $q->where('status', $status)->latest()->limit($limit)->pluck('id')->toArray());
+    }
+    
+    if (empty($ids)) return collect();
+    
+    return InventoryRequest::with(['item', 'item.type', 'productionOrder', 'purchaseQueue'])
+        ->whereIn('id', $ids)
+        ->get()
+        ->sortByDesc('created_at')
+        ->groupBy('status');
 });
 
 $routeToPurchase = function ($requestId) {

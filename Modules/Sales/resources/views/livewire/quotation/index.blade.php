@@ -18,9 +18,28 @@ state([
     'sortBy' => 'created_at',
     'sortDirection' => 'desc',
     'perPage' => 10,
+    'columnLimits' => [],
 ]);
 
 on(['quotation-updated' => function () {}]);
+
+mount(function () {
+    $limits = [];
+    foreach ($this->columns as $key => $col) {
+        $limits[$key] = 24;
+    }
+    $this->columnLimits = $limits;
+});
+
+$loadMoreColumn = function ($status) {
+    $limits = $this->columnLimits;
+    if (!isset($limits[$status])) {
+        $limits[$status] = 24;
+    }
+    $limits[$status] += 24;
+    $this->columnLimits = $limits;
+};
+
 
 $sort = function ($field) {
     if ($this->sortBy === $field) {
@@ -78,9 +97,31 @@ $setViewMode = function ($mode) {
 };
 
 $kanbanQuotations = computed(function () {
+    if ($this->viewMode !== 'kanban') return collect();
+    
+    $ids = [];
+    foreach ($this->columns as $status => $col) {
+        $limit = $this->columnLimits[$status] ?? 24;
+        
+        $q = Quotation::where('status', $status);
+        if ($this->search) {
+            $q->where(function($q2) {
+                $q2->where('quotations.quotation_number', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('customer', function($q3) {
+                      $q3->where('name', 'like', '%' . $this->search . '%');
+                  });
+            });
+        }
+        
+        $ids = array_merge($ids, $q->latest()->limit($limit)->pluck('id')->toArray());
+    }
+    
+    if (empty($ids)) return collect();
+    
     $results = Quotation::with(['customer', 'creator', 'items'])
-        ->orderBy('created_at', 'desc')
-        ->get();
+        ->whereIn('id', $ids)
+        ->get()
+        ->sortByDesc('created_at');
     
     $grouped = [];
     foreach ($this->columns as $key => $col) {
