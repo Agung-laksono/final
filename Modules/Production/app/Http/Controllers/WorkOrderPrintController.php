@@ -9,7 +9,7 @@ class WorkOrderPrintController extends Controller
 {
     public function show($id)
     {
-        $po = PurchaseOrder::with(['vendor', 'items.item', 'creator'])->findOrFail($id);
+        $po = PurchaseOrder::with(['vendor', 'items.item', 'creator.brand'])->findOrFail($id);
         
         $isOwn = $po->created_by === auth()->id();
         $isManagerial = auth()->user()->hasAnyRole(['Super Admin', 'Kepala Produksi', 'Manager']);

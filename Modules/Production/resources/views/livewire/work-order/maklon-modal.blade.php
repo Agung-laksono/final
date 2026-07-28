@@ -208,7 +208,7 @@ $save = function () {
                 $costPerUnit = $groupCost / $groupTotalQty;
 
                 $itemNote = $this->item_notes['group_'.$itemId] ?? '';
-                $finalNotes = "<p><strong>Jasa Vendor Fase:</strong> " . ucfirst($this->phase_type) . "</p>";
+                $finalNotes = "";
                 if (!empty($itemNote)) {
                     $finalNotes .= $itemNote;
                 }
@@ -240,7 +240,7 @@ $save = function () {
                 $costPerUnit = $orderCost / max(1, $order->requested_qty);
 
                 $itemNote = $this->item_notes['single_'.$order->id] ?? '';
-                $finalNotes = "<p><strong>Jasa Vendor Fase:</strong> " . ucfirst($this->phase_type) . " (Ref: " . $order->production_req_number . ")</p>";
+                $finalNotes = "";
                 if (!empty($itemNote)) {
                     $finalNotes .= $itemNote;
                 }
