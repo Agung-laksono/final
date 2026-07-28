@@ -533,9 +533,44 @@ on([
                         <span class="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-wider">{{ session('new_po_number') }}</span>
                     </div>
                     
-                    <div class="mt-4 flex flex-col gap-2">
+                    <div class="mt-4 flex flex-col gap-2" x-data="{
+                        printing: false,
+                        printPO(url, filename) {
+                            if (this.printing) return;
+                            
+                            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                            
+                            if (isMobile) {
+                                window.open(url, '_blank');
+                                return;
+                            }
+                            
+                            this.printing = true;
+                            
+                            const originalTitle = document.title;
+                            document.title = filename;
+
+                            const iframe = document.createElement('iframe');
+                            iframe.style.display = 'none';
+                            iframe.src = url;
+                            document.body.appendChild(iframe);
+                            iframe.onload = () => {
+                                iframe.contentWindow.focus();
+                                iframe.contentWindow.print();
+                                this.printing = false;
+                                
+                                setTimeout(() => {
+                                    document.title = originalTitle;
+                                    document.body.removeChild(iframe);
+                                }, 5000);
+                            };
+                        }
+                    }">
                         @if(session('new_po_id'))
-                            <flux:button variant="primary" class="w-full" icon="printer" href="{{ route('purchase.orders.print', session('new_po_id')) }}" target="_blank">Cetak PO</flux:button>
+                            <flux:button variant="primary" class="w-full" icon="printer" x-on:click="printPO('{{ route('purchase.orders.print', session('new_po_id')) }}', '{{ session('new_po_number') }}')" x-bind:disabled="printing">
+                                <span x-show="!printing">Cetak PO</span>
+                                <span x-show="printing" style="display: none;">Mencetak...</span>
+                            </flux:button>
                         @endif
                         <flux:button variant="ghost" class="w-full" @click="$flux.modal('new-po-success-modal').close()">Tutup</flux:button>
                     </div>
