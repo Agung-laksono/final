@@ -11,4 +11,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/maklon/media/upload', [MaklonMediaController::class, 'upload'])->name('maklon.media.upload');
     Route::get('/maklon/media', [MaklonMediaController::class, 'list'])->name('maklon.media.list');
     Route::delete('/maklon/media', [MaklonMediaController::class, 'delete'])->name('maklon.media.delete');
+
+    // Print SPK
+    Route::get('/production/work-orders/{id}/print', [\Modules\Production\Http\Controllers\WorkOrderPrintController::class, 'show'])
+        ->name('production.work-orders.print')
+        ->middleware('permission:production.order.view');
 });

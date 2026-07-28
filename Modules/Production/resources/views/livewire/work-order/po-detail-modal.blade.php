@@ -176,7 +176,44 @@ $cancelSPK = function () {
                     <flux:subheading>Vendor: <strong>{{ $this->po->vendor->name }}</strong></flux:subheading>
                 </div>
                 <div class="flex items-center gap-2 pr-8 z-10 relative">
-                    <flux:button size="sm" variant="subtle" icon="printer" wire:click="$dispatch('open-po-print-modal', { poId: {{ $this->po->id }} })">Print SPK</flux:button>
+                    <div x-data="{
+                        printing: false,
+                        printPO(url, filename) {
+                            if (this.printing) return;
+                            
+                            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                            
+                            if (isMobile) {
+                                window.open(url, '_blank');
+                                return;
+                            }
+                            
+                            this.printing = true;
+                            
+                            const originalTitle = document.title;
+                            document.title = filename;
+
+                            const iframe = document.createElement('iframe');
+                            iframe.style.display = 'none';
+                            iframe.src = url;
+                            document.body.appendChild(iframe);
+                            iframe.onload = () => {
+                                iframe.contentWindow.focus();
+                                iframe.contentWindow.print();
+                                this.printing = false;
+                                
+                                setTimeout(() => {
+                                    document.title = originalTitle;
+                                    document.body.removeChild(iframe);
+                                }, 5000);
+                            };
+                        }
+                    }">
+                        <flux:button size="sm" variant="subtle" icon="printer" x-on:click="printPO('{{ route('production.work-orders.print', $this->po->id) }}', 'SPK-{{ $this->po->po_number }}')" x-bind:disabled="printing">
+                            <span x-show="!printing">Print SPK</span>
+                            <span x-show="printing" style="display: none;">Mencetak...</span>
+                        </flux:button>
+                    </div>
                     @if($this->po->status !== 'completed' && $this->po->payments->isEmpty())
                         <flux:dropdown>
                             <flux:button size="sm" icon="ellipsis-vertical" variant="ghost" class="px-2" />
