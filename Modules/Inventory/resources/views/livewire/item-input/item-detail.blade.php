@@ -89,7 +89,8 @@ $openModal = function ($id, $tab = null) {
     $this->tab = $tab; 
     
     $this->dispatch('item-detail-modal-opened', ['tab' => $tab]);
-    Flux::modal('item-detail-modal')->show();
+    // Dispatch setelah 3x queueMicrotask — Alpine punya waktu inisialisasi sebelum modal dibuka
+    $this->dispatch('do-open-item-detail');
 };
 
 on(['open-item-detail' => function (...$args) {
@@ -111,11 +112,6 @@ on(['open-item-detail' => function (...$args) {
     }
 }]);
 
-$editItem = function () {
-    \Illuminate\Support\Facades\Gate::authorize('inventory.item.update');
-    Flux::modal('item-detail-modal')->close();
-    $this->dispatch('open-item-modal', id: $this->item->id);
-};
 
 $deleteItem = function () {
     \Illuminate\Support\Facades\Gate::authorize('inventory.item.delete');
@@ -267,20 +263,23 @@ $saveInitialStock = function () {
 
 ?>
 
-<div x-data="{
-    activeTab: 'info',
-    init() {
-        if (window.Echo) {
-            window.Echo.channel('inventory')
-                .listen('InventoryUpdated', () => {
-                    $wire.refreshItem();
-                });
+<div
+    x-data="{
+        activeTab: 'info',
+        init() {
+            if (window.Echo) {
+                window.Echo.channel('inventory')
+                    .listen('InventoryUpdated', () => {
+                        $wire.refreshItem();
+                    });
+            }
+            $wire.on('item-detail-modal-opened', (data) => {
+                this.activeTab = data && data.length > 0 && data[0].tab ? data[0].tab : 'info';
+            });
         }
-        $wire.on('item-detail-modal-opened', (data) => {
-            this.activeTab = data && data.length > 0 && data[0].tab ? data[0].tab : 'info';
-        });
-    }
-}">
+    }"
+    x-on:do-open-item-detail.window="Flux.modal('item-detail-modal').show()"
+>
     <flux:modal name="item-detail-modal" class="w-full" style="width: 1200px; max-width: 90vw;" scroll="body">
         @if($item)
             <div class="flex flex-col gap-6 min-h-[400px]">
@@ -298,7 +297,9 @@ $saveInitialStock = function () {
                     @endif
                     
                     @can('inventory.item.update')
-                        <flux:button wire:click="editItem" variant="outline" size="sm" icon="pencil-square" class="px-2 md:px-3">
+                        <flux:button 
+                            x-on:click="Flux.modal('item-detail-modal').close(); $wire.dispatch('open-item-modal', { id: {{ $item ? $item->id : 'null' }} })" 
+                            variant="outline" size="sm" icon="pencil-square" class="px-2 md:px-3">
                             <span class="hidden md:inline">Edit Data</span>
                         </flux:button>
                     @endcan

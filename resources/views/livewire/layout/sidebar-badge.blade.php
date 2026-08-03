@@ -55,6 +55,11 @@ $fetchCount = function () {
             $this->colorClass = 'bg-amber-500';
             break;
             
+        case 'finance_payables':
+            $this->count = \Modules\Purchase\Models\PurchaseOrder::where('status', 'pending_approval')->count();
+            $this->colorClass = 'bg-rose-500';
+            break;
+            
         case 'finance_inbox':
             $this->count = \Modules\Sales\Models\SalesPayment::where('status', 'pending')->count() +
                            \Modules\Purchase\Models\PurchasePayment::where('status', 'pending')->count();
@@ -112,9 +117,11 @@ $fetchCount = function () {
                     }
                 })->count();
                 
+            $pendingApprovalPOs = \Modules\Purchase\Models\PurchaseOrder::where('status', 'pending_approval')->count();
+                
             $this->count = \Modules\Sales\Models\SalesPayment::where('status', 'pending')->count() +
                            \Modules\Purchase\Models\PurchasePayment::where('status', 'pending')->count() +
-                           $pendingTransfers;
+                           $pendingTransfers + $pendingApprovalPOs;
             $this->colorClass = 'bg-blue-500';
             break;
             
@@ -154,6 +161,9 @@ $fetchCount = function () {
                 $financeCount += \Modules\Sales\Models\SalesPayment::where('status', 'pending')->count() +
                                  \Modules\Purchase\Models\PurchasePayment::where('status', 'pending')->count();
             }
+            if (auth()->user()->can('purchase.order.update')) { // permission to approve PO in finance
+                $financeCount += \Modules\Purchase\Models\PurchaseOrder::where('status', 'pending_approval')->count();
+            }
             if (auth()->user()->can('finance.transfers.view')) {
                 $financeCount += \Modules\Finance\Models\FinanceTransfer::where('status', 'pending')
                     ->whereHas('toAccount', function($q) {
@@ -180,9 +190,7 @@ on([
         $this->fetchCount();
     },
     'echo:kanban,KanbanUpdated' => function($event) {
-        if (!isset($event['type']) || $event['type'] === $this->type) {
-            $this->fetchCount();
-        }
+        $this->fetchCount();
     },
     // Listen for global badge updates from the UpdatesMenuBadges trait
     'echo:global-updates,.MenuBadgesUpdated' => function() {

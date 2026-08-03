@@ -42,6 +42,10 @@ $loadMore = function () {
     $this->perPage += 24;
 };
 
+$updatedSearch = function () {
+    $this->perPage = 24;
+};
+
 $sort = function ($column) {
     if ($this->sortBy === $column) {
         $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
@@ -64,23 +68,30 @@ $getItems = function () {
     ])
         ->withCount('customVariants')
         ->when($this->search, function ($query) {
-            $query->where(function($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('code', 'like', '%' . $this->search . '%')
-                  ->orWhere('alias', 'like', '%' . $this->search . '%')
-                  ->orWhere('tags', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('category', function($q2) {
-                      $q2->where('name', 'like', '%' . $this->search . '%');
-                  })->orWhereHas('warehouses', function($q2) {
-                      $q2->where('name', 'like', '%' . $this->search . '%');
-                  })->orWhereHas('type', function($q2) {
-                      $q2->where('name', 'like', '%' . $this->search . '%');
-                  })->orWhereHas('unit', function($q2) {
-                      $q2->where('name', 'like', '%' . $this->search . '%');
-                  })->orWhereHas('subCategory', function($q2) {
-                      $q2->where('name', 'like', '%' . $this->search . '%');
-                  });
-            });
+            $searchString = trim($this->search);
+            if (empty($searchString)) return;
+
+            $terms = array_filter(explode(' ', $searchString));
+            
+            foreach ($terms as $term) {
+                $query->where(function($q) use ($term) {
+                    $q->where('name', 'like', '%' . $term . '%')
+                      ->orWhere('code', 'like', '%' . $term . '%')
+                      ->orWhere('alias', 'like', '%' . $term . '%')
+                      ->orWhere('tags', 'like', '%' . $term . '%')
+                      ->orWhereHas('category', function($q2) use ($term) {
+                          $q2->where('name', 'like', '%' . $term . '%');
+                      })->orWhereHas('warehouses', function($q2) use ($term) {
+                          $q2->where('name', 'like', '%' . $term . '%');
+                      })->orWhereHas('type', function($q2) use ($term) {
+                          $q2->where('name', 'like', '%' . $term . '%');
+                      })->orWhereHas('unit', function($q2) use ($term) {
+                          $q2->where('name', 'like', '%' . $term . '%');
+                      })->orWhereHas('subCategory', function($q2) use ($term) {
+                          $q2->where('name', 'like', '%' . $term . '%');
+                      });
+                });
+            }
         })
         ->when($this->sortBy, function ($query) {
             $query->orderBy($this->sortBy, $this->sortDirection);
@@ -313,7 +324,7 @@ $delete = function (Item $item) {
                     <x-grid-or-table wire:model="viewMode" :mode="$viewMode" />
                     
                     @can('inventory.item.create')
-                        <flux:button wire:click="$dispatch('open-item-modal')" variant="primary" icon="plus" class="shrink-0">
+                        <flux:button x-on:click="$wire.dispatch('open-item-modal')" variant="primary" icon="plus" class="shrink-0">
                             <span class="hidden sm:inline">Barang</span>
                         </flux:button>
                     @endcan
@@ -407,7 +418,7 @@ $delete = function (Item $item) {
 
                 <flux:table.rows>
                     @forelse ($this->getItems() as $item)
-                        <flux:table.row :key="$item->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:dblclick="$dispatch('open-item-detail', { id: {{ $item->id }} })">
+                        <flux:table.row :key="$item->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:dblclick="$wire.dispatch('open-item-detail', { id: {{ $item->id }} })">
                             <flux:table.cell>
                                 <div class="flex items-center gap-3">
                                     <div class="relative w-10 h-10 rounded-md bg-zinc-100 border border-zinc-200 shrink-0">
@@ -766,9 +777,7 @@ $delete = function (Item $item) {
     <x-load-more :paginator="$this->getItems()" item-name="barang" />
 
     {{-- Sisipkan Modal Form dan Detail --}}
-    <livewire:item-input.item-detail />
-    <livewire:global.item-variants-modal />
-    
+    {{-- Modals dipindahkan ke index.blade.php untuk mencegah masalah render saat list di-filter --}}
     <!-- Gallery Lightbox Modal -->
     <div x-data="itemGallery( {{ json_encode($galleryItems ?? []) }} )" 
          x-show="isOpen" 
@@ -995,4 +1004,5 @@ $delete = function (Item $item) {
         }));
     });
     </script>
+</div>
 </div>

@@ -165,5 +165,5 @@ $openModal = function ($id = null) {
     </x-table.wrapper>
     @endif
     
-    <livewire:global.item-form-modal />
+    <livewire:global.item-form-modal wire:key="item-form-modal-component" />
 </div>

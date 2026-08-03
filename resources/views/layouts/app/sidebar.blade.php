@@ -31,6 +31,9 @@
                     'purchase.orders.kanban' => 'purchase_order',
                     'production.orders'      => 'production_order',
                     'sales.orders.index'     => 'sales_order',
+                    'finance.payables'       => 'finance_payables',
+                    'finance.inbox'          => 'finance_inbox',
+                    'finance.transfers'      => 'finance_transfer',
                 ];
             @endphp
 

@@ -91,7 +91,7 @@ $orders = computed(function () {
             $q->where('status', $status);
         }
         
-        $ids = array_merge($ids, $q->latest()->limit($limit)->pluck('id')->toArray());
+        $ids = array_merge($ids, $q->latest('updated_at')->limit($limit)->pluck('id')->toArray());
     }
     
     if (empty($ids)) return collect();
@@ -99,7 +99,7 @@ $orders = computed(function () {
     $result = ProductionOrder::with(['item', 'creator'])
         ->whereIn('id', $ids)
         ->get()
-        ->sortByDesc('created_at');
+        ->sortByDesc('updated_at');
         
     $grouped = $result->groupBy(function($order) {
         if (in_array($order->status, ['waiting_material', 'material_issued'])) {
@@ -132,7 +132,7 @@ on([
     'status-updated' => function () {
         // Trigger re-render
     },
-    'echo:kanban.production_order,KanbanUpdated' => function () {}
+    'echo:kanban,KanbanUpdated' => function () {}
 ]);
 
 $updateStatus = function ($orderId, $newStatus) {

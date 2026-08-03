@@ -92,6 +92,10 @@ new class extends Component {
     #[On('open-item-modal')]
     public function openModal($id = null)
     {
+        // Livewire.dispatch() dari JS mengirim params sebagai array — extract 'id' jika perlu
+        if (is_array($id) && isset($id['id'])) {
+            $id = $id['id'];
+        }
         $this->resetValidation();
         $this->units = Unit::orderBy('name')->get();
         $this->types = Type::orderBy('name')->get();
@@ -162,7 +166,9 @@ new class extends Component {
         $this->dispatch('subcategory-updated', options: $this->subcategories);
 
         $this->dispatch('item-modal-loaded');
-        Flux::modal('item-modal')->show();
+        // Dispatch event khusus — diproses setelah 3x queueMicrotask di Livewire JS,
+        // memberi Alpine cukup waktu selesai inisialisasi sebelum modal dibuka
+        $this->dispatch('do-open-item-modal');
     }
 
     #[On('unit-updated')]
@@ -281,8 +287,7 @@ new class extends Component {
 };
 ?>
 
-<div>
-    <div x-on:trigger-add-subcategory.window="$wire.dispatch('open-subcategory-modal', { category_id: $wire.category_id })"></div>
+<div x-on:do-open-item-modal.window="Flux.modal('item-modal').show()">
 
     <flux:modal name="item-modal" class="md:max-w-4xl">
         <div x-data="{ step: 1 }" x-on:item-modal-loaded.window="step = 1">

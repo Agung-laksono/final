@@ -40,7 +40,7 @@
         Livewire.hook('commit', ({ component, succeed }) => {
             succeed(() => {
                 const name = component.name || '';
-                if (name.includes('kanban') || name.includes('index') || name.includes('sales-deliveries')) {
+                if (name.includes('kanban') || name.includes('index') || name.includes('sales-deliveries') || (component.el && component.el.querySelector('.kanban-root'))) {
                     processingId = null;
                     activeId = null;
                 }

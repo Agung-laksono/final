@@ -466,6 +466,7 @@
                     <a href="{{ route('finance.payables') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-zinc-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.credit-card class="w-4 h-4" />
+                            <livewire:layout.sidebar-badge type="finance_payables" />
                         </div>
                         <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Hutang Pembelian</span>
                     </a>
@@ -661,6 +662,7 @@
                     <a href="{{ route('finance.payables') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-zinc-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.credit-card class="w-4 h-4" />
+                            <livewire:layout.sidebar-badge type="finance_payables" />
                         </div>
                         <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Hutang Pembelian</span>
                     </a>

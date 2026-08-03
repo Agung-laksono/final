@@ -272,6 +272,9 @@ $save = function () {
     $this->show = false;
     
     if ($poData) {
+        $approvers = \App\Models\User::withPermissionOrSuperAdmin(['purchase.order.update', 'finance.notifikasi.view'])->get();
+        \Illuminate\Support\Facades\Notification::send($approvers, new \App\Notifications\PurchaseOrderWaitingApprovalNotification($poData));
+
         \Flux::toast('SPK ' . $poData->po_number . ' berhasil dibuat!', variant: 'success');
         $this->dispatch('open-po-detail-modal', poId: $poData->id);
     } else {

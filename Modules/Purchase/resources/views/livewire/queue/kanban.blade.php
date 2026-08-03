@@ -63,7 +63,7 @@ $sort = function ($field) {
 };
 
 $getBaseQuery = function () {
-    $query = PurchaseQueue::with(['item', 'fulfillments.purchaseOrderItem.purchaseOrder.vendor'])->latest();
+    $query = PurchaseQueue::with(['item', 'fulfillments.purchaseOrderItem.purchaseOrder.vendor'])->latest('updated_at');
     if ($this->search) {
         $query->whereHas('item', function($q) {
             $q->where('name', 'like', '%' . $this->search . '%')
@@ -172,7 +172,7 @@ on(['status-updated' => function () {
     // Kosong saja, tujuannya hanya memancing re-render agar computed $queues dijalankan ulang
 }]);
 
-on(['echo:kanban.purchase_queue,KanbanUpdated' => '$refresh']);
+on(['echo:kanban,KanbanUpdated' => '$refresh']);
 
 ?>
 

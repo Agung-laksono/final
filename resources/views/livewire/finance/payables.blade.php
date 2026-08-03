@@ -11,10 +11,19 @@ use Modules\Finance\Models\FinanceTransaction;
 
 new class extends Component {
     use WithFileUploads;
+    
+    protected $listeners = [
+        'echo:kanban,KanbanUpdated' => '$refresh'
+    ];
+    
     public $search = '';
     
     // Modal states
     public $showPaymentModal = false;
+    public $showApprovalModal = false;
+    public $rejectReason = '';
+    public $isRejecting = false;
+    
     public $selectedPoId = null;
     public $selectedPo = null;
     public $paymentAmount = '';
@@ -128,7 +137,7 @@ new class extends Component {
         }
         
         if (!empty($neededIds)) {
-            $itemsEager = PurchaseOrder::with('items')->whereIn('id', $neededIds)->get()->keyBy('id');
+            $itemsEager = PurchaseOrder::with('items.item')->whereIn('id', $neededIds)->get()->keyBy('id');
             foreach ($finalOrders as $key => $collection) {
                 $finalOrders[$key] = $collection->map(function($po) use ($itemsEager) {
                     $po->setRelation('items', $itemsEager[$po->id]->items ?? collect());
@@ -142,6 +151,20 @@ new class extends Component {
             'counts' => $counts,
             'accounts' => $accounts,
         ];
+    }
+
+    public function openApprovalModal($poId)
+    {
+        $this->resetValidation();
+        $po = PurchaseOrder::with(['vendor', 'items.item', 'creator'])->find($poId);
+        
+        if ($po) {
+            $this->selectedPoId = $po->id;
+            $this->selectedPo = $po;
+            $this->rejectReason = '';
+            $this->isRejecting = false;
+            $this->showApprovalModal = true;
+        }
     }
 
     public function openPaymentModal($poId)
@@ -258,6 +281,7 @@ new class extends Component {
             
             // Tetap di modal, ganti tab lewat event browser jika diperlukan, atau tidak perlu (opsional)
             $this->dispatch('payment-saved');
+            \App\Events\KanbanUpdated::safeDispatch('finance_payables');
             \Flux::toast('Pembayaran berhasil diproses dan dicatat ke buku besar!', variant: 'success');
             
         } catch (\Exception $e) {
@@ -281,13 +305,13 @@ new class extends Component {
         }
     }
 
-    public function approveSpk($poId)
+    public function approveSpk()
     {
-        $po = PurchaseOrder::find($poId);
+        $po = PurchaseOrder::find($this->selectedPoId);
         if ($po && $po->status === 'pending_approval') {
             DB::beginTransaction();
             try {
-                $po->status = 'ordered';
+                $po->status = 'processing';
                 $po->save();
                 
                 // Update related ProductionOrders
@@ -295,10 +319,60 @@ new class extends Component {
                     ->update(['status' => 'in_production']);
                     
                 DB::commit();
-                \Flux::toast('SPK berhasil disetujui (ACC).', variant: 'success');
+                
+                \App\Events\KanbanUpdated::safeDispatch('production_order');
+                \App\Events\KanbanUpdated::safeDispatch('finance_payables');
+                
+                $notification = app(\App\Notifications\PurchaseOrderStatusChangedNotification::class, ['order' => $po, 'action' => 'disetujui', 'actorName' => auth()->user()->name]);
+                \Illuminate\Support\Facades\Notification::send($po->creator, $notification);
+                
+                $this->showApprovalModal = false;
+                \Flux::toast('SPK Maklon berhasil disetujui (ACC).', variant: 'success');
             } catch (\Exception $e) {
                 DB::rollBack();
                 \Flux::toast('Gagal menyetujui SPK: ' . $e->getMessage(), variant: 'danger');
+            }
+        }
+    }
+    
+    public function submitRejectSpk()
+    {
+        $this->validate([
+            'rejectReason' => 'required|min:5'
+        ], [
+            'rejectReason.required' => 'Alasan penolakan wajib diisi.',
+            'rejectReason.min' => 'Alasan penolakan minimal 5 karakter.'
+        ]);
+        
+        $po = PurchaseOrder::find($this->selectedPoId);
+        if ($po && $po->status === 'pending_approval') {
+            DB::beginTransaction();
+            try {
+                $po->status = 'rejected';
+                $po->notes = $po->notes ? $po->notes . "\n[DITOLAK]: " . $this->rejectReason : "[DITOLAK]: " . $this->rejectReason;
+                $po->save();
+                
+                \Modules\Production\Models\ProductionOrder::where('purchase_order_id', $po->id)
+                    ->update([
+                        'status' => 'waiting_vendor',
+                        'purchase_order_id' => null,
+                        'vendor_cost' => 0,
+                        'phase_type' => null
+                    ]);
+                    
+                DB::commit();
+                
+                \App\Events\KanbanUpdated::safeDispatch('production_order');
+                \App\Events\KanbanUpdated::safeDispatch('finance_payables');
+                
+                $notification = app(\App\Notifications\PurchaseOrderStatusChangedNotification::class, ['order' => $po, 'action' => 'ditolak', 'actorName' => auth()->user()->name]);
+                \Illuminate\Support\Facades\Notification::send($po->creator, $notification);
+                
+                $this->showApprovalModal = false;
+                \Flux::toast('Pengajuan SPK Maklon ditolak.', variant: 'warning');
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Flux::toast('Gagal menolak SPK: ' . $e->getMessage(), variant: 'danger');
             }
         }
     }
@@ -355,10 +429,10 @@ new class extends Component {
                             <div x-data="{ showFooter: false }"
                                  @click="
                                      if (window.matchMedia('(hover: hover)').matches) {
-                                         $wire.openPaymentModal({{ $po->id }})
+                                         {{ $colKey === 'pending_approval' ? '$wire.openApprovalModal('.$po->id.')' : '$wire.openPaymentModal('.$po->id.')' }}
                                      } else {
                                          if (!showFooter) showFooter = true;
-                                         else $wire.openPaymentModal({{ $po->id }})
+                                         else {{ $colKey === 'pending_approval' ? '$wire.openApprovalModal('.$po->id.')' : '$wire.openPaymentModal('.$po->id.')' }}
                                      }
                                  "
                                  @click.outside="showFooter = false"
@@ -387,6 +461,23 @@ new class extends Component {
                                         </flux:dropdown>
                                     </div>
                                 </div>
+                                
+                                @if($colKey === 'pending_approval' && $po->items->isNotEmpty())
+                                    <div class="mt-1 mb-1 p-1.5 bg-zinc-50 dark:bg-zinc-800/50 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-[10px] sm:text-xs">
+                                        <div class="text-zinc-500 font-semibold mb-1 border-b border-zinc-200 dark:border-zinc-700 pb-0.5">Detail Produksi:</div>
+                                        <ul class="space-y-0.5">
+                                            @foreach($po->items->take(3) as $poItem)
+                                                <li class="flex justify-between items-center text-zinc-700 dark:text-zinc-300">
+                                                    <span class="truncate pr-2">- {{ $poItem->item->name ?? $poItem->item_name ?? 'Item Terhapus' }}</span>
+                                                    <span class="font-mono bg-zinc-200 dark:bg-zinc-700 px-1 rounded text-zinc-800 dark:text-zinc-200">{{ $poItem->quantity }}</span>
+                                                </li>
+                                            @endforeach
+                                            @if($po->items->count() > 3)
+                                                <li class="text-zinc-400 italic text-[9px] pt-0.5">+ {{ $po->items->count() - 3 }} item lainnya</li>
+                                            @endif
+                                        </ul>
+                                    </div>
+                                @endif
                                 
                                 {{-- Row 2: Progress Stats & Balance --}}
                                 <div class="flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-700/50 rounded px-2 py-1 mt-0.5">
@@ -418,9 +509,9 @@ new class extends Component {
                                     @elseif($colKey === 'hold')
                                         <span class="text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm">DITAHAN</span>
                                     @elseif($colKey === 'pending_approval')
-                                        <button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.approveSpk({{ $po->id }})">
-                                            <flux:icon.check-circle class="w-3 h-3" />
-                                            <span>ACC SPK</span>
+                                        <button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.openApprovalModal({{ $po->id }})">
+                                            <flux:icon.eye class="w-3 h-3" />
+                                            <span>Review SPK</span>
                                         </button>
                                     @elseif($progress < 100)
                                         <button class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.openPaymentModal({{ $po->id }})">
@@ -602,6 +693,78 @@ new class extends Component {
             </div>
         </div>
 
+    </div>
+    @endif
+</flux:modal>
+
+{{-- Approval Modal --}}
+<flux:modal wire:model="showApprovalModal" class="w-full sm:w-[95%] md:w-[32rem] md:max-w-xl">
+    @if($selectedPo)
+    <div class="space-y-4">
+        <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-700 pb-3">
+            <flux:heading size="lg">Review SPK Maklon</flux:heading>
+        </div>
+        
+        <div class="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 text-sm shadow-inner">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <span class="text-zinc-500 text-xs">No PO/SPK:</span>
+                    <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ $selectedPo->po_number }}</div>
+                </div>
+                <div>
+                    <span class="text-zinc-500 text-xs">Vendor Maklon:</span>
+                    <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ $selectedPo->vendor->name ?? '-' }}</div>
+                </div>
+                <div>
+                    <span class="text-zinc-500 text-xs">Total Biaya Jasa:</span>
+                    <div class="font-bold text-emerald-600 dark:text-emerald-400 text-lg">Rp {{ number_format($selectedPo->total_amount, 0, ',', '.') }}</div>
+                </div>
+                <div>
+                    <span class="text-zinc-500 text-xs">Diajukan Oleh:</span>
+                    <div class="font-semibold text-zinc-800 dark:text-zinc-200">{{ $selectedPo->creator->name ?? 'Sistem' }}</div>
+                </div>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                <span class="text-zinc-500 text-xs font-bold mb-2 block uppercase tracking-wider">Detail Item Produksi:</span>
+                <ul class="space-y-2">
+                    @foreach($selectedPo->items as $item)
+                        <li class="flex justify-between items-center text-sm p-2 bg-white dark:bg-zinc-800 rounded border border-zinc-100 dark:border-zinc-700">
+                            <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ $item->item->name ?? $item->item_name }}</span>
+                            <span class="font-bold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 rounded">{{ $item->quantity }} pcs</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+            
+            @if($selectedPo->notes)
+            <div class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                <span class="text-zinc-500 text-xs font-bold mb-1 block uppercase tracking-wider">Catatan Pengajuan:</span>
+                <div class="text-zinc-700 dark:text-zinc-300 italic">{{ $selectedPo->notes }}</div>
+            </div>
+            @endif
+        </div>
+        
+        <div x-show="$wire.isRejecting" x-collapse>
+            <div class="pt-2">
+                <flux:textarea wire:model="rejectReason" label="Alasan Penolakan" placeholder="Harap sebutkan alasan kenapa SPK ditolak..." class="mb-2" rows="3" />
+            </div>
+        </div>
+        
+        <div class="flex gap-3 justify-end pt-2 border-t border-zinc-200 dark:border-zinc-700 mt-4">
+            <template x-if="!$wire.isRejecting">
+                <flux:button variant="danger" wire:click="$set('isRejecting', true)" class="w-1/2">Tolak SPK</flux:button>
+            </template>
+            <template x-if="$wire.isRejecting">
+                <div class="flex gap-3 w-full">
+                    <flux:button wire:click="$set('isRejecting', false)" class="w-1/3">Batal</flux:button>
+                    <flux:button variant="danger" wire:click="submitRejectSpk" class="w-2/3">Konfirmasi Tolak</flux:button>
+                </div>
+            </template>
+            <template x-if="!$wire.isRejecting">
+                <flux:button variant="primary" wire:click="approveSpk" class="w-1/2 bg-emerald-600 hover:bg-emerald-700 border-emerald-600 text-white">Setujui SPK</flux:button>
+            </template>
+        </div>
     </div>
     @endif
 </flux:modal>

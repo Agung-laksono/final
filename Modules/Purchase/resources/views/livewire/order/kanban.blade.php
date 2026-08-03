@@ -66,7 +66,7 @@ $sort = function ($field) {
 $getBaseQuery = function () {
     $query = PurchaseOrder::with(['vendor', 'creator', 'items', 'payments'])
         ->where('po_number', 'not like', 'GUNJAS-%')
-        ->latest();
+        ->latest('updated_at');
     if ($this->search) {
         $query->where(function($q) {
             $q->where('po_number', 'like', '%' . $this->search . '%')
@@ -178,7 +178,7 @@ on([
     'status-updated' => function () {
         // Kosong saja, tujuannya hanya memancing re-render agar computed $orders dijalankan ulang
     },
-    'echo:kanban.purchase_order,KanbanUpdated' => function () {}
+    'echo:kanban,KanbanUpdated' => function () {}
 ]);
 
 ?>

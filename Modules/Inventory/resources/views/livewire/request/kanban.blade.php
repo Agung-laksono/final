@@ -87,7 +87,7 @@ $requests = computed(function () {
         $limit = $this->columnLimits[$status] ?? 24;
         $q = clone $this->getBaseQuery();
         
-        $ids = array_merge($ids, $q->where('status', $status)->latest()->limit($limit)->pluck('id')->toArray());
+        $ids = array_merge($ids, $q->where('status', $status)->latest('updated_at')->limit($limit)->pluck('id')->toArray());
     }
     
     if (empty($ids)) return collect();
@@ -95,7 +95,7 @@ $requests = computed(function () {
     return InventoryRequest::with(['item', 'item.type', 'productionOrder', 'purchaseQueue'])
         ->whereIn('id', $ids)
         ->get()
-        ->sortByDesc('created_at')
+        ->sortByDesc('updated_at')
         ->groupBy('status');
 });
 
@@ -298,7 +298,7 @@ $archive = function ($requestId) {
 };
 
 on([
-    'echo:kanban.inventory_request,KanbanUpdated' => function () {},
+    'echo:kanban,KanbanUpdated' => function () {},
     'status-updated' => function () {}
 ]);
 ?>
@@ -623,7 +623,7 @@ on([
     <livewire:request.request-detail-modal />
     <livewire:request.custom-bom-modal />
     <livewire:global.item-gallery-modal context="inventory" />
-    <livewire:global.item-form-modal />
+    <livewire:global.item-form-modal wire:key="kanban-item-form-modal" />
 </div>
 </div>
 
