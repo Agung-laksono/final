@@ -248,10 +248,34 @@ $save = function () {
 
             <div class="grid grid-cols-2 gap-4">
                 <div class="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50">
-                    <flux:input type="number" wire:model.live.debounce.300ms="qty_good" label="Qty Lolos (Good)" min="0" max="{{ $order->requested_qty - $order->fulfilled_qty - $qty_reject }}" wire:change="updatedQtyGood($event.target.value)" description="Barang mulus masuk ke stok" />
+                    <flux:input type="number" 
+                        wire:model.live.debounce.300ms="qty_good" 
+                        label="Qty Lolos (Good)" 
+                        min="0" 
+                        max="{{ $order->requested_qty - $order->fulfilled_qty - $qty_reject }}" 
+                        x-on:input="
+                            let maxVal = Math.max(0, {{ $order->requested_qty - $order->fulfilled_qty }} - Number($wire.qty_reject || 0));
+                            if(Number($el.value) > maxVal) {
+                                $el.value = maxVal > 0 ? maxVal : '';
+                                $el.dispatchEvent(new Event('input'));
+                            }
+                        "
+                        description="Barang mulus masuk ke stok" />
                 </div>
                 <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800/50">
-                    <flux:input type="number" wire:model.live.debounce.300ms="qty_reject" label="Qty Cacat (Reject)" min="0" max="{{ $order->requested_qty - $order->fulfilled_qty - $qty_good }}" wire:change="updatedQtyReject($event.target.value)" description="Barang rusak, diretur ke Produksi" />
+                    <flux:input type="number" 
+                        wire:model.live.debounce.300ms="qty_reject" 
+                        label="Qty Cacat (Reject)" 
+                        min="0" 
+                        max="{{ $order->requested_qty - $order->fulfilled_qty - $qty_good }}" 
+                        x-on:input="
+                            let maxVal = Math.max(0, {{ $order->requested_qty - $order->fulfilled_qty }} - Number($wire.qty_good || 0));
+                            if(Number($el.value) > maxVal) {
+                                $el.value = maxVal > 0 ? maxVal : '';
+                                $el.dispatchEvent(new Event('input'));
+                            }
+                        "
+                        description="Barang rusak, diretur ke Produksi" />
                 </div>
             </div>
             

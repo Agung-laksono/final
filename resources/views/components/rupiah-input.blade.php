@@ -47,13 +47,22 @@
             let originalLength = event.target.value.length;
 
             let val = event.target.value.replace(/\D/g, '');
+            let parsedVal = val === '' ? null : parseInt(val, 10);
             
-            this.raw = val === '' ? null : parseInt(val, 10);
+            let maxAttr = event.target.getAttribute('max');
+            if (maxAttr && parsedVal !== null && parsedVal > parseInt(maxAttr, 10)) {
+                parsedVal = parseInt(maxAttr, 10);
+                val = parsedVal.toString();
+            }
+            
+            this.raw = parsedVal;
             this.formatted = this.format(val);
             event.target.value = this.formatted;
             
             let newLength = this.formatted.length;
             let newCursorPosition = cursorPosition + (newLength - originalLength);
+            // Handle cursor position edge cases when length changes significantly
+            if (newCursorPosition < 0) newCursorPosition = 0;
             event.target.setSelectionRange(newCursorPosition, newCursorPosition);
         }
     }"

@@ -496,6 +496,19 @@ $save = function () {
                                     wire:model.live="items.{{ $index }}.distributions.{{ $distIndex }}.qty"
                                     type="number"
                                     min="0"
+                                    max="{{ $item['remaining'] }}"
+                                    x-on:input="
+                                        let dists = $wire.items[{{ $index }}].distributions;
+                                        let otherTotal = 0;
+                                        for(let i=0; i<dists.length; i++) {
+                                            if(i !== {{ $distIndex }}) otherTotal += Number(dists[i].qty || 0);
+                                        }
+                                        let maxVal = Math.max(0, {{ $item['remaining'] }} - otherTotal);
+                                        if(Number($el.value) > maxVal) {
+                                            $el.value = maxVal > 0 ? maxVal : '';
+                                            $el.dispatchEvent(new Event('input'));
+                                        }
+                                    "
                                     class="w-28 text-center text-xs h-8"
                                     :disabled="$shouldDisable"
                                 />

@@ -287,7 +287,7 @@ $rejectPayment = function ($paymentId) {
                                 <flux:label class="!mb-0 text-sm">Nominal Bayar <span class="text-red-500">*</span></flux:label>
                                 <span class="text-[10px] font-bold text-rose-500">-{{ number_format($sisa, 0, ',', '.') }}</span>
                             </div>
-                            <x-rupiah-input wire:model.live.debounce.300ms="amount" placeholder="Contoh: 5.000.000" required />
+                            <x-rupiah-input wire:model.live.debounce.300ms="amount" max="{{ max(0, $sisa) }}" placeholder="Contoh: 5.000.000" required />
                             <flux:error name="amount" />
                         </div>
                         <div>

@@ -605,7 +605,7 @@ new class extends Component {
                                 <flux:label class="!mb-0 text-sm">Nominal Bayar <span class="text-red-500">*</span></flux:label>
                                 <span class="text-[10px] font-bold text-rose-500">-{{ number_format($sisa, 0, ',', '.') }}</span>
                             </div>
-                            <x-rupiah-input wire:model.live.debounce.300ms="paymentAmount" placeholder="Contoh: 5.000.000" required />
+                            <x-rupiah-input wire:model.live.debounce.300ms="paymentAmount" max="{{ max(0, $sisa) }}" placeholder="Contoh: 5.000.000" required />
                             <flux:error name="paymentAmount" />
                         </div>
                         <div>

@@ -425,7 +425,7 @@ $cancelSPK = function () {
                                     <form wire:submit.prevent="addPayment" class="space-y-4">
                                         <div>
                                             <flux:label class="mb-2">Nominal Bayar <span class="text-red-500">*</span></flux:label>
-                                            <x-rupiah-input wire:model.live.debounce.300ms="payment_amount" placeholder="Contoh: 5.000.000" required />
+                                            <x-rupiah-input wire:model.live.debounce.300ms="payment_amount" max="{{ $this->remainingBalance }}" placeholder="Contoh: 5.000.000" required />
                                             <flux:error name="payment_amount" />
                                         </div>
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

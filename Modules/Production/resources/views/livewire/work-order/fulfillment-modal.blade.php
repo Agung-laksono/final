@@ -465,7 +465,18 @@ $save = function () {
                                         @if($item['stock'] <= 0)
                                             <div class="text-center text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 py-1 rounded border border-red-100 dark:border-red-900/50">Kosong</div>
                                         @else
-                                            <flux:input type="number" wire:model.blur="items.{{ $index }}.input_qty" min="0" max="{{ min($item['remaining_needed'], $item['stock']) }}" class="w-full text-center !h-7 text-xs" />
+                                            <flux:input type="number" 
+                                                wire:model.blur="items.{{ $index }}.input_qty" 
+                                                min="0" 
+                                                max="{{ min($item['remaining_needed'], $item['stock']) }}" 
+                                                x-on:input="
+                                                    let maxVal = {{ min($item['remaining_needed'], $item['stock']) }};
+                                                    if(Number($el.value) > maxVal) { 
+                                                        $el.value = maxVal; 
+                                                        $el.dispatchEvent(new Event('input')); 
+                                                    }
+                                                "
+                                                class="w-full text-center !h-7 text-xs" />
                                         @endif
                                     @endif
                                 </div>
