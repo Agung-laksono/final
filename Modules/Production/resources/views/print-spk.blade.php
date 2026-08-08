@@ -12,7 +12,10 @@
             color: #111;
         }
         @media print {
-            body {
+            html, body {
+                height: 100%;
+                margin: 0 !important;
+                padding: 0 !important;
                 background-color: transparent !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -22,14 +25,17 @@
             }
             @page {
                 size: A4 portrait;
-                margin: 1cm;
+                margin-top: 1cm;
+                margin-left: 1cm;
+                margin-right: 1cm;
+                margin-bottom: 0.3cm; /* Make it as flush to bottom as printer allows */
             }
             .page-container {
                 width: 100%;
                 margin: 0 !important;
                 padding: 0 !important;
                 box-shadow: none !important;
-                min-height: auto !important;
+                min-height: 99vh !important; /* Forces stretch to bottom, 99vh prevents accidental extra blank page */
                 background-color: transparent !important;
             }
             .break-before-page { page-break-before: always; }
@@ -44,6 +50,10 @@
             position: relative;
             padding: 1.5cm;
         }
+        .page-flex {
+            display: flex;
+            flex-direction: column;
+        }
     </style>
 </head>
 <body class="bg-white text-zinc-900 text-sm">
@@ -57,14 +67,7 @@
         Tutup Tab
     </button>
     <div class="flex items-center gap-4">
-        <form action="" method="GET" class="flex items-center gap-2">
-            <label class="text-sm font-medium text-zinc-700">Mode:</label>
-            <select name="mode" onchange="this.form.submit()" class="border-zinc-300 rounded-md shadow-sm text-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-                <option value="compact" {{ request('mode') === 'compact' ? 'selected' : '' }}>Padat</option>
-                <option value="half" {{ request('mode') === 'half' ? 'selected' : '' }}>1/2 Halaman per Item</option>
-                <option value="full" {{ request('mode') === 'full' ? 'selected' : '' }}>1 Halaman per Item</option>
-            </select>
-        </form>
+
         @if($po->status !== 'pending_approval')
             <button onclick="window.print()" class="px-4 py-2 bg-zinc-900 text-white rounded-md text-sm font-medium hover:bg-zinc-800 flex items-center gap-2 shadow-sm transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -76,9 +79,9 @@
     </div>
 </div>
 
-<div class="page-container">
+<div class="page-container page-flex">
     @if($po->status === 'pending_approval')
-        <div class="flex flex-col items-center justify-center h-[50vh] text-center no-print">
+        <div class="flex flex-col items-center justify-center h-[50vh] text-center">
             <div class="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
                 <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             </div>
@@ -86,120 +89,108 @@
             <p class="text-zinc-500 max-w-md">Dokumen SPK ini belum bisa dicetak atau diberikan ke Vendor karena sedang menunggu validasi dan persetujuan (ACC) dari departemen Keuangan.</p>
         </div>
     @else
-        <!-- Header -->
-        <div class="flex justify-between items-start border-b-2 border-zinc-900 pb-4 mb-6">
-            <div>
-                @if($po->creator->brand && $po->creator->brand->logo)
-                    <img src="{{ Storage::url($po->creator->brand->logo) }}" alt="Logo" class="h-16 w-auto object-contain mb-2">
-                @endif
-                <h1 class="text-2xl font-black text-zinc-900 tracking-tight">{{ $po->creator->brand ? $po->creator->brand->name : 'PERUSAHAAN' }}</h1>
-                <p class="text-sm text-zinc-800 whitespace-pre-line">{{ $po->creator->brand ? $po->creator->brand->address : 'Jl. Industri No. 123, Jepara, Jawa Tengah' }}
-@if($po->creator->brand && $po->creator->brand->phone)Telp: {{ $po->creator->brand->phone }}@else Telp: (0291) 123456 @endif</p>
+        <!-- HALAMAN 1: SUMMARY -->
+        <div class="flex flex-col flex-1 relative">
+            {{-- Document Header --}}
+            <div class="flex justify-end items-start border-b-2 border-zinc-900 pb-6 mb-6">
+                <div class="text-right">
+                    <h1 class="text-3xl font-black text-zinc-900 tracking-tight uppercase">SPK <span class="text-md normal-case">(Surat perintah kerja)</span></h1>
+                    <div class="text-zinc-600 font-medium mt-1 font-mono">{{ $po->po_number }}</div>
+                </div>
             </div>
-            <div class="text-right">
-                <h2 class="text-xl font-bold text-zinc-900">SURAT PERINTAH KERJA</h2>
-                <p class="text-sm text-zinc-800 font-mono mt-1">{{ $po->po_number }}</p>
-                <p class="text-sm text-zinc-800 mt-1">Tanggal: {{ $po->order_date ? \Carbon\Carbon::parse($po->order_date)->format('d M Y') : '-' }}</p>
-            </div>
-        </div>
 
-        <!-- Info -->
-        <div class="flex justify-between mb-8">
-            <div>
-                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Kepada Vendor / Mitra:</h3>
-                <p class="text-base font-bold text-zinc-900">{{ $po->vendor->name }}</p>
-                <p class="text-sm text-zinc-800">{{ $po->vendor->address ?? 'Alamat tidak tersedia' }}</p>
-                <p class="text-sm text-zinc-800">{{ $po->vendor->phone ?? 'Telp: -' }}</p>
+            {{-- Meta Info --}}
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Ditujukan Kepada (Vendor):</h3>
+                    <div class="font-bold text-lg text-zinc-900 leading-none">{{ $po->vendor->name ?? '-' }}</div>
+                    <div class="text-xs text-zinc-600 mt-1">
+                        @if($po->vendor && $po->vendor->phone)
+                            <span class="mr-2"><flux:icon.phone class="w-3 h-3 inline -mt-0.5" /> {{ $po->vendor->phone }}</span>
+                        @endif
+                        @if($po->vendor && ($po->vendor->district || $po->vendor->city))
+                            <span>{{ $po->vendor->district ?? '' }} {{ $po->vendor->district && $po->vendor->city ? ',' : '' }} {{ $po->vendor->city ?? '' }}</span>
+                        @endif
+                    </div>
+                </div>
+                <div class="shrink-0 mt-3">
+                    <div class="flex flex-col border border-dashed border-zinc-300 rounded-lg py-1.5 px-3 bg-zinc-50/50">
+                        <span class="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mb-0.5">Waktu Pengerjaan</span>
+                        <div class="font-bold text-sm text-zinc-900 flex items-center gap-2">
+                            <span>{{ $po->order_date ? \Carbon\Carbon::parse($po->order_date)->format('d M Y') : '-' }}</span>
+                            <span class="text-[10px] text-zinc-400 font-normal italic">s/d</span> 
+                            <span class="text-red-600">{{ $po->expected_delivery_date ? \Carbon\Carbon::parse($po->expected_delivery_date)->format('d M Y') : '-' }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="text-right">
-                <h3 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Dibuat Oleh:</h3>
-                <p class="text-base font-medium text-zinc-900">{{ $po->creator->name ?? 'Admin' }}</p>
-                <p class="text-sm text-zinc-800 mt-1">Tenggat Waktu: <strong class="text-red-700 bg-red-100 border border-red-200 px-1.5 py-0.5 rounded font-black print:text-black print:bg-transparent print:border-none">{{ $po->expected_delivery_date ? \Carbon\Carbon::parse($po->expected_delivery_date)->format('d M Y') : '-' }}</strong></p>
-            </div>
-        </div>
 
-        <!-- Items Table -->
-        <table class="w-full text-left border-collapse mb-8">
-            <thead>
-                <tr class="border-y-2 border-black">
-                    <th class="py-3 px-2 text-sm font-bold text-black">No</th>
-                    <th class="py-3 px-2 text-sm font-bold text-black">Nama Barang</th>
-                    <th class="py-3 px-2 text-sm font-bold text-black text-center">Fase Pekerjaan</th>
-                    <th class="py-3 px-2 text-sm font-bold text-black text-center">Qty</th>
-                    <th class="py-3 px-2 text-sm font-bold text-black text-right">Ongkos/Unit</th>
-                    <th class="py-3 px-2 text-sm font-bold text-black text-right">Total</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-zinc-300">
-                @foreach($po->items as $index => $item)
-                <tr>
-                    <td class="py-3 px-2 text-sm text-black align-top">{{ $index + 1 }}</td>
-                    <td class="py-3 px-2 text-sm font-medium text-black align-top">
-                        <div class="flex gap-3">
-                            <div class="w-12 h-12 bg-zinc-200 border border-zinc-300 rounded overflow-hidden shrink-0 print:border-black">
-                                @if(!empty($item->custom_attachments))
-                                    <img src="{{ Storage::url($item->custom_attachments[0]) }}" class="w-full h-full object-cover">
-                                @elseif(isset($item->item->image) && $item->item->image)
-                                    <img src="{{ Storage::url($item->item->image) }}" class="w-full h-full object-cover">
-                                @else
-                                    <div class="w-full h-full flex items-center justify-center text-zinc-400">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                    </div>
-                                @endif
-                            </div>
-                            <div class="pt-0.5">
+            {{-- Items Table --}}
+            <table class="w-full text-left border-collapse mb-8">
+                <thead>
+                    <tr class="border-y-2 border-zinc-900">
+                        <th class="py-3 px-2 text-sm font-bold text-zinc-900">No</th>
+                        <th class="py-3 px-2 text-sm font-bold text-zinc-900">Daftar Barang</th>
+                        <th class="py-3 px-2 text-sm font-bold text-zinc-900 text-center">Fase Pekerjaan</th>
+                        <th class="py-3 px-2 text-sm font-bold text-zinc-900 text-center">Kuantitas</th>
+                        <th class="py-3 px-2 text-sm font-bold text-zinc-900 text-right">Harga Jasa</th>
+                        <th class="py-3 px-2 text-sm font-bold text-zinc-900 text-right">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-200">
+                    @foreach($po->items as $index => $item)
+                        <tr>
+                            <td class="py-3 px-2 text-sm text-zinc-800 align-top">{{ $index + 1 }}</td>
+                            <td class="py-3 px-2 text-sm font-medium text-zinc-900 align-top">
                                 @if($item->item->alias)
-                                    <span class="font-bold">{{ $item->item->alias }}</span> <span class="text-xs text-zinc-600 normal-case font-normal print:text-zinc-800">- {{ $item->item->name }}</span>
+                                    <span class="font-bold">{{ $item->item->alias }}</span> <span class="text-xs text-zinc-500 normal-case font-normal">- {{ $item->item->name }}</span>
                                 @else
                                     {{ $item->item->name }}
                                 @endif
-                                @if($item->item->code)
-                                    <div class="font-mono text-[10px] text-zinc-500 normal-case mt-0.5 print:text-zinc-700">{{ $item->item->code }}</div>
-                                @endif
-                            </div>
-                        </div>
-                    </td>
-                    <td class="py-3 px-2 text-sm text-black text-center capitalize align-top">{{ $po->vendor?->type ?? 'Jasa Luar' }}</td>
-                    <td class="py-3 px-2 text-sm text-black text-center align-top">{{ $item->quantity }}</td>
-                    <td class="py-3 px-2 text-sm text-black text-right align-top">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
-                    <td class="py-3 px-2 text-sm font-medium text-black text-right align-top">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
-                </tr>
-                @endforeach
-            </tbody>
-            <tfoot>
-                <tr class="border-t-2 border-black">
-                    <td colspan="5" class="py-3 px-2 text-right text-sm font-bold text-black">Grand Total</td>
-                    <td class="py-3 px-2 text-right text-base font-black text-black">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</td>
-                </tr>
-            </tfoot>
-        </table>
+                            </td>
+                            <td class="py-3 px-2 text-sm text-zinc-800 text-center capitalize align-top">{{ \Modules\Production\Models\ProductionOrder::where('purchase_order_id', $po->id)->where('item_id', $item->item_id)->value('phase_type') ?? 'Jasa Luar' }}</td>
+                            <td class="py-3 px-2 text-sm text-zinc-800 text-center align-top">{{ $item->quantity }}</td>
+                            <td class="py-3 px-2 text-sm text-zinc-800 text-right align-top">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                            <td class="py-3 px-2 text-sm font-medium text-zinc-900 text-right align-top">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+                <tfoot>
+                    <tr class="border-t-2 border-zinc-900">
+                        <td colspan="5" class="p-3 text-right font-bold uppercase tracking-wider text-sm text-zinc-900">Grand Total Biaya Jasa:</td>
+                        <td class="p-3 text-right text-xl font-black bg-zinc-100 text-zinc-900">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</td>
+                    </tr>
+                </tfoot>
+            </table>
 
-        <!-- Notes -->
-        <div class="mb-12">
-            <h4 class="text-sm font-bold text-black mb-1">Catatan Tambahan:</h4>
-            <div class="text-sm text-zinc-800 p-3 print:bg-transparent border border-zinc-300 rounded min-h-[80px] prose prose-sm max-w-none prose-p:my-0 prose-table:my-2 prose-td:p-1.5 prose-th:p-1.5 prose-td:border prose-td:border-black prose-th:border prose-th:border-black whitespace-pre-wrap">
-                {!! $po->notes ?: 'Tolong dikerjakan sesuai standar kualitas perusahaan. Terima kasih.' !!}
-            </div>
-        </div>
+            @if($po->notes)
+                <div class="mb-12 border border-zinc-200 rounded-lg p-5 bg-zinc-50 relative">
+                    <div class="absolute -top-3 left-4 bg-white px-2 text-xs font-bold text-zinc-500 uppercase tracking-wider border border-zinc-200 rounded">Catatan Global SPK</div>
+                    <div class="text-sm text-zinc-800 leading-relaxed whitespace-pre-wrap">{!! nl2br(strip_tags($po->notes)) !!}</div>
+                </div>
+            @endif
 
-        <!-- Signatures -->
-        <div class="flex justify-between items-end">
-            <div class="w-1/3"></div>
-            <div class="flex gap-16 text-center">
+            {{-- Signatures --}}
+            <div class="grid grid-cols-3 gap-8 mt-auto pt-8 text-center text-sm text-zinc-900 break-inside-avoid">
                 <div>
-                    <p class="text-sm text-zinc-800 mb-16">Diterima Oleh (Vendor),</p>
-                    <div class="w-40 border-b border-black"></div>
-                    <p class="text-sm font-medium text-black mt-1">{{ $po->vendor->name }}</p>
+                    <div class="mb-16 font-medium text-zinc-600">Dibuat Oleh,</div>
+                    <div class="border-b border-zinc-400 mx-8 pb-1 font-bold">{{ $po->creator->name ?? 'Admin' }}</div>
+                    <div class="text-xs text-zinc-500 mt-1">Admin Produksi</div>
                 </div>
                 <div>
-                    <p class="text-sm text-zinc-800 mb-16">Hormat Kami,</p>
-                    <div class="w-40 border-b border-black"></div>
-                    <p class="text-sm font-medium text-black mt-1">{{ $po->creator->brand ? $po->creator->brand->name : 'PT. Agung Laksono' }}</p>
+                    <div class="mb-16 font-medium text-zinc-600">Disetujui Oleh,</div>
+                    <div class="border-b border-zinc-400 mx-8 pb-1 text-zinc-300">(....................................)</div>
+                    <div class="text-xs text-zinc-500 mt-1">Manajer Produksi</div>
+                </div>
+                <div>
+                    <div class="mb-16 font-medium text-zinc-600">Diterima Oleh Vendor,</div>
+                    <div class="border-b border-zinc-400 mx-8 pb-1 font-bold">{{ $po->vendor->name ?? '' }}</div>
+                    <div class="text-xs text-zinc-500 mt-1">Tanda Tangan & Cap</div>
                 </div>
             </div>
         </div>
 
-        <!-- Lampiran Panduan Pengerjaan (Page 2) -->
+        {{-- HALAMAN 2: LAMPIRAN (Hanya muncul jika ada notes item) --}}
         @php
             $itemsWithNotes = $po->items->filter(function($item) {
                 return !empty($item->notes);
@@ -207,55 +198,53 @@
         @endphp
         
         @if($itemsWithNotes->count() > 0)
-        <div class="break-before-page mt-4 print:mt-0">
-            <h3 class="text-xl font-bold text-black mb-4 border-b-2 border-black pb-2">Lampiran: Panduan Pengerjaan Detail</h3>
-            
-            <div class="space-y-4">
+        </div>
+        <div class="page-container break-before-page">
+            <div class="text-center border-b-2 border-zinc-900 pb-6 mb-8">
+                <h2 class="text-2xl font-black uppercase tracking-wider text-zinc-900">Lampiran SPK Vendor</h2>
+                <div class="text-zinc-600 mt-1">Rincian Pekerjaan & Catatan Khusus Instruksi Vendor</div>
+            </div>
+
+            <div class="space-y-8">
                 @foreach($itemsWithNotes as $item)
-                <div class="print:bg-transparent border border-zinc-300 rounded-lg p-4 break-inside-avoid
-                    {{ $printMode === 'half' ? 'min-h-[125mm]' : 'min-h-[125mm]' }}
-                    {{ $printMode === 'full' ? 'min-h-[260mm] break-before-page' : '' }}
-                ">
-                    <div class="flex gap-6">
-                        <!-- Image Column -->
-                        <div class="w-1/3 shrink-0">
-                            @if(!empty($item->custom_attachments))
-                                <img src="{{ Storage::url($item->custom_attachments[0]) }}" class="w-full h-auto object-contain rounded-lg border border-zinc-200 print:border-black shadow-sm" style="max-height: 200px;">
-                            @elseif(isset($item->item->image) && $item->item->image)
-                                <img src="{{ Storage::url($item->item->image) }}" class="w-full h-auto object-contain rounded-lg border border-zinc-200 print:border-black shadow-sm" style="max-height: 200px;">
-                            @else
-                                <div class="w-full h-40 bg-zinc-100 print:bg-transparent flex items-center justify-center text-zinc-400 rounded-lg border border-zinc-200 print:border-black">
-                                    <svg class="w-12 h-12 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                </div>
-                            @endif
-                        </div>
-                        
-                        <!-- Details Column -->
-                        <div class="flex-1">
-                            <h4 class="text-xl font-bold text-black mb-1 leading-tight">
+                    <div class="border border-zinc-200 rounded-lg overflow-hidden flex flex-col break-inside-avoid">
+                        <div class="bg-zinc-100 px-4 py-3 border-b border-zinc-200 flex justify-between items-center">
+                            <h4 class="font-bold text-zinc-900 text-lg">
                                 @if($item->item->alias)
-                                    {{ $item->item->alias }} <span class="text-base text-zinc-600 normal-case font-medium ml-1">- {{ $item->item->name }}</span>
+                                    {{ $item->item->alias }} <span class="text-sm text-zinc-500 normal-case font-medium ml-1">- {{ $item->item->name }}</span>
                                 @else
                                     {{ $item->item->name }}
                                 @endif
                             </h4>
-                            <div class="text-lg text-zinc-800 mb-4 border-b border-zinc-300 pb-3 mt-2 flex items-center gap-4">
-                                <div>Qty: <strong class="text-black text-2xl">{{ $item->quantity }}</strong></div>
-                                @if($item->item->code)
-                                    <div class="border-l-2 border-zinc-300 pl-4">Kode: <strong class="font-mono text-black text-xl">{{ $item->item->code }}</strong></div>
-                                @endif
-                            </div>
-                            
-                            <div class="prose prose-sm max-w-none text-black prose-p:my-1 prose-table:my-2 prose-td:p-1.5 prose-th:p-1.5 prose-td:border prose-td:border-black prose-th:border prose-th:border-black whitespace-pre-wrap">
-                                {!! preg_replace('/<p><strong>Jasa Vendor Fase:<\/strong>.*?<\/p>/i', '', $item->notes) !!}
+                            <span class="text-sm font-medium bg-white px-2 py-1 rounded border border-zinc-200 shadow-sm">Kuantitas: {{ max(1, $item->quantity) }} {{ $item->item->unit->name ?? 'pcs' }}</span>
+                        </div>
+                        <div class="flex p-6 gap-6 bg-white">
+                            @if($item->item->image)
+                                <div class="w-1/3 shrink-0">
+                                    <div class="aspect-square w-full bg-zinc-50 border border-zinc-200 rounded-lg flex items-center justify-center p-2 shadow-inner">
+                                        <img src="{{ asset('storage/' . $item->item->image) }}" class="max-w-full max-h-full object-contain rounded drop-shadow-sm" alt="{{ $item->item->name }}">
+                                    </div>
+                                </div>
+                            @else
+                                <div class="w-1/3 shrink-0">
+                                    <div class="aspect-square w-full bg-zinc-50 border border-zinc-200 rounded-lg flex flex-col items-center justify-center p-4 text-zinc-400 shadow-inner">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        <span class="text-xs text-center font-medium">Tidak ada gambar</span>
+                                    </div>
+                                </div>
+                            @endif
+                            <div class="w-2/3 prose prose-sm max-w-none text-zinc-800 leading-relaxed">
+                                <h5 class="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3 border-b border-zinc-100 pb-2">Instruksi Khusus Vendor:</h5>
+                                {!! nl2br(strip_tags($item->notes)) !!}
                             </div>
                         </div>
                     </div>
-                </div>
                 @endforeach
             </div>
-        </div>
         @endif
+
         
     @endif
 </div>

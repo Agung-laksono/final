@@ -176,44 +176,54 @@ $cancelSPK = function () {
                     <flux:subheading>Vendor: <strong>{{ $this->po->vendor->name }}</strong></flux:subheading>
                 </div>
                 <div class="flex items-center gap-2 pr-8 z-10 relative">
-                    <div x-data="{
-                        printing: false,
-                        printPO(url, filename) {
-                            if (this.printing) return;
-                            
-                            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                            
-                            if (isMobile) {
-                                window.open(url, '_blank');
-                                return;
-                            }
-                            
-                            this.printing = true;
-                            
-                            const originalTitle = document.title;
-                            document.title = filename;
-
-                            const iframe = document.createElement('iframe');
-                            iframe.style.display = 'none';
-                            iframe.src = url;
-                            document.body.appendChild(iframe);
-                            iframe.onload = () => {
-                                iframe.contentWindow.focus();
-                                iframe.contentWindow.print();
-                                this.printing = false;
+                    @if($this->po->status !== 'pending_approval')
+                        <div x-data="{
+                            printing: false,
+                            printPO(url, filename) {
+                                if (this.printing) return;
                                 
-                                setTimeout(() => {
-                                    document.title = originalTitle;
-                                    document.body.removeChild(iframe);
-                                }, 5000);
-                            };
-                        }
-                    }">
-                        <flux:button size="sm" variant="subtle" icon="printer" x-on:click="printPO('{{ route('production.work-orders.print', $this->po->id) }}', 'SPK-{{ $this->po->po_number }}')" x-bind:disabled="printing">
-                            <span x-show="!printing">Print SPK</span>
-                            <span x-show="printing" style="display: none;">Mencetak...</span>
-                        </flux:button>
-                    </div>
+                                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                                
+                                if (isMobile) {
+                                    window.open(url, '_blank');
+                                    return;
+                                }
+                                
+                                this.printing = true;
+                                
+                                const originalTitle = document.title;
+                                document.title = filename;
+
+                                const iframe = document.createElement('iframe');
+                                iframe.style.position = 'absolute';
+                                iframe.style.width = '210mm';
+                                iframe.style.height = '297mm';
+                                iframe.style.border = 'none';
+                                iframe.style.left = '-9999px';
+                                iframe.src = url;
+                                document.body.appendChild(iframe);
+                                iframe.onload = () => {
+                                    iframe.contentWindow.focus();
+                                    iframe.contentWindow.print();
+                                    this.printing = false;
+                                    
+                                    setTimeout(() => {
+                                        document.title = originalTitle;
+                                        document.body.removeChild(iframe);
+                                    }, 5000);
+                                };
+                            }
+                        }">
+                            <flux:button size="sm" variant="subtle" icon="printer" x-on:click="printPO('{{ route('production.work-orders.print', $this->po->id) }}', 'SPK-{{ $this->po->po_number }}')" x-bind:disabled="printing">
+                                <span x-show="!printing">Print SPK</span>
+                                <span x-show="printing" style="display: none;">Mencetak...</span>
+                            </flux:button>
+                        </div>
+                    @else
+                        <div class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded font-semibold border border-amber-200 flex items-center gap-1">
+                            <flux:icon.clock class="w-3 h-3" /> Menunggu ACC
+                        </div>
+                    @endif
                     @if($this->po->status !== 'completed' && $this->po->payments->isEmpty())
                         <flux:dropdown>
                             <flux:button size="sm" icon="ellipsis-vertical" variant="ghost" class="px-2" />

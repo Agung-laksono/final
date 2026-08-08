@@ -55,7 +55,7 @@
         <div class="flex items-start gap-2 mb-1.5 mt-0.5">
             @if($statusKey === 'waiting_vendor')
                 <div class="shrink-0 mt-0.5">
-                    <flux:checkbox wire:click="toggleSelection({{ $order->id }})" :checked="in_array($order->id, $this->selectedOrders)" />
+                    <flux:checkbox wire:model.live="selectedOrders" value="{{ $order->id }}" />
                 </div>
             @endif
             

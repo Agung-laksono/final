@@ -163,8 +163,16 @@ $toggleSelection = function ($orderId) {
 };
 
 $openMaklonModal = function () {
-    // Broadcast event secara global untuk memastikan pasti diterima oleh modal
-    $this->dispatch('open-maklon-modal', orderIds: array_values($this->selectedOrders));
+    if (empty($this->selectedOrders)) {
+        return;
+    }
+    
+    // Generate token dan simpan pesanan yang dipilih ke cache
+    $token = \Illuminate\Support\Str::random(40);
+    \Illuminate\Support\Facades\Cache::put('maklon_create_' . $token, array_values($this->selectedOrders), now()->addMinutes(30));
+    
+    // Redirect ke halaman khusus pembuatan SPK Maklon
+    $this->redirectRoute('production.orders.maklon.create', ['token' => $token], navigate: true);
 };
 
 on(['maklon-po-created' => function () {
@@ -205,11 +213,14 @@ on(['maklon-po-created' => function () {
             >
                 <x-slot:headerActions>
                     @if($statusKey === 'waiting_vendor' && count($this->selectedOrders) > 0)
-                        <flux:button size="xs" variant="primary" icon="plus" wire:click="openMaklonModal" class="h-6 text-[10px] px-2 rounded-md">
-                            Buat SPK ({{ count($this->selectedOrders) }})
-                        </flux:button>
+                        <div class="flex items-center gap-1">
+                            <flux:button size="xs" variant="primary" icon="plus" wire:click="openMaklonModal" class="h-6 text-[10px] px-2 rounded-md">
+                                Buat SPK ({{ count($this->selectedOrders) }})
+                            </flux:button>
+                            <flux:button size="xs" variant="subtle" icon="x-mark" wire:click="$set('selectedOrders', [])" class="h-6 w-6 px-0 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Batal pilihan" />
+                        </div>
                     @endif
-                    @if($statusKey === 'in_production' || $statusKey === 'pending_approval')
+                    @if(in_array($statusKey, ['in_production', 'pending_approval']))
                         <div class="flex bg-zinc-200/80 dark:bg-zinc-800 p-0.5 rounded gap-0.5 border border-zinc-300 dark:border-zinc-700">
                             <button wire:click="$set('viewModeMaklon', 'grouped')" class="flex items-center justify-center p-1 rounded-sm text-[10px] {{ $viewModeMaklon === 'grouped' ? 'bg-white dark:bg-zinc-600 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300' }}" title="Wadah">
                                 <flux:icon.rectangle-group class="w-3 h-3" />
@@ -262,10 +273,6 @@ on(['maklon-po-created' => function () {
                                              wire:click="$dispatch('open-finish-phase-bulk-modal', { poId: {{ $poId }}, phase: 'maklon' })">
                                     &#x2714; Selesaikan Semua (1 SPK)
                                 </flux:button>
-                                @elseif($statusKey === 'pending_approval')
-                                <div class="mt-1 text-center bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold py-1 rounded border border-amber-200 dark:border-amber-800">
-                                    <flux:icon.clock class="w-3 h-3 inline-block" /> Menunggu ACC Finance
-                                </div>
                                 @endif
                             </div>
                                 
@@ -416,13 +423,12 @@ on(['maklon-po-created' => function () {
     <template x-teleport="body">
         <div>
             <livewire:work-order.fulfillment-modal />
-            <livewire:work-order.maklon-modal />
             <livewire:work-order.po-detail-modal />
             <livewire:work-order.prod-detail-modal />
             <livewire:work-order.split-order-modal />
             <livewire:work-order.finish-phase-modal />
             <livewire:work-order.vendor-cost-modal />
-            <livewire:work-order.po-print-modal />
+
             <livewire:work-order.material-receipt-modal />
             <livewire:global.vendor-gallery-modal />
             <livewire:global.vendor-form-modal />
@@ -430,6 +436,71 @@ on(['maklon-po-created' => function () {
             <livewire:global.template-modal />
         </div>
     </template>
+    
+    @if(session('new_po_number'))
+        <div x-data x-init="setTimeout(() => { $flux.modal('new-po-success-modal')?.show() }, 500)">
+            <flux:modal name="new-po-success-modal" class="min-w-[22rem]">
+                <div class="p-6 text-center">
+                    <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 mb-4">
+                        <flux:icon.check-circle class="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <flux:heading size="xl">Berhasil!</flux:heading>
+                    <flux:subheading class="mt-2 text-sm">
+                        SPK Maklon (Purchase Order) baru berhasil dibuat:
+                    </flux:subheading>
+                    <div class="mt-3 mb-6 bg-zinc-50 dark:bg-zinc-800/50 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                        <span class="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-wider">{{ session('new_po_number') }}</span>
+                    </div>
+                    
+                    <div class="mt-4 flex flex-col gap-2" x-data="{
+                        printing: false,
+                        printPO(url, filename) {
+                            if (this.printing) return;
+                            
+                            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                            
+                            if (isMobile) {
+                                window.open(url, '_blank');
+                                return;
+                            }
+                            
+                            this.printing = true;
+                            
+                            const originalTitle = document.title;
+                            document.title = filename;
+
+                            const iframe = document.createElement('iframe');
+                            iframe.style.position = 'absolute';
+                            iframe.style.width = '210mm';
+                            iframe.style.height = '297mm';
+                            iframe.style.border = 'none';
+                            iframe.style.left = '-9999px';
+                            iframe.src = url;
+                            document.body.appendChild(iframe);
+                            iframe.onload = () => {
+                                iframe.contentWindow.focus();
+                                iframe.contentWindow.print();
+                                this.printing = false;
+                                
+                                setTimeout(() => {
+                                    document.title = originalTitle;
+                                    document.body.removeChild(iframe);
+                                }, 5000);
+                            };
+                        }
+                    }">
+                        @if(session('new_po_id'))
+                            <flux:button variant="primary" class="w-full" icon="printer" x-on:click="printPO('{{ route('production.work-orders.print', session('new_po_id')) }}', '{{ session('new_po_number') }}')" x-bind:disabled="printing">
+                                <span x-show="!printing">Cetak SPK</span>
+                                <span x-show="printing" style="display: none;">Mencetak...</span>
+                            </flux:button>
+                        @endif
+                        <flux:button variant="ghost" class="w-full" @click="$flux.modal('new-po-success-modal').close()">Tutup</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        </div>
+    @endif
 
     <style>
         .custom-scrollbar::-webkit-scrollbar {
