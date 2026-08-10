@@ -77,23 +77,24 @@ mount(function () {
     $groups = [];
     foreach ($orders as $order) {
         $this->costs['single_'.$order->id] = null;
+        $this->item_notes['single_'.$order->id] = '';
         if (!isset($groups[$order->item_id])) {
             $groups[$order->item_id] = true;
         }
     }
     foreach ($groups as $itemId => $val) {
         $this->costs['group_'.$itemId] = null;
+        $this->item_notes['group_'.$itemId] = '';
     }
 });
 
-$openEditor = function($key) {
+$openEditor = function($key, $currentNote = null) {
     $this->editingNoteKey = $key;
     if ($key === 'global') {
-        $this->tempNoteContent = $this->notes;
+        $this->tempNoteContent = $currentNote !== null ? $currentNote : $this->notes;
     } else {
-        $this->tempNoteContent = $this->item_notes[$key] ?? '';
+        $this->tempNoteContent = $currentNote !== null ? $currentNote : ($this->item_notes[$key] ?? '');
     }
-    $this->dispatch('show-maklon-editor');
 };
 
 $saveEditor = function() {
@@ -273,7 +274,8 @@ $confirmSaveMaklon = function () {
     $this->redirectRoute('production.orders', navigate: true);
 };
 ?>
-<div @vendor-selected.window="
+<div x-data="{ showEditor: false }"
+     @vendor-selected.window="
         if ($event.detail.vendor) {
             $wire.vendor_id = $event.detail.vendor.id;
             $wire.selectedVendorData = $event.detail.vendor;
@@ -304,8 +306,53 @@ $confirmSaveMaklon = function () {
             <div class="space-y-4">
                 @if($this->is_grouped)
                     @foreach($this->groupedOrders as $itemId => $group)
-                        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-                            <div class="p-4 sm:p-5 flex flex-col sm:flex-row gap-4">
+                        <div wire:key="group-{{ $itemId }}" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-col" x-data="{ open: false, placement: 'bottom', note: @entangle('item_notes.group_'.$itemId) }">
+                            <div class="p-4 sm:p-5 flex flex-col sm:flex-row gap-4 relative">
+                                {{-- Popover Edit Catatan (Absolute Top Right) --}}
+                                <div class="absolute top-4 right-4 flex items-center justify-end" :class="open ? 'z-50' : ''">
+                                    <div x-show="note" x-cloak>
+                                        <flux:button size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
+                                    </div>
+                                    <div x-show="!note">
+                                        <flux:button variant="subtle" size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="text-slate-400 hover:text-slate-600" />
+                                    </div>
+                                    
+                                    {{-- Popover Content --}}
+                                    <div x-show="open" x-cloak class="fixed inset-0 bg-zinc-900/50 z-[50] sm:hidden" x-transition.opacity></div>
+                                    <div x-show="open" @click.away="open = false" x-transition 
+                                         class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] sm:absolute sm:translate-x-0 sm:translate-y-0 sm:right-0 sm:left-auto sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 cursor-auto z-[60]" 
+                                         :class="placement === 'top' ? 'sm:bottom-full sm:mb-2 sm:origin-bottom-right' : 'sm:top-full sm:mt-2 sm:origin-top-right'"
+                                         style="display: none;">
+                                        <div x-data="{
+                                            get isRichText() {
+                                                const val = note || '';
+                                                return val.includes('<p>') || val.includes('<br>') || val.includes('<strong>') || val.includes('<em>') || val.includes('<img') || val.includes('<table') || val.includes('<ul') || val.includes('<ol');
+                                            }
+                                        }">
+                                            <div class="flex justify-between items-center mb-4 gap-2">
+                                                <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">CATATAN ITEM</h3>
+                                                <div class="flex gap-1 shrink-0">
+                                                    <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" class="!px-2 h-7" @click="$wire.openEditor('group_{{ $itemId }}', note).then(() => { showEditor = true; open = false; })" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Jika terdeteksi HTML -->
+                                            <div x-show="isRichText" x-cloak class="relative group" @click="$wire.openEditor('group_{{ $itemId }}', note).then(() => { showEditor = true; open = false; })">
+                                                <div class="w-full min-h-[6rem] max-h-[12rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-2 bg-zinc-50 dark:bg-zinc-800/50 text-xs prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 cursor-pointer" x-html="note">
+                                                </div>
+                                                <div class="absolute inset-0 bg-black/5 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-white/90 dark:bg-zinc-800/90 px-2 py-1 rounded shadow-sm">Klik untuk edit full</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Quick Note -->
+                                            <div x-show="!isRichText" class="bg-slate-50 dark:bg-zinc-800 rounded-xl p-3 shadow-inner border border-zinc-200 dark:border-zinc-700 focus-within:border-zinc-300 focus-within:ring-1 focus-within:ring-zinc-300 transition-colors">
+                                                <textarea x-model="note" class="w-full bg-transparent border-none focus:border-none focus:ring-0 outline-none focus:outline-none text-sm text-slate-700 dark:text-zinc-300 placeholder-slate-400 dark:placeholder-zinc-500 min-h-[120px] resize-none p-0" placeholder="Tulis catatan..."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 {{-- Image --}}
                                 <div class="w-20 h-20 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700/50">
                                     @if($group['item']->image)
@@ -316,54 +363,76 @@ $confirmSaveMaklon = function () {
                                 </div>
                                 
                                 {{-- Content --}}
-                                <div class="flex-1 min-w-0 flex flex-col justify-center">
+                                <div class="flex-1 min-w-0 flex flex-col justify-center pr-8">
                                     <h4 class="font-bold text-zinc-900 dark:text-white text-base truncate">{{ $group['item']->name }}</h4>
                                     <div class="text-sm text-zinc-500 mt-1">Total Kuantitas: <span class="font-bold text-zinc-700 dark:text-zinc-300">{{ $group['total_qty'] }}</span> {{ $group['item']->unit->name ?? 'pcs' }}</div>
                                     <div class="text-xs text-zinc-400 mt-0.5">Menggabungkan {{ count($group['orders']) }} referensi produksi</div>
                                     
-                                    @if(!empty($this->item_notes['group_'.$itemId]))
-                                        <div class="mt-2.5 inline-flex items-center gap-1.5 max-w-full bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 rounded-md border border-amber-200/60 dark:border-amber-900/50">
-                                            <flux:icon.document-text class="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 shrink-0" />
-                                            <span class="text-[11px] font-medium text-amber-800 dark:text-amber-300 truncate">
-                                                {!! \Illuminate\Support\Str::limit(strip_tags($this->item_notes['group_'.$itemId]), 60) !!}
-                                            </span>
-                                        </div>
-                                    @endif
+                                    <div x-show="note" x-cloak class="mt-2.5 inline-flex items-start gap-1.5 max-w-full bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 rounded-md border border-amber-200/60 dark:border-amber-900/50">
+                                        <flux:icon.document-text class="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                                        <span class="text-[11px] font-medium text-amber-800 dark:text-amber-300 line-clamp-1 leading-tight prose prose-xs prose-p:my-0" x-html="note"></span>
+                                    </div>
                                 </div>
 
                                 {{-- Input Cost & Action --}}
                                 <div class="flex flex-col sm:items-end justify-center gap-2 shrink-0">
                                     <div class="w-full sm:w-48">
                                         <flux:label class="text-[10px] uppercase tracking-wider !mb-1">Biaya Jasa</flux:label>
-                                        <x-currency-input wire:model.live="costs.group_{{ $itemId }}" placeholder="Rp 0" />
+                                        <x-currency-input wire:model.live="costs.group_{{ $itemId }}" placeholder="0" />
                                     </div>
-                                    <flux:button size="sm" variant="{{ !empty($this->item_notes['group_'.$itemId]) ? 'filled' : 'subtle' }}" icon="{{ !empty($this->item_notes['group_'.$itemId]) ? 'check-circle' : 'pencil-square' }}" wire:click="openEditor('group_{{ $itemId }}')" class="{{ $editingNoteKey === 'group_'.$itemId ? 'bg-amber-100 text-amber-700 border-amber-200' : '' }}">
-                                        {{ !empty($this->item_notes['group_'.$itemId]) ? 'Catatan Tersimpan' : 'Catatan Khusus' }}
-                                    </flux:button>
                                 </div>
                             </div>
-                            
-                            {{-- INLINE EDITOR --}}
-                            @if($editingNoteKey === 'group_'.$itemId)
-                                <div class="border-t border-amber-100 dark:border-amber-900/30 p-4 bg-amber-50/50 dark:bg-amber-900/10">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <flux:heading size="sm" class="!font-bold text-amber-700 dark:text-amber-500">Instruksi Khusus Vendor</flux:heading>
-                                        <flux:button size="xs" variant="ghost" icon="x-mark" wire:click="$set('editingNoteKey', null)" />
-                                    </div>
-                                    <div wire:ignore>
-                                        <x-rich-editor wire:model="tempNoteContent" height="450px" />
-                                    </div>
-                                    <div class="mt-3 flex justify-end">
-                                        <flux:button variant="primary" size="sm" wire:click="saveEditor">Simpan Catatan</flux:button>
-                                    </div>
-                                </div>
-                            @endif
                         </div>
                     @endforeach
                 @else
                     @foreach($this->ordersList as $order)
-                        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-                            <div class="p-4 sm:p-5 flex flex-col sm:flex-row gap-4">
+                        <div wire:key="single-{{ $order->id }}" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-col" x-data="{ open: false, placement: 'bottom', note: @entangle('item_notes.single_'.$order->id) }">
+                            <div class="p-4 sm:p-5 flex flex-col sm:flex-row gap-4 relative">
+                                {{-- Popover Edit Catatan (Absolute Top Right) --}}
+                                <div class="absolute top-4 right-4 flex items-center justify-end" :class="open ? 'z-50' : ''">
+                                    <div x-show="note" x-cloak>
+                                        <flux:button size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
+                                    </div>
+                                    <div x-show="!note">
+                                        <flux:button variant="subtle" size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="text-slate-400 hover:text-slate-600" />
+                                    </div>
+                                    
+                                    {{-- Popover Content --}}
+                                    <div x-show="open" x-cloak class="fixed inset-0 bg-zinc-900/50 z-[50] sm:hidden" x-transition.opacity></div>
+                                    <div x-show="open" @click.away="open = false" x-transition 
+                                         class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] sm:absolute sm:translate-x-0 sm:translate-y-0 sm:right-0 sm:left-auto sm:w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-5 cursor-auto z-[60]" 
+                                         :class="placement === 'top' ? 'sm:bottom-full sm:mb-2 sm:origin-bottom-right' : 'sm:top-full sm:mt-2 sm:origin-top-right'"
+                                         style="display: none;">
+                                        <div x-data="{
+                                            get isRichText() {
+                                                const val = note || '';
+                                                return val.includes('<p>') || val.includes('<br>') || val.includes('<strong>') || val.includes('<em>') || val.includes('<img') || val.includes('<table') || val.includes('<ul') || val.includes('<ol');
+                                            }
+                                        }">
+                                            <div class="flex justify-between items-center mb-4 gap-2">
+                                                <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">CATATAN ITEM</h3>
+                                                <div class="flex gap-1 shrink-0">
+                                                    <flux:button size="xs" variant="subtle" icon="arrows-pointing-out" class="!px-2 h-7" @click="$wire.openEditor('single_{{ $order->id }}', note).then(() => { showEditor = true; open = false; })" title="Buka Editor Lengkap">Editor Lengkap</flux:button>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Jika terdeteksi HTML -->
+                                            <div x-show="isRichText" x-cloak class="relative group" @click="$wire.openEditor('single_{{ $order->id }}', note).then(() => { showEditor = true; open = false; })">
+                                                <div class="w-full min-h-[6rem] max-h-[12rem] overflow-y-auto border border-zinc-200 dark:border-zinc-700 rounded-lg p-2 bg-zinc-50 dark:bg-zinc-800/50 text-xs prose prose-sm max-w-none text-zinc-800 dark:text-zinc-200 cursor-pointer" x-html="note">
+                                                </div>
+                                                <div class="absolute inset-0 bg-black/5 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                                    <span class="text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-white/90 dark:bg-zinc-800/90 px-2 py-1 rounded shadow-sm">Klik untuk edit full</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Quick Note -->
+                                            <div x-show="!isRichText" class="bg-slate-50 dark:bg-zinc-800 rounded-xl p-3 shadow-inner border border-zinc-200 dark:border-zinc-700 focus-within:border-zinc-300 focus-within:ring-1 focus-within:ring-zinc-300 transition-colors">
+                                                <textarea x-model="note" class="w-full bg-transparent border-none focus:border-none focus:ring-0 outline-none focus:outline-none text-sm text-slate-700 dark:text-zinc-300 placeholder-slate-400 dark:placeholder-zinc-500 min-h-[120px] resize-none p-0" placeholder="Tulis catatan..."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 {{-- Image --}}
                                 <div class="w-20 h-20 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700/50">
                                     @if($order->item->image)
@@ -374,50 +443,27 @@ $confirmSaveMaklon = function () {
                                 </div>
                                 
                                 {{-- Content --}}
-                                <div class="flex-1 min-w-0 flex flex-col justify-center">
+                                <div class="flex-1 min-w-0 flex flex-col justify-center pr-8">
                                     <h4 class="font-bold text-zinc-900 dark:text-white text-base truncate">{{ $order->item->name }}</h4>
                                     <div class="flex items-center gap-2 mt-1">
                                         <span class="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:bg-zinc-700 font-mono border border-zinc-200 dark:border-zinc-700">{{ $order->production_req_number }}</span>
                                     </div>
                                     <div class="text-sm text-zinc-500 mt-1.5">Kuantitas: <span class="font-bold text-zinc-700 dark:text-zinc-300">{{ $order->requested_qty }}</span></div>
                                     
-                                    @if(!empty($this->item_notes['single_'.$order->id]))
-                                        <div class="mt-2.5 inline-flex items-center gap-1.5 max-w-full bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 rounded-md border border-amber-200/60 dark:border-amber-900/50">
-                                            <flux:icon.document-text class="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 shrink-0" />
-                                            <span class="text-[11px] font-medium text-amber-800 dark:text-amber-300 truncate">
-                                                {!! \Illuminate\Support\Str::limit(strip_tags($this->item_notes['single_'.$order->id]), 60) !!}
-                                            </span>
-                                        </div>
-                                    @endif
+                                    <div x-show="note" x-cloak class="mt-2.5 inline-flex items-start gap-1.5 max-w-full bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1.5 rounded-md border border-amber-200/60 dark:border-amber-900/50">
+                                        <flux:icon.document-text class="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                                        <span class="text-[11px] font-medium text-amber-800 dark:text-amber-300 line-clamp-1 leading-tight prose prose-xs prose-p:my-0" x-html="note"></span>
+                                    </div>
                                 </div>
 
                                 {{-- Input Cost & Action --}}
                                 <div class="flex flex-col sm:items-end justify-center gap-2 shrink-0">
                                     <div class="w-full sm:w-48">
                                         <flux:label class="text-[10px] uppercase tracking-wider !mb-1">Biaya Jasa</flux:label>
-                                        <x-currency-input wire:model.live="costs.single_{{ $order->id }}" placeholder="Rp 0" />
+                                        <x-currency-input wire:model.live="costs.single_{{ $order->id }}" placeholder="0" />
                                     </div>
-                                    <flux:button size="sm" variant="{{ !empty($this->item_notes['single_'.$order->id]) ? 'filled' : 'subtle' }}" icon="{{ !empty($this->item_notes['single_'.$order->id]) ? 'check-circle' : 'pencil-square' }}" wire:click="openEditor('single_{{ $order->id }}')" class="{{ $editingNoteKey === 'single_'.$order->id ? 'bg-amber-100 text-amber-700 border-amber-200' : '' }}">
-                                        {{ !empty($this->item_notes['single_'.$order->id]) ? 'Catatan Tersimpan' : 'Catatan Khusus' }}
-                                    </flux:button>
                                 </div>
                             </div>
-                            
-                            {{-- INLINE EDITOR --}}
-                            @if($editingNoteKey === 'single_'.$order->id)
-                                <div class="border-t border-amber-100 dark:border-amber-900/30 p-4 bg-amber-50/50 dark:bg-amber-900/10">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <flux:heading size="sm" class="!font-bold text-amber-700 dark:text-amber-500">Instruksi Khusus Vendor</flux:heading>
-                                        <flux:button size="xs" variant="ghost" icon="x-mark" wire:click="$set('editingNoteKey', null)" />
-                                    </div>
-                                    <div wire:ignore>
-                                        <x-rich-editor wire:model="tempNoteContent" height="250px" />
-                                    </div>
-                                    <div class="mt-3 flex justify-end">
-                                        <flux:button variant="primary" size="sm" wire:click="saveEditor">Simpan Catatan</flux:button>
-                                    </div>
-                                </div>
-                            @endif
                         </div>
                     @endforeach
                 @endif
@@ -754,7 +800,39 @@ $confirmSaveMaklon = function () {
         </div>
     </flux:modal>
     
+    {{-- Panel Editor Rich Text --}}
+    <x-rich-editor-modal
+        title="Editor Lengkap"
+        subtitle="Instruksi Khusus Vendor"
+        wireModel="tempNoteContent"
+        showVariable="showEditor"
+        onSave="$wire.saveEditor().then(() => { showEditor = false; })"
+        onCancel="showEditor = false"
+    />
+    
     <livewire:global.template-modal context="production" />
     <livewire:global.vendor-gallery-modal />
     <livewire:global.vendor-form-modal />
+    
+    @once
+    <style>
+        /* TinyMCE: pastikan editor mengisi container flex sepenuhnya */
+        .tox-tinymce { 
+            height: 100% !important; 
+            width: 100% !important; 
+            max-width: 100% !important;
+            border: none !important; 
+        }
+        
+        /* Fix z-index popup TinyMCE (table menu, dll) agar tidak tertutup modal */
+        .tox-tinymce-aux { z-index: 999999 !important; }
+    </style>
+    <script>
+    document.addEventListener('focusin', function (e) {
+        if (e.target.closest('.tox-tinymce-aux, .moxman-window') !== null) {
+            e.stopImmediatePropagation();
+        }
+    });
+    </script>
+    @endonce
 </div>
