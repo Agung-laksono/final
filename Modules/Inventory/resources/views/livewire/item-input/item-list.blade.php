@@ -824,7 +824,8 @@ $delete = function (Item $item) {
                  :style="`transform: translateX(calc(-${currentIndex * 100}% + ${touchOffset}px))`">
                  
                 <template x-for="(item, index) in gallery" :key="index">
-                    <div class="w-full h-full shrink-0 flex flex-col md:flex-row max-w-7xl mx-auto items-center p-2 sm:p-4 md:p-8 gap-2 sm:gap-4 md:gap-8 pointer-events-none pb-4 md:pb-8">
+                    <div class="w-full h-full shrink-0 flex items-center justify-center pointer-events-none">
+                        <div class="w-full h-full flex flex-col md:flex-row max-w-7xl mx-auto items-center p-2 sm:p-4 md:p-8 gap-2 sm:gap-4 md:gap-8 pb-4 md:pb-8">
                         <!-- Image Container -->
                         <div class="flex-1 w-full h-[55vh] md:h-full flex items-center justify-center relative pointer-events-auto"
                              style="touch-action: pan-y pinch-zoom;">
@@ -920,12 +921,13 @@ $delete = function (Item $item) {
                             </div>
                         </div>
                     </div>
+                    </div>
                 </template>
         </div>
     </div>
 
     <script>
-    document.addEventListener('alpine:init', () => {
+    const registerItemGallery = () => {
         Alpine.data('itemGallery', (items) => ({
             isOpen: false,
             gallery: items || [],
@@ -1002,7 +1004,13 @@ $delete = function (Item $item) {
                 this.touchCurrentX = 0;
             }
         }));
-    });
+    };
+    
+    if (window.Alpine) {
+        registerItemGallery();
+    } else {
+        document.addEventListener('alpine:init', registerItemGallery);
+    }
     </script>
 </div>
 </div>

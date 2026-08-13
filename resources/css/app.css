@@ -49,6 +49,24 @@
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
     }
+
+    /* Memastikan semua elemen yang bisa diklik memiliki kursor telunjuk (pointer) */
+    button,
+    [role="button"],
+    a[href],
+    [wire\:click],
+    [wire\:click\.prevent],
+    [wire\:click\.stop],
+    [wire\:click\.prefetch],
+    [\@click],
+    [\@click\.prevent],
+    [\@click\.stop],
+    [\@click\.outside],
+    [x-on\:click],
+    [x-on\:click\.prevent],
+    [x-on\:click\.stop] {
+        cursor: pointer;
+    }
 }
 
 [data-flux-field]:not(ui-radio, ui-checkbox) {

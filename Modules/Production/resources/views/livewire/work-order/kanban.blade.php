@@ -220,7 +220,7 @@ on(['maklon-po-created' => function () {
                             <flux:button size="xs" variant="subtle" icon="x-mark" wire:click="$set('selectedOrders', [])" class="h-6 w-6 px-0 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Batal pilihan" />
                         </div>
                     @endif
-                    @if(in_array($statusKey, ['in_production', 'pending_approval']))
+                    @if($statusKey === 'in_production')
                         <div class="flex bg-zinc-200/80 dark:bg-zinc-800 p-0.5 rounded gap-0.5 border border-zinc-300 dark:border-zinc-700">
                             <button wire:click="$set('viewModeMaklon', 'grouped')" class="flex items-center justify-center p-1 rounded-sm text-[10px] {{ $viewModeMaklon === 'grouped' ? 'bg-white dark:bg-zinc-600 text-zinc-900 dark:text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300' }}" title="Wadah">
                                 <flux:icon.rectangle-group class="w-3 h-3" />
@@ -232,7 +232,7 @@ on(['maklon-po-created' => function () {
                     @endif
                 </x-slot:headerActions>
 
-                    @if(in_array($statusKey, ['in_production', 'pending_approval']) && $viewModeMaklon === 'grouped')
+                    @if($statusKey === 'pending_approval' || ($statusKey === 'in_production' && $viewModeMaklon === 'grouped'))
                         @php
                             $groupedByPo = collect($this->orders[$statusKey] ?? [])->groupBy('purchase_order_id');
                         @endphp
