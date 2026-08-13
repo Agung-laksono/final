@@ -70,11 +70,8 @@ $closeModal = function () {
 <div>
 <flux:modal wire:model="showModal" class="md:w-[500px]">
     <div class="p-6">
-        <div class="flex justify-between items-center mb-4">
+        <div class="mb-4">
             <h2 class="text-xl font-bold text-zinc-900 dark:text-white">Buat Katalog Sales</h2>
-            <button wire:click="closeModal" class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
-                <flux:icon.x-mark class="w-5 h-5" />
-            </button>
         </div>
 
         <div class="space-y-4 mb-6">
@@ -97,8 +94,10 @@ $closeModal = function () {
                 <label class="block text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-2 uppercase tracking-wider">Link Publik Berhasil Dibuat!</label>
                 <div class="flex items-center gap-2">
                     <input type="text" readonly value="{{ $generatedUrl }}" class="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300 w-full outline-none">
+                    
                     <flux:button variant="primary" 
                         x-data="{ copied: false }" 
+                        title="Copy Link"
                         @click="
                             navigator.clipboard.writeText('{{ $generatedUrl }}'); 
                             copied = true; 
@@ -107,6 +106,10 @@ $closeModal = function () {
                     >
                         <span x-show="!copied"><flux:icon.clipboard-document class="w-4 h-4" /></span>
                         <span x-show="copied" x-cloak><flux:icon.check class="w-4 h-4" /></span>
+                    </flux:button>
+                    
+                    <flux:button variant="filled" href="{{ $generatedUrl }}" target="_blank" title="Buka di tab baru">
+                        <flux:icon.arrow-top-right-on-square class="w-4 h-4" />
                     </flux:button>
                 </div>
                 <div class="mt-2 text-xs text-emerald-600 dark:text-emerald-500">

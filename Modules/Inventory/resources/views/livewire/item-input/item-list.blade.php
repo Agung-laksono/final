@@ -431,7 +431,13 @@ $delete = function (Item $item) {
 
                 <flux:table.rows>
                     @forelse ($this->getItems() as $item)
-                        <flux:table.row :key="$item->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:dblclick="$wire.dispatch('open-item-detail', { id: {{ $item->id }} })">
+                        <flux:table.row :key="$item->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" 
+                            x-on:dblclick="$wire.dispatch('open-item-detail', { id: {{ $item->id }} })"
+                            @click="if ($store.catalog.selectionMode) {
+                                let idx = $store.catalog.selectedItems.indexOf('{{ $item->id }}');
+                                if (idx > -1) $store.catalog.selectedItems.splice(idx, 1);
+                                else $store.catalog.selectedItems.push('{{ $item->id }}');
+                            }">
                             <flux:table.cell>
                                 <div class="flex items-center gap-3">
                                     <div x-show="$store.catalog.selectionMode || $store.catalog.selectedItems.includes('{{ $item->id }}')" class="mr-1" @click.stop>
@@ -580,6 +586,16 @@ $delete = function (Item $item) {
                      x-on:item-detail-modal-opened.window="loading = false"
                      @click.outside="activeVariant = null"
                      class="group relative isolate z-0 flex flex-col bg-white dark:bg-zinc-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-zinc-200/80 dark:border-zinc-700 hover:border-blue-500/30 dark:hover:border-blue-400/30 cursor-pointer hover:scale-[1.02] {{ !$item->is_active ? 'opacity-80 grayscale-[0.4]' : '' }}">
+                    
+                    {{-- Transparent Overlay to intercept all clicks during Catalog Mode --}}
+                    <div x-cloak x-show="$store.catalog.selectionMode" 
+                         @click.stop="
+                            let idx = $store.catalog.selectedItems.indexOf('{{ $item->id }}');
+                            if (idx > -1) $store.catalog.selectedItems.splice(idx, 1);
+                            else $store.catalog.selectedItems.push('{{ $item->id }}');
+                         "
+                         class="absolute inset-0 z-[40] cursor-pointer">
+                    </div>
                     
                     {{-- Selection Checkbox Overlay --}}
                     <div x-cloak x-show="$store.catalog.selectionMode || $store.catalog.selectedItems.includes('{{ $item->id }}')" class="absolute z-[45] top-2 right-2" @click.stop>
