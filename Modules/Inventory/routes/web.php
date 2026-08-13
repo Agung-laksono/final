@@ -23,3 +23,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('/inventory/print-labels', 'print-labels')->name('inventory.print-labels')->middleware('permission:inventory.item.view');
     
 });
+
+// Public Route for Sales Catalog
+Volt::route('/catalog', 'catalog.show')->name('catalog.show');

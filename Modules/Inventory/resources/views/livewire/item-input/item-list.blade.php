@@ -28,6 +28,8 @@ state([
     'filterCreator' => '',
     'filterOrdered' => false,
     'quickFilter' => 'all', // all, critical, wip, booked
+    'selectionMode' => false,
+    'selectedCatalogItems' => [],
 ]);
 
 with(fn () => [
@@ -323,6 +325,17 @@ $delete = function (Item $item) {
                     {{-- Switcher --}}
                     <x-grid-or-table wire:model="viewMode" :mode="$viewMode" />
                     
+                    {{-- Tombol Bikin Katalog --}}
+                    <button @click="$store.catalog.toggleSelectionMode()" :class="$store.catalog.selectionMode ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200'" class="shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors" title="Buat Katalog Sales">
+                        <template x-if="$store.catalog.selectionMode">
+                            <flux:icon.x-mark class="w-4 h-4" />
+                        </template>
+                        <template x-if="!$store.catalog.selectionMode">
+                            <flux:icon.share class="w-4 h-4" />
+                        </template>
+                        <span class="hidden sm:inline" x-text="$store.catalog.selectionMode ? 'Batal' : 'Katalog'"></span>
+                    </button>
+                    
                     @can('inventory.item.create')
                         <flux:button x-on:click="$wire.dispatch('open-item-modal')" variant="primary" icon="plus" class="shrink-0">
                             <span class="hidden sm:inline">Barang</span>
@@ -421,6 +434,9 @@ $delete = function (Item $item) {
                         <flux:table.row :key="$item->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:dblclick="$wire.dispatch('open-item-detail', { id: {{ $item->id }} })">
                             <flux:table.cell>
                                 <div class="flex items-center gap-3">
+                                    <div x-show="$store.catalog.selectionMode || $store.catalog.selectedItems.includes('{{ $item->id }}')" class="mr-1" @click.stop>
+                                        <input type="checkbox" x-model="$store.catalog.selectedItems" value="{{ $item->id }}" class="w-5 h-5 text-indigo-600 bg-zinc-100 border-zinc-300 rounded focus:ring-indigo-500 focus:ring-2 cursor-pointer shadow-sm z-50">
+                                    </div>
                                     <div class="relative w-10 h-10 rounded-md bg-zinc-100 border border-zinc-200 shrink-0">
                                         @if ($item->image)
                                             <img src="{{ asset('storage/' . $item->image) }}" loading="lazy" class="w-full h-full object-cover rounded-md">
@@ -565,6 +581,11 @@ $delete = function (Item $item) {
                      @click.outside="activeVariant = null"
                      class="group relative isolate z-0 flex flex-col bg-white dark:bg-zinc-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-zinc-200/80 dark:border-zinc-700 hover:border-blue-500/30 dark:hover:border-blue-400/30 cursor-pointer hover:scale-[1.02] {{ !$item->is_active ? 'opacity-80 grayscale-[0.4]' : '' }}">
                     
+                    {{-- Selection Checkbox Overlay --}}
+                    <div x-cloak x-show="$store.catalog.selectionMode || $store.catalog.selectedItems.includes('{{ $item->id }}')" class="absolute z-[45] top-2 right-2" @click.stop>
+                        <input type="checkbox" x-model="$store.catalog.selectedItems" value="{{ $item->id }}" class="w-5 h-5 text-indigo-600 bg-zinc-100 border-zinc-300 rounded focus:ring-indigo-500 focus:ring-2 cursor-pointer shadow-sm z-50">
+                    </div>
+
                     {{-- Loading Overlay --}}
                     <div x-show="loading" x-cloak class="absolute inset-0 bg-white/50 dark:bg-zinc-900/50 z-50 flex flex-col items-center justify-center backdrop-blur-sm rounded-xl">
                         <flux:icon.arrow-path class="w-8 h-8 animate-spin text-blue-500 mb-2" />
