@@ -19,16 +19,24 @@ layout('layouts::app', ['title' => 'Master Data Inventory']);
     <livewire:print-label-modal />
 
     <script>
-        document.addEventListener('alpine:init', () => {
-            Alpine.store('catalog', {
-                selectionMode: false,
-                selectedItems: [],
-                toggleSelectionMode() {
-                    this.selectionMode = !this.selectionMode;
-                    if (!this.selectionMode) this.selectedItems = [];
-                }
-            });
-        });
+        var registerCatalogStore = function() {
+            if (window.Alpine && !window.Alpine.store('catalog')) {
+                window.Alpine.store('catalog', {
+                    selectionMode: false,
+                    selectedItems: [],
+                    toggleSelectionMode() {
+                        this.selectionMode = !this.selectionMode;
+                        if (!this.selectionMode) this.selectedItems = [];
+                    }
+                });
+            }
+        };
+
+        if (window.Alpine) {
+            registerCatalogStore();
+        } else {
+            document.addEventListener('alpine:init', registerCatalogStore);
+        }
     </script>
 
     <div x-data x-cloak x-show="$store.catalog.selectionMode" 
