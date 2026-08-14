@@ -141,63 +141,75 @@ $closeModal = function () {
             // Fetch models for rendering
             $captureItems = Item::whereIn('id', $items)->get();
         @endphp
-        <div id="catalog-capture-area" class="fixed top-[-9999px] left-[-9999px] bg-white w-[600px] p-6 text-zinc-900 z-[-1]" style="font-family: sans-serif;">
-            <div class="text-center mb-6 border-b border-zinc-200 pb-4">
-                <h1 class="text-3xl font-bold text-indigo-700">{{ $title ?: 'Katalog Promo' }}</h1>
-                <p class="text-base mt-2 text-zinc-600 bg-amber-100 inline-block px-4 py-1 rounded-full font-semibold border border-amber-200">
-                    Berlaku Hingga: {{ \Carbon\Carbon::parse($valid_until ?: now()->addDay())->translatedFormat('d F Y, H:i') }}
-                </p>
-            </div>
-            
-            <div class="flex flex-col gap-6">
-                @foreach($captureItems as $item)
-                <div class="border border-zinc-200 rounded-2xl overflow-hidden bg-white shadow-sm flex flex-row">
-                    <div class="w-[200px] shrink-0 relative bg-zinc-50 flex items-center justify-center border-r border-zinc-100">
-                        @if($item->image)
-                            <img src="{{ asset('storage/' . $item->image) }}" class="w-full h-full object-contain p-2">
+        <div class="fixed inset-0 z-[-9999] opacity-0 pointer-events-none overflow-hidden flex items-start justify-center">
+            <div id="catalog-capture-area" class="bg-white w-[600px] shrink-0 p-6 text-zinc-900" style="font-family: sans-serif;">
+                <div class="text-center mb-6 border-b border-zinc-200 pb-4">
+                    <h1 class="text-3xl font-bold text-indigo-700">{{ $title ?: 'Katalog Promo' }}</h1>
+                    <p class="text-base mt-2 text-zinc-600 bg-amber-100 inline-block px-4 py-1 rounded-full font-semibold border border-amber-200">
+                        Berlaku Hingga: {{ \Carbon\Carbon::parse($valid_until ?: now()->addDay())->translatedFormat('d F Y, H:i') }}
+                    </p>
+                </div>
+                
+                <div class="flex flex-col gap-6">
+                    @foreach($captureItems as $item)
+                    <div class="bg-black rounded-2xl overflow-hidden shadow-md relative group">
+                        @if ($item->image)
+                            <img src="{{ asset('storage/' . $item->image) }}" crossorigin="anonymous" class="w-full h-auto block" style="min-height: 200px; object-fit: cover;">
                         @else
-                            <div class="w-full aspect-square flex items-center justify-center text-zinc-300">
-                                <flux:icon.photo class="w-12 h-12 opacity-20" />
+                            <div class="w-full aspect-[4/3] bg-zinc-100 flex items-center justify-center text-zinc-400 p-4">
+                                <flux:icon.photo class="w-16 h-16 opacity-20" />
                             </div>
                         @endif
                         
                         @if($item->discount > 0)
-                            <div class="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                            <div class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded shadow-sm z-20">
                                 DISKON
                             </div>
                         @endif
-                    </div>
-                    <div class="p-5 flex flex-col flex-1 justify-center">
-                        <div class="text-sm text-zinc-500 mb-1 flex justify-between items-center">
-                            <span>{{ $item->category?->name ?? 'Kategori' }}</span>
-                            <span class="font-mono text-xs">{{ $item->sku }}</span>
-                        </div>
-                        <h3 class="font-bold text-xl leading-tight mb-3 text-zinc-900">
-                            @if($item->alias)
-                                {{ $item->alias }} <span class="text-xs font-normal text-zinc-500 ml-1">- {{ $item->name }}</span>
-                            @else
-                                {{ $item->name }}
-                            @endif
-                        </h3>
                         
-                        <div class="mt-auto border-t border-zinc-100 pt-3">
-                            <span class="text-xs text-zinc-500 block mb-1">Harga Spesial</span>
-                            @if($item->discount > 0)
-                                <div class="flex items-center gap-3">
-                                    <div class="text-red-600 font-bold text-2xl">Rp {{ number_format($item->selling_price - $item->discount, 0, ',', '.') }}</div>
-                                    <div class="text-sm text-zinc-400 line-through">Rp {{ number_format($item->selling_price, 0, ',', '.') }}</div>
+                        {{-- Watermark --}}
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-10 overflow-hidden">
+                            <div class="transform -rotate-[15deg] border-4 border-white/20 text-white/50 bg-black/10 text-3xl font-black uppercase px-4 py-2 rounded-xl shadow-sm text-center">
+                                <span class="block text-lg opacity-80 mb-1">Berlaku Hingga</span>
+                                {{ \Carbon\Carbon::parse($valid_until ?: now()->addDay())->translatedFormat('d M Y') }}
+                            </div>
+                        </div>
+                        
+                        {{-- Info Overlay (Bottom Gradient) --}}
+                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent pt-24 pb-5 px-6 z-20 flex flex-col justify-end">
+                            <div class="text-sm text-zinc-300 mb-1.5 flex justify-between items-center" style="text-shadow: 0 1px 2px rgba(0,0,0,0.8);">
+                                <span class="truncate pr-2">{{ $item->category?->name ?? 'Kategori' }}</span>
+                                <span class="font-mono text-xs opacity-70">{{ $item->sku }}</span>
+                            </div>
+                            
+                            <div class="flex flex-row justify-between items-end gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-bold text-xl text-white leading-tight line-clamp-2" style="text-shadow: 0 1px 3px rgba(0,0,0,0.8);">
+                                        @if($item->alias)
+                                            {{ $item->alias }} <span class="text-xs font-normal text-zinc-300 ml-1">- {{ $item->name }}</span>
+                                        @else
+                                            {{ $item->name }}
+                                        @endif
+                                    </h3>
                                 </div>
-                            @else
-                                <div class="font-bold text-2xl text-zinc-900">Rp {{ number_format($item->selling_price, 0, ',', '.') }}</div>
-                            @endif
+                                
+                                <div class="flex flex-col items-end shrink-0" style="text-shadow: 0 1px 3px rgba(0,0,0,0.8);">
+                                    @if($item->discount > 0)
+                                        <div class="text-sm text-zinc-300 line-through mb-0.5">Rp {{ number_format($item->selling_price, 0, ',', '.') }}</div>
+                                        <div class="text-red-400 font-black text-2xl leading-none">Rp {{ number_format($item->selling_price - $item->discount, 0, ',', '.') }}</div>
+                                    @else
+                                        <div class="text-white font-black text-2xl">Rp {{ number_format($item->selling_price, 0, ',', '.') }}</div>
+                                    @endif
+                                </div>
+                            </div>
                         </div>
                     </div>
+                    @endforeach
                 </div>
-                @endforeach
-            </div>
-            
-            <div class="mt-8 text-center text-sm text-zinc-400 border-t border-zinc-100 pt-6 pb-2">
-                Katalog resmi - Dibuat pada {{ now()->translatedFormat('d F Y') }}
+                
+                <div class="mt-8 text-center text-sm text-zinc-400 border-t border-zinc-100 pt-6 pb-2">
+                    Katalog resmi - Dibuat pada {{ now()->translatedFormat('d F Y') }}
+                </div>
             </div>
         </div>
     @endif
