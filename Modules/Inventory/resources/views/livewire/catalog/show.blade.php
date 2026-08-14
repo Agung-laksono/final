@@ -63,24 +63,42 @@ mount(function ($hash = null) {
     @endif
 </x-slot>
 
-<div class="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20">
+<div class="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20 relative flex flex-col">
+    {{-- Decorative Background --}}
+    <div class="absolute inset-0 z-0 opacity-40 mix-blend-multiply dark:mix-blend-overlay pointer-events-none" style="background-image: radial-gradient(rgb(161 161 170 / 0.3) 1px, transparent 1px); background-size: 24px 24px;"></div>
+
     @if($error)
-        <div class="flex flex-col items-center justify-center min-h-screen p-6 text-center">
-            <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mb-4">
-                <flux:icon.exclamation-triangle class="w-8 h-8" />
+        <div class="flex flex-col items-center justify-center flex-1 p-6 text-center relative z-10">
+            <div class="w-full max-w-md bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl border border-white/50 dark:border-zinc-800/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.1)] rounded-[2rem] p-10 transform transition-all hover:scale-[1.01]">
+                <div class="w-24 h-24 mx-auto bg-gradient-to-br from-red-100 to-rose-50 dark:from-red-900/40 dark:to-rose-900/20 text-red-500 dark:text-red-400 rounded-3xl flex items-center justify-center mb-8 shadow-inner border border-red-100/50 dark:border-red-500/10 rotate-3">
+                    <flux:icon.exclamation-triangle class="w-12 h-12" />
+                </div>
+                <h1 class="text-3xl font-black text-zinc-900 dark:text-white mb-4 tracking-tight">Oops!</h1>
+                <p class="text-lg text-zinc-500 dark:text-zinc-400 mb-8 leading-relaxed">{{ $error }}</p>
+                <div class="pt-6 border-t border-zinc-100 dark:border-zinc-800/50">
+                    <a href="/" class="inline-flex items-center justify-center px-6 py-3 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-sm font-bold rounded-xl transition-colors shadow-lg">
+                        Kembali ke Halaman Utama
+                    </a>
+                </div>
             </div>
-            <h1 class="text-xl font-bold text-zinc-900 dark:text-white mb-2">Oops!</h1>
-            <p class="text-zinc-500 dark:text-zinc-400">{{ $error }}</p>
         </div>
     @elseif($isExpired)
-        <div class="flex flex-col items-center justify-center min-h-screen p-6 text-center">
-            <div class="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-500 rounded-full flex items-center justify-center mb-4">
-                <flux:icon.clock class="w-8 h-8" />
+        <div class="flex flex-col items-center justify-center flex-1 p-6 text-center relative z-10">
+            <div class="w-full max-w-md bg-white/70 dark:bg-zinc-900/70 backdrop-blur-2xl border border-white/50 dark:border-zinc-800/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.1)] rounded-[2rem] p-10 transform transition-all hover:scale-[1.01]">
+                <div class="w-24 h-24 mx-auto bg-gradient-to-br from-amber-100 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/20 text-amber-500 dark:text-amber-400 rounded-3xl flex items-center justify-center mb-8 shadow-inner border border-amber-100/50 dark:border-amber-500/10 -rotate-3">
+                    <flux:icon.clock class="w-12 h-12" />
+                </div>
+                <h1 class="text-3xl font-black text-zinc-900 dark:text-white mb-4 tracking-tight">Waktu Habis</h1>
+                <p class="text-lg text-zinc-500 dark:text-zinc-400 mb-8 leading-relaxed">
+                    Maaf, harga khusus pada katalog <br><strong class="text-zinc-800 dark:text-zinc-200">{{ $title }}</strong><br> telah berakhir pada <span class="font-bold text-amber-500">{{ $validUntil->translatedFormat('d M Y, H:i') }}</span>.
+                </p>
+                <div class="pt-6 border-t border-zinc-100 dark:border-zinc-800/50">
+                    <button onclick="window.open('https://wa.me/?text={{ urlencode('Halo Admin, apakah promo untuk katalog ' . $title . ' masih berlaku?') }}', '_blank')" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-xl transition-colors shadow-lg shadow-emerald-500/30">
+                        <flux:icon.chat-bubble-left-ellipsis class="w-5 h-5" />
+                        Tanya Admin via WA
+                    </button>
+                </div>
             </div>
-            <h1 class="text-xl font-bold text-zinc-900 dark:text-white mb-2">Promo Telah Berakhir</h1>
-            <p class="text-zinc-500 dark:text-zinc-400">
-                Maaf, harga khusus pada katalog <strong>{{ $title }}</strong> telah berakhir pada {{ $validUntil->translatedFormat('d F Y H:i') }}.
-            </p>
         </div>
     @else
         {{-- Header Promo --}}
