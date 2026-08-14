@@ -13,7 +13,7 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-        @fluxStyles
+        @fluxAppearance
         <style>
             /* Custom markdown styles since typography plugin is disabled */
             .markdown-body h1 { font-size: 2.25rem; font-weight: 800; margin-bottom: 1.5rem; letter-spacing: -0.025em; color: #111827; }
@@ -81,6 +81,5 @@
             </main>
         </div>
         
-        @fluxScripts
     </body>
 </html>

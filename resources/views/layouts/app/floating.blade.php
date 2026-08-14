@@ -587,6 +587,13 @@
                     {{-- AI Chat Shortcut dipindah keluar speed dial --}}
                     {{-- <livewire:ai-chat-widget /> --}}
                     
+                    {{-- Documentation Shortcut --}}
+                    <a href="{{ route('docs.index') }}" wire:navigate
+                            class="w-10 h-10 lg:w-12 lg:h-12 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700 rounded-full shadow-lg flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+                            title="Buka Dokumentasi Sistem">
+                        <flux:icon.book-open class="w-4 h-4 lg:w-5 lg:h-5" />
+                    </a>
+
                     {{-- Theme Toggle --}}
                     <button type="button" 
                             x-on:click="
