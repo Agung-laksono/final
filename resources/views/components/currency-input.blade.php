@@ -17,6 +17,8 @@
         name="{{ $inputName }}"
         x-bind:value="format(val)" 
         x-on:input="val = $event.target.value.replace(/\D/g, '')"
+        inputmode="numeric"
+        pattern="[0-9]*"
         {{ $attributes->whereDoesntStartWith('wire:model')->except('name') }}
     >
         <x-slot name="icon">

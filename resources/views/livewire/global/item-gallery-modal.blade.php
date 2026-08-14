@@ -283,17 +283,21 @@ new class extends Component {
                         </flux:dropdown>
 
                         @can('inventory.item.create')
-                        <div x-data="{ loading: false }" x-on:item-modal-loaded.window="loading = false">
-                            <flux:button x-on:click="loading = true; $dispatch('open-item-modal')" x-bind:disabled="loading" variant="primary" class="shrink-0 px-2 md:px-4">
-                                <span x-show="!loading" class="flex items-center">
+                        <div x-data="{ isModalLoading: false }" 
+                             @do-open-item-modal.window="isModalLoading = false" 
+                             @item-modal-loaded.window="isModalLoading = false"
+                             class="shrink-0">
+                            <button x-on:click="isModalLoading = true; $dispatch('open-item-modal')" 
+                                    x-bind:disabled="isModalLoading" 
+                                    class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 h-full">
+                                <template x-if="!isModalLoading">
                                     <flux:icon.plus class="w-4 h-4" />
-                                    <span class="hidden md:inline ml-1">Barang Baru</span>
-                                </span>
-                                <span x-show="loading" class="flex items-center" style="display: none;">
-                                    <svg class="animate-spin w-4 h-4 mr-1 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    <span class="hidden md:inline">Memuat...</span>
-                                </span>
-                            </flux:button>
+                                </template>
+                                <template x-if="isModalLoading">
+                                    <flux:icon.arrow-path class="w-4 h-4 animate-spin" />
+                                </template>
+                                <span class="hidden md:inline">Barang Baru</span>
+                            </button>
                         </div>
                         @endcan
                     </div>

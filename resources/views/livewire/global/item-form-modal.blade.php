@@ -18,6 +18,8 @@ new class extends Component {
     public $item_id = null;
     public $code = '';
     
+    public $suggestedAliases = [];
+
     #[Rule('nullable|string|max:100')]
     public $alias = '';
     
@@ -46,10 +48,10 @@ new class extends Component {
     public $sub_category_id = '';
     
     #[Rule('required|numeric|min:0')]
-    public $purchase_price = null;
+    public $purchase_price = 0;
     
     #[Rule('required|numeric|min:0|gte:purchase_price')]
-    public $selling_price = null;
+    public $selling_price = 0;
     
     #[Rule('required|integer|min:0')]
     public $min_stock = null;
@@ -87,6 +89,15 @@ new class extends Component {
         }
         $this->sub_category_id = '';
         $this->dispatch('subcategory-updated', options: $this->subcategories);
+    }
+
+    public function updatedName($value)
+    {
+        if (strlen(trim($value)) >= 3) {
+            $this->suggestLocalAliases(true);
+        } else {
+            $this->suggestedAliases = [];
+        }
     }
 
     #[On('open-item-modal')]
@@ -136,6 +147,7 @@ new class extends Component {
             $this->item_id = null;
             $this->code = '';
             $this->alias = '';
+            $this->suggestedAliases = [];
             $this->name = '';
             $this->tags = [];
             $this->description = '';
@@ -145,8 +157,8 @@ new class extends Component {
             $this->category_id = '';
             $this->subcategories = [];
             $this->sub_category_id = '';
-            $this->purchase_price = null;
-            $this->selling_price = null;
+            $this->purchase_price = 0;
+            $this->selling_price = 0;
             $this->min_stock = null;
             $this->max_stock = null;
             // Otomatis aktif jika diinput dari modul Inventory ATAU jika user memiliki Role Gudang / Admin
@@ -284,6 +296,60 @@ new class extends Component {
         
         \App\Events\InventoryUpdated::safeDispatch("Data barang {$validated['code']} berhasil {$actionType}");
     }
+
+    public function suggestLocalAliases($silent = false)
+    {
+        if (empty(trim($this->name))) {
+            if (!$silent) Flux::toast('Silakan isi Nama Barang terlebih dahulu', variant: 'warning');
+            return;
+        }
+
+        $words = explode(' ', trim($this->name));
+        $keyword1 = $words[0] ?? '';
+        $keyword2 = $words[1] ?? '';
+
+        $query = Item::whereNotNull('alias')->where('alias', '!=', '');
+
+        $query->where(function($q) use ($keyword1, $keyword2) {
+            if ($this->category_id) {
+                $q->orWhere('category_id', $this->category_id);
+            }
+            if ($keyword1) {
+                $q->orWhere('name', 'like', "%{$keyword1}%");
+            }
+            if ($keyword2) {
+                $q->orWhere('name', 'like', "%{$keyword2}%");
+            }
+        });
+
+        if ($this->item_id) {
+            $query->where('id', '!=', $this->item_id);
+        }
+
+        $this->suggestedAliases = $query->inRandomOrder()
+            ->take(10)
+            ->pluck('alias')
+            ->unique()
+            ->take(5)
+            ->values()
+            ->toArray();
+            
+        if (empty($this->suggestedAliases)) {
+            $this->suggestedAliases = Item::whereNotNull('alias')
+                ->where('alias', '!=', '')
+                ->inRandomOrder()
+                ->take(5)
+                ->pluck('alias')
+                ->unique()
+                ->values()
+                ->toArray();
+                
+            if (empty($this->suggestedAliases)) {
+                if (!$silent) Flux::toast('Belum ada riwayat alias yang bisa direkomendasikan.', variant: 'warning');
+                return;
+            }
+        }
+    }
 };
 ?>
 
@@ -343,8 +409,25 @@ new class extends Component {
                                 <span class="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium text-center">Klik untuk ganti foto utama</span>
                             </div>
 
-                            <flux:input wire:model="name" label="Nama Barang" placeholder="Contoh: Rak Buku Putih, Dipan Jati 160x200" required maxlength="100" />
-                            <flux:input wire:model="alias" label="Alias (Seri / Merek)" placeholder="Opsional, cth: BILLY, RAHWANA" maxlength="100" />
+                            <flux:input wire:model.live.debounce.1000ms="name" label="Nama Barang" placeholder="Contoh: Rak Buku Putih, Dipan Jati 160x200" required maxlength="100" />
+                            
+                            <div class="relative">
+                                <flux:input wire:model="alias" label="Alias (Seri / Merek)" placeholder="Opsional, cth: BILLY, RAHWANA" maxlength="100" />
+                                
+                                @if(count($suggestedAliases) > 0)
+                                <div class="mt-2.5 flex flex-wrap items-center gap-2" x-transition.opacity>
+                                    <span class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Ide dari riwayat:</span>
+                                    @foreach($suggestedAliases as $suggestion)
+                                        <button type="button" 
+                                            wire:click="$set('alias', '{{ $suggestion }}')" 
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:scale-105 active:scale-95 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 border border-indigo-100 dark:border-indigo-500/20 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 dark:focus:ring-offset-zinc-900">
+                                            <flux:icon.sparkles class="w-3 h-3 opacity-60" />
+                                            {{ $suggestion }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                                @endif
+                            </div>
                         </div>
 
                         {{-- STEP 3: SPESIFIKASI --}}
@@ -503,7 +586,7 @@ new class extends Component {
                         <div x-show="step === 4 || step === 5" x-transition.opacity :class="step === 5 ? 'p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl space-y-6 shadow-sm' : 'space-y-6'" style="display: none;">
                             <div class="grid grid-cols-2 gap-5">
                                 <div>
-                                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Harga Beli <span class="text-red-500">*</span></label>
+                                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Harga Beli / HPP <span class="text-red-500">*</span></label>
                                     <x-currency-input wire:model="purchase_price" placeholder="0" required />
                                 </div>
                                 <div>
