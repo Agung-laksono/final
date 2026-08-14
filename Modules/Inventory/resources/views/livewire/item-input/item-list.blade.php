@@ -323,23 +323,22 @@ $delete = function (Item $item) {
                     </flux:dropdown>
                     
                     {{-- Switcher --}}
-                    <x-grid-or-table wire:model="viewMode" :mode="$viewMode" />
+                    <div x-show="!$store.catalog.selectionMode" x-cloak class="shrink-0">
+                        <x-grid-or-table wire:model="viewMode" :mode="$viewMode" />
+                    </div>
                     
                     {{-- Tombol Bikin Katalog --}}
-                    <button @click="$store.catalog.toggleSelectionMode()" :class="$store.catalog.selectionMode ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200'" class="shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors" title="Buat Katalog Sales">
-                        <template x-if="$store.catalog.selectionMode">
-                            <flux:icon.x-mark class="w-4 h-4" />
-                        </template>
-                        <template x-if="!$store.catalog.selectionMode">
-                            <flux:icon.share class="w-4 h-4" />
-                        </template>
-                        <span class="hidden sm:inline" x-text="$store.catalog.selectionMode ? 'Batal' : 'Katalog'"></span>
+                    <button x-show="!$store.catalog.selectionMode" x-cloak @click="$store.catalog.toggleSelectionMode()" class="bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors" title="Buat Katalog Sales">
+                        <flux:icon.share class="w-4 h-4" />
+                        <span class="hidden sm:inline">Katalog</span>
                     </button>
                     
                     @can('inventory.item.create')
-                        <flux:button x-on:click="$wire.dispatch('open-item-modal')" variant="primary" icon="plus" class="shrink-0">
-                            <span class="hidden sm:inline">Barang</span>
-                        </flux:button>
+                        <div x-show="!$store.catalog.selectionMode" x-cloak class="shrink-0">
+                            <flux:button x-on:click="$wire.dispatch('open-item-modal')" variant="primary" icon="plus">
+                                <span class="hidden sm:inline">Barang</span>
+                            </flux:button>
+                        </div>
                     @endcan
                 </div>
             </div>
