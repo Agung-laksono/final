@@ -135,91 +135,80 @@ $closeModal = function () {
         @endif
 </flux:modal>
 
-    {{-- Hidden element to be captured by html2canvas (dipindah ke luar modal agar tidak terkena efek CSS modal) --}}
+    {{-- Hidden elements to be captured by html2canvas (dipindah ke luar modal agar tidak terkena efek CSS modal) --}}
     @if(count($items) > 0)
         @php
             // Fetch models for rendering
             $captureItems = Item::whereIn('id', $items)->get();
         @endphp
-        <div class="fixed inset-0 z-[-9999] opacity-0 pointer-events-none overflow-hidden flex items-start justify-center">
-            <div id="catalog-capture-area" class="bg-white w-[600px] shrink-0 p-6 text-zinc-900" style="font-family: sans-serif;">
-                <div class="text-center mb-6 border-b border-zinc-200 pb-4">
-                    <h1 class="text-3xl font-bold text-indigo-700">{{ $title ?: 'Katalog Promo' }}</h1>
-                    <p class="text-base mt-2 text-zinc-600 bg-amber-100 inline-block px-4 py-1 rounded-full font-semibold border border-amber-200">
-                        Berlaku Hingga: {{ \Carbon\Carbon::parse($valid_until ?: now()->addDay())->translatedFormat('d F Y, H:i') }}
-                    </p>
-                </div>
+        <div class="fixed inset-0 z-[-9999] opacity-0 pointer-events-none overflow-hidden flex items-start justify-center flex-wrap gap-4">
+            @foreach($captureItems as $index => $item)
+            <div id="catalog-capture-{{ $index }}" class="catalog-capture-node bg-black w-[1080px] shrink-0 relative overflow-hidden" style="font-family: sans-serif;">
+                {{-- Background Image (Provides Height) --}}
+                @if($item->image)
+                    <img src="{{ asset('storage/' . $item->image) }}" crossorigin="anonymous" class="w-full h-auto block min-h-[600px] object-cover">
+                @else
+                    <div class="w-full aspect-[4/3] bg-zinc-900 flex items-center justify-center">
+                        <flux:icon.photo class="w-48 h-48 text-zinc-800" />
+                    </div>
+                @endif
                 
-                <div class="flex flex-col gap-6">
-                    @foreach($captureItems as $item)
-                    <div class="bg-black rounded-2xl overflow-hidden shadow-md relative group">
-                        @if ($item->image)
-                            <img src="{{ asset('storage/' . $item->image) }}" crossorigin="anonymous" class="w-full h-auto block" style="min-height: 200px; object-fit: cover;">
-                        @else
-                            <div class="w-full aspect-[4/3] bg-zinc-100 flex items-center justify-center text-zinc-400 p-4">
-                                <flux:icon.photo class="w-16 h-16 opacity-20" />
-                            </div>
-                        @endif
-                        
-                        @if($item->discount > 0)
-                            <div class="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded shadow-sm z-20">
-                                DISKON
-                            </div>
-                        @endif
-                        
-                        {{-- Watermark --}}
-                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-10 overflow-hidden">
-                            <div class="transform -rotate-[15deg] border-4 border-white/20 text-white/50 bg-black/10 text-3xl font-black uppercase px-4 py-2 rounded-xl shadow-sm text-center">
-                                <span class="block text-lg opacity-80 mb-1">Berlaku Hingga</span>
-                                {{ \Carbon\Carbon::parse($valid_until ?: now()->addDay())->translatedFormat('d M Y') }}
-                            </div>
-                        </div>
-                        
-                        {{-- Info Overlay (Bottom Gradient) --}}
-                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent pt-24 pb-5 px-6 z-20 flex flex-col justify-end">
-                            <div class="text-sm text-zinc-300 mb-1.5 flex justify-between items-center" style="text-shadow: 0 1px 2px rgba(0,0,0,0.8);">
-                                <span class="truncate pr-2">{{ $item->category?->name ?? 'Kategori' }}</span>
-                                <span class="font-mono text-xs opacity-70">{{ $item->sku }}</span>
-                            </div>
-                            
-                            <div class="flex flex-row justify-between items-end gap-2">
-                                <div class="flex-1 min-w-0">
-                                    <h3 class="font-bold text-xl text-white leading-tight line-clamp-2" style="text-shadow: 0 1px 3px rgba(0,0,0,0.8);">
-                                        @if($item->alias)
-                                            {{ $item->alias }} <span class="text-xs font-normal text-zinc-300 ml-1">- {{ $item->name }}</span>
-                                        @else
-                                            {{ $item->name }}
-                                        @endif
-                                    </h3>
-                                </div>
-                                
-                                <div class="flex flex-col items-end shrink-0" style="text-shadow: 0 1px 3px rgba(0,0,0,0.8);">
-                                    @if($item->discount > 0)
-                                        <div class="text-sm text-zinc-300 line-through mb-0.5">Rp {{ number_format($item->selling_price, 0, ',', '.') }}</div>
-                                        <div class="text-red-400 font-black text-2xl leading-none">Rp {{ number_format($item->selling_price - $item->discount, 0, ',', '.') }}</div>
-                                    @else
-                                        <div class="text-white font-black text-2xl">Rp {{ number_format($item->selling_price, 0, ',', '.') }}</div>
-                                    @endif
-                                </div>
-                            </div>
+                {{-- Top Header (Overlay) --}}
+                <div class="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent pt-12 pb-24 px-12 flex justify-between items-start pointer-events-none">
+                    <div>
+                        <h1 class="text-5xl font-black text-white mb-3 tracking-tight drop-shadow-lg">{{ $title ?: 'Katalog Promo' }}</h1>
+                        <div class="inline-flex items-center gap-2 bg-indigo-600/90 backdrop-blur-sm px-4 py-1.5 rounded-full border border-indigo-400/50">
+                            <flux:icon.clock class="w-5 h-5 text-indigo-100" />
+                            <p class="text-xl text-white font-bold tracking-wide">Berlaku Hingga: {{ \Carbon\Carbon::parse($valid_until ?: now()->addDay())->translatedFormat('d M Y, H:i') }}</p>
                         </div>
                     </div>
-                    @endforeach
+                    @if($item->discount > 0)
+                    <div class="bg-red-500 text-white font-black text-3xl px-6 py-3 rounded-2xl shadow-2xl transform rotate-3 border-4 border-red-400">
+                        PROMO SPESIAL
+                    </div>
+                    @endif
                 </div>
-                
-                <div class="mt-8 text-center text-sm text-zinc-400 border-t border-zinc-100 pt-6 pb-2">
-                    Katalog resmi - Dibuat pada {{ now()->translatedFormat('d F Y') }}
+
+                {{-- Bottom Info (Overlay) --}}
+                <div class="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/90 to-transparent pt-40 pb-12 px-12 flex justify-between items-end pointer-events-none">
+                    <div class="flex-1 pr-10">
+                        <div class="flex items-center gap-4 mb-3">
+                            <span class="bg-zinc-800 text-zinc-200 text-xl px-4 py-1.5 rounded-lg border border-zinc-700 font-bold tracking-wider uppercase">{{ $item->category?->name ?? 'Kategori' }}</span>
+                            <span class="font-mono text-xl text-zinc-400">{{ $item->sku }}</span>
+                        </div>
+                        <h2 class="text-[3.5rem] font-black text-white leading-[1.1] drop-shadow-2xl">
+                            @if($item->alias)
+                                {{ $item->alias }}
+                            @else
+                                {{ $item->name }}
+                            @endif
+                        </h2>
+                        @if($item->alias)
+                            <p class="text-3xl text-zinc-300 mt-2">{{ $item->name }}</p>
+                        @endif
+                    </div>
+                    
+                    <div class="text-right shrink-0">
+                        <p class="text-2xl text-zinc-400 mb-2 font-medium">Harga Spesial</p>
+                        @if($item->discount > 0)
+                            <p class="text-4xl text-zinc-400 line-through mb-2 font-bold decoration-red-500/50 decoration-4">Rp {{ number_format($item->selling_price, 0, ',', '.') }}</p>
+                            <p class="text-[4.5rem] font-black text-emerald-400 drop-shadow-2xl leading-none">Rp {{ number_format($item->selling_price - $item->discount, 0, ',', '.') }}</p>
+                        @else
+                            <p class="text-[4.5rem] font-black text-white drop-shadow-2xl leading-none">Rp {{ number_format($item->selling_price, 0, ',', '.') }}</p>
+                        @endif
+                    </div>
                 </div>
             </div>
+            @endforeach
         </div>
     @endif
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
 <script>
-    function downloadCatalogImage() {
-        const captureArea = document.getElementById('catalog-capture-area');
-        if (!captureArea) {
+    async function downloadCatalogImage() {
+        const nodes = document.querySelectorAll('.catalog-capture-node');
+        if (nodes.length === 0) {
             alert('Area katalog tidak ditemukan!');
             return;
         }
@@ -231,38 +220,42 @@ $closeModal = function () {
         
         const btn = document.getElementById('btn-download-img');
         const originalText = btn.innerHTML;
-        btn.innerHTML = 'Memproses...';
+        btn.innerHTML = 'Memproses ' + nodes.length + ' Gambar...';
         btn.disabled = true;
 
-        // Beri jeda sedikit agar semua gambar bisa di-load dengan baik
-        setTimeout(() => {
-            htmlToImage.toJpeg(captureArea, { 
-                quality: 0.95, 
-                backgroundColor: '#ffffff',
-                pixelRatio: 2, // High resolution
-                style: {
-                    position: 'relative',
-                    top: '0',
-                    left: '0',
-                    transform: 'none'
-                }
-            })
-            .then(function (dataUrl) {
+        try {
+            // Beri jeda agar resource (gambar) sempat di-load
+            await new Promise(r => setTimeout(r, 500));
+
+            for (let i = 0; i < nodes.length; i++) {
+                btn.innerHTML = `Mengunduh (${i + 1}/${nodes.length})...`;
+                
+                const dataUrl = await htmlToImage.toJpeg(nodes[i], { 
+                    quality: 0.95, 
+                    backgroundColor: '#000000',
+                    pixelRatio: 1, // 1080x1080 is already large enough
+                    style: {
+                        transform: 'none'
+                    }
+                });
+                
                 const link = document.createElement('a');
-                link.download = 'Katalog-' + new Date().getTime() + '.jpg';
+                link.download = `Promo-${new Date().getTime()}-Barang-${i+1}.jpg`;
                 link.href = dataUrl;
                 link.click();
                 
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            })
-            .catch(function (error) {
-                console.error('Error generating image', error);
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-                alert('Gagal membuat gambar: ' + (error.message || 'Unknown error'));
-            });
-        }, 500);
+                // Jeda 500ms antar unduhan agar browser tidak memblokir multiple downloads
+                await new Promise(r => setTimeout(r, 500));
+            }
+            
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        } catch (error) {
+            console.error('Error generating image', error);
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            alert('Gagal membuat gambar: ' + (error.message || 'Unknown error'));
+        }
     }
 </script>
 </div>
