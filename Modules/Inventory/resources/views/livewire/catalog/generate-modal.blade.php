@@ -55,10 +55,11 @@ $generateLink = function () {
         'items' => $this->items,
     ];
 
-    $encoded = urlencode(base64_encode(json_encode($payload)));
+    $hash = \Illuminate\Support\Str::random(6);
+    \Illuminate\Support\Facades\Cache::put('catalog_' . $hash, $payload, \Carbon\Carbon::parse($this->valid_until));
     
-    // Asumsikan rute /catalog
-    $this->generatedUrl = url('/catalog?data=' . $encoded);
+    // Asumsikan rute /c/{hash}
+    $this->generatedUrl = url('/c/' . $hash);
 };
 
 $closeModal = function () {
