@@ -138,6 +138,41 @@ $save = function () {
                 $poi->save();
             }
         }
+
+        // Bypassing QC Approval -> Direct to Warehouse
+        if ($this->next_action !== 'queue' && !requires_qc_approval()) {
+            $ord->status = 'completed';
+            $ord->fulfilled_qty = $ord->requested_qty;
+            $ord->save();
+
+            $inventoryService = app(\App\Services\InventoryService::class);
+            $wh_id = $ord->target_warehouse_id ?? 1; // Default to main warehouse if null
+            $inventoryService->adjustStock(
+                $ord->item_id,
+                $wh_id,
+                $ord->requested_qty,
+                'in',
+                $ord->order_number,
+                'Penyelesaian Produksi Otomatis (QC Bypass). ' . $ord->notes
+            );
+            
+            // Generate Labels if required
+            if ($ord->item->requires_label) {
+                for ($i = 0; $i < $ord->requested_qty; $i++) {
+                    do {
+                        $code = strtoupper(\Illuminate\Support\Str::random(6));
+                    } while (\Modules\Inventory\Models\ItemLabel::where('label_code', $code)->exists());
+
+                    \Modules\Inventory\Models\ItemLabel::create([
+                        'item_id' => $ord->item_id,
+                        'label_code' => $code,
+                        'status' => 'in_stock',
+                        'warehouse_id' => $wh_id,
+                        'notes' => 'Otomatis Lolos Produksi (Bypass QC): ' . $ord->order_number,
+                    ]);
+                }
+            }
+        }
     }
 
         $this->dispatch('status-updated');

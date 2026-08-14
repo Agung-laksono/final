@@ -282,12 +282,18 @@ $saveCart = function ($cartData) {
         $finalNotes = trim(($finalNotes ?? '') . "\n\n[CUSTOM]");
     }
 
+    // Set initial status for new PO based on Workflow settings
+    $finalStatus = $this->status;
+    if (!$this->order_id) {
+        $finalStatus = requires_purchase_approval() ? 'pending_approval' : 'processing';
+    }
+
     $data = [
         'po_number' => $this->po_number,
         'vendor_id' => $this->vendor_id,
         'order_date' => $this->order_date,
         'expected_delivery_date' => $this->expected_delivery_date,
-        'status' => $this->status,
+        'status' => $finalStatus,
         'ongkir' => $this->ongkir,
         'diskon_global' => $this->diskon_global,
         'pajak' => $this->pajak_nominal,

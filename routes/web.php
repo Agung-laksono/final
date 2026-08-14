@@ -46,6 +46,7 @@ Route::get('/manifest.json', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
     Volt::route('notifications', 'notifications.index')->name('notifications.index');
+    Volt::route('docs/{slug?}', 'docs.index')->name('docs.index');
 
     // Pusher Beams - generate auth token for authenticated user
     Route::get('/beams/auth', function () {

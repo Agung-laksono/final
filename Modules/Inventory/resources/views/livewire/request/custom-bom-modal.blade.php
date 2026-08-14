@@ -188,6 +188,10 @@ new class extends Component {
             }
         }
         
+        // Jika material tidak lengkap -> 'waiting_material'.
+        // Jika material lengkap -> cek require_production_approval.
+        $prodStatus = $hasDeficit ? 'waiting_material' : (requires_production_approval() ? 'pending_approval' : 'material_fulfillment');
+        
         // Simpan ke Production Order dengan kolom custom_bom terisi
         ProductionOrder::create([
             'order_number' => $orderNumber,
@@ -195,7 +199,7 @@ new class extends Component {
             'requested_qty' => $this->woQty,
             'reference_number' => $req->reference_number,
             'notes' => 'Dialihkan dari Pivot Gudang (CUSTOM BOM). Notes: ' . $this->notes . ($req->notes ? " | Ref: " . $req->notes : ""),
-            'status' => $hasDeficit ? 'waiting_material' : 'material_fulfillment',
+            'status' => $prodStatus,
             'created_by' => auth()->id(),
             'custom_bom' => json_encode($this->items), // SIMPAN CUSTOM BOM
         ]);

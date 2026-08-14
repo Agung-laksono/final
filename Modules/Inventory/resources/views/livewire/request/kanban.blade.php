@@ -237,13 +237,17 @@ $confirmRouteToProduction = function () {
         }
         // --- END BOM EXPLOSION ---
         
+        // Jika material tidak lengkap -> 'waiting_material'.
+        // Jika material lengkap -> cek require_production_approval.
+        $prodStatus = $hasDeficit ? 'waiting_material' : (requires_production_approval() ? 'pending_approval' : 'material_fulfillment');
+        
         ProductionOrder::create([
             'order_number' => $orderNumber,
             'item_id' => $req->item_id,
             'requested_qty' => $this->woTargetQty,
             'reference_number' => $req->reference_number,
             'notes' => 'Dialihkan dari Pivot Gudang. Notes: ' . $this->woNotes . ($req->notes ? " | Ref: " . $req->notes : ""),
-            'status' => $hasDeficit ? 'waiting_material' : 'material_fulfillment',
+            'status' => $prodStatus,
             'created_by' => auth()->id(),
         ]);
         

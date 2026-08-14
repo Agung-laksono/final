@@ -250,24 +250,27 @@ $save = function () {
                             'sales_order_item_id' => $material['so_item_id'],
                             'item_id' => $material['item_id'],
                             'scanned_qty' => $deduct,
-                            'scanned_by' => auth()->id()
+                            'scanned_by' => auth()->id(),
+                            'status' => requires_outbound_approval() ? 'pending' : 'approved'
                         ]);
 
-                        $inventoryService->adjustStock(
-                            $material['item_id'],
-                            $wh->warehouse_id,
-                            $deduct,
-                            'out',
-                            $this->order->so_number,
-                            'Fulfillment SO.'
-                        );
+                        if (!requires_outbound_approval()) {
+                            $inventoryService->adjustStock(
+                                $material['item_id'],
+                                $wh->warehouse_id,
+                                $deduct,
+                                'out',
+                                $this->order->so_number,
+                                'Fulfillment SO.'
+                            );
+                        }
                         $remainingToDeduct -= $deduct;
                     }
                 }
             }
         }
         
-        $this->order->status = 'packing';
+        $this->order->status = requires_outbound_approval() ? 'pending_outbound' : 'packing';
         if ($this->notes) {
             $this->order->notes = $this->order->notes . "\n[Fulfillment Note]: " . $this->notes;
         }

@@ -144,7 +144,7 @@ $savePayment = function () {
         }
     }
 
-    SalesPayment::create([
+    $payment = SalesPayment::create([
         'sales_order_id' => $this->order->id,
         'amount' => $this->amount,
         'payment_method' => $this->payment_method,
@@ -156,11 +156,18 @@ $savePayment = function () {
         'status' => 'pending', // Menunggu validasi Finance
     ]);
 
-    \App\Events\PaymentSubmitted::safeDispatch('Pembayaran SO ' . $this->order->so_number . ' menunggu validasi');
+    if (!requires_finance_approval() && $this->finance_account_id) {
+        // Auto-approve payment
+        $financeService = app(\Modules\Finance\Services\FinanceService::class);
+        $financeService->approveSalesPayment($payment, $this->finance_account_id, auth()->id());
+        \Flux::toast('Pembayaran berhasil ditambahkan (Auto-Verified).', variant: 'success');
+    } else {
+        \App\Events\PaymentSubmitted::safeDispatch('Pembayaran SO ' . $this->order->so_number . ' menunggu validasi');
 
-    $financeUsers = \App\Models\User::withPermissionOrSuperAdmin(['sales.payment.validate'])->get();
-    \Illuminate\Support\Facades\Notification::send($financeUsers, new \App\Notifications\PaymentSubmittedNotification($this->order->so_number, $this->amount, auth()->user(), 'sales', $this->payment_method, $this->order->customer->name ?? '-'));
-    \Flux::toast('Bukti pembayaran berhasil diunggah. Menunggu validasi Finance.', variant: 'success');
+        $financeUsers = \App\Models\User::withPermissionOrSuperAdmin(['sales.payment.validate'])->get();
+        \Illuminate\Support\Facades\Notification::send($financeUsers, new \App\Notifications\PaymentSubmittedNotification($this->order->so_number, $this->amount, auth()->user(), 'sales', $this->payment_method, $this->order->customer->name ?? '-'));
+        \Flux::toast('Bukti pembayaran berhasil diunggah. Menunggu validasi Finance.', variant: 'success');
+    }
     
     $this->order->load('payments'); // Reload
     $this->amount = '';

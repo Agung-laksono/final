@@ -275,17 +275,20 @@ $save = function() {
                             'sales_order_item_id' => $so['so_item_id'],
                             'item_id' => $item->id,
                             'scanned_qty' => $deduct,
-                            'scanned_by' => auth()->id()
+                            'scanned_by' => auth()->id(),
+                            'status' => requires_outbound_approval() ? 'pending' : 'approved'
                         ]);
                         
-                        $inventoryService->adjustStock(
-                            $this->itemId,
-                            $wh->warehouse_id,
-                            $deduct,
-                            'out',
-                            $order->so_number,
-                            'Fulfillment SO (Batch).'
-                        );
+                        if (!requires_outbound_approval()) {
+                            $inventoryService->adjustStock(
+                                $this->itemId,
+                                $wh->warehouse_id,
+                                $deduct,
+                                'out',
+                                $order->so_number,
+                                'Fulfillment SO (Batch).'
+                            );
+                        }
                             
                         $remainingToDeduct -= $deduct;
                     }

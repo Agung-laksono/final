@@ -12,6 +12,7 @@
             @role('Super Admin')
                 <flux:navlist.item :href="route('settings.navigation')" :current="request()->routeIs('settings.navigation')" wire:navigate>{{ __('Navigation Icons') }}</flux:navlist.item>
                 <flux:navlist.item :href="route('settings.integrations')" wire:navigate>{{ __('Integrations') }}</flux:navlist.item>
+                <flux:navlist.item :href="route('settings.workflow')" :current="request()->routeIs('settings.workflow')" wire:navigate>Workflow Delegation</flux:navlist.item>
                 <flux:navlist.item :href="route('settings.brands')" wire:navigate>{{ __('Brands') }}</flux:navlist.item>
                 <flux:navlist.item :href="route('settings.pwa')" wire:navigate>PWA</flux:navlist.item>
             @endrole

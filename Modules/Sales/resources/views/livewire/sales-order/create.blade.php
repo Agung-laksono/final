@@ -297,12 +297,20 @@ $saveCart = function ($cartData) {
     if ($hasCustomItems && !str_contains($this->notes, '[CUSTOM]')) {
         $this->notes = '[CUSTOM] ' . $this->notes;
     }
+    
+    $isNew = !$this->order_id;
+    
+    // Terapkan Workflow Delegation: Sales Approval
+    $finalStatus = $this->status;
+    if ($isNew && $this->status === 'pending_approval' && !requires_sales_approval()) {
+        $finalStatus = 'processing';
+    }
 
     $data = [
         'so_number' => $this->so_number,
         'customer_id' => $this->customer_id,
         'order_date' => $this->order_date,
-        'status' => $this->status,
+        'status' => $finalStatus,
         'shipping_fee' => $this->shipping_fee,
         'discount' => $this->discount,
         'tax' => $this->tax,
@@ -312,8 +320,6 @@ $saveCart = function ($cartData) {
         'deadline' => $this->deadline,
         'notes' => $this->notes,
     ];
-
-    $isNew = !$this->order_id;
 
     if ($isNew) {
         $data['created_by'] = auth()->id();

@@ -186,7 +186,7 @@ $confirmSaveMaklon = function () {
             'vendor_id' => $vendor->id,
             'order_date' => now(),
             'expected_delivery_date' => $this->expected_delivery_date,
-            'status' => 'pending_approval',
+            'status' => requires_purchase_approval() ? 'pending_approval' : 'approved',
             'total_amount' => $totalAmount,
             'notes' => "Perintah Kerja Vendor/Jasa. Tenggat Waktu: " . $this->expected_delivery_date . ".\n\n" . $this->notes,
             'created_by' => auth()->id()
@@ -215,7 +215,7 @@ $confirmSaveMaklon = function () {
                 foreach ($group['orders'] as $order) {
                     $orderCost = $costPerUnit * $order->requested_qty;
                     
-                    $order->status = 'pending_approval';
+                    $order->status = requires_production_approval() ? 'pending_approval' : 'in_production';
                     $order->phase_type = $this->phase_type;
                     $order->vendor_cost = $orderCost;
                     $order->purchase_order_id = $po->id;
@@ -244,7 +244,7 @@ $confirmSaveMaklon = function () {
                     'notes' => $finalNotes
                 ]);
 
-                $order->status = 'pending_approval';
+                $order->status = requires_production_approval() ? 'pending_approval' : 'in_production';
                 $order->phase_type = $this->phase_type;
                 $order->vendor_cost = $orderCost;
                 $order->purchase_order_id = $po->id;
