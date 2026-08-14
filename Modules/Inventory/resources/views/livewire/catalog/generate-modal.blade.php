@@ -154,7 +154,7 @@ $closeModal = function () {
                 @endif
                 
                 {{-- Top Header (Overlay) --}}
-                <div class="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/90 via-black/60 to-transparent pt-12 pb-24 px-12 flex justify-between items-start pointer-events-none">
+                <div class="absolute top-0 inset-x-0 z-20 bg-gradient-to-b from-black/60 to-transparent pt-12 pb-12 px-12 flex justify-between items-start pointer-events-none">
                     <div>
                         <h1 class="text-5xl font-black text-white mb-3 tracking-tight drop-shadow-lg">{{ $title ?: 'Katalog Promo' }}</h1>
                         <div class="inline-flex items-center gap-2 bg-indigo-600/90 backdrop-blur-sm px-4 py-1.5 rounded-full border border-indigo-400/50">
@@ -170,7 +170,7 @@ $closeModal = function () {
                 </div>
 
                 {{-- Bottom Info (Overlay) --}}
-                <div class="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/90 to-transparent pt-40 pb-12 px-12 flex justify-between items-end pointer-events-none">
+                <div class="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black/70 to-transparent pt-24 pb-12 px-12 flex justify-between items-end pointer-events-none">
                     <div class="flex-1 pr-10">
                         <div class="flex items-center gap-4 mb-3">
                             <span class="bg-zinc-800 text-zinc-200 text-xl px-4 py-1.5 rounded-lg border border-zinc-700 font-bold tracking-wider uppercase">{{ $item->category?->name ?? 'Kategori' }}</span>
