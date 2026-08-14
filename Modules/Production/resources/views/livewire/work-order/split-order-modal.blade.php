@@ -136,7 +136,7 @@ $save = function () {
             </div>
 
             <div class="space-y-4">
-                <flux:input type="number" wire:model.live="split_qty" label="Kuantitas yang Didahulukan (Jalan Duluan)" max="{{ $order->requested_qty - 1 }}" min="1" description="Total SPK saat ini adalah {{ $order->requested_qty }} unit." />
+                <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model.live="split_qty" label="Kuantitas yang Didahulukan (Jalan Duluan)" max="{{ $order->requested_qty - 1 }}" min="1" description="Total SPK saat ini adalah {{ $order->requested_qty }} unit." />
                 
                 @if($split_qty && $split_qty > 0 && $split_qty < $order->requested_qty)
                     <div class="mt-4 p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 space-y-2">

@@ -189,8 +189,7 @@ new class extends Component {
                     </div>
 
                     {{-- Sort Order --}}
-                    <input type="number"
-                           value="{{ $item->sort_order }}"
+                    <input type="number" inputmode="numeric" pattern="[0-9]*" value="{{ $item->sort_order }}"
                            wire:change="updateSortOrder({{ $item->id }}, $event.target.value)"
                            class="w-14 text-center text-xs bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg py-1 focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-zinc-600 dark:text-zinc-400"
                            title="Urutan"

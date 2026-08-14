@@ -45,7 +45,7 @@ on(['open-print-labels' => function ($labelIds) {
                                 <td class="px-4 py-3 text-zinc-900 dark:text-white truncate max-w-[200px]" title="{{ $label->item->name }}">{{ $label->item->name }}</td>
                                 <td class="px-4 py-3 font-mono text-xs text-zinc-500">{{ $label->label_code }}</td>
                                 <td class="px-4 py-2">
-                                    <flux:input type="number" min="1" max="100" wire:model.live="copies.{{ $label->id }}" class="!w-24" />
+                                    <flux:input type="number" inputmode="numeric" pattern="[0-9]*" min="1" max="100" wire:model.live="copies.{{ $label->id }}" class="!w-24" />
                                 </td>
                             </tr>
                         @endforeach

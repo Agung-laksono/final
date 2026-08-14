@@ -494,8 +494,7 @@ $save = function () {
                                 <flux:input
                                     id="qty-input-{{ $index }}-{{ $distIndex }}"
                                     wire:model.live="items.{{ $index }}.distributions.{{ $distIndex }}.qty"
-                                    type="number"
-                                    min="0"
+                                    type="number" inputmode="numeric" pattern="[0-9]*" min="0"
                                     max="{{ $item['remaining'] }}"
                                     x-on:input="
                                         let dists = $wire.items[{{ $index }}].distributions;

@@ -258,7 +258,7 @@ $handleItemSelected = function ($itemData) {
                                     <div class="flex items-center gap-3 mt-1 sm:mt-0 justify-between sm:justify-end border-t sm:border-0 border-zinc-100 dark:border-zinc-700 pt-3 sm:pt-0">
                                         <div class="flex items-center gap-2">
                                             <div class="w-24">
-                                                <flux:input type="number" wire:model="materials.{{ $index }}.qty" step="1" min="1" class="text-center !h-8 !text-sm" />
+                                                <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model="materials.{{ $index }}.qty" step="1" min="1" class="text-center !h-8 !text-sm" />
                                                 @error('materials.'.$index.'.qty') <span class="text-[10px] text-red-500 block mt-1">{{ $message }}</span> @enderror
                                             </div>
                                             <span class="text-xs text-zinc-500 font-medium w-8">{{ $mat['unit'] ?? 'pcs' }}</span>

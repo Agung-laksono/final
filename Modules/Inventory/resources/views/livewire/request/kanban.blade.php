@@ -603,7 +603,7 @@ on([
             <p class="text-sm text-zinc-500 mb-6">Tentukan target produksi dan rute untuk <span class="font-bold text-zinc-900 dark:text-white">{{ $woTargetItemName }}</span>.</p>
             
             <div class="space-y-5">
-                <flux:input wire:model="woTargetQty" type="number" min="1" label="Target Kuantitas" />
+                <flux:input wire:model="woTargetQty" type="number" inputmode="numeric" pattern="[0-9]*" min="1" label="Target Kuantitas" />
                 
 
                 

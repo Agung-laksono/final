@@ -780,7 +780,7 @@ $saveCart = function ($cartData) {
                                         {{-- Qty Control --}}
                                         <div class="flex items-center bg-zinc-50 dark:bg-zinc-800/50 rounded-lg h-[32px] shrink-0">
                                             <button type="button" @click="decrementQty(index)" class="w-8 h-full flex items-center justify-center text-zinc-400 hover:text-amber-600">-</button>
-                                            <input type="number" x-model.number="item.qty" @input="updateItemSubtotal(index)" @change="validateQty(index)" class="w-10 text-center bg-transparent border-none focus:ring-0 p-0 text-[13px] font-bold text-[#1a2b4c] dark:text-zinc-100" :min="item.min_qty || 1" step="1" />
+                                            <input type="number" inputmode="numeric" pattern="[0-9]*" x-model.number="item.qty" @input="updateItemSubtotal(index)" @change="validateQty(index)" class="w-10 text-center bg-transparent border-none focus:ring-0 p-0 text-[13px] font-bold text-[#1a2b4c] dark:text-zinc-100" :min="item.min_qty || 1" step="1" />
                                             <button type="button" @click="incrementQty(index)" class="w-8 h-full flex items-center justify-center text-zinc-400 hover:text-amber-600">+</button>
                                         </div>
                                     </div>
@@ -1047,7 +1047,7 @@ $saveCart = function ($cartData) {
                     <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-3">Tentukan batas waktu (kadaluarsa) berlakunya penawaran dan harga ini.</p>
                     <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-white dark:bg-zinc-900 shadow-sm">
                         <div class="flex items-center gap-4">
-                            <flux:input type="number" x-model="days" x-on:input="calculateDate" class="w-24 font-bold text-center" min="0" placeholder="0" />
+                            <flux:input type="number" inputmode="numeric" pattern="[0-9]*" x-model="days" x-on:input="calculateDate" class="w-24 font-bold text-center" min="0" placeholder="0" />
                             <span class="text-sm text-zinc-500 leading-tight">Hari dari<br>sekarang</span>
                         </div>
                         
@@ -1163,7 +1163,7 @@ $saveCart = function ($cartData) {
                             
                             {{-- Form Tambah Kecil --}}
                             <div x-show="showAdd" x-cloak class="flex items-center gap-1 bg-zinc-50 dark:bg-zinc-800 p-0.5 rounded border border-zinc-200 dark:border-zinc-700">
-                                <input type="number" x-ref="newTaxInput" x-model="newTax" @keydown.enter.prevent="addOption" @keydown.escape="showAdd = false" class="w-12 px-1 py-0.5 text-xs rounded bg-white border border-zinc-200 dark:border-zinc-600 dark:bg-zinc-900 text-center focus:outline-none focus:border-zinc-400" placeholder="%" />
+                                <input type="number" inputmode="numeric" pattern="[0-9]*" x-ref="newTaxInput" x-model="newTax" @keydown.enter.prevent="addOption" @keydown.escape="showAdd = false" class="w-12 px-1 py-0.5 text-xs rounded bg-white border border-zinc-200 dark:border-zinc-600 dark:bg-zinc-900 text-center focus:outline-none focus:border-zinc-400" placeholder="%" />
                                 <button type="button" @click="addOption" class="p-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-500" title="Simpan"><flux:icon.check class="w-3 h-3" /></button>
                                 <button type="button" @click="showAdd = false" class="p-1 text-zinc-400 hover:text-red-500" title="Batal"><flux:icon.x-mark class="w-3 h-3" /></button>
                             </div>

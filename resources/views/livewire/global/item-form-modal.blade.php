@@ -54,10 +54,10 @@ new class extends Component {
     public $selling_price = 0;
     
     #[Rule('required|integer|min:0')]
-    public $min_stock = null;
+    public $min_stock = 0;
     
     #[Rule('required|integer|min:0|gte:min_stock')]
-    public $max_stock = null;
+    public $max_stock = 0;
     
     #[Rule('boolean')]
     public $is_active = true;
@@ -159,8 +159,8 @@ new class extends Component {
             $this->sub_category_id = '';
             $this->purchase_price = 0;
             $this->selling_price = 0;
-            $this->min_stock = null;
-            $this->max_stock = null;
+            $this->min_stock = 0;
+            $this->max_stock = 0;
             // Otomatis aktif jika diinput dari modul Inventory ATAU jika user memiliki Role Gudang / Admin
             $isInventoryUser = auth()->check() && auth()->user()->hasAnyRole([
                 'Super Admin', 'Manager', 'Kepala Gudang', 'Staf Gudang', 'Staf Gudang PPIC', 'Staf Gudang Fulfillment'
@@ -600,11 +600,11 @@ new class extends Component {
                             <div class="grid grid-cols-2 gap-5">
                                 <div>
                                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Stok Min (Kritis) <span class="text-red-500">*</span></label>
-                                    <flux:input type="number" wire:model.live="min_stock" placeholder="Batas notifikasi" required min="0" />
+                                    <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model.live="min_stock" placeholder="0" required min="0" />
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Stok Max (Ideal) <span class="text-red-500">*</span></label>
-                                    <flux:input type="number" wire:model.live="max_stock" placeholder="Batas ideal" required x-bind:min="$wire.min_stock || 0" />
+                                    <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model.live="max_stock" placeholder="0" required x-bind:min="$wire.min_stock || 0" />
                                 </div>
                             </div>
 

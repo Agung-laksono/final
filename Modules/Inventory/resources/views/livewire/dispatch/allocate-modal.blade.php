@@ -154,7 +154,7 @@ $save = function () {
                             </div>
                             
                             <div class="w-24 shrink-0 transition-all duration-300">
-                                <flux:input type="number" wire:model.live.debounce.300ms="distributions.{{ $index }}.qty" min="1" max="{{ $order->requested_qty }}" placeholder="Qty" />
+                                <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model.live.debounce.300ms="distributions.{{ $index }}.qty" min="1" max="{{ $order->requested_qty }}" placeholder="Qty" />
                             </div>
                             
                             @if(count($distributions) > 1)

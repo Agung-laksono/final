@@ -168,7 +168,7 @@ $save = function () {
 
             <div class="space-y-4">
                 @if(!$isBulk)
-                    <flux:input type="number" wire:model="completed_qty" label="Berapa Kuantitas yang dikirim saat ini?" max="{{ $order->requested_qty }}" min="1" description="Ubah angka ini jika vendor mengirimkan barang secara parsial (sebagian). Sistem akan membelah pesanan ini otomatis." />
+                    <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model="completed_qty" label="Berapa Kuantitas yang dikirim saat ini?" max="{{ $order->requested_qty }}" min="1" description="Ubah angka ini jika vendor mengirimkan barang secara parsial (sebagian). Sistem akan membelah pesanan ini otomatis." />
                 @endif
                 
                 <flux:radio.group wire:model="next_action" variant="cards" class="flex-col">

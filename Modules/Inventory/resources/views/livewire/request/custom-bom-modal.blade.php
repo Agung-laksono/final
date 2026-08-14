@@ -359,7 +359,7 @@ new class extends Component {
                                 <div class="flex items-center gap-3 mt-1 sm:mt-0 justify-between sm:justify-end border-t sm:border-0 border-zinc-100 dark:border-zinc-700 pt-3 sm:pt-0">
                                     <div class="flex items-center gap-2">
                                         <div class="w-24">
-                                            <flux:input type="number" wire:model.blur="items.{{ $index }}.qty" min="0.01" step="0.01" class="text-center !h-8 !text-sm" />
+                                            <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model.blur="items.{{ $index }}.qty" min="0.01" step="0.01" class="text-center !h-8 !text-sm" />
                                         </div>
                                         <span class="text-xs text-zinc-500 font-medium w-8">{{ $item['unit'] }}</span>
                                     </div>

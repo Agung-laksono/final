@@ -248,8 +248,7 @@ $save = function () {
 
             <div class="grid grid-cols-2 gap-4">
                 <div class="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50">
-                    <flux:input type="number" 
-                        wire:model.live.debounce.300ms="qty_good" 
+                    <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model.live.debounce.300ms="qty_good" 
                         label="Qty Lolos (Good)" 
                         min="0" 
                         max="{{ $order->requested_qty - $order->fulfilled_qty - $qty_reject }}" 
@@ -263,8 +262,7 @@ $save = function () {
                         description="Barang mulus masuk ke stok" />
                 </div>
                 <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800/50">
-                    <flux:input type="number" 
-                        wire:model.live.debounce.300ms="qty_reject" 
+                    <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model.live.debounce.300ms="qty_reject" 
                         label="Qty Cacat (Reject)" 
                         min="0" 
                         max="{{ $order->requested_qty - $order->fulfilled_qty - $qty_good }}" 

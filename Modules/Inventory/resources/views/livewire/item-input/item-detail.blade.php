@@ -914,7 +914,7 @@ $saveInitialStock = function () {
                     @endif
                 </flux:select>
                 
-                <flux:input wire:model="initial_stock_qty" type="number" min="1" label="Jumlah Fisik" required />
+                <flux:input wire:model="initial_stock_qty" type="number" inputmode="numeric" pattern="[0-9]*" min="1" label="Jumlah Fisik" required />
                 
                 <flux:input wire:model="initial_stock_notes" label="Catatan (Opsional)" />
                 

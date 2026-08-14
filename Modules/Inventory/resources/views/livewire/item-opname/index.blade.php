@@ -521,7 +521,7 @@ $save = function () {
                                             <span class="md:hidden text-[11px] text-zinc-500 uppercase font-medium shrink-0">Aktual</span>
                                             <div class="flex flex-col items-end md:items-center w-32 md:w-full gap-1">
                                                 @if($item->requires_label)
-                                                    <flux:input type="number" value="{{ count($scanned_labels[$item->id] ?? []) }}" class="w-full text-right md:text-center h-8 text-sm" disabled />
+                                                    <flux:input type="number" inputmode="numeric" pattern="[0-9]*" value="{{ count($scanned_labels[$item->id] ?? []) }}" class="w-full text-right md:text-center h-8 text-sm" disabled />
                                                     
                                                     @if($inputMode === 'manual')
                                                         <flux:button wire:click="openSnModal({{ $item->id }})" size="xs" variant="outline" class="w-full text-[10px] h-6 px-1">
@@ -531,7 +531,7 @@ $save = function () {
                                                         <p class="text-[10px] text-zinc-500 text-right md:text-center w-full">Scan label SN</p>
                                                     @endif
                                                 @else
-                                                    <flux:input type="number" wire:model.live="opnameData.{{ $item->id }}.actual_stock" placeholder="0" class="w-full text-right md:text-center h-8 text-sm" :disabled="$inputMode === 'barcode'" />
+                                                    <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model.live="opnameData.{{ $item->id }}.actual_stock" placeholder="0" class="w-full text-right md:text-center h-8 text-sm" :disabled="$inputMode === 'barcode'" />
                                                     
                                                     @if($inputMode === 'barcode')
                                                         <p class="text-[10px] text-zinc-500 text-right md:text-center w-full">Scan SKU</p>

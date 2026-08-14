@@ -456,7 +456,7 @@ $save = function () {
                                 @endif
                             </div>
                             <div class="w-full sm:w-32">
-                                <flux:input type="number" wire:model="selected_item_qty" placeholder="Qty" min="1" tooltip="Jumlah Kuantitas" />
+                                <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model="selected_item_qty" placeholder="Qty" min="1" tooltip="Jumlah Kuantitas" />
                             </div>
                             <div class="w-full sm:w-auto">
                                 <flux:button type="button" wire:click="addItem" variant="filled" icon="plus" class="w-full">Tambah</flux:button>
@@ -511,7 +511,7 @@ $save = function () {
                                                         <span class="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">Scanned</span>
                                                     </div>
                                                 @else
-                                                    <flux:input type="number" wire:model="transfer_items.{{ $index }}.quantity" min="1" max="{{ $item['available_stock'] }}" class="w-24 sm:w-full text-right sm:text-center" />
+                                                    <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model="transfer_items.{{ $index }}.quantity" min="1" max="{{ $item['available_stock'] }}" class="w-24 sm:w-full text-right sm:text-center" />
                                                 @endif
                                             </div>
                                         </td>

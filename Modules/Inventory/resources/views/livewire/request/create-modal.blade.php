@@ -159,7 +159,7 @@ $save = function () {
                                 <flux:field>
                                     <flux:label class="!text-xs">Jumlah</flux:label>
                                     <div class="flex items-center">
-                                        <flux:input type="number" wire:model="items.{{ $index }}.qty" min="1" required class="rounded-r-none text-center" />
+                                        <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model="items.{{ $index }}.qty" min="1" required class="rounded-r-none text-center" />
                                         <div class="bg-zinc-100 dark:bg-zinc-800 border border-l-0 border-zinc-200 dark:border-zinc-700 px-3 py-2 rounded-r-lg text-sm text-zinc-600 dark:text-zinc-400 font-medium whitespace-nowrap">
                                             {{ $item['unit'] }}
                                         </div>
