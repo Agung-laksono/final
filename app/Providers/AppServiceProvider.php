@@ -15,7 +15,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Load helpers manually to avoid requiring composer dump-autoload on hosting
+        if (file_exists(app_path('Helpers/WorkflowHelper.php'))) {
+            require_once app_path('Helpers/WorkflowHelper.php');
+        }
     }
 
     /**
