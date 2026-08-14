@@ -117,13 +117,15 @@ $closeModal = function () {
                 </div>
             </div>
         @else
-            <div class="flex items-center gap-3 justify-end mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                <flux:button wire:click="closeModal" variant="subtle">Batal</flux:button>
+            <div class="flex flex-col-reverse sm:flex-row mt-6 gap-2 sm:gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                <flux:button wire:click="closeModal" variant="subtle" class="w-full sm:w-auto">Batal</flux:button>
                 
-                <flux:button variant="subtle" id="btn-download-img" icon="photo" onclick="downloadCatalogImage()">
+                <flux:spacer class="hidden sm:block" />
+                
+                <flux:button variant="subtle" id="btn-download-img" icon="photo" onclick="downloadCatalogImage()" class="w-full sm:w-auto">
                     Download Gambar
                 </flux:button>
-                <flux:button wire:click="generateLink" variant="primary" icon="link">
+                <flux:button wire:click="generateLink" variant="primary" icon="link" class="w-full sm:w-auto">
                     Buat Link
                 </flux:button>
             </div>
