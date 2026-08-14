@@ -108,7 +108,9 @@ $closeModal = function () {
                         <span x-show="copied" x-cloak><flux:icon.check class="w-4 h-4" /></span>
                     </flux:button>
                     
-                    <flux:button variant="filled" href="{{ $generatedUrl }}" target="_blank" title="Buka di tab baru">
+                    <flux:button variant="filled" 
+                        @click="window.open('{{ $generatedUrl }}', '_blank')" 
+                        title="Buka di tab baru">
                         <flux:icon.arrow-top-right-on-square class="w-4 h-4" />
                     </flux:button>
                 </div>
