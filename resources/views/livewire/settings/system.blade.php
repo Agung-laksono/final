@@ -22,8 +22,34 @@ new class extends Component {
     public $wipeImages = false;
     public $wipeUsers = false;
 
+    // Auto Backup Settings
+    public $autoBackupEnabled = false;
+    public $autoBackupSchedule = 'daily';
+    public $autoBackupTime = '23:59';
+    public $autoBackupRetention = 30;
+
     public function mount() {
         $this->loadBackups();
+        
+        $this->autoBackupEnabled = \App\Models\Setting::where('key', 'backup_auto_enabled')->value('value') === 'true';
+        $this->autoBackupSchedule = \App\Models\Setting::where('key', 'backup_auto_schedule')->value('value') ?? 'daily';
+        $this->autoBackupTime = \App\Models\Setting::where('key', 'backup_auto_time')->value('value') ?? '23:59';
+        $this->autoBackupRetention = \App\Models\Setting::where('key', 'backup_auto_retention')->value('value') ?? 30;
+    }
+
+    public function saveAutoBackupSettings() {
+        $this->validate([
+            'autoBackupSchedule' => 'required|in:daily,weekly,monthly',
+            'autoBackupTime' => 'required|date_format:H:i',
+            'autoBackupRetention' => 'required|integer|min:1|max:365',
+        ]);
+
+        \App\Models\Setting::updateOrCreate(['key' => 'backup_auto_enabled'], ['value' => $this->autoBackupEnabled ? 'true' : 'false']);
+        \App\Models\Setting::updateOrCreate(['key' => 'backup_auto_schedule'], ['value' => $this->autoBackupSchedule]);
+        \App\Models\Setting::updateOrCreate(['key' => 'backup_auto_time'], ['value' => $this->autoBackupTime]);
+        \App\Models\Setting::updateOrCreate(['key' => 'backup_auto_retention'], ['value' => $this->autoBackupRetention]);
+
+        \Flux::toast('Pengaturan backup otomatis berhasil disimpan.', variant: 'success');
     }
 
     public function loadBackups() {
@@ -309,6 +335,77 @@ new class extends Component {
                     </tbody>
                 </table>
             </div>
+        </section>
+
+        <flux:separator />
+
+        {{-- AUTO BACKUP SETTINGS SECTION --}}
+        <section>
+            <form wire:submit="saveAutoBackupSettings" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Pengaturan Backup Otomatis</h3>
+                        <p class="text-sm text-zinc-500">Jadwalkan backup otomatis (Cron) dan tentukan usia retensi penghapusan (Auto-Clean).</p>
+                    </div>
+                    <flux:switch wire:model.live="autoBackupEnabled" />
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 transition-opacity {{ $autoBackupEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none' }}">
+                    <flux:select wire:model="autoBackupSchedule" label="Frekuensi">
+                        <option value="daily">Harian</option>
+                        <option value="weekly">Mingguan</option>
+                        <option value="monthly">Bulanan</option>
+                    </flux:select>
+                    
+                    <flux:input type="time" wire:model="autoBackupTime" label="Jam Eksekusi" />
+                    
+                    <flux:input type="number" min="1" max="365" wire:model="autoBackupRetention" label="Simpan Selama (Hari)" />
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <flux:button type="submit" variant="primary" icon="check" size="sm">Simpan Jadwal</flux:button>
+                </div>
+
+                @if($autoBackupEnabled)
+                <div class="mt-6 pt-6 border-t border-zinc-200 dark:border-zinc-700 transition-opacity">
+                    <p class="text-sm font-semibold text-zinc-900 dark:text-white mb-2">Panduan Integrasi Server (cPanel / VPS)</p>
+                    <p class="text-xs text-zinc-500 mb-3">Salin dan tempel perintah Master Cron Job di bawah ini ke pengaturan server Anda. Pengaturan ini hanya perlu ditambahkan <strong>satu kali saja</strong>:</p>
+                    
+                    <div class="relative group mt-3">
+                        <flux:input 
+                            readonly 
+                            value="* * * * * cd {{ base_path() }} && php artisan schedule:run >> /dev/null 2>&1"
+                            class="font-mono text-xs !bg-zinc-50 dark:!bg-zinc-800"
+                        />
+                        <div class="absolute inset-y-0 right-1 flex items-center">
+                            <flux:button 
+                                variant="subtle" 
+                                size="sm" 
+                                icon="clipboard-document" 
+                                class="!px-2 h-8"
+                                onclick="navigator.clipboard.writeText('* * * * * cd {{ addslashes(base_path()) }} && php artisan schedule:run >> /dev/null 2>&1'); alert('Disalin ke clipboard!')"
+                                tooltip="Salin"
+                            />
+                        </div>
+                    </div>
+
+                    <details class="mt-4 border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 bg-zinc-50/50 dark:bg-zinc-800/20 text-sm cursor-pointer [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="font-medium text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
+                            Lihat Panduan Pemasangan (cPanel)
+                            <flux:icon.chevron-down class="w-4 h-4 text-zinc-400 transition-transform duration-200 group-open:-rotate-180" />
+                        </summary>
+                        <div class="mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 space-y-2 cursor-auto">
+                            <p><strong>Langkah 1:</strong> Login ke dashboard cPanel *hosting* Anda.</p>
+                            <p><strong>Langkah 2:</strong> Gulir ke bawah ke bagian <em>Advanced</em> dan temukan menu <strong>Cron Jobs</strong>.</p>
+                            <p><strong>Langkah 3:</strong> Pada bagian <em>Common Settings</em>, pilih opsi <strong>Once Per Minute (* * * * *)</strong>.</p>
+                            <p><strong>Langkah 4:</strong> Salin perintah yang telah di-<em>generate</em> di atas dan tempelkan ke dalam kotak isian <strong>Command</strong>.</p>
+                            <p><strong>Langkah 5:</strong> Klik tombol <strong>Add New Cron Job</strong>. Selesai!</p>
+                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 italic">* Catatan: Anda hanya perlu melakukan pengaturan ini satu kali. Seluruh jadwal Backup Anda akan diatur langsung dari halaman ini oleh sistem.</p>
+                        </div>
+                    </details>
+                </div>
+                @endif
+            </form>
         </section>
 
         <flux:separator />
