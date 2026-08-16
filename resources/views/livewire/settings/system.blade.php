@@ -141,10 +141,6 @@ new class extends Component {
         }
     }
 
-    public function downloadBackup($name) {
-        return Storage::disk('local')->download('backups/' . $name);
-    }
-
     public function deleteBackup($name) {
         Storage::disk('local')->delete('backups/' . $name);
         \Flux::toast('Backup dihapus.', variant: 'success');
@@ -291,7 +287,7 @@ new class extends Component {
                                 <td class="px-4 py-3">{{ $backup['size'] }}</td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex items-center justify-end gap-2">
-                                        <flux:button wire:click="downloadBackup('{{ $backup['name'] }}')" variant="subtle" size="sm" class="!px-2" tooltip="Download ke Komputer">
+                                        <flux:button as="a" href="{{ route('settings.backup.download', $backup['name']) }}" variant="subtle" size="sm" class="!px-2" tooltip="Download ke Komputer">
                                             <flux:icon.arrow-down-tray class="w-4 h-4 text-zinc-500" />
                                         </flux:button>
                                         <flux:button wire:click="restoreBackup('{{ $backup['name'] }}')" wire:confirm="PERINGATAN: Me-restore sistem ini akan MENIMPA dan MENGHAPUS semua database dan gambar saat ini. Anda yakin?" variant="subtle" size="sm" icon="arrow-path">

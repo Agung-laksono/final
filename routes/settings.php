@@ -32,5 +32,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         \Livewire\Volt\Volt::route('settings/navigation', 'settings.navigation-icons')->name('settings.navigation');
         \Livewire\Volt\Volt::route('settings/workflow', 'settings.workflow')->name('settings.workflow');
         \Livewire\Volt\Volt::route('settings/system', 'settings.system')->name('settings.system');
+        
+        Route::get('settings/system/download-backup/{name}', function ($name) {
+            $path = \Illuminate\Support\Facades\Storage::disk('local')->path('backups/' . $name);
+            if (!file_exists($path)) {
+                abort(404, 'File backup tidak ditemukan.');
+            }
+            return response()->download($path);
+        })->name('settings.backup.download');
     });
 });
