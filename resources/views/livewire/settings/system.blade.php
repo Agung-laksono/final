@@ -374,7 +374,7 @@ new class extends Component {
                     <div class="relative group mt-3">
                         <flux:input 
                             readonly 
-                            value="* * * * * cd {{ base_path() }} && php artisan schedule:run >> /dev/null 2>&1"
+                            value="cd {{ base_path() }} && php artisan schedule:run >> /dev/null 2>&1"
                             class="font-mono text-xs !bg-zinc-50 dark:!bg-zinc-800"
                         />
                         <div class="absolute inset-y-0 right-1 flex items-center">
@@ -383,7 +383,7 @@ new class extends Component {
                                 size="sm" 
                                 icon="clipboard-document" 
                                 class="!px-2 h-8"
-                                onclick="navigator.clipboard.writeText('* * * * * cd {{ addslashes(base_path()) }} && php artisan schedule:run >> /dev/null 2>&1'); alert('Disalin ke clipboard!')"
+                                onclick="navigator.clipboard.writeText('cd {{ addslashes(base_path()) }} && php artisan schedule:run >> /dev/null 2>&1'); alert('Disalin ke clipboard!')"
                                 tooltip="Salin"
                             />
                         </div>
