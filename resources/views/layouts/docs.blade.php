@@ -81,5 +81,21 @@
             </main>
         </div>
         
+        <script type="module">
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+            mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default' });
+            
+            document.addEventListener("DOMContentLoaded", function() {
+                const elements = document.querySelectorAll('code.language-mermaid');
+                elements.forEach((el) => {
+                    const mermaidCode = el.textContent;
+                    const div = document.createElement('div');
+                    div.className = 'mermaid flex justify-center w-full my-8 overflow-x-auto';
+                    div.textContent = mermaidCode;
+                    el.parentNode.replaceWith(div);
+                });
+                mermaid.run();
+            });
+        </script>
     </body>
 </html>

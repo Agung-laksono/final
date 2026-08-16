@@ -172,7 +172,7 @@ $setViewMode = function ($mode) {
                     @endforelse
                 </flux:table.rows>
             </flux:table>
-        </div>
+        </x-table.wrapper>
     @else
         {{-- Tampilan Grid (Compact Cards) --}}
         <div wire:key="view-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
