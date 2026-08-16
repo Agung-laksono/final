@@ -87,8 +87,21 @@
             
             document.addEventListener("DOMContentLoaded", function() {
                 const elements = document.querySelectorAll('code.language-mermaid');
+                const isDesktop = window.innerWidth >= 1024;
+                
                 elements.forEach((el) => {
-                    const mermaidCode = el.textContent;
+                    let mermaidCode = el.textContent;
+                    
+                    // Fitur Auto-Orientation / 2-Mode:
+                    // Jika layar besar (Desktop) dan BUKAN diagram Struktur Organisasi Murni (yang butuh ke bawah)
+                    if (isDesktop && !mermaidCode.includes('classDef topLevel')) {
+                        mermaidCode = mermaidCode.replace(/^graph TD/gm, 'graph LR');
+                    } 
+                    // Jika layar kecil (Mobile), paksa semua diagram menurun dari atas ke bawah
+                    else if (!isDesktop) {
+                        mermaidCode = mermaidCode.replace(/^graph LR/gm, 'graph TD');
+                    }
+                    
                     const div = document.createElement('div');
                     div.className = 'mermaid flex justify-center w-full my-8 overflow-x-auto';
                     div.textContent = mermaidCode;

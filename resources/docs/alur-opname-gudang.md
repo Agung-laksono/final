@@ -5,7 +5,7 @@ Dokumen ini menjelaskan prosedur audit inventaris fisik (*Stock Opname*) untuk m
 ## Diagram Alur Opname
 
 ```mermaid
-graph LR
+graph TD
     classDef step fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#fff
     classDef decision fill:#334155,stroke:#f59e0b,stroke-width:2px,color:#fff
     classDef done fill:#065f46,stroke:#10b981,stroke-width:2px,color:#fff
