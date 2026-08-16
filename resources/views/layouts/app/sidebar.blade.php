@@ -43,10 +43,9 @@
                     $items = $navGroups[$section];
                     $sectionPerm = $sectionPermissions[$section] ?? null;
                 @endphp
-                @if($sectionPerm)
-                @can($sectionPerm)
-                @endif
 
+                {{-- Tampilkan section hanya jika user punya akses section, ATAU tidak ada syarat permission --}}
+                @if(!$sectionPerm || auth()->user()?->can($sectionPerm))
                 <flux:sidebar.nav>
                     <flux:navlist.group heading="{{ __($section) }}" expandable class="mb-2 text-zinc-900 dark:text-zinc-100">
                         @foreach($items as $item)
@@ -55,10 +54,7 @@
                                 $hasBadge = isset($badgeItems[$item->route_name]);
                             @endphp
                             @if($routeExists)
-                                @if($item->permission)
-                                    @can($item->permission)
-                                @endif
-
+                                @if(!$item->permission || auth()->user()?->can($item->permission))
                                 <flux:sidebar.item
                                     :href="route($item->route_name)"
                                     :current="request()->routeIs($item->route_name . '*')"
@@ -79,19 +75,14 @@
                                     </x-slot:icon>
                                     {{ __($item->label) }}
                                 </flux:sidebar.item>
-
-                                @if($item->permission)
-                                    @endcan
                                 @endif
                             @endif
                         @endforeach
                     </flux:navlist.group>
                 </flux:sidebar.nav>
+                @endif {{-- end section permission check --}}
 
-                @if($sectionPerm)
-                @endcan
-                @endif
-                @endif
+                @endif {{-- end navGroups isset --}}
             @endforeach
 
             {{-- LAINNYA (Utama, Artikel, Pengaturan) --}}
