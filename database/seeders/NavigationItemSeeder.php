@@ -58,7 +58,7 @@ class NavigationItemSeeder extends Seeder
 
             // ── LAINNYA ────────────────────────────────────────────
             ['route_name' => 'dashboard',                    'label' => 'Dashboard Utama',    'icon' => 'home',                       'section' => 'LAINNYA',     'sub_group' => null,                      'badge_type' => null,                                   'menu_column' => 1, 'sort_order' => 1,  'permission' => null],
-            ['route_name' => 'cms.posts.index',              'label' => 'Artikel Dokumen',    'icon' => 'newspaper',                  'section' => 'LAINNYA',     'sub_group' => null,                      'badge_type' => null,                                   'menu_column' => 1, 'sort_order' => 2,  'permission' => null],
+            ['route_name' => 'cms.posts.index',              'label' => 'Artikel Dokumen',    'icon' => 'newspaper',                  'section' => 'LAINNYA',     'sub_group' => null,                      'badge_type' => null,                                   'menu_column' => 1, 'sort_order' => 2,  'permission' => 'cms.posts.view'],
             ['route_name' => 'settings.index',               'label' => 'Pengaturan Aplikasi','icon' => 'cog-6-tooth',                'section' => 'LAINNYA',     'sub_group' => 'Sistem',                  'badge_type' => null,                                   'menu_column' => 1, 'sort_order' => 3,  'permission' => null],
         ];
 

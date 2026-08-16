@@ -10,6 +10,9 @@
             </div>
         @endif
         
+        <!-- Onboarding / Setup Guide -->
+        <livewire:dashboard.onboarding-widget />
+        
         <!-- Widget Pengumuman CMS -->
         <livewire:dashboard.announcement-widget />
         

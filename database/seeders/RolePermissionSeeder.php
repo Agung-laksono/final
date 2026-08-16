@@ -101,6 +101,13 @@ class RolePermissionSeeder extends Seeder
             'finance.transfers.update',
             'finance.transfers.delete',
             
+            // Modul CMS (Artikel & Dokumen)
+            'cms.posts.view',
+            'cms.posts.create',
+            'cms.posts.update',
+            'cms.posts.delete',
+            'docs.view',
+
             // Modul Pembelian (Purchase)
             'purchase.dashboard.view',
             'purchase.queue.view',
