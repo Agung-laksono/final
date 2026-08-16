@@ -37,11 +37,12 @@ new class extends Component {
     public $wipeImageProfiles = false;
     public $wipeUsers = false;
 
-    // Auto Backup Settings
     public $autoBackupEnabled = false;
     public $autoBackupSchedule = 'daily';
     public $autoBackupTime = '23:59';
     public $autoBackupRetention = 30;
+    
+    public $originalBackupSettings = [];
 
     public $counts = [];
 
@@ -53,6 +54,20 @@ new class extends Component {
         $this->autoBackupSchedule = \App\Models\Setting::where('key', 'backup_auto_schedule')->value('value') ?? 'daily';
         $this->autoBackupTime = \App\Models\Setting::where('key', 'backup_auto_time')->value('value') ?? '23:59';
         $this->autoBackupRetention = \App\Models\Setting::where('key', 'backup_auto_retention')->value('value') ?? 30;
+
+        $this->originalBackupSettings = [
+            'enabled' => $this->autoBackupEnabled,
+            'schedule' => $this->autoBackupSchedule,
+            'time' => $this->autoBackupTime,
+            'retention' => $this->autoBackupRetention,
+        ];
+    }
+
+    public function hasUnsavedChanges() {
+        return $this->autoBackupEnabled !== $this->originalBackupSettings['enabled'] ||
+               $this->autoBackupSchedule !== $this->originalBackupSettings['schedule'] ||
+               $this->autoBackupTime !== $this->originalBackupSettings['time'] ||
+               $this->autoBackupRetention != $this->originalBackupSettings['retention'];
     }
 
     public function saveAutoBackupSettings() {
@@ -66,6 +81,13 @@ new class extends Component {
         \App\Models\Setting::updateOrCreate(['key' => 'backup_auto_schedule'], ['value' => $this->autoBackupSchedule]);
         \App\Models\Setting::updateOrCreate(['key' => 'backup_auto_time'], ['value' => $this->autoBackupTime]);
         \App\Models\Setting::updateOrCreate(['key' => 'backup_auto_retention'], ['value' => $this->autoBackupRetention]);
+
+        $this->originalBackupSettings = [
+            'enabled' => $this->autoBackupEnabled,
+            'schedule' => $this->autoBackupSchedule,
+            'time' => $this->autoBackupTime,
+            'retention' => $this->autoBackupRetention,
+        ];
 
         \Flux::toast('Pengaturan backup otomatis berhasil disimpan.', variant: 'success');
     }
@@ -470,19 +492,19 @@ new class extends Component {
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 transition-opacity {{ $autoBackupEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none' }}">
-                    <flux:select wire:model="autoBackupSchedule" label="Frekuensi">
+                    <flux:select wire:model.live="autoBackupSchedule" label="Frekuensi">
                         <option value="daily">Harian</option>
                         <option value="weekly">Mingguan</option>
                         <option value="monthly">Bulanan</option>
                     </flux:select>
                     
-                    <flux:input type="time" wire:model="autoBackupTime" label="Jam Eksekusi" />
+                    <flux:input type="time" wire:model.live="autoBackupTime" label="Jam Eksekusi" />
                     
-                    <flux:input type="number" min="1" max="365" wire:model="autoBackupRetention" label="Simpan Selama (Hari)" />
+                    <flux:input type="number" min="1" max="365" wire:model.live="autoBackupRetention" label="Simpan Selama (Hari)" />
                 </div>
                 
                 <div class="mt-6 flex justify-end">
-                    <flux:button type="submit" variant="primary" icon="check" size="sm">Simpan Jadwal</flux:button>
+                    <flux:button type="submit" :variant="$this->hasUnsavedChanges() ? 'primary' : 'outline'" icon="check" size="sm" :disabled="!$this->hasUnsavedChanges()">Simpan Jadwal</flux:button>
                 </div>
 
                 @if($autoBackupEnabled)
