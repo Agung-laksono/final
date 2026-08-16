@@ -15,6 +15,7 @@
                 <flux:navlist.item :href="route('settings.workflow')" :current="request()->routeIs('settings.workflow')" wire:navigate>Workflow Delegation</flux:navlist.item>
                 <flux:navlist.item :href="route('settings.brands')" wire:navigate>{{ __('Brands') }}</flux:navlist.item>
                 <flux:navlist.item :href="route('settings.pwa')" wire:navigate>PWA</flux:navlist.item>
+                <flux:navlist.item :href="route('settings.system')" wire:navigate class="text-red-500 hover:text-red-600 dark:text-red-400">System & Reset</flux:navlist.item>
             @endrole
         </flux:navlist>
     </div>

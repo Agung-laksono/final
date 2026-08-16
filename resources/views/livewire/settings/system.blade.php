@@ -1,0 +1,360 @@
+<?php
+
+use Livewire\Volt\Component;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use App\Models\User;
+use Modules\Inventory\Models\ItemWarehouse;
+use Modules\Finance\Models\FinanceAccount;
+use Carbon\Carbon;
+
+new class extends Component {
+    public $backups = [];
+    public $confirmPassword = '';
+    
+    // Checklists
+    public $wipeFinance = false;
+    public $wipeSales = false;
+    public $wipePurchase = false;
+    public $wipeInventory = false;
+    public $wipeProduction = false;
+    public $wipeMaster = false;
+    public $wipeImages = false;
+    public $wipeUsers = false;
+
+    public function mount() {
+        $this->loadBackups();
+    }
+
+    public function loadBackups() {
+        if (!Storage::disk('local')->exists('backups')) {
+            Storage::disk('local')->makeDirectory('backups');
+        }
+        
+        $files = Storage::disk('local')->files('backups');
+        $this->backups = collect($files)
+            ->filter(fn($file) => str_ends_with($file, '.zip') || str_ends_with($file, '.sqlite'))
+            ->map(function($file) {
+                return [
+                    'name' => basename($file),
+                    'path' => $file,
+                    'size' => round(Storage::disk('local')->size($file) / 1024 / 1024, 2) . ' MB',
+                    'date' => Carbon::createFromTimestamp(Storage::disk('local')->lastModified($file))->format('Y-m-d H:i:s')
+                ];
+            })
+            ->sortByDesc('date')
+            ->values()
+            ->toArray();
+    }
+
+    public function createBackup() {
+        if (!class_exists('ZipArchive')) {
+            // Fallback to SQLite only if ZipArchive is missing
+            $dbPath = database_path('database.sqlite');
+            $backupName = 'backups/backup-' . now()->format('Y-m-d_H-i-s') . '.sqlite';
+            
+            if (file_exists($dbPath)) {
+                Storage::disk('local')->put($backupName, file_get_contents($dbPath));
+                \Flux::toast('Ekstensi ZipArchive PHP tidak aktif! Hanya Database yang diamankan, tanpa gambar.', variant: 'warning');
+                $this->loadBackups();
+            } else {
+                \Flux::toast('File database utama tidak ditemukan!', variant: 'danger');
+            }
+            return;
+        }
+
+        $backupName = 'backups/backup-' . now()->format('Y-m-d_H-i-s') . '.zip';
+        $backupPath = Storage::disk('local')->path($backupName);
+        
+        $zip = new \ZipArchive();
+        if ($zip->open($backupPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
+            
+            // Add Database
+            $dbPath = database_path('database.sqlite');
+            if (file_exists($dbPath)) {
+                $zip->addFile($dbPath, 'database.sqlite');
+            }
+
+            // Add Public Storage Images
+            $publicStoragePath = storage_path('app/public');
+            if (is_dir($publicStoragePath)) {
+                $files = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($publicStoragePath),
+                    \RecursiveIteratorIterator::LEAVES_ONLY
+                );
+
+                foreach ($files as $name => $file) {
+                    if (!$file->isDir()) {
+                        $filePath = $file->getRealPath();
+                        $relativePath = 'public/' . substr($filePath, strlen($publicStoragePath) + 1);
+                        $zip->addFile($filePath, str_replace('\\', '/', $relativePath));
+                    }
+                }
+            }
+            
+            $zip->close();
+            \Flux::toast('Backup total (Database & Gambar) berhasil dibuat.', variant: 'success');
+            $this->loadBackups();
+        } else {
+            \Flux::toast('Gagal membuat arsip ZIP!', variant: 'danger');
+        }
+    }
+
+    public function restoreBackup($name) {
+        $backupPath = Storage::disk('local')->path('backups/' . $name);
+        
+        if (file_exists($backupPath)) {
+            // Backward compatibility for old .sqlite backups
+            if (str_ends_with($name, '.sqlite')) {
+                copy($backupPath, database_path('database.sqlite'));
+                \Flux::toast('Database berhasil direstore. Halaman dimuat ulang.', variant: 'success');
+                return redirect()->route('settings.system');
+            }
+
+            if (!class_exists('ZipArchive')) {
+                \Flux::toast('Ekstensi ZipArchive PHP tidak aktif, gagal me-restore gambar!', variant: 'danger');
+                return;
+            }
+
+            // Unzip process
+            $zip = new \ZipArchive();
+            if ($zip->open($backupPath) === TRUE) {
+                // Extract database
+                if ($zip->locateName('database.sqlite') !== false) {
+                    $zip->extractTo(database_path(), 'database.sqlite');
+                }
+                
+                // Extract images to storage/app/public
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $filename = $zip->getNameIndex($i);
+                    if (str_starts_with($filename, 'public/')) {
+                        $zip->extractTo(storage_path('app'), $filename);
+                    }
+                }
+                $zip->close();
+                
+                \Flux::toast('Database & Gambar berhasil direstore secara total.', variant: 'success');
+                return redirect()->route('settings.system');
+            } else {
+                \Flux::toast('Gagal membuka file backup ZIP.', variant: 'danger');
+            }
+        }
+    }
+
+    public function downloadBackup($name) {
+        return Storage::disk('local')->download('backups/' . $name);
+    }
+
+    public function deleteBackup($name) {
+        Storage::disk('local')->delete('backups/' . $name);
+        \Flux::toast('Backup dihapus.', variant: 'success');
+        $this->loadBackups();
+    }
+
+    public function executeReset() {
+        if (trim($this->confirmPassword) !== 'RESET') {
+            $this->addError('confirmPassword', 'Ketik "RESET" (huruf besar semua) untuk mengonfirmasi penghapusan.');
+            return;
+        }
+
+        try {
+            DB::statement('PRAGMA foreign_keys = OFF;');
+            
+            // 1. Finance
+            if ($this->wipeFinance) {
+                DB::table('finance_transactions')->truncate();
+                DB::table('finance_transfers')->truncate();
+                DB::table('finance_accounts')->update(['balance' => 0]);
+            }
+            
+            // 2. Sales
+            if ($this->wipeSales) {
+                DB::table('sales_orders')->truncate();
+                DB::table('sales_order_items')->truncate();
+                DB::table('sales_order_fulfillments')->truncate();
+                DB::table('sales_payments')->truncate();
+                DB::table('sales_returns')->truncate();
+                DB::table('sales_return_items')->truncate();
+                DB::table('quotations')->truncate();
+                DB::table('quotation_items')->truncate();
+            }
+
+            // 3. Purchase
+            if ($this->wipePurchase) {
+                DB::table('purchase_orders')->truncate();
+                DB::table('purchase_order_items')->truncate();
+                DB::table('purchase_queues')->truncate();
+                DB::table('purchase_queue_fulfillments')->truncate();
+                DB::table('purchase_receipts')->truncate();
+                DB::table('purchase_receipt_items')->truncate();
+                DB::table('purchase_returns')->truncate();
+                DB::table('purchase_return_items')->truncate();
+                DB::table('purchase_payments')->truncate();
+            }
+
+            // 4. Inventory
+            if ($this->wipeInventory) {
+                DB::table('stock_movements')->truncate();
+                DB::table('stock_adjustments')->truncate();
+                DB::table('stock_transfers')->truncate();
+                DB::table('stock_transfer_items')->truncate();
+                DB::table('inventory_requests')->truncate();
+                DB::table('item_warehouse')->update(['stock' => 0]);
+            }
+
+            // 5. Production
+            if ($this->wipeProduction) {
+                DB::table('production_orders')->truncate();
+                DB::table('production_order_histories')->truncate();
+            }
+
+            // 6. Master Data
+            if ($this->wipeMaster) {
+                DB::table('items')->truncate();
+                DB::table('categories')->truncate();
+                DB::table('sub_categories')->truncate();
+                DB::table('brands')->truncate();
+                DB::table('types')->truncate();
+                DB::table('units')->truncate();
+                DB::table('customers')->truncate();
+                DB::table('vendors')->truncate();
+                DB::table('warehouses')->truncate();
+                DB::table('cms_posts')->truncate();
+                DB::table('cms_categories')->truncate();
+                // We should also delete items from item_warehouse since warehouses are truncated
+                DB::table('item_warehouse')->truncate();
+            }
+
+            // 7. Users
+            if ($this->wipeUsers) {
+                // Hapus semua user kecuali yang punya role Super Admin
+                User::whereDoesntHave('roles', function($q){
+                    $q->where('name', 'Super Admin');
+                })->delete();
+            }
+
+            DB::statement('PRAGMA foreign_keys = ON;');
+
+            // 8. Images
+            if ($this->wipeImages) {
+                $directories = Storage::disk('public')->directories();
+                foreach ($directories as $dir) {
+                    Storage::disk('public')->deleteDirectory($dir);
+                }
+            }
+
+            \Flux::toast('Operasi pembersihan data berhasil dieksekusi!', variant: 'success');
+            
+            $this->reset(['wipeFinance', 'wipeSales', 'wipePurchase', 'wipeInventory', 'wipeProduction', 'wipeMaster', 'wipeImages', 'wipeUsers', 'confirmPassword']);
+            
+        } catch (\Exception $e) {
+            DB::statement('PRAGMA foreign_keys = ON;');
+            \Flux::toast('Terjadi kesalahan: ' . $e->getMessage(), variant: 'danger');
+        }
+    }
+};
+?>
+
+<x-pages::settings.layout
+    heading="Sistem & Zona Bahaya"
+    subheading="Kelola cadangan database (Backup) dan pembersihan data transaksi untuk keperluan reset pabrik.">
+
+    <div class="space-y-10">
+        
+        {{-- BACKUP SECTION --}}
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Cadangkan Database</h3>
+                    <p class="text-sm text-zinc-500">Buat salinan data Anda sebagai jaring pengaman.</p>
+                </div>
+                <flux:button wire:click="createBackup" variant="primary" icon="document-duplicate" size="sm">
+                    Buat Backup Sekarang
+                </flux:button>
+            </div>
+
+            <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
+                        <tr>
+                            <th class="px-4 py-3 font-medium">Nama File</th>
+                            <th class="px-4 py-3 font-medium">Tanggal</th>
+                            <th class="px-4 py-3 font-medium">Ukuran</th>
+                            <th class="px-4 py-3 font-medium text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        @forelse($backups as $backup)
+                            <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                                <td class="px-4 py-3 font-mono text-xs">{{ $backup['name'] }}</td>
+                                <td class="px-4 py-3">{{ $backup['date'] }}</td>
+                                <td class="px-4 py-3">{{ $backup['size'] }}</td>
+                                <td class="px-4 py-3 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <flux:button wire:click="downloadBackup('{{ $backup['name'] }}')" variant="subtle" size="sm" class="!px-2" tooltip="Download ke Komputer">
+                                            <flux:icon.arrow-down-tray class="w-4 h-4 text-zinc-500" />
+                                        </flux:button>
+                                        <flux:button wire:click="restoreBackup('{{ $backup['name'] }}')" wire:confirm="PERINGATAN: Me-restore sistem ini akan MENIMPA dan MENGHAPUS semua database dan gambar saat ini. Anda yakin?" variant="subtle" size="sm" icon="arrow-path">
+                                            Restore
+                                        </flux:button>
+                                        <flux:button wire:click="deleteBackup('{{ $backup['name'] }}')" wire:confirm="Hapus file backup ini?" variant="danger" size="sm" class="!px-2">
+                                            <flux:icon.trash class="w-4 h-4" />
+                                        </flux:button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="px-4 py-8 text-center text-zinc-500">
+                                    Belum ada file backup. Sangat disarankan untuk membuat backup sebelum mereset data.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <flux:separator />
+
+        {{-- DANGER ZONE SECTION --}}
+        <section class="border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10 rounded-xl p-6">
+            <div class="flex gap-4 items-start mb-6">
+                <div class="bg-red-100 dark:bg-red-900/30 p-2 rounded-full shrink-0">
+                    <flux:icon.exclamation-triangle class="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-red-700 dark:text-red-400">Pembersihan Data (Data Wipe)</h3>
+                    <p class="text-sm text-red-600/80 dark:text-red-400/80 mt-1">Pilih modul-modul yang ingin Anda hapus datanya. Operasi ini bersifat permanen dan tidak dapat dibatalkan kecuali Anda memiliki backup.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mb-8 bg-white dark:bg-zinc-900 p-5 rounded-lg border border-red-100 dark:border-red-900/30">
+                <flux:checkbox wire:model="wipeSales" label="Transaksi Penjualan (SO, Faktur, Retur)" />
+                <flux:checkbox wire:model="wipePurchase" label="Transaksi Pembelian (PO, Penerimaan, Retur)" />
+                <flux:checkbox wire:model="wipeInventory" label="Transaksi Gudang (Mutasi, Adjustment, Transfer)" />
+                <flux:checkbox wire:model="wipeProduction" label="Transaksi Produksi (Work Orders)" />
+                <flux:checkbox wire:model="wipeFinance" label="Transaksi Keuangan (Pembayaran, Setel saldo = 0)" />
+                <flux:checkbox wire:model="wipeImages" label="Data Gambar & Lampiran (Hapus semua file upload)" />
+                
+                <div class="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    <flux:checkbox wire:model="wipeMaster" label="Master Data (Barang, Kontak, Gudang, Kategori)" />
+                    <flux:checkbox wire:model="wipeUsers" label="Akun Pengguna (Kecuali Super Admin)" />
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                <div class="w-full sm:w-64">
+                    <flux:input wire:model="confirmPassword" label="Ketik 'RESET' untuk konfirmasi" placeholder="RESET" />
+                </div>
+                <flux:button wire:click="executeReset" variant="danger" icon="trash" class="w-full sm:w-auto">
+                    Eksekusi Penghapusan
+                </flux:button>
+            </div>
+            @error('confirmPassword') 
+                <p class="text-red-500 text-sm mt-2">{{ $message }}</p>
+            @enderror
+        </section>
+
+    </div>
+</x-pages::settings.layout>

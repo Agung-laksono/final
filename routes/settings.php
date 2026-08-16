@@ -31,5 +31,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         \Livewire\Volt\Volt::route('settings/pwa', 'settings.pwa')->name('settings.pwa');
         \Livewire\Volt\Volt::route('settings/navigation', 'settings.navigation-icons')->name('settings.navigation');
         \Livewire\Volt\Volt::route('settings/workflow', 'settings.workflow')->name('settings.workflow');
+        \Livewire\Volt\Volt::route('settings/system', 'settings.system')->name('settings.system');
     });
 });
