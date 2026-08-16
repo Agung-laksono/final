@@ -124,7 +124,7 @@ mount(function ($id = null) {
         $quotation = \Modules\Sales\Models\Quotation::with(['items.item.unit', 'customer'])->findOrFail($quotationId);
         
         $latestPo = SalesOrder::orderBy('id', 'desc')->first();
-        $nextId = $latestPo ? $latestPo->id + 1 : 1000;
+        $nextId = $latestPo ? $latestPo->id + 1 : 1;
         $this->so_number = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
         
         $this->customer_id = $quotation->customer_id;
@@ -174,7 +174,7 @@ mount(function ($id = null) {
         }
     } else {
         $latestPo = SalesOrder::orderBy('id', 'desc')->first();
-        $nextId = $latestPo ? $latestPo->id + 1 : 1000;
+        $nextId = $latestPo ? $latestPo->id + 1 : 1;
         $this->so_number = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
     }
 });
@@ -271,7 +271,7 @@ $saveCart = function ($cartData) {
     if (!$this->order_id) {
         // Generate ODM-1000 format
         $latestPo = SalesOrder::orderBy('id', 'desc')->first();
-        $nextId = $latestPo ? $latestPo->id + 1 : 1000;
+        $nextId = $latestPo ? $latestPo->id + 1 : 1;
         $this->so_number = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
     }
 

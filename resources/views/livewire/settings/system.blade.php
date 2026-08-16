@@ -42,8 +42,11 @@ new class extends Component {
     public $autoBackupTime = '23:59';
     public $autoBackupRetention = 30;
 
+    public $counts = [];
+
     public function mount() {
         $this->loadBackups();
+        $this->loadDataCounts();
         
         $this->autoBackupEnabled = \App\Models\Setting::where('key', 'backup_auto_enabled')->value('value') === 'true';
         $this->autoBackupSchedule = \App\Models\Setting::where('key', 'backup_auto_schedule')->value('value') ?? 'daily';
@@ -339,6 +342,7 @@ new class extends Component {
                 'wipeImageItems', 'wipeImageSalesPayments', 'wipeImagePurchasePayments', 'wipeImageReceipts', 'wipeImageProfiles', 
                 'wipeUsers', 'confirmPassword'
             ]);
+            $this->loadDataCounts();
             
         } catch (\Exception $e) {
             $message = $e->getMessage();
@@ -348,6 +352,32 @@ new class extends Component {
                 \Flux::toast('Terjadi kesalahan: ' . $message, variant: 'danger');
             }
         }
+    }
+
+    public function loadDataCounts() {
+        $this->counts = [
+            // Transactions
+            'sales' => DB::table('sales_orders')->count() + DB::table('sales_payments')->count() + DB::table('sales_returns')->count() + DB::table('quotations')->count(),
+            'purchase' => DB::table('purchase_orders')->count() + DB::table('purchase_receipts')->count() + DB::table('purchase_payments')->count() + DB::table('purchase_returns')->count() + DB::table('purchase_queues')->count(),
+            'inventory' => DB::table('stock_movements')->count() + DB::table('stock_adjustments')->count() + DB::table('stock_transfers')->count() + DB::table('inventory_requests')->count(),
+            'production' => DB::table('production_orders')->count() + DB::table('production_order_histories')->count(),
+            'finance' => DB::table('finance_transactions')->count() + DB::table('finance_transfers')->count(),
+            
+            // Master Data
+            'master_items' => DB::table('items')->count() + DB::table('brands')->count() + DB::table('types')->count() + DB::table('units')->count(),
+            'master_categories' => DB::table('categories')->count() + DB::table('sub_categories')->count(),
+            'master_warehouses' => DB::table('warehouses')->count(),
+            'master_customers' => DB::table('customers')->count(),
+            'master_suppliers' => DB::table('vendors')->count(),
+            'users' => User::whereDoesntHave('roles', function($q) { $q->where('name', 'Super Admin'); })->count(),
+
+            // Images (File counts)
+            'img_items' => count(Storage::disk('public')->allFiles('items')) + count(Storage::disk('public')->allFiles('brands')),
+            'img_sales_pay' => count(Storage::disk('public')->allFiles('sales_payments')),
+            'img_purchase_pay' => count(Storage::disk('public')->allFiles('purchase_payments')),
+            'img_receipts' => count(Storage::disk('public')->allFiles('receipts')) + count(Storage::disk('public')->allFiles('custom_attachments')),
+            'img_profiles' => count(Storage::disk('public')->allFiles('avatars')) + count(Storage::disk('public')->allFiles('customers')) + count(Storage::disk('public')->allFiles('vendors')) + count(Storage::disk('public')->allFiles('warehouses')),
+        ];
     }
 };
 ?>
@@ -517,11 +547,36 @@ new class extends Component {
                         <flux:icon.document-text class="w-4 h-4 text-zinc-400" /> Data Transaksi
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 ml-6">
-                        <flux:checkbox wire:model="wipeSales" label="Penjualan (SO, Faktur, Retur)" />
-                        <flux:checkbox wire:model="wipePurchase" label="Pembelian (PO, Penerimaan, Retur)" />
-                        <flux:checkbox wire:model="wipeInventory" label="Gudang (Mutasi, Adjustment, Transfer)" />
-                        <flux:checkbox wire:model="wipeProduction" label="Produksi (Work Orders)" />
-                        <flux:checkbox wire:model="wipeFinance" label="Keuangan (Pembayaran, Setel saldo = 0)" />
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeSales" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Penjualan (SO, Faktur, Retur) <flux:badge size="sm" variant="pill" :color="($counts['sales'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['sales'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipePurchase" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Pembelian (PO, Penerimaan, Retur) <flux:badge size="sm" variant="pill" :color="($counts['purchase'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['purchase'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeInventory" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Gudang (Mutasi, Adjustment, Transfer) <flux:badge size="sm" variant="pill" :color="($counts['inventory'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['inventory'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeProduction" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Produksi (Work Orders) <flux:badge size="sm" variant="pill" :color="($counts['production'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['production'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeFinance" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Keuangan (Pembayaran, Setel saldo = 0) <flux:badge size="sm" variant="pill" :color="($counts['finance'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['finance'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
                     </div>
                 </div>
 
@@ -531,12 +586,42 @@ new class extends Component {
                         <flux:icon.circle-stack class="w-4 h-4 text-zinc-400" /> Data Master
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 ml-6">
-                        <flux:checkbox wire:model="wipeMasterItems" label="Barang, Merek, & Unit" />
-                        <flux:checkbox wire:model="wipeMasterCategories" label="Kategori Barang & Artikel" />
-                        <flux:checkbox wire:model="wipeMasterWarehouses" label="Daftar Gudang" />
-                        <flux:checkbox wire:model="wipeMasterCustomers" label="Pelanggan" />
-                        <flux:checkbox wire:model="wipeMasterSuppliers" label="Supplier / Pemasok" />
-                        <flux:checkbox wire:model="wipeUsers" label="Akun Pengguna (Kecuali Super Admin)" />
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeMasterItems" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Barang, Merek, & Unit <flux:badge size="sm" variant="pill" :color="($counts['master_items'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['master_items'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeMasterCategories" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Kategori Barang & Artikel <flux:badge size="sm" variant="pill" :color="($counts['master_categories'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['master_categories'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeMasterWarehouses" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Daftar Gudang <flux:badge size="sm" variant="pill" :color="($counts['master_warehouses'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['master_warehouses'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeMasterCustomers" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Pelanggan <flux:badge size="sm" variant="pill" :color="($counts['master_customers'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['master_customers'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeMasterSuppliers" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Supplier / Pemasok <flux:badge size="sm" variant="pill" :color="($counts['master_suppliers'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['master_suppliers'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeUsers" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Akun Pengguna <span class="text-xs text-zinc-400 font-normal">(Kecuali Super Admin)</span> <flux:badge size="sm" variant="pill" :color="($counts['users'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['users'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
                     </div>
                 </div>
 
@@ -546,11 +631,36 @@ new class extends Component {
                         <flux:icon.photo class="w-4 h-4 text-zinc-400" /> Gambar & Lampiran
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 ml-6">
-                        <flux:checkbox wire:model="wipeImageItems" label="Gambar Barang" />
-                        <flux:checkbox wire:model="wipeImageSalesPayments" label="Bukti Bayar Penjualan" />
-                        <flux:checkbox wire:model="wipeImagePurchasePayments" label="Bukti Bayar Pembelian" />
-                        <flux:checkbox wire:model="wipeImageReceipts" label="Surat Jalan & Dokumen" />
-                        <flux:checkbox wire:model="wipeImageProfiles" label="Logo (Customer, Supplier, User)" />
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeImageItems" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Gambar Barang <flux:badge size="sm" variant="pill" :color="($counts['img_items'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['img_items'] ?? 0 }} file</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeImageSalesPayments" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Bukti Bayar Penjualan <flux:badge size="sm" variant="pill" :color="($counts['img_sales_pay'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['img_sales_pay'] ?? 0 }} file</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeImagePurchasePayments" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Bukti Bayar Pembelian <flux:badge size="sm" variant="pill" :color="($counts['img_purchase_pay'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['img_purchase_pay'] ?? 0 }} file</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeImageReceipts" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Surat Jalan & Dokumen <flux:badge size="sm" variant="pill" :color="($counts['img_receipts'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['img_receipts'] ?? 0 }} file</flux:badge></div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeImageProfiles" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Logo (Customer, Supplier, User) <flux:badge size="sm" variant="pill" :color="($counts['img_profiles'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['img_profiles'] ?? 0 }} file</flux:badge></div>
+                            </div>
+                        </label>
                     </div>
                 </div>
             </div>

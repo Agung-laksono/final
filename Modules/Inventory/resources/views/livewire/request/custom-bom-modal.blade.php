@@ -135,7 +135,7 @@ new class extends Component {
 
         // Generate sequential PROD-0001 format
         $latestProd = ProductionOrder::orderBy('id', 'desc')->first();
-        $nextId = $latestProd ? $latestProd->id + 1 : 1000;
+        $nextId = $latestProd ? $latestProd->id + 1 : 1;
         $orderNumber = 'PROD-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
 
         $hasDeficit = false;
