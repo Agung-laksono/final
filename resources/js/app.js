@@ -137,21 +137,33 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
                 this.isProcessing = true;
                 const img = new Image();
                 img.onload = () => {
+                    // Batas aman ukuran canvas untuk HP/Mobile agar tidak crash/kosong
+                    const maxCanvasDim = 2048; 
+                    let drawWidth = img.width;
+                    let drawHeight = img.height;
+
+                    if (drawWidth > maxCanvasDim || drawHeight > maxCanvasDim) {
+                        const ratio = Math.min(maxCanvasDim / drawWidth, maxCanvasDim / drawHeight);
+                        drawWidth = Math.round(drawWidth * ratio);
+                        drawHeight = Math.round(drawHeight * ratio);
+                    }
+
                     // Buat canvas sementara untuk merotasi/membalik foto asli
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     
                     const isRotated = this.rotation % 180 !== 0;
-                    canvas.width = isRotated ? img.height : img.width;
-                    canvas.height = isRotated ? img.width : img.height;
+                    canvas.width = isRotated ? drawHeight : drawWidth;
+                    canvas.height = isRotated ? drawWidth : drawHeight;
                     
                     ctx.translate(canvas.width / 2, canvas.height / 2);
                     ctx.rotate((this.rotation * Math.PI) / 180);
                     ctx.scale(this.flipH ? -1 : 1, this.flipV ? -1 : 1);
-                    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+                    ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
                     
                     // Simpan hasil transformasi sebagai gambar kerja
-                    this.workingImgSrc = canvas.toDataURL('image/png');
+                    // Gunakan jpeg untuk sementara agar lebih ringan di memory daripada png jika gambar besar
+                    this.workingImgSrc = canvas.toDataURL('image/jpeg', 0.9);
                     this.imgNatW = canvas.width;
                     this.imgNatH = canvas.height;
 
@@ -389,14 +401,26 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
 
                 const img = new Image();
                 img.onload = () => {
+                    let drawWidth = img.width;
+                    let drawHeight = img.height;
+                    
+                    // Gunakan resolusi maksimal yang diatur pengguna (bawaan 800px) untuk "Gunakan Asli"
+                    const maxDim = this.maxSize || 2048;
+
+                    if (drawWidth > maxDim || drawHeight > maxDim) {
+                        const ratio = Math.min(maxDim / drawWidth, maxDim / drawHeight);
+                        drawWidth = Math.round(drawWidth * ratio);
+                        drawHeight = Math.round(drawHeight * ratio);
+                    }
+
                     const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
+                    canvas.width = drawWidth;
+                    canvas.height = drawHeight;
                     const ctx = canvas.getContext('2d');
 
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, 0, 0);
+                    ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
 
                     // Convert ke WEBP tanpa mengubah resolusi (resize) dan tanpa kompresi berat
                     const dataUrl = canvas.toDataURL('image/webp', 0.95);

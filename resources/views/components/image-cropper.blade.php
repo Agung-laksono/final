@@ -46,7 +46,9 @@
             
             {{-- Loading Indicator --}}
             <div x-show="isProcessing" class="absolute inset-0 z-50 flex items-center justify-center bg-zinc-900/50 backdrop-blur-sm">
-                <flux:icon.arrow-path class="w-8 h-8 text-white animate-spin" />
+                <div class="animate-spin text-white">
+                    <flux:icon.arrow-path class="w-8 h-8" />
+                </div>
             </div>
 
             {{-- Wrapper gambar dengan ukuran absolut sesuai rasio --}}
