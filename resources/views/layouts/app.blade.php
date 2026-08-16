@@ -31,4 +31,7 @@
 {{-- Global Image Lightbox Component --}}
 <x-image-lightbox />
 
+{{-- Global Contextual Help Button --}}
+<livewire:contextual-help />
+
 </script>

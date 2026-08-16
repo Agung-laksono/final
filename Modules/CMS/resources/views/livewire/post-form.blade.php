@@ -17,6 +17,7 @@ new class extends Component {
     public ?CmsPost $post = null;
     
     public $title = '';
+    public $slug = '';
     public $content = '';
     public $category_id = '';
     public $is_pinned = false;
@@ -155,6 +156,7 @@ new class extends Component {
         if ($post && $post->exists) {
             $this->post = $post;
             $this->title = $post->title;
+            $this->slug = $post->slug;
             $this->content = $post->content;
             $this->category_id = $post->category_id;
             $this->is_pinned = $post->is_pinned;
@@ -166,6 +168,13 @@ new class extends Component {
 
             $this->selected_roles = $post->roles()->pluck('roles.id')->toArray();
             $this->selected_users = $post->users()->pluck('users.id')->toArray();
+        } else {
+            if (request()->has('slug')) {
+                $this->slug = request()->query('slug');
+            }
+            if (request()->has('title')) {
+                $this->title = request()->query('title');
+            }
         }
     }
 
@@ -193,9 +202,8 @@ new class extends Component {
         }
 
         $this->post->title = $this->title;
-        if ($isNew || $this->post->isDirty('title')) {
-            $this->post->slug = Str::slug($this->title) . '-' . time();
-        }
+        // Jika slug manual diisi, gunakan itu. Jika tidak, generate dari title.
+        $this->post->slug = $this->slug ?: (Str::slug($this->title) . '-' . time());
         $this->post->content = $this->content;
         $this->post->category_id = $this->category_id ?: null;
         $this->post->is_pinned = $this->is_pinned;
@@ -248,7 +256,10 @@ new class extends Component {
             <div class="lg:col-span-2 space-y-6">
                 <flux:card>
                     <div class="space-y-6">
-                        <flux:input wire:model="title" label="Judul Artikel" placeholder="Masukkan judul artikel yang menarik..." required />
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <flux:input wire:model="title" label="Judul Artikel" placeholder="Masukkan judul artikel yang menarik..." required />
+                            <flux:input wire:model="slug" label="URL Slug (Otomatis jika kosong)" placeholder="contoh-judul-artikel" description="Unik. Jangan diubah jika tidak perlu." />
+                        </div>
                         
                         <flux:field>
                             <div class="flex justify-between items-center">
