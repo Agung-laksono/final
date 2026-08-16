@@ -35,6 +35,7 @@ new class extends Component {
     public $wipeImagePurchasePayments = false;
     public $wipeImageReceipts = false;
     public $wipeImageProfiles = false;
+    public $wipeUsers = false;
 
     // Auto Backup Settings
     public $autoBackupEnabled = false;
@@ -390,12 +391,12 @@ new class extends Component {
         
         {{-- BACKUP SECTION --}}
         <section>
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                 <div>
                     <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Cadangkan Database</h3>
                     <p class="text-sm text-zinc-500">Buat salinan data Anda sebagai jaring pengaman.</p>
                 </div>
-                <div class="flex items-center gap-3">
+                <div class="flex flex-wrap items-center gap-3">
                     <!-- Upload Input -->
                     <div class="relative flex items-center">
                         <label class="cursor-pointer bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-medium h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors flex items-center gap-2 whitespace-nowrap shadow-sm">
