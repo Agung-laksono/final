@@ -22,9 +22,19 @@ new class extends Component {
     public $wipePurchase = false;
     public $wipeInventory = false;
     public $wipeProduction = false;
-    public $wipeMaster = false;
-    public $wipeImages = false;
-    public $wipeUsers = false;
+    // Wipe Master Data
+    public $wipeMasterItems = false;
+    public $wipeMasterCategories = false;
+    public $wipeMasterWarehouses = false;
+    public $wipeMasterCustomers = false;
+    public $wipeMasterSuppliers = false;
+
+    // Wipe Images
+    public $wipeImageItems = false;
+    public $wipeImageSalesPayments = false;
+    public $wipeImagePurchasePayments = false;
+    public $wipeImageReceipts = false;
+    public $wipeImageProfiles = false;
 
     // Auto Backup Settings
     public $autoBackupEnabled = false;
@@ -264,20 +274,31 @@ new class extends Component {
             }
 
             // 6. Master Data
-            if ($this->wipeMaster) {
+            if ($this->wipeMasterItems) {
                 DB::table('items')->truncate();
-                DB::table('categories')->truncate();
-                DB::table('sub_categories')->truncate();
                 DB::table('brands')->truncate();
                 DB::table('types')->truncate();
                 DB::table('units')->truncate();
+            }
+            if ($this->wipeMasterCategories) {
+                DB::table('categories')->truncate();
+                DB::table('sub_categories')->truncate();
+            }
+            if ($this->wipeMasterCustomers) {
                 DB::table('customers')->truncate();
+            }
+            if ($this->wipeMasterSuppliers) {
                 DB::table('vendors')->truncate();
+            }
+            if ($this->wipeMasterWarehouses) {
                 DB::table('warehouses')->truncate();
+                DB::table('item_warehouse')->truncate();
+            }
+
+            // 6.b CMS Data (Optional, we'll keep it with items for now or separate it later if needed, we'll put it in Categories for now or just truncate it with categories)
+            if ($this->wipeMasterCategories) {
                 DB::table('cms_posts')->truncate();
                 DB::table('cms_categories')->truncate();
-                // We should also delete items from item_warehouse since warehouses are truncated
-                DB::table('item_warehouse')->truncate();
             }
 
             // 7. Users
@@ -291,16 +312,35 @@ new class extends Component {
             DB::statement('PRAGMA foreign_keys = ON;');
 
             // 8. Images
-            if ($this->wipeImages) {
-                $directories = Storage::disk('public')->directories();
-                foreach ($directories as $dir) {
-                    Storage::disk('public')->deleteDirectory($dir);
+            if ($this->wipeImageItems) {
+                if (Storage::disk('public')->exists('items')) Storage::disk('public')->deleteDirectory('items');
+                if (Storage::disk('public')->exists('brands')) Storage::disk('public')->deleteDirectory('brands');
+            }
+            if ($this->wipeImageSalesPayments) {
+                if (Storage::disk('public')->exists('sales_payments')) Storage::disk('public')->deleteDirectory('sales_payments');
+            }
+            if ($this->wipeImagePurchasePayments) {
+                if (Storage::disk('public')->exists('purchase_payments')) Storage::disk('public')->deleteDirectory('purchase_payments');
+            }
+            if ($this->wipeImageReceipts) {
+                if (Storage::disk('public')->exists('receipts')) Storage::disk('public')->deleteDirectory('receipts');
+                if (Storage::disk('public')->exists('custom_attachments')) Storage::disk('public')->deleteDirectory('custom_attachments');
+            }
+            if ($this->wipeImageProfiles) {
+                $dirs = ['avatars', 'customers', 'vendors', 'warehouses'];
+                foreach ($dirs as $dir) {
+                    if (Storage::disk('public')->exists($dir)) Storage::disk('public')->deleteDirectory($dir);
                 }
             }
-
+            
             \Flux::toast('Operasi pembersihan data berhasil dieksekusi!', variant: 'success');
             
-            $this->reset(['wipeFinance', 'wipeSales', 'wipePurchase', 'wipeInventory', 'wipeProduction', 'wipeMaster', 'wipeImages', 'wipeUsers', 'confirmPassword']);
+            $this->reset([
+                'wipeFinance', 'wipeSales', 'wipePurchase', 'wipeInventory', 'wipeProduction', 
+                'wipeMasterItems', 'wipeMasterCategories', 'wipeMasterWarehouses', 'wipeMasterCustomers', 'wipeMasterSuppliers', 
+                'wipeImageItems', 'wipeImageSalesPayments', 'wipeImagePurchasePayments', 'wipeImageReceipts', 'wipeImageProfiles', 
+                'wipeUsers', 'confirmPassword'
+            ]);
             
         } catch (\Exception $e) {
             DB::statement('PRAGMA foreign_keys = ON;');
@@ -468,17 +508,48 @@ new class extends Component {
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mb-8 bg-white dark:bg-zinc-900 p-5 rounded-lg border border-red-100 dark:border-red-900/30">
-                <flux:checkbox wire:model="wipeSales" label="Transaksi Penjualan (SO, Faktur, Retur)" />
-                <flux:checkbox wire:model="wipePurchase" label="Transaksi Pembelian (PO, Penerimaan, Retur)" />
-                <flux:checkbox wire:model="wipeInventory" label="Transaksi Gudang (Mutasi, Adjustment, Transfer)" />
-                <flux:checkbox wire:model="wipeProduction" label="Transaksi Produksi (Work Orders)" />
-                <flux:checkbox wire:model="wipeFinance" label="Transaksi Keuangan (Pembayaran, Setel saldo = 0)" />
-                <flux:checkbox wire:model="wipeImages" label="Data Gambar & Lampiran (Hapus semua file upload)" />
-                
-                <div class="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                    <flux:checkbox wire:model="wipeMaster" label="Master Data (Barang, Kontak, Gudang, Kategori)" />
-                    <flux:checkbox wire:model="wipeUsers" label="Akun Pengguna (Kecuali Super Admin)" />
+            <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-900 p-6 space-y-6 mb-6">
+                <!-- Transaction Data -->
+                <div>
+                    <h4 class="text-sm font-semibold text-zinc-900 dark:text-white mb-3 flex items-center gap-2">
+                        <flux:icon.document-text class="w-4 h-4 text-zinc-400" /> Data Transaksi
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 ml-6">
+                        <flux:checkbox wire:model="wipeSales" label="Penjualan (SO, Faktur, Retur)" />
+                        <flux:checkbox wire:model="wipePurchase" label="Pembelian (PO, Penerimaan, Retur)" />
+                        <flux:checkbox wire:model="wipeInventory" label="Gudang (Mutasi, Adjustment, Transfer)" />
+                        <flux:checkbox wire:model="wipeProduction" label="Produksi (Work Orders)" />
+                        <flux:checkbox wire:model="wipeFinance" label="Keuangan (Pembayaran, Setel saldo = 0)" />
+                    </div>
+                </div>
+
+                <!-- Master Data -->
+                <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                    <h4 class="text-sm font-semibold text-zinc-900 dark:text-white mb-3 flex items-center gap-2">
+                        <flux:icon.circle-stack class="w-4 h-4 text-zinc-400" /> Data Master
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 ml-6">
+                        <flux:checkbox wire:model="wipeMasterItems" label="Barang, Merek, & Unit" />
+                        <flux:checkbox wire:model="wipeMasterCategories" label="Kategori Barang & Artikel" />
+                        <flux:checkbox wire:model="wipeMasterWarehouses" label="Daftar Gudang" />
+                        <flux:checkbox wire:model="wipeMasterCustomers" label="Pelanggan" />
+                        <flux:checkbox wire:model="wipeMasterSuppliers" label="Supplier / Pemasok" />
+                        <flux:checkbox wire:model="wipeUsers" label="Akun Pengguna (Kecuali Super Admin)" />
+                    </div>
+                </div>
+
+                <!-- Images & Attachments -->
+                <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                    <h4 class="text-sm font-semibold text-zinc-900 dark:text-white mb-3 flex items-center gap-2">
+                        <flux:icon.photo class="w-4 h-4 text-zinc-400" /> Gambar & Lampiran
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 ml-6">
+                        <flux:checkbox wire:model="wipeImageItems" label="Gambar Barang" />
+                        <flux:checkbox wire:model="wipeImageSalesPayments" label="Bukti Bayar Penjualan" />
+                        <flux:checkbox wire:model="wipeImagePurchasePayments" label="Bukti Bayar Pembelian" />
+                        <flux:checkbox wire:model="wipeImageReceipts" label="Surat Jalan & Dokumen" />
+                        <flux:checkbox wire:model="wipeImageProfiles" label="Logo (Customer, Supplier, User)" />
+                    </div>
                 </div>
             </div>
 
