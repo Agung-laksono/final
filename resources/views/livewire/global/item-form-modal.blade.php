@@ -584,7 +584,7 @@ new class extends Component {
 
                         {{-- STEP 4: HARGA & STOK --}}
                         <div x-show="step === 4 || step === 5" x-transition.opacity :class="step === 5 ? 'p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl space-y-6 shadow-sm' : 'space-y-6'" style="display: none;">
-                            <div class="grid grid-cols-2 gap-5">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                                 <div>
                                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Harga Beli / HPP <span class="text-red-500">*</span></label>
                                     <x-currency-input wire:model="purchase_price" placeholder="0" required />
@@ -597,7 +597,7 @@ new class extends Component {
 
                             <div class="border-t border-dashed border-zinc-200 dark:border-zinc-700"></div>
 
-                            <div class="grid grid-cols-2 gap-5">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                                 <div>
                                     <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Stok Min (Kritis) <span class="text-red-500">*</span></label>
                                     <flux:input type="number" inputmode="numeric" pattern="[0-9]*" wire:model.live="min_stock" placeholder="0" required min="0" />
