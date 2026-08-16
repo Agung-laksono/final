@@ -223,82 +223,82 @@ new class extends Component {
         }
 
         try {
-            DB::statement('PRAGMA foreign_keys = OFF;');
+            DB::statement('PRAGMA foreign_keys = ON;');
             
             // 1. Finance
             if ($this->wipeFinance) {
-                DB::table('finance_transactions')->truncate();
-                DB::table('finance_transfers')->truncate();
+                DB::table('finance_transactions')->delete();
+                DB::table('finance_transfers')->delete();
                 DB::table('finance_accounts')->update(['current_balance' => 0]);
             }
             
             // 2. Sales
             if ($this->wipeSales) {
-                DB::table('sales_orders')->truncate();
-                DB::table('sales_order_items')->truncate();
-                DB::table('sales_order_fulfillments')->truncate();
-                DB::table('sales_payments')->truncate();
-                DB::table('sales_returns')->truncate();
-                DB::table('sales_return_items')->truncate();
-                DB::table('quotations')->truncate();
-                DB::table('quotation_items')->truncate();
+                DB::table('sales_orders')->delete();
+                DB::table('sales_order_items')->delete();
+                DB::table('sales_order_fulfillments')->delete();
+                DB::table('sales_payments')->delete();
+                DB::table('sales_returns')->delete();
+                DB::table('sales_return_items')->delete();
+                DB::table('quotations')->delete();
+                DB::table('quotation_items')->delete();
             }
 
             // 3. Purchase
             if ($this->wipePurchase) {
-                DB::table('purchase_orders')->truncate();
-                DB::table('purchase_order_items')->truncate();
-                DB::table('purchase_queues')->truncate();
-                DB::table('purchase_queue_fulfillments')->truncate();
-                DB::table('purchase_receipts')->truncate();
-                DB::table('purchase_receipt_items')->truncate();
-                DB::table('purchase_returns')->truncate();
-                DB::table('purchase_return_items')->truncate();
-                DB::table('purchase_payments')->truncate();
+                DB::table('purchase_orders')->delete();
+                DB::table('purchase_order_items')->delete();
+                DB::table('purchase_queues')->delete();
+                DB::table('purchase_queue_fulfillments')->delete();
+                DB::table('purchase_receipts')->delete();
+                DB::table('purchase_receipt_items')->delete();
+                DB::table('purchase_returns')->delete();
+                DB::table('purchase_return_items')->delete();
+                DB::table('purchase_payments')->delete();
             }
 
             // 4. Inventory
             if ($this->wipeInventory) {
-                DB::table('stock_movements')->truncate();
-                DB::table('stock_adjustments')->truncate();
-                DB::table('stock_transfers')->truncate();
-                DB::table('stock_transfer_items')->truncate();
-                DB::table('inventory_requests')->truncate();
+                DB::table('stock_movements')->delete();
+                DB::table('stock_adjustments')->delete();
+                DB::table('stock_transfers')->delete();
+                DB::table('stock_transfer_items')->delete();
+                DB::table('inventory_requests')->delete();
                 DB::table('item_warehouse')->update(['stock' => 0]);
             }
 
             // 5. Production
             if ($this->wipeProduction) {
-                DB::table('production_orders')->truncate();
-                DB::table('production_order_histories')->truncate();
+                DB::table('production_orders')->delete();
+                DB::table('production_order_histories')->delete();
             }
 
             // 6. Master Data
             if ($this->wipeMasterItems) {
-                DB::table('items')->truncate();
-                DB::table('brands')->truncate();
-                DB::table('types')->truncate();
-                DB::table('units')->truncate();
+                DB::table('items')->delete();
+                DB::table('brands')->delete();
+                DB::table('types')->delete();
+                DB::table('units')->delete();
             }
             if ($this->wipeMasterCategories) {
-                DB::table('categories')->truncate();
-                DB::table('sub_categories')->truncate();
+                DB::table('categories')->delete();
+                DB::table('sub_categories')->delete();
             }
             if ($this->wipeMasterCustomers) {
-                DB::table('customers')->truncate();
+                DB::table('customers')->delete();
             }
             if ($this->wipeMasterSuppliers) {
-                DB::table('vendors')->truncate();
+                DB::table('vendors')->delete();
             }
             if ($this->wipeMasterWarehouses) {
-                DB::table('warehouses')->truncate();
-                DB::table('item_warehouse')->truncate();
+                DB::table('warehouses')->delete();
+                DB::table('item_warehouse')->delete();
             }
 
             // 6.b CMS Data (Optional, we'll keep it with items for now or separate it later if needed, we'll put it in Categories for now or just truncate it with categories)
             if ($this->wipeMasterCategories) {
-                DB::table('cms_posts')->truncate();
-                DB::table('cms_categories')->truncate();
+                DB::table('cms_posts')->delete();
+                DB::table('cms_categories')->delete();
             }
 
             // 7. Users
@@ -308,8 +308,6 @@ new class extends Component {
                     $q->where('name', 'Super Admin');
                 })->delete();
             }
-
-            DB::statement('PRAGMA foreign_keys = ON;');
 
             // 8. Images
             if ($this->wipeImageItems) {
@@ -343,8 +341,12 @@ new class extends Component {
             ]);
             
         } catch (\Exception $e) {
-            DB::statement('PRAGMA foreign_keys = ON;');
-            \Flux::toast('Terjadi kesalahan: ' . $e->getMessage(), variant: 'danger');
+            $message = $e->getMessage();
+            if (str_contains($message, 'foreign key constraint failed') || str_contains($message, 'Integrity constraint violation')) {
+                \Flux::toast('Gagal: Tidak dapat menghapus data Master karena masih ada data Transaksi yang terikat. Harap hapus transaksi terkait terlebih dahulu.', variant: 'danger');
+            } else {
+                \Flux::toast('Terjadi kesalahan: ' . $message, variant: 'danger');
+            }
         }
     }
 };
