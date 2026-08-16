@@ -91,6 +91,7 @@
                 @foreach($navGroups['LAINNYA'] as $item)
                     @php $routeExists = \Illuminate\Support\Facades\Route::has($item->route_name); @endphp
                     @if($routeExists)
+                        @if(!$item->permission || auth()->user()?->can($item->permission))
                         <flux:sidebar.item
                             :href="route($item->route_name)"
                             :current="request()->routeIs($item->route_name . '*')"
@@ -106,6 +107,7 @@
                             </x-slot:icon>
                             {{ __($item->label) }}
                         </flux:sidebar.item>
+                        @endif
                     @endif
                 @endforeach
             </flux:sidebar.nav>

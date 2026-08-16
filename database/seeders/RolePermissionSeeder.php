@@ -100,6 +100,12 @@ class RolePermissionSeeder extends Seeder
             'finance.transfers.create',
             'finance.transfers.update',
             'finance.transfers.delete',
+
+            // Hutang Pembelian
+            'finance.payables.view',
+            'finance.payables.create',
+            'finance.payables.update',
+            'finance.payables.delete',
             
             // Modul CMS (Artikel & Dokumen)
             'cms.posts.view',
@@ -310,6 +316,7 @@ class RolePermissionSeeder extends Seeder
             'finance.categories.view', 'finance.categories.create', 'finance.categories.update', 'finance.categories.delete',
             'finance.ledger.view', 'finance.ledger.create', 'finance.ledger.update', 'finance.ledger.delete',
             'finance.transfers.view', 'finance.transfers.create', 'finance.transfers.update', 'finance.transfers.delete',
+            'finance.payables.view', 'finance.payables.create', 'finance.payables.update', 'finance.payables.delete',
             'sales.payment.validate', // Hak validasi pembayaran sales
             'sales.order.view',
             'finance.notifikasi.view',
@@ -324,6 +331,7 @@ class RolePermissionSeeder extends Seeder
             'finance.categories.view',
             'finance.ledger.view', 'finance.ledger.create',
             'finance.transfers.view', 'finance.transfers.create', 'finance.transfers.update',
+            'finance.payables.view',
             'finance.inbox.view', 'finance.inbox.update',
             'sales.order.view',
             'finance.notifikasi.view',

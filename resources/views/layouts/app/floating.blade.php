@@ -136,12 +136,14 @@
                     </div>
                     @endcan
                     {{-- Artikel & Dokumen (CMS) --}}
+                    @can('cms.posts.view')
                     <a href="{{ route('cms.posts.index') }}" wire:navigate @mouseenter="setActiveMenu('cms')" class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2" x-bind:class="activeMenu !== null && activeMenu !== 'cms' ? 'opacity-40 scale-95 grayscale' : 'opacity-100 scale-100'">
                         <div class="flex items-center justify-center w-12 h-12 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 rounded-full shadow-lg group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/60 transition-colors text-indigo-600 dark:text-indigo-400" x-bind:class="activeMenu === 'cms' ? 'bg-indigo-200 dark:bg-indigo-800' : ''">
                             <flux:icon.newspaper class="w-5 h-5" />
                         </div>
                         <span class="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl shadow-lg text-sm font-semibold group-hover:scale-105 transition-transform origin-left" x-bind:class="activeMenu === 'cms' ? 'scale-105' : ''">Artikel & Dokumen</span>
                     </a>
+                    @endcan
                     
                     {{-- Dashboard --}}
                     @can('dashboard.main.view')
@@ -172,13 +174,20 @@
 
                     @php
                         $items = $groupedItems['INVENTORY'] ?? [];
+                        
+                        // Filter item berdasarkan izin (permission) sebelum dibagi per kolom
+                        $visibleItems = collect($items)->filter(function($item) {
+                            return !$item['permission'] || auth()->user()?->can($item['permission']);
+                        });
+
                         // Kelompokkan berdasarkan kolom
-                        $col1 = collect($items)->where('menu_column', 1);
-                        $col2 = collect($items)->where('menu_column', 2);
-                        $col3 = collect($items)->where('menu_column', 3);
+                        $col1 = $visibleItems->where('menu_column', 1);
+                        $col2 = $visibleItems->where('menu_column', 2);
+                        $col3 = $visibleItems->where('menu_column', 3);
                     @endphp
                     
                     {{-- COLUMN 1 --}}
+                    @if($col1->isNotEmpty())
                     <div class="flex flex-col gap-3 items-start min-w-[220px]">
                         @php $currentGroup = null; @endphp
                         @foreach($col1 as $item)
@@ -200,8 +209,10 @@
                             </a>
                         @endforeach
                     </div>
+                    @endif
 
                     {{-- COLUMN 2 --}}
+                    @if($col2->isNotEmpty())
                     <div class="flex flex-col gap-3 items-start min-w-[220px]">
                         @php $currentGroup = null; @endphp
                         @foreach($col2 as $item)
@@ -223,8 +234,10 @@
                             </a>
                         @endforeach
                     </div>
+                    @endif
 
                     {{-- COLUMN 3 --}}
+                    @if($col3->isNotEmpty())
                     <div class="flex flex-col gap-3 items-start min-w-[220px]">
                         @php $currentGroup = null; @endphp
                         @foreach($col3 as $item)
@@ -246,6 +259,7 @@
                             </a>
                         @endforeach
                     </div>
+                    @endif
 
                     {{-- Tombol Kembali Mobile --}}
                     <button @click="activeMenu = null" class="md:hidden flex items-center gap-2 text-zinc-500 bg-white dark:bg-zinc-800 px-4 py-2 rounded-full shadow-sm border border-zinc-200 dark:border-zinc-700 mb-2 mt-4">
