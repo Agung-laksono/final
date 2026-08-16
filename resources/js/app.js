@@ -17,6 +17,24 @@ document.addEventListener('alpine:init', () => {
 });
 
 // Cropper-style Interactive Crop — Pure Alpine JS, Zero Library
+
+/**
+ * Smart image export: coba WebP dulu (Android/Chrome).
+ * Jika iOS Safari gagal (mengembalikan string pendek/kosong), fallback ke JPEG.
+ */
+window.toSafeDataUrl = function(canvas, quality) {
+    try {
+        const webp = canvas.toDataURL('image/webp', quality);
+        // iOS Safari yang gagal mengembalikan 'data:,' atau string sangat pendek
+        if (webp && webp.length > 200 && webp.startsWith('data:image/webp')) {
+            return { dataUrl: webp, ext: 'webp', mime: 'image/webp' };
+        }
+    } catch(e) { /* iOS throw */ }
+    // Fallback ke JPEG (universal)
+    const jpeg = canvas.toDataURL('image/jpeg', quality ?? 0.85);
+    return { dataUrl: jpeg, ext: 'jpg', mime: 'image/jpeg' };
+};
+
 window.imageCropperData = (wireModel = 'image', nameModel = null) => {
     return {
             isProcessing: false,
@@ -354,7 +372,7 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
             async updatePreviewSize() {
                 if (!this.workingImgSrc) return;
                 const canvas = await this.generateCanvas();
-                const dataUrl = canvas.toDataURL('image/webp', this.quality);
+                const { dataUrl } = window.toSafeDataUrl(canvas, this.quality);
                 const base64Length = dataUrl.length - (dataUrl.indexOf(',') + 1);
                 this.previewSize = Math.floor(base64Length * 0.75);
             },
@@ -364,7 +382,7 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
                 this.isProcessing = true;
 
                 const canvas = await this.generateCanvas();
-                const dataUrl = canvas.toDataURL('image/webp', this.quality);
+                const { dataUrl, ext } = window.toSafeDataUrl(canvas, this.quality);
                 
                 const base64Length = dataUrl.length - (dataUrl.indexOf(',') + 1);
                 this.newSize = Math.floor(base64Length * 0.75);
@@ -373,8 +391,10 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
                 this.$wire.set(wireModel, dataUrl);
                 if (nameModel && this.originalFile) {
                     let finalName = this.customFileName.trim() ? this.customFileName.trim() : this.originalFile.name;
-                    // Pastikan ada ekstensi untuk proses pathinfo di Livewire (misal .jpg dummy jika tidak ada)
-                    if (!finalName.includes('.')) finalName += '.jpg';
+                    // Bersihkan ekstensi lama, ganti dengan format aktual hasil ekspor
+                    const dotIdx = finalName.lastIndexOf('.');
+                    if (dotIdx > 0) finalName = finalName.substring(0, dotIdx);
+                    finalName += '.' + ext;
                     this.$wire.set(nameModel, finalName);
                 }
                 this.hasCropped = true;
@@ -422,8 +442,8 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
 
-                    // Convert ke WEBP tanpa mengubah resolusi (resize) dan tanpa kompresi berat
-                    const dataUrl = canvas.toDataURL('image/webp', 0.95);
+                    // Ekspor dengan format terbaik yang didukung browser (WebP atau JPEG fallback)
+                    const { dataUrl, ext } = window.toSafeDataUrl(canvas, 0.92);
                     const base64Length = dataUrl.length - (dataUrl.indexOf(',') + 1);
                     this.newSize = Math.floor(base64Length * 0.75);
 
@@ -431,7 +451,9 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
                     this.$wire.set(wireModel, dataUrl);
                     if (nameModel && this.originalFile) {
                         let finalName = this.customFileName.trim() ? this.customFileName.trim() : this.originalFile.name;
-                        if (!finalName.includes('.')) finalName += '.webp';
+                        const dotIdx = finalName.lastIndexOf('.');
+                        if (dotIdx > 0) finalName = finalName.substring(0, dotIdx);
+                        finalName += '.' + ext;
                         this.$wire.set(nameModel, finalName);
                     }
                     this.hasCropped = true;

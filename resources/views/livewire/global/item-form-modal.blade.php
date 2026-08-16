@@ -234,13 +234,17 @@ new class extends Component {
             $validated['alias'] = strtoupper(trim($validated['alias']));
         }
 
-        if (is_string($this->image) && str_starts_with($this->image, 'data:image/webp;base64,')) {
+        // Terima WebP (Android/Chrome) maupun JPEG (fallback iOS Safari)
+        if (is_string($this->image) && preg_match('/^data:image\/(webp|jpeg|jpg|png);base64,/', $this->image, $matches)) {
+            $mime = $matches[1];
+            $ext  = in_array($mime, ['jpeg', 'jpg']) ? 'jpg' : $mime;
+
             $base64Image = substr($this->image, strpos($this->image, ',') + 1);
-            $imageData = base64_decode($base64Image);
-            
-            $filename = 'items/' . uniqid() . '.webp';
+            $imageData   = base64_decode($base64Image);
+
+            $filename = 'items/' . uniqid() . '.' . $ext;
             \Illuminate\Support\Facades\Storage::disk('public')->put($filename, $imageData);
-            
+
             $validated['image'] = $filename;
         } elseif ($this->image === null) {
             $validated['image'] = null;

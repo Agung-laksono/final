@@ -130,14 +130,17 @@ new class extends Component {
         }
         unset($validated['custom_type']);
 
-        // Handle base64 image from x-image-cropper
-        if (is_string($this->image) && str_starts_with($this->image, 'data:image/webp;base64,')) {
+        // Terima WebP (Android/Chrome) maupun JPEG (fallback iOS Safari)
+        if (is_string($this->image) && preg_match('/^data:image\/(webp|jpeg|jpg|png);base64,/', $this->image, $matches)) {
+            $mime = $matches[1];
+            $ext  = in_array($mime, ['jpeg', 'jpg']) ? 'jpg' : $mime;
+
             $base64Image = substr($this->image, strpos($this->image, ',') + 1);
-            $imageData = base64_decode($base64Image);
-            
-            $filename = 'customers/' . uniqid() . '.webp';
+            $imageData   = base64_decode($base64Image);
+
+            $filename = 'customers/' . uniqid() . '.' . $ext;
             \Illuminate\Support\Facades\Storage::disk('public')->put($filename, $imageData);
-            
+
             $validated['image'] = $filename;
         } elseif ($this->image === null) {
             $validated['image'] = null;
@@ -326,7 +329,8 @@ new class extends Component {
                                     canvas.height = img.height;
                                     const ctx = canvas.getContext('2d');
                                     ctx.drawImage(img, 0, 0);
-                                    this.$wire.set('image', canvas.toDataURL('image/webp', 0.8));
+                                    const { dataUrl } = window.toSafeDataUrl(canvas, 0.8);
+                                    this.$wire.set('image', dataUrl);
                                 };
                                 img.src = e.target.result;
                             };
