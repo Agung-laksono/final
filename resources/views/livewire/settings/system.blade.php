@@ -186,7 +186,7 @@ new class extends Component {
             if ($this->wipeFinance) {
                 DB::table('finance_transactions')->truncate();
                 DB::table('finance_transfers')->truncate();
-                DB::table('finance_accounts')->update(['balance' => 0]);
+                DB::table('finance_accounts')->update(['current_balance' => 0]);
             }
             
             // 2. Sales
