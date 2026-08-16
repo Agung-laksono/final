@@ -1,6 +1,7 @@
 <?php
 
 use Livewire\Volt\Component;
+use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
@@ -9,8 +10,11 @@ use Modules\Finance\Models\FinanceAccount;
 use Carbon\Carbon;
 
 new class extends Component {
+    use WithFileUploads;
+
     public $backups = [];
     public $confirmPassword = '';
+    public $uploadedBackupFile;
     
     // Checklists
     public $wipeFinance = false;
@@ -167,6 +171,35 @@ new class extends Component {
         }
     }
 
+    public function updatedUploadedBackupFile() {
+        $this->uploadBackup();
+    }
+
+    public function uploadBackup() {
+        $this->validate([
+            'uploadedBackupFile' => 'required|file|max:204800', // max 200MB limit via Livewire
+        ]);
+
+        $extension = $this->uploadedBackupFile->getClientOriginalExtension();
+        if (!in_array($extension, ['zip', 'sqlite'])) {
+            $this->addError('uploadedBackupFile', 'Format file tidak didukung. Harus .zip atau .sqlite');
+            return;
+        }
+
+        $originalName = $this->uploadedBackupFile->getClientOriginalName();
+        // Prevent overwriting existing backups directly by appending timestamp if it already exists
+        if (Storage::disk('local')->exists('backups/' . $originalName)) {
+            $nameWithoutExt = pathinfo($originalName, PATHINFO_FILENAME);
+            $originalName = $nameWithoutExt . '_uploaded_' . now()->timestamp . '.' . $extension;
+        }
+
+        $this->uploadedBackupFile->storeAs('backups', $originalName, 'local');
+        
+        $this->reset('uploadedBackupFile');
+        \Flux::toast('File backup berhasil diunggah.', variant: 'success');
+        $this->loadBackups();
+    }
+
     public function deleteBackup($name) {
         Storage::disk('local')->delete('backups/' . $name);
         \Flux::toast('Backup dihapus.', variant: 'success');
@@ -290,9 +323,22 @@ new class extends Component {
                     <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Cadangkan Database</h3>
                     <p class="text-sm text-zinc-500">Buat salinan data Anda sebagai jaring pengaman.</p>
                 </div>
-                <flux:button wire:click="createBackup" variant="primary" icon="document-duplicate" size="sm">
-                    Buat Backup Sekarang
-                </flux:button>
+                <div class="flex items-center gap-3">
+                    <!-- Upload Input -->
+                    <div class="relative flex items-center">
+                        <label class="cursor-pointer bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-medium h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors flex items-center gap-2 whitespace-nowrap shadow-sm">
+                            <flux:icon.arrow-up-tray class="w-4 h-4" />
+                            <span>Unggah (.zip)</span>
+                            <input type="file" wire:model="uploadedBackupFile" class="hidden" accept=".zip,.sqlite" />
+                        </label>
+                        <div wire:loading wire:target="uploadedBackupFile" class="absolute right-0 -bottom-6 w-max text-xs font-semibold text-zinc-500 animate-pulse">Mengunggah...</div>
+                        @error('uploadedBackupFile') <div class="absolute right-0 -bottom-6 w-max text-xs font-semibold text-red-500">{{ $message }}</div> @enderror
+                    </div>
+
+                    <flux:button wire:click="createBackup" variant="primary" icon="document-duplicate" size="sm">
+                        Buat Backup Sekarang
+                    </flux:button>
+                </div>
             </div>
 
             <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-900">
