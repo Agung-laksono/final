@@ -376,8 +376,8 @@ on([
                                      class="bg-white dark:bg-zinc-800 rounded-xl p-2 shadow-sm border transition-all duration-300 active:scale-[0.98] cursor-pointer group flex flex-col gap-0.5 relative overflow-hidden {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:-translate-y-1 hover:border-amber-500 hover:shadow-amber-500/30' : 'border-zinc-200 dark:border-zinc-700 hover:shadow-md hover:-translate-y-1 hover:border-'.$column['color'].'-400 dark:hover:border-'.$column['color'].'-500' }}" 
                                      :class="{ 'animate-pulse opacity-60 pointer-events-none': loading }"
                                  x-on:click="
+                                    let status = '{{ $statusKey }}';
                                     if(isDesktop) {
-                                        let status = '{{ $statusKey }}';
                                         if (status === 'processing') $dispatch('open-fulfillment-modal', { orderId: {{ $order->id }} });
                                         else if (status === 'packing') $dispatch('open-packing-modal', { orderId: {{ $order->id }} });
                                         else if (status === 'shipping') $dispatch('open-shipping-modal', { orderId: {{ $order->id }} });

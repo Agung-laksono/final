@@ -135,10 +135,19 @@ new class extends Component {
         $galleryItems = $query->latest()->paginate($this->perPage);
         
         $itemIds = $galleryItems->pluck('id')->toArray();
-        $itemsWithHistory = \Modules\Purchase\Models\PurchaseOrderItem::whereIn('item_id', $itemIds)
-            ->whereHas('purchaseOrder', function($q) {
-                $q->where('status', '!=', 'draft');
-            })->pluck('item_id')->unique()->toArray();
+        $itemsWithHistory = [];
+        
+        if ($this->context === 'sales') {
+            $itemsWithHistory = \Modules\Sales\Models\SalesOrderItem::whereIn('item_id', $itemIds)
+                ->whereHas('salesOrder', function($q) {
+                    $q->where('status', '!=', 'draft');
+                })->pluck('item_id')->unique()->toArray();
+        } else {
+            $itemsWithHistory = \Modules\Purchase\Models\PurchaseOrderItem::whereIn('item_id', $itemIds)
+                ->whereHas('purchaseOrder', function($q) {
+                    $q->where('status', '!=', 'draft');
+                })->pluck('item_id')->unique()->toArray();
+        }
 
         $subCategories = $this->categoryId ? SubCategory::where('category_id', $this->categoryId)->orderBy('name')->get() : [];
 

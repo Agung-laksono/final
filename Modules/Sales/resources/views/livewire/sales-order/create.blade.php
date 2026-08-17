@@ -229,14 +229,14 @@ $loadHistory = function () {
     $this->has_more_history = $baseQuery->count() > $this->history_limit;
 
     $this->price_history = \Modules\Sales\Models\SalesOrderItem::with(['salesOrder.customer', 'item.unit'])
-        ->where('item_id', $this->history_item_id)
-        ->whereHas('salesOrder', function($q) {
-            $q->where('status', '!=', 'draft');
-        })
-        ->get()
-        ->sortByDesc(fn($poi) => $poi->salesOrder->order_date ?? '')
+        ->join('sales_orders', 'sales_order_items.sales_order_id', '=', 'sales_orders.id')
+        ->where('sales_order_items.item_id', $this->history_item_id)
+        ->where('sales_orders.status', '!=', 'draft')
+        ->orderBy('sales_orders.order_date', 'desc')
+        ->orderBy('sales_order_items.id', 'desc')
+        ->select('sales_order_items.*')
         ->take($this->history_limit)
-        ->values()
+        ->get()
         ->toArray();
 };
 
@@ -502,7 +502,7 @@ $saveCart = function ($cartData) {
                                 @if(count($this->searchResults) > 0)
                                     <ul class="max-h-64 overflow-y-auto custom-scrollbar">
                                         @foreach($this->searchResults as $res)
-                                            <li @click="addItem({ item_id: {{ $res->id }}, name: '{{ addslashes($res->name) }}', code: '{{ $res->code ?? '0001' }}', unit_price: {{ $res->selling_price ?? 0 }}, image: '{{ $res->image }}' }); $wire.search_query = ''; $wire.show_suggestions = false; window.playSelectSound?.('ting');"
+                                            <li @click="addItem({ item_id: {{ $res->id }}, name: '{{ addslashes($res->name) }}', code: '{{ $res->code ?? '0001' }}', unit_price: {{ $res->selling_price ?? 0 }}, image: '{{ $res->image }}', has_history: {{ \Modules\Sales\Models\SalesOrderItem::where('item_id', $res->id)->whereHas('salesOrder', function($q){ $q->where('status', '!=', 'draft'); })->exists() ? 'true' : 'false' }} }); $wire.search_query = ''; $wire.show_suggestions = false; window.playSelectSound?.('ting');"
                                                 class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-700 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-3 transition-colors">
                                                 @if($res->image)
                                                     <img src="{{ Storage::url($res->image) }}" class="w-9 h-9 rounded-lg bg-zinc-100 object-cover shrink-0 shadow-sm">
@@ -714,7 +714,7 @@ $saveCart = function ($cartData) {
                                                 appearance="transparent" 
                                                 class="w-full pr-8" 
                                             />
-                                            <button type="button" @click="open = !open; if(open) { $wire.showPriceHistory(item.item_id, item.name); $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" 
+                                            <button type="button" @click="open = !open; if(open) { $wire.price_history = []; $wire.showPriceHistory(item.item_id, item.name); $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) } else { $wire.price_history = []; }" 
                                                     class="absolute right-2.5 transition-colors"
                                                     :class="item.has_history ? 'text-blue-500 hover:text-blue-600' : 'text-zinc-300 hover:text-zinc-500'">
                                                 <flux:icon.clock class="w-4 h-4" />
@@ -754,7 +754,7 @@ $saveCart = function ($cartData) {
                                                                             <flux:icon.building-storefront class="w-3.5 h-3.5 text-zinc-400 group-hover:text-cyan-500 transition-colors" />
                                                                             <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors truncate max-w-[120px]" x-text="history.sales_order?.customer?.name || 'Customer Tidak Diketahui'"></span>
                                                                             <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
-                                                                            <span class="text-[10px] font-bold text-zinc-500 uppercase group-hover:text-cyan-600/70 dark:group-hover:text-cyan-400/70 transition-colors bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded" x-text="'Beli: ' + history.quantity + ' ' + (history.item?.unit?.name || '')"></span>
+                                                                            <span class="text-[10px] font-bold text-zinc-500 uppercase group-hover:text-cyan-600/70 dark:group-hover:text-cyan-400/70 transition-colors bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded" x-text="'Beli: ' + history.qty + ' ' + (history.item?.unit?.name || '')"></span>
                                                                         </div>
                                                                     </div>
                                                                     <div class="text-right flex items-center gap-3">
