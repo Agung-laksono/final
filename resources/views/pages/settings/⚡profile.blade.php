@@ -18,6 +18,7 @@ new #[Title('Profile settings')] class extends Component {
     use WithFileUploads;
 
     public string $name = '';
+    public string $username = '';
     public string $email = '';
     public $photo;
 
@@ -27,6 +28,7 @@ new #[Title('Profile settings')] class extends Component {
     public function mount(): void
     {
         $this->name = Auth::user()->name;
+        $this->username = Auth::user()->username ?? '';
         $this->email = Auth::user()->email;
     }
 
@@ -138,10 +140,12 @@ new #[Title('Profile settings')] class extends Component {
 
             @can('profile.update')
                 <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
+                <flux:input wire:model="username" :label="__('Username')" type="text" required autocomplete="username" />
                 <div>
                     <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
             @else
                 <flux:input wire:model="name" :label="__('Name')" type="text" disabled />
+                <flux:input wire:model="username" :label="__('Username')" type="text" disabled />
                 <div>
                     <flux:input wire:model="email" :label="__('Email')" type="email" disabled />
             @endcan

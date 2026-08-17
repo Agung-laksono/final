@@ -62,7 +62,7 @@
                     {{-- User Profile / Settings --}}
                     <div class="flex items-center gap-3 cursor-pointer group" @click="setActiveMenu('settings')" @mouseenter="setActiveMenu('settings')" x-bind:class="activeMenu !== null && activeMenu !== 'settings' ? 'opacity-40 scale-95 grayscale' : 'opacity-100 scale-100'">
                         <div class="flex items-center justify-center w-12 h-12 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full shadow-lg group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors" x-bind:class="activeMenu === 'dashboard' ? 'bg-indigo-200 dark:bg-indigo-800' : ''">
-                            <flux:avatar :src="auth()->user()->avatarUrl()" :initials="auth()->user()->initials()" class="w-8 h-8" />
+                            <flux:avatar :src="auth()->user()->avatarUrl()" :initials="auth()->user()->initials()" class="w-full h-full !rounded-full overflow-hidden object-cover" />
                         </div>
                         <span class="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl shadow-lg text-sm font-semibold group-hover:scale-105 transition-transform origin-left" x-bind:class="activeMenu === 'settings' ? 'scale-105' : ''">
                             {{ auth()->user()->name }}

@@ -252,8 +252,19 @@
             <div class="relative w-full flex justify-center bg-white dark:bg-zinc-900 group">
                 @if (is_string($image) && str_starts_with($image, 'data:image'))
                     <img src="{{ $image }}" class="w-full h-auto max-h-[250px] object-contain">
+                @elseif (is_string($image) && (str_starts_with($image, 'http://') || str_starts_with($image, 'https://')))
+                    <img src="{{ $image }}" class="w-full h-auto max-h-[250px] object-contain" onerror="this.style.display='none'">
+                @elseif (is_string($image) && str_starts_with($image, '/storage/'))
+                    <img src="{{ asset($image) }}" class="w-full h-auto max-h-[250px] object-contain" onerror="this.style.display='none'">
                 @elseif (!is_object($image))
-                    <img src="{{ asset('storage/' . $image) }}" class="w-full h-auto max-h-[250px] object-contain">
+                    @if (Storage::disk('public')->exists($image))
+                        <img src="{{ Storage::disk('public')->url($image) }}" class="w-full h-auto max-h-[250px] object-contain">
+                    @else
+                        <div class="w-full h-32 flex flex-col items-center justify-center text-zinc-400 bg-zinc-100 dark:bg-zinc-800 rounded-lg">
+                            <flux:icon.photo class="w-8 h-8 mb-2 opacity-30" />
+                            <span class="text-xs">Gambar hilang</span>
+                        </div>
+                    @endif
                 @endif
             </div>
 
