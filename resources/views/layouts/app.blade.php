@@ -10,19 +10,19 @@
     </x-layouts::app.iframe>
 @elseif($layoutMode === 'floating')
     <x-layouts::app.floating :title="$title ?? null">
-        <flux:main>
+        <flux:main class="max-sm:!px-4 max-sm:!py-6">
             {{ $slot }}
         </flux:main>
     </x-layouts::app.floating>
 @elseif($layoutMode === 'dock')
     <x-layouts::app.dock :title="$title ?? null">
-        <flux:main>
+        <flux:main class="max-sm:!px-4 max-sm:!py-6">
             {{ $slot }}
         </flux:main>
     </x-layouts::app.dock>
 @else
     <x-layouts::app.sidebar :title="$title ?? null">
-        <flux:main>
+        <flux:main class="max-sm:!px-4 max-sm:!py-6">
             {{ $slot }}
         </flux:main>
     </x-layouts::app.sidebar>

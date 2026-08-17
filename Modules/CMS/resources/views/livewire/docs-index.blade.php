@@ -53,7 +53,7 @@ new class extends Component {
 };
 ?>
 <div>
-    <flux:main container>
+
         <flux:breadcrumbs class="mb-4">
             <flux:breadcrumbs.item href="/dashboard">Dashboard</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>Buku Panduan</flux:breadcrumbs.item>
@@ -126,5 +126,5 @@ new class extends Component {
         <div class="mt-8">
             {{ $posts->links() }}
         </div>
-    </flux:main>
+
 </div>

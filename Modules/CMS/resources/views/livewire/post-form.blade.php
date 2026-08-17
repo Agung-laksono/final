@@ -239,7 +239,7 @@ new class extends Component {
 };
 ?>
 <div>
-    <flux:main container>
+
         <flux:breadcrumbs class="mb-4">
             <flux:breadcrumbs.item href="/dashboard">Dashboard</flux:breadcrumbs.item>
             <flux:breadcrumbs.item href="{{ route('cms.posts.index') }}">Kelola CMS</flux:breadcrumbs.item>
@@ -459,5 +459,5 @@ new class extends Component {
             </form>
         </flux:modal>
 
-    </flux:main>
+
 </div>
