@@ -37,17 +37,17 @@ new class extends Component {
             <flux:breadcrumbs.item>Kelola CMS</flux:breadcrumbs.item>
         </flux:breadcrumbs>
 
-        <div class="flex justify-between items-center mb-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
                 <flux:heading size="xl" level="1">Pengumuman & Dokumentasi</flux:heading>
                 <flux:subheading>Kelola artikel publik, pengumuman internal, dan dokumentasi sistem.</flux:subheading>
             </div>
-            <flux:button href="{{ route('cms.posts.create') }}" variant="primary" icon="plus">Buat Baru</flux:button>
+            <flux:button href="{{ route('cms.posts.create') }}" variant="primary" icon="plus" class="w-full sm:w-auto">Buat Baru</flux:button>
         </div>
 
         <flux:card>
-            <div class="flex items-center gap-4 mb-4">
-                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari judul artikel..." class="max-w-md" />
+            <div class="flex items-center gap-4 mb-4 w-full">
+                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari judul artikel..." class="w-full sm:max-w-md" />
             </div>
 
             <x-table.wrapper>

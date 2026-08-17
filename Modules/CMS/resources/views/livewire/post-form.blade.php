@@ -400,9 +400,9 @@ new class extends Component {
                     </div>
                 </flux:card>
 
-                <div class="flex justify-end gap-3 mt-4">
-                    <flux:button href="{{ route('cms.posts.index') }}" variant="ghost">Batal</flux:button>
-                    <flux:button type="submit" variant="primary" icon="check">Simpan Artikel</flux:button>
+                <div class="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-4 w-full">
+                    <flux:button href="{{ route('cms.posts.index') }}" variant="ghost" class="w-full sm:w-auto">Batal</flux:button>
+                    <flux:button type="submit" variant="primary" icon="check" class="w-full sm:w-auto">Simpan Artikel</flux:button>
                 </div>
             </div>
 
@@ -417,12 +417,11 @@ new class extends Component {
 
                 <flux:input wire:model="newCategoryName" label="Nama Kategori" placeholder="Contoh: Pengumuman" required />
 
-                <div class="flex gap-2">
-                    <flux:spacer />
+                <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 mt-2 w-full">
                     <flux:modal.close>
-                        <flux:button variant="ghost">Batal</flux:button>
+                        <flux:button variant="ghost" class="w-full sm:w-auto">Batal</flux:button>
                     </flux:modal.close>
-                    <flux:button type="submit" variant="primary">Simpan Kategori</flux:button>
+                    <flux:button type="submit" variant="primary" class="w-full sm:w-auto">Simpan Kategori</flux:button>
                 </div>
             </form>
         </flux:modal>
@@ -448,12 +447,11 @@ new class extends Component {
                 
                 <flux:checkbox wire:model="useRagContext" label="Gunakan Data Database (RAG)" description="Cari data yang relevan di seluruh sistem (Karyawan, Barang, Transaksi, dll) sebelum menulis." />
 
-                <div class="flex gap-2">
-                    <flux:spacer />
+                <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 mt-2 w-full">
                     <flux:modal.close>
-                        <flux:button variant="ghost" wire:loading.attr="disabled" wire:target="generateWithAi">Batal</flux:button>
+                        <flux:button variant="ghost" class="w-full sm:w-auto" wire:loading.attr="disabled" wire:target="generateWithAi">Batal</flux:button>
                     </flux:modal.close>
-                    <flux:button type="submit" variant="primary" class="bg-amber-600 hover:bg-amber-700 text-white border-none" wire:loading.attr="disabled" wire:target="generateWithAi">
+                    <flux:button type="submit" variant="primary" class="bg-amber-600 hover:bg-amber-700 text-white border-none w-full sm:w-auto" wire:loading.attr="disabled" wire:target="generateWithAi">
                         <span wire:loading.remove wire:target="generateWithAi">Tulis Sekarang</span>
                         <span wire:loading wire:target="generateWithAi">Sedang Berpikir...</span>
                     </flux:button>
