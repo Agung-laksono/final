@@ -13,9 +13,13 @@
             isNotifOpen: false,
             activeMenu: 'main', // 'main', 'inventory', 'purchase', 'production', 'sales', 'finance'
             ignoreBackdrop: false,
+            isTransitioning: false,
             setActiveMenu(menu) {
+                if (this.activeMenu === menu) return;
                 this.ignoreBackdrop = true;
+                this.isTransitioning = true;
                 this.activeMenu = menu;
+                setTimeout(() => { this.isTransitioning = false; }, 300);
                 setTimeout(() => { this.ignoreBackdrop = false; }, 500);
             },
             close() {
@@ -45,7 +49,8 @@
             @php
     $groupedItems = app(\App\Services\NavigationService::class)->getGrouped();
 @endphp
-            <div class="speed-dial-menu absolute bottom-full left-1 mb-4 origin-bottom-left flex flex-row gap-6 items-end w-max">
+            <div class="speed-dial-menu absolute bottom-full left-1 mb-4 origin-bottom-left flex flex-row gap-6 items-end w-max"
+                 :class="isTransitioning ? 'pointer-events-none' : ''">
                 {{-- MAIN MENU --}}
                 <div x-show="open"
                      x-transition:enter="transition ease-out duration-300 transform"
