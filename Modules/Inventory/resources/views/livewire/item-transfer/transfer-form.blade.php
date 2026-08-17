@@ -548,5 +548,5 @@ $save = function () {
     </form>
 
     <!-- Komponen Global Scanner Kamera -->
-    <x-camera-scanner />
+
 </div>

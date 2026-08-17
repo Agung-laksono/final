@@ -166,7 +166,7 @@ $handleScan = function ($code, $targetOrderId = null) {
 };
 
 on([
-    'process-item-barcode' => function ($code, $targetOrderId = null) {
+    'barcode-scanned' => function ($code, $targetOrderId = null) {
         if (!$this->itemId || !$this->show) return;
         $this->handleScan($code, $targetOrderId ?? $this->targetOrderId);
     }
@@ -387,7 +387,7 @@ $save = function() {
                     <div class="flex-1 w-full">
                         <flux:input 
                             wire:model="manualBarcode" 
-                            x-on:keydown.enter="$dispatch('item-barcode-scanned-dispatch', { code: $wire.manualBarcode }); $wire.manualBarcode = ''" 
+                            x-on:keydown.enter="$dispatch('barcode-scanned', { code: $wire.manualBarcode }); $wire.manualBarcode = ''" 
                             placeholder="Scan / ketik barcode..." 
                             icon="qr-code" 
                             class="!h-9 text-xs"
@@ -482,5 +482,5 @@ $save = function() {
     </div>
 </flux:modal>
 
-<div x-data @item-barcode-scanned-dispatch.window="$wire.dispatch('process-item-barcode', { code: $event.detail.code })" @barcode-scanned.window="$wire.dispatch('process-item-barcode', { code: $event.detail.code })"></div>
+
 </div>

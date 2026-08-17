@@ -416,7 +416,7 @@ $save = function() {
                     <div class="flex-1 w-full">
                         <flux:input 
                             wire:model="manualBarcode" 
-                            x-on:keydown.enter="$dispatch('material-barcode-scanned', { code: $wire.manualBarcode }); $wire.manualBarcode = ''" 
+                            x-on:keydown.enter="$dispatch('barcode-scanned', { code: $wire.manualBarcode }); $wire.manualBarcode = ''" 
                             placeholder="Scan / ketik barcode..." 
                             icon="qr-code" 
                             class="!h-9 text-xs"

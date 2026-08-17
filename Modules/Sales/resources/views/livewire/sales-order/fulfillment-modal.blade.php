@@ -95,7 +95,7 @@ on(['echo:inventory,InventoryUpdated' => function () {
     }
 }]);
 
-on(['process-barcode' => function ($code) {
+on(['barcode-scanned' => function ($code) {
     if (!$this->show) return;
 
     $code = trim($code);
@@ -430,8 +430,7 @@ $save = function () {
     @endif
 </flux:modal>
 
-<div x-data @barcode-scanned.window="$wire.dispatch('process-barcode', { code: $event.detail.code })"></div>
-<x-camera-scanner />
+
 
 <div x-data="{
     playBeep(type) {

@@ -34,4 +34,8 @@
 {{-- Global Contextual Help Button --}}
 <livewire:contextual-help />
 
+{{-- Global Barcode Scanner --}}
+<div x-data @barcode-scanned.window="if (window.Livewire) { window.Livewire.dispatch('barcode-scanned', { code: $event.detail.code }); }"></div>
+<x-camera-scanner />
+
 </script>

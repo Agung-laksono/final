@@ -903,9 +903,6 @@
             }, true); // Gunakan fase capturing agar dieksekusi lebih dulu
         </script>
         <x-loading></x-loading>
-        <div x-data @barcode-scanned.window="if (window.Livewire) { window.Livewire.dispatch('barcode-scanned', { code: $event.detail.code }); }"></div>
-        <x-camera-scanner />
-
         {{-- AI Chat Widget (standalone, di luar speed dial) --}}
         @if(!request()->is('chat*') && \Illuminate\Support\Facades\Cache::get('setting_enable_ai_chat', \App\Models\Setting::where('key', 'enable_ai_chat')->value('value')) == '1')
         <div class="fixed bottom-3 lg:bottom-8 right-4 lg:right-8 z-[950] print:hidden">

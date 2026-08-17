@@ -618,5 +618,5 @@ $save = function () {
     @include('inventory::livewire.item-opname.sn-modal')
 
     <!-- Komponen Global Scanner Kamera -->
-    <x-camera-scanner />
+
 </div>

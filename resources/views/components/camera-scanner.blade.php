@@ -94,6 +94,9 @@
                         this.successMsg = '';
                         this.isLoading = true;
                         this.loadingMessage = 'Memuat kamera...';
+                        
+                        // Beri jeda sejenak agar browser sempat me-render spinner loading
+                        await new Promise(r => setTimeout(r, 50));
 
                         if (!this._camerasLoaded) {
                             await this.getCameras();
@@ -212,7 +215,7 @@
                     this.createAndStart();
                 },
 
-                startScanner() {
+                async startScanner() {
                     if (this.isScanning || this.isStopping) return;
                     if (!this._currentReaderId) return;
 
@@ -231,6 +234,9 @@
                     this.isLoading = true;
                     this.loadingMessage = 'Mengaktifkan kamera...';
                     this.errorMsg = '';
+                    
+                    // Jeda sebentar agar UI sempat menampilkan pesan loading sebelum proses start (yang bisa memblokir thread) berjalan
+                    await new Promise(r => setTimeout(r, 50));
 
                     this.scanner.start(
                         cameraConfig,
