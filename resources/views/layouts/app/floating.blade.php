@@ -585,87 +585,95 @@
                     <flux:icon.x-mark class="w-5 h-5 lg:w-6 lg:h-6 absolute transition-all duration-300" 
                                       x-bind:class="open ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'" />
                 </button>
-                {{-- Global Utility Buttons (Theme & Fullscreen) --}}
-                <div class="flex items-center gap-3 transition-all duration-300 transform origin-left" 
+                {{-- Global Utility Buttons (Grouped by function) --}}
+                <div class="flex items-center gap-2 lg:gap-3 transition-all duration-300 transform origin-left" 
                      x-bind:class="open ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 -translate-x-8 scale-75 pointer-events-none'">
-                    {{-- Chat Shortcut --}}
-                    <a href="{{ route('chat.index') }}" wire:navigate
-                            class="w-10 h-10 lg:w-12 lg:h-12 bg-[#00a884]/10 hover:bg-[#00a884]/20 dark:bg-[#00a884]/20 dark:hover:bg-[#00a884]/30 backdrop-blur-md border border-[#00a884]/30 rounded-full shadow-lg flex items-center justify-center text-[#00a884] transition-colors"
-                            title="Buka WhatsApp">
-                        <flux:icon.chat-bubble-left-right class="w-4 h-4 lg:w-5 lg:h-5" />
-                    </a>
+                     
+                    {{-- Group 1: Komunikasi & Eksternal --}}
+                    <div class="flex items-center bg-white/70 dark:bg-zinc-800/70 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-700/80 rounded-full shadow-lg p-1.5 gap-1">
+                        {{-- Chat Shortcut --}}
+                        <a href="{{ route('chat.index') }}" wire:navigate
+                                class="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-full hover:bg-[#00a884]/10 dark:hover:bg-[#00a884]/20 text-[#00a884] transition-colors"
+                                title="Buka WhatsApp">
+                            <flux:icon.chat-bubble-left-right class="w-4 h-4 lg:w-5 lg:h-5" />
+                        </a>
+    
+                        {{-- PWA Install Button --}}
+                        <button type="button"
+                                x-data="{ deferredPrompt: null, showInstall: false }"
+                                @beforeinstallprompt.window="
+                                    $event.preventDefault();
+                                    deferredPrompt = $event;
+                                    showInstall = true;
+                                "
+                                @appinstalled.window="showInstall = false"
+                                x-show="showInstall"
+                                x-cloak
+                                @click="
+                                    if (deferredPrompt) {
+                                        deferredPrompt.prompt();
+                                        deferredPrompt.userChoice.then((choiceResult) => {
+                                            if (choiceResult.outcome === 'accepted') {
+                                                showInstall = false;
+                                            }
+                                            deferredPrompt = null;
+                                        });
+                                    }
+                                "
+                                class="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-full hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 transition-colors"
+                                title="Install Aplikasi (PWA)">
+                            <flux:icon.arrow-down-tray class="w-4 h-4 lg:w-5 lg:h-5" />
+                        </button>
+                    </div>
 
-                    {{-- PWA Install Button (Inline) --}}
-                    <button type="button"
-                            x-data="{ deferredPrompt: null, showInstall: false }"
-                            @beforeinstallprompt.window="
-                                $event.preventDefault();
-                                deferredPrompt = $event;
-                                showInstall = true;
-                            "
-                            @appinstalled.window="showInstall = false"
-                            x-show="showInstall"
-                            x-cloak
-                            @click="
-                                if (deferredPrompt) {
-                                    deferredPrompt.prompt();
-                                    deferredPrompt.userChoice.then((choiceResult) => {
-                                        if (choiceResult.outcome === 'accepted') {
-                                            showInstall = false;
-                                        }
-                                        deferredPrompt = null;
-                                    });
-                                }
-                            "
-                            class="w-10 h-10 lg:w-12 lg:h-12 bg-emerald-500/10 hover:bg-emerald-500/20 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 backdrop-blur-md border border-emerald-500/30 rounded-full shadow-lg flex items-center justify-center text-emerald-600 transition-colors"
-                            title="Install Aplikasi (PWA)">
-                        <flux:icon.arrow-down-tray class="w-4 h-4 lg:w-5 lg:h-5" />
-                    </button>
-                    
-                    {{-- AI Chat Shortcut dipindah keluar speed dial --}}
-                    {{-- <livewire:ai-chat-widget /> --}}
-                    
-                    {{-- Documentation Shortcut --}}
-                    <a href="{{ route('docs.index') }}" wire:navigate
-                            class="w-10 h-10 lg:w-12 lg:h-12 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700 rounded-full shadow-lg flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-                            title="Buka Dokumentasi Sistem">
-                        <flux:icon.book-open class="w-4 h-4 lg:w-5 lg:h-5" />
-                    </a>
+                    {{-- Group 2: Edukasi & Konten --}}
+                    <div class="flex items-center bg-white/70 dark:bg-zinc-800/70 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-700/80 rounded-full shadow-lg p-1.5 gap-1">
+                        {{-- Documentation Shortcut --}}
+                        <a href="{{ route('docs.index') }}" wire:navigate
+                                class="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors"
+                                title="Buka Dokumentasi Sistem">
+                            <flux:icon.book-open class="w-4 h-4 lg:w-5 lg:h-5" />
+                        </a>
+    
+                        {{-- CMS (Artikel) Shortcut --}}
+                        @can('cms.posts.view')
+                        <a href="{{ route('cms.posts.index') }}" wire:navigate
+                                class="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors"
+                                title="Kelola Artikel & Berita (CMS)">
+                            <flux:icon.newspaper class="w-4 h-4 lg:w-5 lg:h-5" />
+                        </a>
+                        @endcan
+                    </div>
 
-                    {{-- CMS (Artikel) Shortcut --}}
-                    @can('cms.posts.view')
-                    <a href="{{ route('cms.posts.index') }}" wire:navigate
-                            class="w-10 h-10 lg:w-12 lg:h-12 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700 rounded-full shadow-lg flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-                            title="Kelola Artikel & Berita (CMS)">
-                        <flux:icon.newspaper class="w-4 h-4 lg:w-5 lg:h-5" />
-                    </a>
-                    @endcan
-
-                    {{-- Theme Toggle --}}
-                    <button type="button" 
-                            x-on:click="
-                                let newTheme = $flux.dark ? 'light' : 'dark';
-                                if (document.startViewTransition) {
-                                    document.startViewTransition(() => $flux.appearance = newTheme);
-                                } else {
-                                    $flux.appearance = newTheme;
-                                }
-                            "
-                            class="w-10 h-10 lg:w-12 lg:h-12 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700 rounded-full shadow-lg flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-                            title="Ganti Tema">
-                        <flux:icon.moon x-show="!$flux.dark" class="w-4 h-4 lg:w-5 lg:h-5" />
-                        <flux:icon.sun x-cloak x-show="$flux.dark" class="w-4 h-4 lg:w-5 lg:h-5" />
-                    </button>
-                    {{-- Fullscreen Toggle --}}
-                    <button type="button"
-                            x-data="{ isFullscreen: false }"
-                            x-on:fullscreenchange.document="isFullscreen = !!document.fullscreenElement"
-                            x-on:click="document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()"
-                            class="w-10 h-10 lg:w-12 lg:h-12 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700 rounded-full shadow-lg flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-                            title="Layar Penuh">
-                        <flux:icon.arrows-pointing-out x-show="!isFullscreen" class="w-4 h-4 lg:w-5 lg:h-5" />
-                        <flux:icon.arrows-pointing-in x-cloak x-show="isFullscreen" class="w-4 h-4 lg:w-5 lg:h-5" />
-                    </button>
+                    {{-- Group 3: Tampilan --}}
+                    <div class="flex items-center bg-white/70 dark:bg-zinc-800/70 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-700/80 rounded-full shadow-lg p-1.5 gap-1">
+                        {{-- Theme Toggle --}}
+                        <button type="button" 
+                                x-on:click="
+                                    let newTheme = $flux.dark ? 'light' : 'dark';
+                                    if (document.startViewTransition) {
+                                        document.startViewTransition(() => $flux.appearance = newTheme);
+                                    } else {
+                                        $flux.appearance = newTheme;
+                                    }
+                                "
+                                class="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors"
+                                title="Ganti Tema">
+                            <flux:icon.moon x-show="!$flux.dark" class="w-4 h-4 lg:w-5 lg:h-5" />
+                            <flux:icon.sun x-cloak x-show="$flux.dark" class="w-4 h-4 lg:w-5 lg:h-5" />
+                        </button>
+                        
+                        {{-- Fullscreen Toggle --}}
+                        <button type="button"
+                                x-data="{ isFullscreen: false }"
+                                x-on:fullscreenchange.document="isFullscreen = !!document.fullscreenElement"
+                                x-on:click="document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()"
+                                class="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors"
+                                title="Layar Penuh">
+                            <flux:icon.arrows-pointing-out x-show="!isFullscreen" class="w-4 h-4 lg:w-5 lg:h-5" />
+                            <flux:icon.arrows-pointing-in x-cloak x-show="isFullscreen" class="w-4 h-4 lg:w-5 lg:h-5" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
