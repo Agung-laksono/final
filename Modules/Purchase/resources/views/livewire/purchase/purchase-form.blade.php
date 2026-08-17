@@ -274,6 +274,12 @@ $saveCart = function ($cartData) {
     $subtotal = collect($this->items)->sum('subtotal');
     $grandTotal = $subtotal + (float)$this->ongkir - (float)$this->diskon_global + (float)$this->pajak_nominal;
 
+    if ($grandTotal <= 0) {
+        $this->addError('items', 'Total pesanan tidak boleh nol (0). Silakan periksa kembali harga, diskon, atau ongkos kirim.');
+        \Flux::toast('Gagal menyimpan: Total pesanan tidak boleh 0.', variant: 'danger');
+        return;
+    }
+
     $hasCustomItems = collect($this->items)->contains(function ($item) {
         return (!empty($item['custom_attributes']) || !empty($item['custom_attachments']));
     });
@@ -1111,16 +1117,30 @@ $saveCart = function ($cartData) {
             </div>
             
             {{-- Tombol Aksi --}}
-            <div x-show="step >= 3" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="sm:col-span-2 md:col-span-1 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
-                <div class="flex gap-2 w-full">
-                    <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:navigate wire:loading.attr="disabled"> Batal </flux:button>
-                    <flux:button variant="primary" class="w-2/3 !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600" @click="submitCart()" x-bind:disabled="isSubmitting">
-                        <span x-show="!isSubmitting" class="flex items-center gap-2"><flux:icon.check class="w-4 h-4" /> Simpan Purchase Order</span>
-                        <span x-show="isSubmitting" class="flex items-center gap-2">
-                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            Menyimpan...
-                        </span>
-                    </flux:button>
+            <div x-show="step >= 3" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" class="sm:col-span-2 md:col-span-1 flex flex-col gap-3">
+                <div x-show="grand_total <= 0 || !vendor || items.length === 0" x-cloak class="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-xl text-sm border border-red-200 dark:border-red-800 flex items-start gap-2 shadow-sm">
+                    <flux:icon.exclamation-triangle class="w-5 h-5 shrink-0 mt-0.5" />
+                    <div class="flex flex-col">
+                        <span class="font-bold">Tidak dapat menyimpan pesanan:</span>
+                        <ul class="list-disc pl-4 mt-1 space-y-0.5 text-xs">
+                            <li x-show="!vendor">Vendor/Pemasok belum dipilih.</li>
+                            <li x-show="items.length === 0">Keranjang belanja masih kosong.</li>
+                            <li x-show="items.length > 0 && grand_total <= 0">Total pesanan tidak boleh 0 (periksa harga atau diskon).</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
+                    <div class="flex gap-2 w-full">
+                        <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:navigate wire:loading.attr="disabled"> Batal </flux:button>
+                        <flux:button variant="primary" class="w-2/3 !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600" @click="submitCart()" x-bind:disabled="isSubmitting || grand_total <= 0 || !vendor || items.length === 0">
+                            <span x-show="!isSubmitting" class="flex items-center gap-2"><flux:icon.check class="w-4 h-4" /> Simpan Purchase Order</span>
+                            <span x-show="isSubmitting" class="flex items-center gap-2">
+                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                Menyimpan...
+                            </span>
+                        </flux:button>
+                    </div>
                 </div>
             </div>
         </div>
