@@ -319,8 +319,7 @@ on([
         @endcan
     </x-slot:header_actions>
     
-    <x-slot:kanban_layout>
-        <div class="flex gap-6 overflow-x-auto pb-4 h-full -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scroll-smooth custom-scrollbar items-stretch min-w-full w-max before:content-[''] before:m-auto after:content-[''] after:m-auto">
+
             @foreach($columns as $statusKey => $column)
                 @php
                     $defaultCollapsed = in_array($statusKey, ['archived', 'rejected']);
@@ -480,8 +479,7 @@ on([
                         @endforelse
                 </x-kanban.column>
             @endforeach
-        </div>
-    </x-slot:kanban_layout>
+
 
     <x-slot:table_layout>
         <div class="p-6">
