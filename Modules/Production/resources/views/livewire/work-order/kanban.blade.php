@@ -240,7 +240,7 @@ on(['maklon-po-created' => function () {
                         @forelse($groupedByPo as $poId => $poOrders)
                             @php $po = $poOrders->first()->purchaseOrder; @endphp
                             <div wire:key="po-group-{{ $statusKey }}-{{ $poId }}" 
-                                 x-show="processingId !== 'po-{{ $poId }}'"
+                                 :class="{ 'opacity-50 pointer-events-none animate-pulse grayscale': processingId === 'po-{{ $poId }}' }"
                                  class="bg-zinc-100 dark:bg-zinc-800/40 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700">
                                 <!-- Group Header -->
                                 <div class="bg-white/80 dark:bg-zinc-900/80 p-3 border-b border-blue-100 dark:border-blue-900/50 flex flex-col gap-2 sticky top-0 z-10 backdrop-blur-sm">

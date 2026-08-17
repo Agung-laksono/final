@@ -15,7 +15,7 @@
          }
      "
      @click.outside="showFooter = false"
-     x-show="processingId !== '{{ isset($hideParentPo) && $hideParentPo ? 'po-'.$hideParentPo : $order->id }}'"
+     :class="{ 'opacity-50 pointer-events-none animate-pulse grayscale': processingId === '{{ isset($hideParentPo) && $hideParentPo ? 'po-'.$hideParentPo : $order->id }}' }"
      class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border transition-all duration-200 active:scale-[0.98] active:shadow-none group relative flex flex-col overflow-hidden {{ $cardClasses }}">
     @if($isCustom)
         <div class="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-40 dark:opacity-20">

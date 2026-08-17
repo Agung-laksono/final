@@ -345,7 +345,7 @@ on([
                                  "
                                  @click.outside="showFooter = false"
                              @endif
-                             x-show="processingId !== '{{ $order->id }}'"
+                             :class="{ 'opacity-50 pointer-events-none animate-pulse grayscale': processingId === '{{ $order->id }}' }"
                              class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border transition-all duration-200 active:scale-[0.98] active:shadow-none {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:-translate-y-0.5 hover:border-amber-500 hover:shadow-amber-500/30' : 'border-zinc-200 dark:border-zinc-700 hover:-translate-y-0.5 hover:shadow-sm hover:border-'.$column['color'].'-400 dark:hover:border-'.$column['color'].'-500' }} group relative cursor-pointer flex flex-col"
                              x-transition:leave="transition ease-in duration-200"
                              x-transition:leave-start="opacity-100 scale-100"
