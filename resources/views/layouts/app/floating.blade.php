@@ -602,6 +602,33 @@
                             title="Buka WhatsApp">
                         <flux:icon.chat-bubble-left-right class="w-4 h-4 lg:w-5 lg:h-5" />
                     </a>
+
+                    {{-- PWA Install Button (Inline) --}}
+                    <button type="button"
+                            x-data="{ deferredPrompt: null, showInstall: false }"
+                            @beforeinstallprompt.window="
+                                $event.preventDefault();
+                                deferredPrompt = $event;
+                                showInstall = true;
+                            "
+                            @appinstalled.window="showInstall = false"
+                            x-show="showInstall"
+                            x-cloak
+                            @click="
+                                if (deferredPrompt) {
+                                    deferredPrompt.prompt();
+                                    deferredPrompt.userChoice.then((choiceResult) => {
+                                        if (choiceResult.outcome === 'accepted') {
+                                            showInstall = false;
+                                        }
+                                        deferredPrompt = null;
+                                    });
+                                }
+                            "
+                            class="w-10 h-10 lg:w-12 lg:h-12 bg-emerald-500/10 hover:bg-emerald-500/20 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 backdrop-blur-md border border-emerald-500/30 rounded-full shadow-lg flex items-center justify-center text-emerald-600 transition-colors"
+                            title="Install Aplikasi (PWA)">
+                        <flux:icon.arrow-down-tray class="w-4 h-4 lg:w-5 lg:h-5" />
+                    </button>
                     
                     {{-- AI Chat Shortcut dipindah keluar speed dial --}}
                     {{-- <livewire:ai-chat-widget /> --}}
@@ -612,6 +639,15 @@
                             title="Buka Dokumentasi Sistem">
                         <flux:icon.book-open class="w-4 h-4 lg:w-5 lg:h-5" />
                     </a>
+
+                    {{-- CMS (Artikel) Shortcut --}}
+                    @can('cms.posts.view')
+                    <a href="{{ route('cms.posts.index') }}" wire:navigate
+                            class="w-10 h-10 lg:w-12 lg:h-12 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-md border border-zinc-200 dark:border-zinc-700 rounded-full shadow-lg flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+                            title="Kelola Artikel & Berita (CMS)">
+                        <flux:icon.newspaper class="w-4 h-4 lg:w-5 lg:h-5" />
+                    </a>
+                    @endcan
 
                     {{-- Theme Toggle --}}
                     <button type="button" 
@@ -869,8 +905,6 @@
         <x-loading></x-loading>
         <div x-data @barcode-scanned.window="if (window.Livewire) { window.Livewire.dispatch('barcode-scanned', { code: $event.detail.code }); }"></div>
         <x-camera-scanner />
-        {{-- Floating PWA Install Button --}}
-        <x-pwa-install-button />
 
         {{-- AI Chat Widget (standalone, di luar speed dial) --}}
         @if(!request()->is('chat*') && \Illuminate\Support\Facades\Cache::get('setting_enable_ai_chat', \App\Models\Setting::where('key', 'enable_ai_chat')->value('value')) == '1')

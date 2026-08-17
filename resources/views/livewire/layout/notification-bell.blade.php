@@ -81,6 +81,13 @@ new class extends Component {
         $this->dispatch('$refresh');
     }
 
+    #[On('notifications-updated')]
+    public function onNotificationsUpdated() {
+        if (auth()->check()) {
+            $this->unreadCount = auth()->user()->unreadNotifications()->count();
+        }
+    }
+
     public function approveSalesOrder($orderId, $notificationId = null) {
         abort_unless(auth()->user()->can('sales.approve.update'), 403);
         

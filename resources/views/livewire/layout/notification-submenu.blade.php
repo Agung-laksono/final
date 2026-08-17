@@ -58,6 +58,11 @@ on([
     'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function () {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
         $this->js("document.getElementById('notif-sound').play().catch(() => {})");
+    },
+    'notifications-updated' => function () {
+        if (auth()->check()) {
+            $this->unreadCount = auth()->user()->unreadNotifications()->count();
+        }
     }
 ]);
 

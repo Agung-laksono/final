@@ -367,6 +367,9 @@ new class extends Component {
             ]);
             $this->loadDataCounts();
             
+            // Reload halaman secara penuh agar seluruh state Livewire (termasuk floating menu) ikut kereset
+            $this->js('setTimeout(() => window.location.reload(), 1500)');
+            
         } catch (\Exception $e) {
             $message = $e->getMessage();
             if (str_contains($message, 'foreign key constraint failed') || str_contains($message, 'Integrity constraint violation')) {

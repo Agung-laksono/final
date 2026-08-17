@@ -80,6 +80,12 @@ on([
         $this->unreadCount = $event['unreadCount'];
         $this->dispatch('$refresh');
     },
+    // Diupdate dari halaman notifications index
+    'notifications-updated' => function () {
+        if (auth()->check()) {
+            $this->unreadCount = auth()->user()->unreadNotifications()->count();
+        }
+    },
 ]);
 
 with(fn () => [

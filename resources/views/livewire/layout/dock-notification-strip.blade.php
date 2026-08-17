@@ -48,6 +48,11 @@ new class extends Component {
     public function onNotificationsRead() {
         // Re-render component
     }
+
+    #[On('notifications-updated')]
+    public function onNotificationsUpdated() {
+        // Re-render component
+    }
 };
 ?>
 
