@@ -163,7 +163,7 @@ new class extends Component {
             $this->status = $post->status;
             
             if ($post->cover_image) {
-                $this->existing_cover = Storage::url($post->cover_image);
+                $this->existing_cover = Storage::disk('public')->url($post->cover_image);
             }
 
             $this->selected_roles = $post->roles()->pluck('roles.id')->toArray();
@@ -212,18 +212,19 @@ new class extends Component {
         // Handle image upload from x-image-cropper (base64)
         if ($this->cover_image && str_starts_with($this->cover_image, 'data:image')) {
             // Delete old cover
-            if ($this->post->cover_image && Storage::exists($this->post->cover_image)) {
-                Storage::delete($this->post->cover_image);
+            if ($this->post->cover_image && Storage::disk('public')->exists($this->post->cover_image)) {
+                Storage::disk('public')->delete($this->post->cover_image);
             }
             
             $image_parts = explode(";base64,", $this->cover_image);
-            $image_type_aux = explode("image/", $image_parts[0]);
-            $image_type = $image_type_aux[1];
             $image_base64 = base64_decode($image_parts[1]);
             
             $fileName = 'cms/' . uniqid() . '.webp';
-            Storage::put('public/' . $fileName, $image_base64);
-            $this->post->cover_image = 'public/' . $fileName;
+            $saved = Storage::disk('public')->put($fileName, $image_base64);
+            
+            if ($saved) {
+                $this->post->cover_image = $fileName;
+            }
         }
 
         $this->post->save();
@@ -238,7 +239,7 @@ new class extends Component {
     }
 };
 ?>
-<div>
+<div class="max-w-7xl mx-auto w-full">
 
         <flux:breadcrumbs class="mb-4">
             <flux:breadcrumbs.item href="/dashboard">Dashboard</flux:breadcrumbs.item>

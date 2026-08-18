@@ -57,9 +57,11 @@ new class extends Component {
                     <p class="text-zinc-500 dark:text-zinc-400 text-center max-w-sm mt-1">Tidak ada data ditemukan untuk pencarian ini.</p>
                 </div>
             @else
-                <x-table.wrapper>
-                    <flux:table class="table-mobile-cards">
-                        <flux:table.columns>
+                <!-- Desktop/Tablet Table View -->
+                <div class="hidden md:block">
+                    <x-table.wrapper>
+                        <flux:table>
+                            <flux:table.columns>
                             <flux:table.column>Judul</flux:table.column>
                             <flux:table.column>Kategori</flux:table.column>
                             <flux:table.column>Status</flux:table.column>
@@ -70,12 +72,23 @@ new class extends Component {
                         <flux:table.rows>
                             @foreach($posts as $post)
                             <flux:table.row>
-                                <flux:table.cell>
-                                    <div class="flex items-center gap-2">
-                                        @if($post->is_pinned)
-                                            <flux:badge color="amber" icon="star" class="shrink-0" />
+                                <flux:table.cell class="max-sm:!pl-0 max-sm:!mb-2">
+                                    <div class="flex items-center gap-3">
+                                        @if($post->cover_image)
+                                            <img src="{{ Storage::disk('public')->url($post->cover_image) }}" class="w-10 h-10 rounded-md object-cover border border-zinc-200 dark:border-zinc-700" alt="Thumbnail">
+                                        @else
+                                            <div class="w-10 h-10 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
+                                                <flux:icon.document-text class="w-5 h-5 text-zinc-400" />
+                                            </div>
                                         @endif
-                                        <span class="font-medium truncate max-w-[200px]" title="{{ $post->title }}">{{ $post->title }}</span>
+                                        <div class="flex flex-col">
+                                            <div class="flex items-center gap-2">
+                                                @if($post->is_pinned)
+                                                    <flux:badge color="amber" icon="star" class="shrink-0" />
+                                                @endif
+                                                <span class="font-medium truncate max-w-[200px]" title="{{ $post->title }}">{{ $post->title }}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </flux:table.cell>
                                 <flux:table.cell>
@@ -106,6 +119,53 @@ new class extends Component {
                         </flux:table.rows>
                     </flux:table>
                 </x-table.wrapper>
+                </div>
+                
+                <!-- Mobile List View -->
+                <div class="md:hidden space-y-3">
+                    @foreach($posts as $post)
+                    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 flex gap-3 relative shadow-sm">
+                        @if($post->cover_image)
+                            <img src="{{ Storage::disk('public')->url($post->cover_image) }}" class="w-20 h-20 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 shrink-0" alt="Thumbnail">
+                        @else
+                            <div class="w-20 h-20 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
+                                <flux:icon.photo class="w-8 h-8 text-zinc-400 opacity-50" />
+                            </div>
+                        @endif
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1.5">
+                                @if($post->is_pinned)
+                                    <flux:icon.star class="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                @endif
+                                <span class="text-[11px] font-bold tracking-wide uppercase text-zinc-500 dark:text-zinc-400">{{ $post->category?->name ?? 'Umum' }}</span>
+                                @if($post->status == 'published')
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                @else
+                                    <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+                                @endif
+                            </div>
+                            <h4 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">{{ $post->title }}</h4>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
+                                {!! Str::limit(strip_tags($post->content), 120) !!}
+                            </p>
+                            <div class="flex items-center gap-2 mt-2 text-[11px] text-zinc-500 dark:text-zinc-500">
+                                <span>{{ $post->author?->name ?? 'Sistem' }}</span>
+                                <span class="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-600"></span>
+                                <span>{{ $post->created_at->format('d M Y') }}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <flux:dropdown>
+                                <flux:button variant="ghost" size="sm" icon="ellipsis-vertical" class="-mr-2 -mt-1 text-zinc-400 hover:text-zinc-600" />
+                                <flux:menu>
+                                    <flux:menu.item href="{{ route('cms.posts.edit', $post->id) }}" icon="pencil">Edit</flux:menu.item>
+                                    <flux:menu.item wire:click="deletePost({{ $post->id }})" wire:confirm="Yakin ingin menghapus artikel ini?" icon="trash" variant="danger">Hapus</flux:menu.item>
+                                </flux:menu>
+                            </flux:dropdown>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
             @endif
             <div class="mt-4">
                 {{ $posts->links() }}
