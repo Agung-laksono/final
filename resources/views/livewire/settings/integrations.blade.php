@@ -94,6 +94,62 @@ $save = function () {
     \Flux::toast('Pengaturan berhasil disimpan!');
 };
 
+$testPusherBeams = function () {
+    if (empty($this->beamsInstanceId) || empty($this->beamsSecretKey)) {
+        \Flux::toast('Kredensial Pusher Beams belum lengkap!', variant: 'danger');
+        return;
+    }
+    
+    try {
+        if (!class_exists(\Pusher\PushNotifications\PushNotifications::class)) {
+            \Flux::toast('Package pusher/pusher-push-notifications belum diinstall.', variant: 'danger');
+            return;
+        }
+        
+        $beamsClient = new \Pusher\PushNotifications\PushNotifications([
+            "instanceId" => $this->beamsInstanceId,
+            "secretKey" => $this->beamsSecretKey,
+        ]);
+        
+        $beamsClient->publishToInterests(
+            array("debug-test"),
+            array("web" => array("notification" => array(
+                "title" => "Test Koneksi",
+                "body" => "Berhasil!"
+            )))
+        );
+        \Flux::toast('Koneksi Beams BERHASIL!', variant: 'success');
+    } catch (\Exception $e) {
+        \Flux::toast('Koneksi Beams GAGAL: ' . $e->getMessage(), variant: 'danger');
+    }
+};
+
+$testPusherChannels = function () {
+    if (empty($this->pusherAppId) || empty($this->pusherKey) || empty($this->pusherSecret) || empty($this->pusherCluster)) {
+        \Flux::toast('Kredensial Pusher Channels belum lengkap!', variant: 'danger');
+        return;
+    }
+
+    try {
+        if (!class_exists(\Pusher\Pusher::class)) {
+            \Flux::toast('Package pusher/pusher-php-server belum diinstall.', variant: 'danger');
+            return;
+        }
+        
+        $pusher = new \Pusher\Pusher(
+            $this->pusherKey,
+            $this->pusherSecret,
+            $this->pusherAppId,
+            array('cluster' => $this->pusherCluster, 'useTLS' => true)
+        );
+        
+        $pusher->trigger('debug-test', 'test-event', ['message' => 'success']);
+        \Flux::toast('Koneksi Channels BERHASIL!', variant: 'success');
+    } catch (\Exception $e) {
+        \Flux::toast('Koneksi Channels GAGAL: ' . $e->getMessage(), variant: 'danger');
+    }
+};
+
 ?>
 
 <x-pages::settings.layout :heading="__('Pengaturan & Integrasi')" :subheading="__('Kelola integrasi pihak ketiga dan pengaturan operasional.')">
@@ -183,6 +239,9 @@ $save = function () {
                     placeholder="Misal: 1A2B3C..." 
                 />
             </div>
+            <div class="mt-2">
+                <flux:button wire:click="testPusherBeams" variant="outline" icon="bolt" size="sm">Test Koneksi Beams</flux:button>
+            </div>
         </div>
 
         <flux:separator />
@@ -199,6 +258,9 @@ $save = function () {
                 <flux:input wire:model="pusherKey" label="App Key" placeholder="Misal: a1b2c3d4e5" />
                 <flux:input wire:model="pusherSecret" type="password" label="App Secret" placeholder="Misal: f6g7h8i9j0" />
                 <flux:input wire:model="pusherCluster" label="Cluster" placeholder="Misal: ap1" />
+            </div>
+            <div class="mt-2">
+                <flux:button wire:click="testPusherChannels" variant="outline" icon="bolt" size="sm">Test Koneksi Channels</flux:button>
             </div>
         </div>
 
