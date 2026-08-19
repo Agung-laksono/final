@@ -29,16 +29,15 @@ class AppServiceProvider extends ServiceProvider
         // Register Google Drive Storage Driver
         \Illuminate\Support\Facades\Storage::extend('google', function($app, $config) {
             $client = new \Google_Client();
-            $client->setClientId('');
-            $client->setClientSecret('');
             
             $credentialsPath = storage_path('app/google-drive-credentials.json');
             if (file_exists($credentialsPath)) {
-                $credentials = json_decode(file_get_contents($credentialsPath), true);
-                $client->setAuthConfig($credentials);
+                // Gunakan file path langsung - paling kompatibel untuk shared hosting
+                $client->setAuthConfig($credentialsPath);
+                $client->setScopes([\Google_Service_Drive::DRIVE]);
+                $client->setSubject(null);
             }
             
-            $client->setScopes([\Google_Service_Drive::DRIVE]);
             $service = new \Google_Service_Drive($client);
             
             $adapter = new \Masbug\Flysystem\GoogleDriveAdapter($service, $config['folder'] ?? '/', ['useHasDir' => true]);
