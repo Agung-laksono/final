@@ -42,6 +42,12 @@ new class extends Component {
     public $autoBackupTime = '23:59';
     public $autoBackupRetention = 30;
     
+    // Google Drive
+    public $googleDriveEnabled = false;
+    public $googleDriveFolderId = '';
+    public $uploadedJsonFile;
+    public $testDriveResult = null; // Menyimpan pesan hasil test koneksi
+
     public $originalBackupSettings = [];
 
     public $counts = [];
@@ -55,11 +61,16 @@ new class extends Component {
         $this->autoBackupTime = \App\Models\Setting::where('key', 'backup_auto_time')->value('value') ?? '23:59';
         $this->autoBackupRetention = \App\Models\Setting::where('key', 'backup_auto_retention')->value('value') ?? 30;
 
+        $this->googleDriveEnabled = \App\Models\Setting::where('key', 'google_drive_enabled')->value('value') === 'true';
+        $this->googleDriveFolderId = \App\Models\Setting::where('key', 'google_drive_folder')->value('value') ?? '';
+
         $this->originalBackupSettings = [
             'enabled' => $this->autoBackupEnabled,
             'schedule' => $this->autoBackupSchedule,
             'time' => $this->autoBackupTime,
             'retention' => $this->autoBackupRetention,
+            'gdrive_enabled' => $this->googleDriveEnabled,
+            'gdrive_folder' => $this->googleDriveFolderId,
         ];
     }
 
@@ -67,7 +78,9 @@ new class extends Component {
         return $this->autoBackupEnabled !== $this->originalBackupSettings['enabled'] ||
                $this->autoBackupSchedule !== $this->originalBackupSettings['schedule'] ||
                $this->autoBackupTime !== $this->originalBackupSettings['time'] ||
-               $this->autoBackupRetention != $this->originalBackupSettings['retention'];
+               $this->autoBackupRetention != $this->originalBackupSettings['retention'] ||
+               $this->googleDriveEnabled !== $this->originalBackupSettings['gdrive_enabled'] ||
+               $this->googleDriveFolderId !== $this->originalBackupSettings['gdrive_folder'];
     }
 
     public function saveAutoBackupSettings() {
@@ -81,15 +94,56 @@ new class extends Component {
         \App\Models\Setting::updateOrCreate(['key' => 'backup_auto_schedule'], ['value' => $this->autoBackupSchedule]);
         \App\Models\Setting::updateOrCreate(['key' => 'backup_auto_time'], ['value' => $this->autoBackupTime]);
         \App\Models\Setting::updateOrCreate(['key' => 'backup_auto_retention'], ['value' => $this->autoBackupRetention]);
+        
+        \App\Models\Setting::updateOrCreate(['key' => 'google_drive_enabled'], ['value' => $this->googleDriveEnabled ? 'true' : 'false']);
+        \App\Models\Setting::updateOrCreate(['key' => 'google_drive_folder'], ['value' => $this->googleDriveFolderId]);
+        
+        // Perbarui config dinamis
+        \Illuminate\Support\Facades\Config::set('filesystems.disks.google.folder', $this->googleDriveFolderId);
 
         $this->originalBackupSettings = [
             'enabled' => $this->autoBackupEnabled,
             'schedule' => $this->autoBackupSchedule,
             'time' => $this->autoBackupTime,
             'retention' => $this->autoBackupRetention,
+            'gdrive_enabled' => $this->googleDriveEnabled,
+            'gdrive_folder' => $this->googleDriveFolderId,
         ];
 
         \Flux::toast('Pengaturan backup otomatis berhasil disimpan.', variant: 'success');
+    }
+
+    public function updatedUploadedJsonFile() {
+        $this->validate([
+            'uploadedJsonFile' => 'required|file|max:1024',
+        ]);
+        
+        $this->uploadedJsonFile->storeAs('', 'google-drive-credentials.json', 'local');
+        $this->reset('uploadedJsonFile');
+        \Flux::toast('File JSON Kredensial berhasil diunggah.', variant: 'success');
+    }
+
+    public function testGoogleDrive() {
+        $this->testDriveResult = null;
+        try {
+            if (!Storage::disk('local')->exists('google-drive-credentials.json')) {
+                $this->testDriveResult = ['status' => 'error', 'message' => 'File Kredensial JSON belum diunggah!'];
+                return;
+            }
+            if (empty($this->googleDriveFolderId)) {
+                $this->testDriveResult = ['status' => 'error', 'message' => 'Folder ID harus diisi!'];
+                return;
+            }
+            
+            \Illuminate\Support\Facades\Config::set('filesystems.disks.google.folder', $this->googleDriveFolderId);
+            
+            // Coba tulis file dummy
+            Storage::disk('google')->put('test-koneksi.txt', 'Ini file uji coba dari sistem aplikasi Anda pada ' . now()->format('Y-m-d H:i:s'));
+            
+            $this->testDriveResult = ['status' => 'success', 'message' => 'Koneksi Google Drive BERHASIL! File test dibuat di Drive Anda.'];
+        } catch (\Exception $e) {
+            $this->testDriveResult = ['status' => 'error', 'message' => 'Koneksi GAGAL: ' . $e->getMessage()];
+        }
     }
 
     public function loadBackups() {
@@ -160,6 +214,20 @@ new class extends Component {
             
             $zip->close();
             \Flux::toast('Backup total (Database & Gambar) berhasil dibuat.', variant: 'success');
+            
+            // Upload to Google Drive if enabled
+            if ($this->googleDriveEnabled) {
+                try {
+                    \Illuminate\Support\Facades\Config::set('filesystems.disks.google.folder', $this->googleDriveFolderId);
+                    $driveFileName = basename($backupPath);
+                    $fileContent = file_get_contents($backupPath);
+                    Storage::disk('google')->put($driveFileName, $fileContent);
+                    \Flux::toast('Berhasil mengunggah backup ke Google Drive!', variant: 'success');
+                } catch (\Exception $e) {
+                    \Flux::toast('Gagal upload ke Google Drive: ' . $e->getMessage(), variant: 'danger');
+                }
+            }
+
             $this->loadBackups();
         } else {
             \Flux::toast('Gagal membuat arsip ZIP!', variant: 'danger');
@@ -549,6 +617,88 @@ new class extends Component {
                     </details>
                 </div>
                 @endif
+            </form>
+        </section>
+
+        <flux:separator />
+
+        {{-- GOOGLE DRIVE SECTION --}}
+        <section>
+            <form wire:submit="saveAutoBackupSettings" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Upload ke Google Drive</h3>
+                            @if(Storage::disk('local')->exists('google-drive-credentials.json'))
+                                <flux:badge size="sm" variant="success" icon="check-circle">Kredensial OK</flux:badge>
+                            @else
+                                <flux:badge size="sm" variant="danger" icon="exclamation-circle">Kredensial Kosong</flux:badge>
+                            @endif
+                        </div>
+                        <p class="text-sm text-zinc-500 mt-1">Otomatis kirim salinan file backup Anda ke Google Drive sebagai penyimpanan aman di luar server.</p>
+                    </div>
+                    <flux:switch wire:model.live="googleDriveEnabled" />
+                </div>
+                
+                <div class="grid grid-cols-1 gap-6 transition-opacity {{ $googleDriveEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none' }}">
+                    
+                    <div class="space-y-4 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                        <div class="flex flex-col sm:flex-row gap-4 items-end">
+                            <div class="w-full">
+                                <flux:input wire:model.live="googleDriveFolderId" label="Folder ID Google Drive" placeholder="Contoh: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs" />
+                            </div>
+                            
+                            <div class="w-full sm:w-auto shrink-0 relative pb-1">
+                                <div class="text-sm font-medium mb-2 flex items-center justify-between">
+                                    File JSON Service Account
+                                </div>
+                                <label class="cursor-pointer bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-medium h-9 px-4 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors flex items-center justify-center gap-2 shadow-sm">
+                                    <flux:icon.document-text class="w-4 h-4" />
+                                    <span>{{ Storage::disk('local')->exists('google-drive-credentials.json') ? 'Ganti File JSON' : 'Unggah File JSON' }}</span>
+                                    <input type="file" wire:model.live="uploadedJsonFile" class="hidden" accept=".json" />
+                                </label>
+                                @if(Storage::disk('local')->exists('google-drive-credentials.json'))
+                                    <div class="mt-2 flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 font-medium">
+                                        <flux:icon.check-circle class="w-3.5 h-3.5" />
+                                        <span>File JSON sudah terisi</span>
+                                    </div>
+                                @else
+                                    <div class="mt-2 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                                        <flux:icon.exclamation-triangle class="w-3.5 h-3.5" />
+                                        <span>Belum ada file JSON</span>
+                                    </div>
+                                @endif
+                                <div wire:loading wire:target="uploadedJsonFile" class="absolute -bottom-4 left-0 text-xs text-zinc-500">Mengunggah...</div>
+                                @error('uploadedJsonFile') <div class="absolute -bottom-4 left-0 text-xs text-red-500">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-zinc-500 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                            <strong>Cara setup:</strong> 1. Buat Service Account di Google Cloud Console. 2. Buat folder di Google Drive Anda. 3. Bagikan folder tersebut ke email Service Account (akses Editor). 4. Salin ID folder dari URL dan tempel di atas.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-col gap-3">
+                        @if($testDriveResult)
+                            <div class="p-3 text-sm rounded-lg border flex items-start gap-2 {{ $testDriveResult['status'] === 'success' ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/30 dark:border-green-800 dark:text-green-300' : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300' }}">
+                                @if($testDriveResult['status'] === 'success')
+                                    <flux:icon.check-circle class="w-5 h-5 shrink-0" />
+                                @else
+                                    <flux:icon.exclamation-circle class="w-5 h-5 shrink-0" />
+                                @endif
+                                <div class="font-medium">{{ $testDriveResult['message'] }}</div>
+                            </div>
+                        @endif
+
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center gap-2">
+                                <flux:button wire:click="testGoogleDrive" variant="outline" icon="bolt" size="sm">Test Koneksi</flux:button>
+                                <flux:button wire:click="createBackup" variant="primary" icon="document-duplicate" size="sm">Buat Backup & Unggah</flux:button>
+                            </div>
+                            <flux:button type="submit" :variant="$this->hasUnsavedChanges() ? 'primary' : 'outline'" icon="check" size="sm" :disabled="!$this->hasUnsavedChanges()">Simpan Konfigurasi</flux:button>
+                        </div>
+                    </div>
+                </div>
             </form>
         </section>
 

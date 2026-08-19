@@ -79,6 +79,25 @@ class AutoBackup extends Command
                 }
                 $zip->close();
                 $this->info('Backup total (Database & Gambar) berhasil dibuat: ' . $backupName);
+                
+                // --- Upload ke Google Drive ---
+                $isGoogleDriveEnabled = Setting::where('key', 'backup_google_drive_enabled')->value('value') === 'true';
+                if ($isGoogleDriveEnabled) {
+                    try {
+                        $folderId = Setting::where('key', 'backup_google_drive_folder')->value('value');
+                        if ($folderId) {
+                            \Illuminate\Support\Facades\Config::set('filesystems.disks.google.folder', $folderId);
+                        }
+                        
+                        $this->info('Mengunggah backup ke Google Drive...');
+                        Storage::disk('google')->put($backupName, file_get_contents($backupPath));
+                        $this->info('Upload ke Google Drive berhasil.');
+                    } catch (\Exception $e) {
+                        $this->error('Gagal upload ke Google Drive: ' . $e->getMessage());
+                        \Illuminate\Support\Facades\Log::error('Gagal upload ke Google Drive (Cron): ' . $e->getMessage());
+                    }
+                }
+                // --- End Upload ---
             } else {
                 $this->error('Gagal membuat arsip ZIP.');
                 return;

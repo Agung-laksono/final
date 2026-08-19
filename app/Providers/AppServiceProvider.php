@@ -26,6 +26,27 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Register Google Drive Storage Driver
+        \Illuminate\Support\Facades\Storage::extend('google', function($app, $config) {
+            $client = new \Google_Client();
+            
+            $credentialsPath = storage_path('app/google-drive-credentials.json');
+            if (file_exists($credentialsPath)) {
+                $client->setAuthConfig($credentialsPath);
+            }
+            
+            $client->addScope("https://www.googleapis.com/auth/drive");
+            $service = new \Google_Service_Drive($client);
+            
+            $adapter = new \Masbug\Flysystem\GoogleDriveAdapter($service, $config['folder'] ?? '/', ['useHasDir' => true]);
+            
+            return new \Illuminate\Filesystem\FilesystemAdapter(
+                new \League\Flysystem\Filesystem($adapter, $config),
+                $adapter,
+                $config
+            );
+        });
+
         // Implicitly grant "Super Admin" role all permissions
         // This works in the app by using gate-related functions like auth()->user->can() and @can()
         \Illuminate\Support\Facades\Gate::before(function ($user, $ability) {
