@@ -88,6 +88,7 @@ class AutoBackup extends Command
                         if ($folderId) {
                             \Illuminate\Support\Facades\Config::set('filesystems.disks.google.folder', $folderId);
                         }
+                        app('filesystem')->forgetDisk('google');
                         
                         $this->info('Mengunggah backup ke Google Drive...');
                         Storage::disk('google')->put($backupName, file_get_contents($backupPath));

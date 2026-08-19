@@ -136,6 +136,7 @@ new class extends Component {
             }
             
             \Illuminate\Support\Facades\Config::set('filesystems.disks.google.folder', $this->googleDriveFolderId);
+            app('filesystem')->forgetDisk('google');
             
             // Coba tulis file dummy
             Storage::disk('google')->put('test-koneksi.txt', 'Ini file uji coba dari sistem aplikasi Anda pada ' . now()->format('Y-m-d H:i:s'));
@@ -219,6 +220,7 @@ new class extends Component {
             if ($this->googleDriveEnabled) {
                 try {
                     \Illuminate\Support\Facades\Config::set('filesystems.disks.google.folder', $this->googleDriveFolderId);
+                    app('filesystem')->forgetDisk('google');
                     $driveFileName = basename($backupPath);
                     $fileContent = file_get_contents($backupPath);
                     Storage::disk('google')->put($driveFileName, $fileContent);
