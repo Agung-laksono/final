@@ -32,10 +32,11 @@ class AppServiceProvider extends ServiceProvider
             
             $credentialsPath = storage_path('app/google-drive-credentials.json');
             if (file_exists($credentialsPath)) {
-                $client->setAuthConfig($credentialsPath);
+                putenv('GOOGLE_APPLICATION_CREDENTIALS=' . $credentialsPath);
+                $client->useApplicationDefaultCredentials();
             }
             
-            $client->addScope("https://www.googleapis.com/auth/drive");
+            $client->addScope(\Google_Service_Drive::DRIVE);
             $service = new \Google_Service_Drive($client);
             
             $adapter = new \Masbug\Flysystem\GoogleDriveAdapter($service, $config['folder'] ?? '/', ['useHasDir' => true]);
