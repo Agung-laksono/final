@@ -69,7 +69,7 @@ on([
     'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function ($event) {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
         $this->dispatch('$refresh');
-        $this->js("document.getElementById('notif-sound') && document.getElementById('notif-sound').play().catch(() => {})");
+        $this->js("window.playNotificationSound && window.playNotificationSound()");
         
         $title = $event['title'] ?? 'Notifikasi Baru';
         $message = strip_tags($event['message'] ?? 'Anda memiliki notifikasi baru.');

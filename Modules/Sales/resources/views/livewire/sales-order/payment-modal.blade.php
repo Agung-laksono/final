@@ -166,9 +166,32 @@ $savePayment = function () {
 
         $financeUsers = \App\Models\User::withPermissionOrSuperAdmin(['sales.payment.validate'])->get();
         \Illuminate\Support\Facades\Notification::send($financeUsers, new \App\Notifications\PaymentSubmittedNotification($this->order->so_number, $this->amount, auth()->user(), 'sales', $this->payment_method, $this->order->customer->name ?? '-'));
+        
+        // Push notification via Beams ke pemegang kas/rekening tujuan (PIC)
+        if ($this->finance_account_id) {
+            $account = \Modules\Finance\Models\FinanceAccount::find($this->finance_account_id);
+            if ($account && $account->user_id) {
+                try {
+                    $beams = new \App\Services\BeamsService();
+                    $formattedAmount = 'Rp ' . number_format($this->amount, 0, ',', '.');
+                    $beams->sendToUser(
+                        $account->user_id,
+                        "💳 Pembayaran Masuk Ke {$account->name}",
+                        "SO {$this->order->so_number} senilai {$formattedAmount} (Menunggu Validasi)",
+                        ['so_id' => $this->order->id, 'payment_id' => $payment->id],
+                        '/finance/inbox',
+                        $proofPath
+                    );
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning('[Beams] Gagal kirim notif payment ke PIC: ' . $e->getMessage());
+                }
+            }
+        }
+
         \Flux::toast('Bukti pembayaran berhasil diunggah. Menunggu validasi Finance.', variant: 'success');
     }
     
+    \App\Events\KanbanUpdated::safeDispatch('finance_inbox');
     $this->order->load('payments'); // Reload
     $this->amount = '';
     $this->proof = null;

@@ -61,7 +61,7 @@ new class extends Component {
     #[On('echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated')]
     public function onNotificationReceived($notification) {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
-        $this->js("document.getElementById('notif-sound') && document.getElementById('notif-sound').play().catch(() => {})");
+        $this->js("window.playNotificationSound && window.playNotificationSound()");
         
         $this->dispatch('notification-popup', [
             'id' => $notification['id'] ?? null,

@@ -261,7 +261,7 @@ on(['echo:kanban,KanbanUpdated' => '$refresh']);
                                  }
                              "
                              @click.outside="showDetails = false"
-                             :class="{ 'opacity-50 pointer-events-none animate-pulse grayscale': processingId === '{{ $queue->id }}' }"
+                             :class="{ 'opacity-50 pointer-events-none animate-pulse grayscale': processingId == '{{ $queue->id }}' }"
                              class="{{ $cardClasses }}">
                             
                             {{-- Row 1: Header (ID, Custom Badge, Time) --}}

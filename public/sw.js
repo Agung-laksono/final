@@ -5,7 +5,7 @@ try {
     console.warn('[SW] Pusher Beams diblokir atau gagal dimuat:', e);
 }
 
-const CACHE_NAME = 'inventory-pwa-cache-v1786955893877';
+const CACHE_NAME = 'inventory-pwa-cache-v1787164680962';
 const urlsToCache = [
     '/',
     '/manifest.json',
@@ -69,6 +69,7 @@ if (typeof PusherPushNotifications !== 'undefined') {
     const options = {
         body:    notification.body  || '',
         icon:    notification.icon  || '/apple-touch-icon.png',
+        image:   notification.image || null,
         badge:   '/apple-touch-icon.png',
         data:    { url: data.url || '/' },
         vibrate: [200, 100, 200],

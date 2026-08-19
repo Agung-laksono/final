@@ -336,7 +336,7 @@ on([
                                 $isCustom = str_contains($req->notes ?? '', '[CUSTOM]');
                                 $displayNotes = str_replace(' [CUSTOM]', '', $req->notes);
                             @endphp
-                            <div wire:key="req-{{ $req->id }}" @click="activeId = '{{ $req->id }}'" :class="{ 'opacity-50 pointer-events-none animate-pulse grayscale': processingId === '{{ $req->id }}' }" class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border transition-all duration-300 {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:border-amber-500 hover:shadow-amber-500/30' : 'border-zinc-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-500' }} relative overflow-hidden">
+                            <div wire:key="req-{{ $req->id }}" @click="activeId = '{{ $req->id }}'" :class="{ 'opacity-50 pointer-events-none animate-pulse grayscale': processingId == '{{ $req->id }}' }" class="bg-white dark:bg-zinc-900 p-4 rounded-xl shadow-sm border transition-all duration-300 {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:border-amber-500 hover:shadow-amber-500/30' : 'border-zinc-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-500' }} relative overflow-hidden">
                                 @if($isCustom)
                                     <div class="absolute top-0 right-0 w-24 h-24 pointer-events-none opacity-40 dark:opacity-20">
                                         <div class="absolute inset-0 bg-gradient-to-bl from-amber-400 to-transparent"></div>

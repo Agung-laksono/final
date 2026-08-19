@@ -1,155 +1,183 @@
 <?php
 
-use function Livewire\Volt\{state, mount};
+use Livewire\Volt\Component;
 use App\Models\Setting;
 use App\Events\SettingUpdated;
 use Illuminate\Support\Facades\Cache;
 
-state([
-    'clarityId' => '',
-    'beamsInstanceId' => '',
-    'beamsSecretKey' => '',
-    'pusherAppId' => '',
-    'pusherKey' => '',
-    'pusherSecret' => '',
-    'pusherCluster' => '',
-    'fonnteToken' => '',
-    'aiProviders' => [],
-    'gudangHandlesShipping' => false,
-    'enableAiChat' => false,
-]);
+new class extends Component {
+    public $clarityId = '';
+    public $beamsInstanceId = '';
+    public $beamsSecretKey = '';
+    public $pusherAppId = '';
+    public $pusherKey = '';
+    public $pusherSecret = '';
+    public $pusherCluster = '';
+    public $fonnteToken = '';
+    public $aiProviders = [];
+    public $gudangHandlesShipping = false;
+    public $enableAiChat = false;
+    public $enablePusherSound = true;
 
-mount(function () {
-    $this->clarityId = Setting::where('key', 'clarity_id')->value('value') ?? '';
-    $this->beamsInstanceId = Setting::where('key', 'beams_instance_id')->value('value') ?? '';
-    $this->beamsSecretKey = Setting::where('key', 'beams_secret_key')->value('value') ?? '';
-    $this->pusherAppId = Setting::where('key', 'pusher_app_id')->value('value') ?? '';
-    $this->pusherKey = Setting::where('key', 'pusher_key')->value('value') ?? '';
-    $this->pusherSecret = Setting::where('key', 'pusher_secret')->value('value') ?? '';
-    $this->pusherCluster = Setting::where('key', 'pusher_cluster')->value('value') ?? '';
-    $this->fonnteToken = Setting::where('key', 'fonnte_token')->value('value') ?? '';
-    
-    $aiProvidersJson = Setting::where('key', 'ai_providers')->value('value');
-    $this->aiProviders = $aiProvidersJson ? json_decode($aiProvidersJson, true) : [
-        ['name' => 'OpenAI', 'key' => ''],
-        ['name' => 'Anthropic', 'key' => ''],
-        ['name' => 'Gemini', 'key' => ''],
-    ];
-    
-    $this->gudangHandlesShipping = Setting::where('key', 'gudang_handles_shipping')->value('value') == '1';
-    $this->enableAiChat = Setting::where('key', 'enable_ai_chat')->value('value') == '1';
-});
+    public $beamsTestStatus = null;
+    public $channelsTestStatus = null;
 
-$addAiProvider = function () {
-    $this->aiProviders[] = ['name' => '', 'key' => ''];
-};
+    public function mount() {
+        $this->clarityId = Setting::where('key', 'clarity_id')->value('value') ?? '';
+        $this->beamsInstanceId = Setting::where('key', 'beams_instance_id')->value('value') ?? '';
+        $this->beamsSecretKey = Setting::where('key', 'beams_secret_key')->value('value') ?? '';
+        $this->pusherAppId = Setting::where('key', 'pusher_app_id')->value('value') ?? '';
+        $this->pusherKey = Setting::where('key', 'pusher_key')->value('value') ?? '';
+        $this->pusherSecret = Setting::where('key', 'pusher_secret')->value('value') ?? '';
+        $this->pusherCluster = Setting::where('key', 'pusher_cluster')->value('value') ?? '';
+        $this->fonnteToken = Setting::where('key', 'fonnte_token')->value('value') ?? '';
+        
+        $aiProvidersJson = Setting::where('key', 'ai_providers')->value('value');
+        $this->aiProviders = $aiProvidersJson ? json_decode($aiProvidersJson, true) : [
+            ['name' => 'OpenAI', 'key' => ''],
+            ['name' => 'Anthropic', 'key' => ''],
+            ['name' => 'Gemini', 'key' => ''],
+        ];
+        
+        $this->gudangHandlesShipping = Setting::where('key', 'gudang_handles_shipping')->value('value') == '1';
+        $this->enableAiChat = Setting::where('key', 'enable_ai_chat')->value('value') == '1';
+        $this->enablePusherSound = Setting::where('key', 'enable_pusher_sound')->value('value') !== '0';
+    }
 
-$removeAiProvider = function ($index) {
-    unset($this->aiProviders[$index]);
-    $this->aiProviders = array_values($this->aiProviders); // Re-index array
-};
+    public function addAiProvider() {
+        $this->aiProviders[] = ['name' => '', 'key' => ''];
+    }
 
-$save = function () {
-    $settings = [
-        'clarity_id' => $this->clarityId,
-        'beams_instance_id' => $this->beamsInstanceId,
-        'beams_secret_key' => $this->beamsSecretKey,
-        'pusher_app_id' => $this->pusherAppId,
-        'pusher_key' => $this->pusherKey,
-        'pusher_secret' => $this->pusherSecret,
-        'pusher_cluster' => $this->pusherCluster,
-        'fonnte_token' => $this->fonnteToken,
-        'ai_providers' => json_encode($this->aiProviders),
-    ];
+    public function removeAiProvider($index) {
+        unset($this->aiProviders[$index]);
+        $this->aiProviders = array_values($this->aiProviders);
+    }
 
-    foreach ($settings as $key => $value) {
+    public function save() {
+        $settings = [
+            'clarity_id' => $this->clarityId,
+            'beams_instance_id' => $this->beamsInstanceId,
+            'beams_secret_key' => $this->beamsSecretKey,
+            'pusher_app_id' => $this->pusherAppId,
+            'pusher_key' => $this->pusherKey,
+            'pusher_secret' => $this->pusherSecret,
+            'pusher_cluster' => $this->pusherCluster,
+            'fonnte_token' => $this->fonnteToken,
+            'ai_providers' => json_encode($this->aiProviders),
+        ];
+
+        foreach ($settings as $key => $value) {
+            Setting::updateOrCreate(
+                ['key' => $key],
+                ['value' => $value]
+            );
+        }
+        
+        $shippingValue = $this->gudangHandlesShipping ? '1' : '0';
         Setting::updateOrCreate(
-            ['key' => $key],
-            ['value' => $value]
+            ['key' => 'gudang_handles_shipping'],
+            ['value' => $shippingValue]
         );
+
+        $enableAiChatValue = $this->enableAiChat ? '1' : '0';
+        Setting::updateOrCreate(
+            ['key' => 'enable_ai_chat'],
+            ['value' => $enableAiChatValue]
+        );
+
+        $soundValue = $this->enablePusherSound ? '1' : '0';
+        Setting::updateOrCreate(
+            ['key' => 'enable_pusher_sound'],
+            ['value' => $soundValue]
+        );
+
+        Cache::put('setting_gudang_handles_shipping', $shippingValue, now()->addHour());
+        Cache::put('setting_enable_ai_chat', $enableAiChatValue, now()->addHour());
+        Cache::forget('setting_clarity_id');
+        Cache::forget('setting_enable_pusher_sound');
+        Cache::forget('app_integration_settings');
+
+        $this->js("window.ENABLE_PUSHER_SOUND = " . ($this->enablePusherSound ? 'true' : 'false'));
+
+        SettingUpdated::safeDispatch('gudang_handles_shipping', $shippingValue);
+        SettingUpdated::safeDispatch('enable_ai_chat', $enableAiChatValue);
+
+        \Flux::toast('Pengaturan berhasil disimpan!');
     }
-    
-    $shippingValue = $this->gudangHandlesShipping ? '1' : '0';
-    Setting::updateOrCreate(
-        ['key' => 'gudang_handles_shipping'],
-        ['value' => $shippingValue]
-    );
 
-    $enableAiChatValue = $this->enableAiChat ? '1' : '0';
-    Setting::updateOrCreate(
-        ['key' => 'enable_ai_chat'],
-        ['value' => $enableAiChatValue]
-    );
-
-    // Cache agar tidak query DB terus (1 jam)
-    Cache::put('setting_gudang_handles_shipping', $shippingValue, now()->addHour());
-    Cache::put('setting_enable_ai_chat', $enableAiChatValue, now()->addHour());
-    Cache::forget('setting_clarity_id');
-    Cache::forget('app_integration_settings');
-
-    // Broadcast ke semua client yang sedang membuka halaman Kanban
-    SettingUpdated::safeDispatch('gudang_handles_shipping', $shippingValue);
-    SettingUpdated::safeDispatch('enable_ai_chat', $enableAiChatValue);
-
-    \Flux::toast('Pengaturan berhasil disimpan!');
-};
-
-$testPusherBeams = function () {
-    if (empty($this->beamsInstanceId) || empty($this->beamsSecretKey)) {
-        \Flux::toast('Kredensial Pusher Beams belum lengkap!', variant: 'danger');
-        return;
+    public function updatedEnablePusherSound($value) {
+        $soundValue = $value ? '1' : '0';
+        Setting::updateOrCreate(
+            ['key' => 'enable_pusher_sound'],
+            ['value' => $soundValue]
+        );
+        Cache::forget('setting_enable_pusher_sound');
+        $this->js("window.ENABLE_PUSHER_SOUND = " . ($value ? 'true' : 'false'));
     }
-    
-    try {
-        if (!class_exists(\Pusher\PushNotifications\PushNotifications::class)) {
-            \Flux::toast('Package pusher/pusher-push-notifications belum diinstall.', variant: 'danger');
+
+    public function testPusherBeams() {
+        if (empty($this->beamsInstanceId) || empty($this->beamsSecretKey)) {
+            $this->beamsTestStatus = 'error';
+            \Flux::toast('Kredensial Pusher Beams belum lengkap!', variant: 'danger');
             return;
         }
-        
-        $beamsClient = new \Pusher\PushNotifications\PushNotifications([
-            "instanceId" => $this->beamsInstanceId,
-            "secretKey" => $this->beamsSecretKey,
-        ]);
-        
-        $beamsClient->publishToInterests(
-            array("debug-test"),
-            array("web" => array("notification" => array(
-                "title" => "Test Koneksi",
-                "body" => "Berhasil!"
-            )))
-        );
-        \Flux::toast('Koneksi Beams BERHASIL!', variant: 'success');
-    } catch (\Exception $e) {
-        \Flux::toast('Koneksi Beams GAGAL: ' . $e->getMessage(), variant: 'danger');
-    }
-};
 
-$testPusherChannels = function () {
-    if (empty($this->pusherAppId) || empty($this->pusherKey) || empty($this->pusherSecret) || empty($this->pusherCluster)) {
-        \Flux::toast('Kredensial Pusher Channels belum lengkap!', variant: 'danger');
-        return;
+        try {
+            if (!class_exists(\Pusher\PushNotifications\PushNotifications::class)) {
+                $this->beamsTestStatus = 'error';
+                \Flux::toast('Package pusher/pusher-push-notifications belum diinstall.', variant: 'danger');
+                return;
+            }
+
+            $class = \Pusher\PushNotifications\PushNotifications::class;
+            $beamsClient = new $class([
+                "instanceId" => $this->beamsInstanceId,
+                "secretKey" => $this->beamsSecretKey,
+            ]);
+            
+            $beamsClient->publishToInterests(
+                array("all-users", "debug-test"),
+                array("web" => array("notification" => array(
+                    "title" => "Test Koneksi Beams",
+                    "body" => "Koneksi Pusher Beams Berhasil!"
+                )))
+            );
+            $this->beamsTestStatus = 'success';
+        } catch (\Exception $e) {
+            $this->beamsTestStatus = 'error';
+            \Flux::toast('Koneksi Beams GAGAL: ' . $e->getMessage(), variant: 'danger');
+        }
     }
 
-    try {
-        if (!class_exists(\Pusher\Pusher::class)) {
-            \Flux::toast('Package pusher/pusher-php-server belum diinstall.', variant: 'danger');
+    public function testPusherChannels() {
+        if (empty($this->pusherAppId) || empty($this->pusherKey) || empty($this->pusherSecret) || empty($this->pusherCluster)) {
+            $this->channelsTestStatus = 'error';
+            \Flux::toast('Kredensial Pusher Channels belum lengkap!', variant: 'danger');
             return;
         }
-        
-        $pusher = new \Pusher\Pusher(
-            $this->pusherKey,
-            $this->pusherSecret,
-            $this->pusherAppId,
-            array('cluster' => $this->pusherCluster, 'useTLS' => true)
-        );
-        
-        $pusher->trigger('debug-test', 'test-event', ['message' => 'success']);
-        \Flux::toast('Koneksi Channels BERHASIL!', variant: 'success');
-    } catch (\Exception $e) {
-        \Flux::toast('Koneksi Channels GAGAL: ' . $e->getMessage(), variant: 'danger');
+
+        try {
+            if (!class_exists(\Pusher\Pusher::class)) {
+                $this->channelsTestStatus = 'error';
+                \Flux::toast('Package pusher/pusher-php-server belum diinstall.', variant: 'danger');
+                return;
+            }
+
+            $pusher = new \Pusher\Pusher(
+                $this->pusherKey,
+                $this->pusherSecret,
+                $this->pusherAppId,
+                array('cluster' => $this->pusherCluster, 'useTLS' => true)
+            );
+            
+            $pusher->trigger('debug-test', 'test-event', ['message' => 'success']);
+            $this->channelsTestStatus = 'success';
+        } catch (\Exception $e) {
+            $this->channelsTestStatus = 'error';
+            \Flux::toast('Koneksi Channels GAGAL: ' . $e->getMessage(), variant: 'danger');
+        }
     }
 };
-
 ?>
 
 <x-pages::settings.layout :heading="__('Pengaturan & Integrasi')" :subheading="__('Kelola integrasi pihak ketiga dan pengaturan operasional.')">
@@ -239,8 +267,12 @@ $testPusherChannels = function () {
                     placeholder="Misal: 1A2B3C..." 
                 />
             </div>
-            <div class="mt-2">
-                <flux:button wire:click="testPusherBeams" variant="outline" icon="bolt" size="sm">Test Koneksi Beams</flux:button>
+            <div class="mt-2" x-data="{ status: $wire.entangle('beamsTestStatus') }" x-init="$watch('status', value => { if (value) setTimeout(() => status = null, 3000) })">
+                <flux:button wire:click="testPusherBeams" 
+                             x-bind:class="status === 'success' ? '!bg-green-500 !text-white !border-green-500 hover:!bg-green-600' : (status === 'error' ? '!bg-red-500 !text-white !border-red-500 hover:!bg-red-600' : '')"
+                             variant="outline" icon="bolt" size="sm" wire:loading.attr="disabled">
+                    <span x-text="status === 'success' ? 'Berhasil terkoneksi!' : (status === 'error' ? 'Gagal terkoneksi!' : 'Test Koneksi Beams')"></span>
+                </flux:button>
             </div>
         </div>
 
@@ -253,14 +285,20 @@ $testPusherChannels = function () {
                 Pengaturan kredensial Pusher untuk fitur Realtime (Kanban, Notifikasi, Chat).
             </flux:subheading>
 
+            <flux:switch wire:model="enablePusherSound" label="Efek Suara Realtime (Sound Notification)" description="Aktifkan atau matikan efek suara otomatis saat menerima pembaruan data atau notifikasi dari Pusher Channels." class="mb-4" />
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <flux:input wire:model="pusherAppId" label="App ID" placeholder="Misal: 1234567" />
                 <flux:input wire:model="pusherKey" label="App Key" placeholder="Misal: a1b2c3d4e5" />
                 <flux:input wire:model="pusherSecret" type="password" label="App Secret" placeholder="Misal: f6g7h8i9j0" />
                 <flux:input wire:model="pusherCluster" label="Cluster" placeholder="Misal: ap1" />
             </div>
-            <div class="mt-2">
-                <flux:button wire:click="testPusherChannels" variant="outline" icon="bolt" size="sm">Test Koneksi Channels</flux:button>
+            <div class="mt-2" x-data="{ status: $wire.entangle('channelsTestStatus') }" x-init="$watch('status', value => { if (value) setTimeout(() => status = null, 3000) })">
+                <flux:button wire:click="testPusherChannels" 
+                             x-bind:class="status === 'success' ? '!bg-green-500 !text-white !border-green-500 hover:!bg-green-600' : (status === 'error' ? '!bg-red-500 !text-white !border-red-500 hover:!bg-red-600' : '')"
+                             variant="outline" icon="bolt" size="sm" wire:loading.attr="disabled">
+                    <span x-text="status === 'success' ? 'Berhasil terkoneksi!' : (status === 'error' ? 'Gagal terkoneksi!' : 'Test Koneksi Channels')"></span>
+                </flux:button>
             </div>
         </div>
 

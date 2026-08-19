@@ -270,7 +270,7 @@ on([
                             @endphp
                             <div wire:key="po-{{ $po->id }}" 
                                  @click="activeId = '{{ $po->id }}'; $dispatch('open-detail-modal', { orderId: {{ $po->id }} })"
-                                 :class="{ 'opacity-50 pointer-events-none animate-pulse grayscale': processingId === '{{ $po->id }}' }"
+                                 :class="{ 'opacity-50 pointer-events-none animate-pulse grayscale': processingId == '{{ $po->id }}' }"
                                  class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border transition-all duration-200 active:scale-[0.98] active:shadow-none {{ $isCustom ? 'border-amber-400 dark:border-amber-500 shadow-amber-500/20 hover:-translate-y-0.5 hover:border-amber-500 hover:shadow-amber-500/30' : 'border-zinc-200 dark:border-zinc-700 hover:-translate-y-0.5 hover:shadow-sm hover:border-'.$column['color'].'-400 dark:hover:border-'.$column['color'].'-500' }} group relative cursor-pointer flex flex-col gap-1.5">
                                 {{-- Header Card --}}
                                 <div class="flex justify-between items-center relative z-10">

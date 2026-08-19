@@ -39,16 +39,16 @@
      x-init="
         Livewire.hook('commit', ({ component, succeed }) => {
             succeed(() => {
-                const name = component.name || '';
-                if (name.includes('kanban') || name.includes('index') || name.includes('sales-deliveries') || (component.el && component.el.querySelector('.kanban-root'))) {
-                    processingId = null;
-                    activeId = null;
-                }
+                processingId = null;
+                activeId = null;
             })
         });
      "
-     @status-updated.window="processingId = activeId"
-     @modal-closed.window="activeId = null"
+     @status-updated.window="
+        processingId = activeId;
+        setTimeout(() => { processingId = null; }, 1500);
+     "
+     @modal-closed.window="activeId = null; processingId = null;"
      style="height: 100vh; overflow: hidden;">
     
     <style>

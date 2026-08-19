@@ -160,6 +160,27 @@ class FinanceService
             $account->decrement('current_balance', $amount);
         }
 
+        // Push Notification via Beams ke PIC / Pemegang Rekening Kas
+        if ($account->user_id) {
+            try {
+                $beams = new \App\Services\BeamsService();
+                $formattedAmount = 'Rp ' . number_format($amount, 0, ',', '.');
+                $typeTitle = $type === 'income' ? '💰 Pembayaran/Pemasukan Masuk' : '💸 Pengeluaran Kas';
+                $proofImage = isset($reference->proof_path) ? $reference->proof_path : null;
+                
+                $beams->sendToUser(
+                    $account->user_id,
+                    "{$typeTitle} ({$account->name})",
+                    "{$formattedAmount} - {$description}",
+                    ['account_id' => $accountId, 'transaction_id' => $transaction->id],
+                    '/finance/transactions',
+                    $proofImage
+                );
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('[Beams] Gagal kirim notif mutasi kas: ' . $e->getMessage());
+            }
+        }
+
         return $transaction;
     }
 

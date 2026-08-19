@@ -57,7 +57,7 @@ $markAllAsRead = function () {
 on([
     'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function () {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
-        $this->js("document.getElementById('notif-sound').play().catch(() => {})");
+        $this->js("window.playNotificationSound && window.playNotificationSound()");
     },
     'notifications-updated' => function () {
         if (auth()->check()) {

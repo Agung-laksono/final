@@ -61,6 +61,7 @@ new class extends Component {
         }
 
         \Illuminate\Support\Facades\Cache::forget('setting_pwa_theme_colors');
+        \Illuminate\Support\Facades\Cache::forget('setting_pwa_icon');
 
         \Flux::toast('Pengaturan PWA berhasil disimpan.', variant: 'success');
     }

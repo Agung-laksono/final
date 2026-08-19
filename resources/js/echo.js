@@ -16,12 +16,18 @@ if (window.PUSHER_CONFIG && window.PUSHER_CONFIG.key) {
     // Putar notifikasi suara secara global untuk setiap update inventaris
     window.Echo.channel('inventory')
         .listen('InventoryUpdated', (event) => {
-            let audio = new Audio('/notification.mp3');
-            // Volume disesuaikan agar tidak terlalu bising
-            audio.volume = 0.6;
-            audio.play().catch(e => console.log('Audio autoplay prevented by browser:', e));
+            if (window.playNotificationSound) window.playNotificationSound();
         });
     window.Echo.channel('purchase').listen('VendorUpdated', (event) => { });
+
+    // Listener khusus untuk tombol Test Koneksi Channels
+    window.Echo.channel('debug-test')
+        .listen('.test-event', (event) => {
+            if (window.playNotificationSound) window.playNotificationSound();
+        })
+        .listen('test-event', (event) => {
+            if (window.playNotificationSound) window.playNotificationSound();
+        });
 } else {
     console.warn("VITE_PUSHER_KEY is missing in .env. Real-time updates are disabled.");
     window.Echo = {

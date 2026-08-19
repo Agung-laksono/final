@@ -5,9 +5,22 @@
     {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
 </title>
 
-<link rel="icon" href="/favicon.ico" sizes="any">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+@php
+    $pwaIconPath = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_icon', function () {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return null;
+        return \App\Models\Setting::where('key', 'pwa_icon')->value('value');
+    });
+    $appIconUrl = $pwaIconPath ? asset('storage/' . $pwaIconPath) : null;
+@endphp
+
+@if($appIconUrl)
+    <link rel="icon" href="{{ $appIconUrl }}">
+    <link rel="apple-touch-icon" href="{{ $appIconUrl }}">
+@else
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+@endif
 
 <!-- PWA Meta Tags -->
 <link rel="manifest" href="{{ route('pwa.manifest') }}" crossorigin="use-credentials">
@@ -138,9 +151,38 @@
 </script>
 @endauth
 
+@php
+    $enablePusherSound = Illuminate\Support\Facades\Cache::rememberForever('setting_enable_pusher_sound', function () {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return '1';
+        return \App\Models\Setting::where('key', 'enable_pusher_sound')->value('value') ?? '1';
+    });
+@endphp
+
 <script>
     window.PUSHER_CONFIG = {
         key: '{{ config('broadcasting.connections.pusher.key') }}',
         cluster: '{{ config('broadcasting.connections.pusher.options.cluster') }}',
+    };
+    window.ENABLE_PUSHER_SOUND = {{ $enablePusherSound === '0' ? 'false' : 'true' }};
+
+    window.playNotificationSound = function() {
+        if (window.ENABLE_PUSHER_SOUND === false || window.ENABLE_PUSHER_SOUND === '0' || window.ENABLE_PUSHER_SOUND === 0) {
+            console.log('[Sound] Realtime sound notification is OFF.');
+            return;
+        }
+        if (localStorage.getItem('pusher_sound_enabled') === 'false') {
+            console.log('[Sound] Local sound is OFF.');
+            return;
+        }
+
+        let sound = document.getElementById('notif-sound');
+        if (sound) {
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log('Audio autoplay blocked by browser:', e));
+        } else {
+            let audio = new Audio('/notification.mp3');
+            audio.volume = 0.6;
+            audio.play().catch(e => console.log('Audio autoplay blocked by browser:', e));
+        }
     };
 </script>
