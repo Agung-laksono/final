@@ -205,45 +205,73 @@ $savePayment = function () {
 };
 
 $verifyPayment = function ($paymentId) {
-    abort_unless(auth()->user()->can('sales.payment.validate'), 403);
-    
-    $payment = SalesPayment::find($paymentId);
-    if ($payment && $payment->status === 'pending') {
-        $payment->status = 'verified';
-        $payment->verified_by = auth()->id();
-        $payment->verified_at = now();
-        $payment->save();
+    $payment = SalesPayment::with('financeAccount')->find($paymentId);
+    if (!$payment || $payment->status !== 'pending') return;
 
-        // Update status SO berdasarkan pembayaran yang sudah diverifikasi
-        $totalVerified = $this->order->payments()->where('status', 'verified')->sum('amount');
-        
-        if ($totalVerified >= $this->order->total_amount) {
-            $this->order->payment_status = 'paid';
-        } elseif ($totalVerified > 0) {
-            $this->order->payment_status = 'partial';
+    // Hanya yang punya hak akses yang bisa masuk
+    abort_unless(auth()->user()->can('sales.payment.validate') || auth()->user()->hasRole('Super Admin'), 403);
+
+    // Kunci khusus: Jika ditujukan ke suatu kas, maka hanya PIC (atau Super Admin) yang boleh validasi
+    if ($payment->finance_account_id && $payment->financeAccount && $payment->financeAccount->user_id) {
+        if (!auth()->user()->hasRole('Super Admin') && $payment->financeAccount->user_id !== auth()->id()) {
+            \Flux::toast("Hanya penanggung jawab kas ({$payment->financeAccount->name}) yang bisa memvalidasi pembayaran ini.", variant: 'danger');
+            return;
         }
-        $this->order->save();
+    }
+
+    try {
+        if ($payment->finance_account_id) {
+            $financeService = app(\Modules\Finance\Services\FinanceService::class);
+            $financeService->approveSalesPayment($payment, $payment->finance_account_id, auth()->id());
+        } else {
+            // Jika tidak ada rekening tujuan (misal metode lain), tetap verifikasi
+            $payment->status = 'verified';
+            $payment->verified_by = auth()->id();
+            $payment->verified_at = now();
+            $payment->save();
+
+            // Update status SO berdasarkan pembayaran yang sudah diverifikasi
+            $totalVerified = $this->order->payments()->where('status', 'verified')->sum('amount');
+            
+            if ($totalVerified >= $this->order->total_amount) {
+                $this->order->payment_status = 'paid';
+            } elseif ($totalVerified > 0) {
+                $this->order->payment_status = 'partial';
+            }
+            $this->order->save();
+        }
 
         \Flux::toast('Pembayaran diverifikasi!', variant: 'success');
         $this->order->load('payments');
         $this->dispatch('status-updated');
         \App\Events\KanbanUpdated::safeDispatch('sales_order');
+    } catch (\Exception $e) {
+        \Flux::toast('Gagal memvalidasi: ' . $e->getMessage(), variant: 'danger');
     }
 };
 
 $rejectPayment = function ($paymentId) {
-    abort_unless(auth()->user()->can('sales.payment.validate'), 403);
-    
-    $payment = SalesPayment::find($paymentId);
-    if ($payment && $payment->status === 'pending') {
-        $payment->status = 'rejected';
-        $payment->verified_by = auth()->id();
-        $payment->verified_at = now();
-        // rejection_reason bisa ditambahkan nanti jika perlu popup modal
-        $payment->save();
+    $payment = SalesPayment::with('financeAccount')->find($paymentId);
+    if (!$payment || $payment->status !== 'pending') return;
 
-        \Flux::toast('Pembayaran ditolak.', variant: 'danger');
+    abort_unless(auth()->user()->can('sales.payment.validate') || auth()->user()->hasRole('Super Admin'), 403);
+
+    // Kunci khusus: Jika ditujukan ke suatu kas, maka hanya PIC (atau Super Admin) yang boleh validasi/tolak
+    if ($payment->finance_account_id && $payment->financeAccount && $payment->financeAccount->user_id) {
+        if (!auth()->user()->hasRole('Super Admin') && $payment->financeAccount->user_id !== auth()->id()) {
+            \Flux::toast("Hanya penanggung jawab kas ({$payment->financeAccount->name}) yang bisa menolak pembayaran ini.", variant: 'danger');
+            return;
+        }
+    }
+
+    try {
+        $financeService = app(\Modules\Finance\Services\FinanceService::class);
+        $financeService->rejectPayment($payment, 'Ditolak oleh verifikator', auth()->id());
+        
+        \Flux::toast('Pembayaran ditolak.', variant: 'warning');
         $this->order->load('payments');
+    } catch (\Exception $e) {
+        \Flux::toast('Gagal menolak: ' . $e->getMessage(), variant: 'danger');
     }
 };
 
