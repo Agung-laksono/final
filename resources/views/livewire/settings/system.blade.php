@@ -52,6 +52,12 @@ new class extends Component {
 
     public $counts = [];
 
+    // System Update
+    public $githubRepo = '';
+    public $githubBranch = 'main';
+    public $updateCheckResult = null;
+    public $isUpdating = false;
+
     public function mount() {
         $this->loadBackups();
         $this->loadDataCounts();
@@ -64,6 +70,9 @@ new class extends Component {
         $this->googleDriveEnabled = \App\Models\Setting::where('key', 'google_drive_enabled')->value('value') === 'true';
         $this->googleDriveFolderId = \App\Models\Setting::where('key', 'google_drive_folder')->value('value') ?? '';
 
+        $this->githubRepo = \App\Models\Setting::where('key', 'github_repo')->value('value') ?? 'Agung-laksono/final';
+        $this->githubBranch = \App\Models\Setting::where('key', 'github_branch')->value('value') ?? 'main';
+
         $this->originalBackupSettings = [
             'enabled' => $this->autoBackupEnabled,
             'schedule' => $this->autoBackupSchedule,
@@ -71,6 +80,8 @@ new class extends Component {
             'retention' => $this->autoBackupRetention,
             'gdrive_enabled' => $this->googleDriveEnabled,
             'gdrive_folder' => $this->googleDriveFolderId,
+            'github_repo' => $this->githubRepo,
+            'github_branch' => $this->githubBranch,
         ];
     }
 
@@ -80,7 +91,9 @@ new class extends Component {
                $this->autoBackupTime !== $this->originalBackupSettings['time'] ||
                $this->autoBackupRetention != $this->originalBackupSettings['retention'] ||
                $this->googleDriveEnabled !== $this->originalBackupSettings['gdrive_enabled'] ||
-               $this->googleDriveFolderId !== $this->originalBackupSettings['gdrive_folder'];
+               $this->googleDriveFolderId !== $this->originalBackupSettings['gdrive_folder'] ||
+               $this->githubRepo !== $this->originalBackupSettings['github_repo'] ||
+               $this->githubBranch !== $this->originalBackupSettings['github_branch'];
     }
 
     public function saveAutoBackupSettings() {
@@ -98,6 +111,9 @@ new class extends Component {
         \App\Models\Setting::updateOrCreate(['key' => 'google_drive_enabled'], ['value' => $this->googleDriveEnabled ? 'true' : 'false']);
         \App\Models\Setting::updateOrCreate(['key' => 'google_drive_folder'], ['value' => $this->googleDriveFolderId]);
         
+        \App\Models\Setting::updateOrCreate(['key' => 'github_repo'], ['value' => $this->githubRepo]);
+        \App\Models\Setting::updateOrCreate(['key' => 'github_branch'], ['value' => $this->githubBranch]);
+
         // Perbarui config dinamis
         \Illuminate\Support\Facades\Config::set('filesystems.disks.google.folder', $this->googleDriveFolderId);
 
@@ -108,9 +124,63 @@ new class extends Component {
             'retention' => $this->autoBackupRetention,
             'gdrive_enabled' => $this->googleDriveEnabled,
             'gdrive_folder' => $this->googleDriveFolderId,
+            'github_repo' => $this->githubRepo,
+            'github_branch' => $this->githubBranch,
         ];
 
-        \Flux::toast('Pengaturan backup otomatis berhasil disimpan.', variant: 'success');
+        \Flux::toast('Pengaturan berhasil disimpan.', variant: 'success');
+    }
+
+    public function checkSystemUpdate()
+    {
+        $this->updateCheckResult = null;
+        if (empty($this->githubRepo)) {
+            \Flux::toast('Repository GitHub belum diatur!', variant: 'danger');
+            return;
+        }
+
+        try {
+            $updateService = app(\App\Services\UpdateService::class);
+            $result = $updateService->checkLatestUpdate($this->githubRepo, $this->githubBranch);
+            
+            if ($result['status'] === 'success') {
+                $this->updateCheckResult = $result;
+                \Flux::toast('Pengecekan update berhasil.', variant: 'success');
+            } else {
+                \Flux::toast($result['message'], variant: 'danger');
+            }
+        } catch (\Exception $e) {
+            \Flux::toast('Gagal mengecek update: ' . $e->getMessage(), variant: 'danger');
+        }
+    }
+
+    public function performSystemUpdate()
+    {
+        if (empty($this->githubRepo)) return;
+        
+        $this->isUpdating = true;
+        
+        try {
+            // 1. Buat Backup sebelum Update
+            $this->createBackup();
+
+            // 2. Lakukan Update via UpdateService
+            $updateService = app(\App\Services\UpdateService::class);
+            $result = $updateService->performUpdate($this->githubRepo, $this->githubBranch);
+            
+            if ($result['status'] === 'success') {
+                \Flux::toast($result['message'], variant: 'success');
+                $this->updateCheckResult = null;
+            } else {
+                \Flux::toast('Gagal Update: ' . $result['message'], variant: 'danger');
+            }
+        } catch (\Exception $e) {
+            \Flux::toast('Terjadi Kesalahan Kritis: ' . $e->getMessage(), variant: 'danger');
+        }
+        
+        $this->isUpdating = false;
+        // Opsional: Reload window
+        $this->js('setTimeout(() => window.location.reload(), 2000)');
     }
 
     public function updatedUploadedJsonFile() {
@@ -548,6 +618,86 @@ new class extends Component {
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+        </section>
+
+        </section>
+
+        <flux:separator />
+
+        {{-- SYSTEM UPDATE SECTION --}}
+        <section>
+            <div class="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/50 rounded-xl p-6">
+                <div class="flex flex-col md:flex-row gap-6">
+                    <div class="w-full md:w-1/3">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-full shrink-0">
+                                <flux:icon.arrow-path class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                            <h3 class="text-lg font-bold text-indigo-800 dark:text-indigo-300">Pembaruan Sistem</h3>
+                        </div>
+                        <p class="text-sm text-indigo-700/80 dark:text-indigo-400/80 mb-4">
+                            Perbarui sistem langsung dari repositori GitHub. Sistem akan otomatis melakukan backup sebelum memperbarui file.
+                        </p>
+                        
+                        <div class="space-y-4 bg-white dark:bg-zinc-900 p-4 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
+                            <flux:input wire:model.defer="githubRepo" label="Repository GitHub" placeholder="Contoh: user/repo" />
+                            <flux:input wire:model.defer="githubBranch" label="Branch" placeholder="Contoh: main" />
+                            
+                            <flux:button wire:click="saveAutoBackupSettings" variant="outline" size="sm" class="w-full">Simpan Konfigurasi</flux:button>
+                        </div>
+                    </div>
+                    
+                    <div class="w-full md:w-2/3">
+                        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg p-5 h-full flex flex-col justify-center">
+                            
+                            @if(!$updateCheckResult)
+                                <div class="text-center space-y-4">
+                                    <flux:icon.cloud-arrow-down class="w-12 h-12 text-zinc-300 mx-auto" />
+                                    <div>
+                                        <p class="font-medium text-zinc-900 dark:text-white">Belum Mengecek Pembaruan</p>
+                                        <p class="text-sm text-zinc-500">Cek apakah ada pembaruan kode terbaru di GitHub.</p>
+                                    </div>
+                                    <flux:button wire:click="checkSystemUpdate" variant="primary">Cek Pembaruan</flux:button>
+                                </div>
+                            @else
+                                <div class="space-y-4">
+                                    <div class="flex items-start justify-between">
+                                        <div>
+                                            <h4 class="font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                                                <flux:icon.check-circle class="w-5 h-5 text-emerald-500" /> Pembaruan Ditemukan!
+                                            </h4>
+                                            <p class="text-sm text-zinc-500 mt-1">Commit terbaru di repository Anda:</p>
+                                        </div>
+                                        <flux:button wire:click="checkSystemUpdate" variant="subtle" size="sm" icon="arrow-path">Cek Ulang</flux:button>
+                                    </div>
+                                    
+                                    <div class="bg-zinc-50 dark:bg-zinc-800 rounded-md p-4 border border-zinc-100 dark:border-zinc-700 font-mono text-sm">
+                                        <div class="text-zinc-600 dark:text-zinc-400 mb-2 truncate">
+                                            <span class="font-semibold">Pesan:</span> "{{ $updateCheckResult['commit_message'] }}"
+                                        </div>
+                                        <div class="text-zinc-500 text-xs">
+                                            <span class="font-semibold">SHA:</span> {{ substr($updateCheckResult['commit_sha'], 0, 7) }} &bull; 
+                                            <span class="font-semibold">Tanggal:</span> {{ \Carbon\Carbon::parse($updateCheckResult['date'])->format('d M Y H:i') }}
+                                        </div>
+                                    </div>
+
+                                    <div class="pt-2 border-t border-zinc-200 dark:border-zinc-700 flex justify-end">
+                                        <flux:button 
+                                            wire:click="performSystemUpdate" 
+                                            wire:confirm="PERINGATAN: Sistem akan menimpa (replace) source code dengan versi terbaru dari GitHub. Pastikan tidak ada perubahan kode manual di server. Lanjutkan?"
+                                            variant="primary" 
+                                            icon="arrow-down-tray">
+                                            <span wire:loading.remove wire:target="performSystemUpdate">Update Sistem Sekarang</span>
+                                            <span wire:loading wire:target="performSystemUpdate">Mengunduh & Memperbarui...</span>
+                                        </flux:button>
+                                    </div>
+                                </div>
+                            @endif
+                            
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
