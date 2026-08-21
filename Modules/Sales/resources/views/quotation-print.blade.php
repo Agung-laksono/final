@@ -328,15 +328,7 @@
                     <p class="text-sm">Tidak ada gambar detail</p>
                 </div>
             @endif
-            <!-- Image Overlay Text (simulating the PDF) -->
-            <div class="absolute z-20 text-center text-white drop-shadow-md text-sm font-semibold" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
-                L. ?? T. ??<br>
-                Pintu ??<br>
-                Rp. {{ number_format($item->unit_price, 0, ',', '.') }},-<br><br><br>
-                Free Ongkir Pulau<br>
-                Jawa, Bali dan Madura.<br>
-                COD/Bayar ditempat
-            </div>
+
         </div>
     </div>
 
