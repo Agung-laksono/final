@@ -16,10 +16,12 @@ class UpdateService
      */
     public function checkLatestUpdate($repo, $branch = 'main')
     {
-        // Menggunakan endpoint GitHub API untuk mendapatkan commit terakhir dari branch
+        // Tambahkan timestamp agar GitHub API tidak me-return cache versi lama (cache-busting)
+        $timestamp = now()->timestamp;
         $response = Http::withHeaders([
             'User-Agent' => 'ERP-Update-System',
-        ])->get("https://api.github.com/repos/{$repo}/commits/{$branch}");
+            'Cache-Control' => 'no-cache',
+        ])->get("https://api.github.com/repos/{$repo}/commits/{$branch}?t={$timestamp}");
 
         if ($response->successful()) {
             $data = $response->json();
