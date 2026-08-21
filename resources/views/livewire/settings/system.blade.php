@@ -651,8 +651,6 @@ new class extends Component {
             </div>
         </section>
 
-        </section>
-
         <flux:separator />
 
         {{-- SYSTEM UPDATE SECTION --}}
