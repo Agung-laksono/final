@@ -718,7 +718,7 @@ new class extends Component {
                                         </div>
                                         <div class="text-zinc-500 text-xs">
                                             <span class="font-semibold">SHA:</span> {{ substr($updateCheckResult['commit_sha'], 0, 7) }} &bull; 
-                                            <span class="font-semibold">Tanggal:</span> {{ \Carbon\Carbon::parse($updateCheckResult['date'])->format('d M Y H:i') }}
+                                            <span class="font-semibold">Tanggal:</span> {{ \Carbon\Carbon::parse($updateCheckResult['date'])->timezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
                                         </div>
                                     </div>
 
