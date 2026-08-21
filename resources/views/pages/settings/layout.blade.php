@@ -1,7 +1,15 @@
+<style>
+    @media (min-width: 768px) {
+        .settings-sidebar {
+            width: 220px !important;
+            flex-shrink: 0;
+        }
+    }
+</style>
 <div class="flex items-start max-md:flex-col md:gap-8">
 
     {{-- NAV: Desktop = sidebar vertikal | Mobile = horizontal scrollable pill tabs --}}
-    <div class="md:w-[200px] md:shrink-0 w-full">
+    <div class="settings-sidebar w-full">
 
         {{-- Desktop nav --}}
         <div class="hidden md:block">
