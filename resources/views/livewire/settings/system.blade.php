@@ -52,9 +52,9 @@ new class extends Component {
 
     public $counts = [];
 
-    // System Update
     public $githubRepo = '';
     public $githubBranch = 'main';
+    public $availableBranches = [];
     public $updateCheckResult = null;
     public $isUpdating = false;
 
@@ -83,6 +83,10 @@ new class extends Component {
             'github_repo' => $this->githubRepo,
             'github_branch' => $this->githubBranch,
         ];
+
+        if (!empty($this->githubRepo)) {
+            $this->fetchBranches();
+        }
     }
 
     public function hasUnsavedChanges() {
@@ -129,6 +133,32 @@ new class extends Component {
         ];
 
         \Flux::toast('Pengaturan berhasil disimpan.', variant: 'success');
+        
+        // Coba refresh branch saat repo di-save
+        if (!empty($this->githubRepo)) {
+            $this->fetchBranches();
+        }
+    }
+
+    public function fetchBranches()
+    {
+        try {
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'User-Agent' => 'ERP-Update-System',
+            ])->get("https://api.github.com/repos/{$this->githubRepo}/branches");
+            
+            if ($response->successful()) {
+                $this->availableBranches = collect($response->json())->pluck('name')->toArray();
+                // Jika branch saat ini tidak ada di daftar, reset ke yang pertama (biasanya main/master)
+                if (!in_array($this->githubBranch, $this->availableBranches) && count($this->availableBranches) > 0) {
+                    $this->githubBranch = $this->availableBranches[0];
+                }
+            } else {
+                $this->availableBranches = [];
+            }
+        } catch (\Exception $e) {
+            $this->availableBranches = [];
+        }
     }
 
     public function checkSystemUpdate()
@@ -642,9 +672,19 @@ new class extends Component {
                         
                         <div class="space-y-4 bg-white dark:bg-zinc-900 p-4 rounded-lg border border-indigo-100 dark:border-indigo-900/30">
                             <flux:input wire:model.defer="githubRepo" label="Repository GitHub" placeholder="Contoh: user/repo" />
-                            <flux:input wire:model.defer="githubBranch" label="Branch" placeholder="Contoh: main" />
                             
-                            <flux:button wire:click="saveAutoBackupSettings" variant="outline" size="sm" class="w-full">Simpan Konfigurasi</flux:button>
+                            @if(count($availableBranches) > 0)
+                                <flux:select wire:model.defer="githubBranch" label="Pilih Branch">
+                                    @foreach($availableBranches as $branch)
+                                        <flux:select.option value="{{ $branch }}">{{ $branch }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                            @else
+                                <flux:input wire:model.defer="githubBranch" label="Branch" placeholder="Contoh: main" />
+                                <div class="text-xs text-amber-600 mt-1">Daftar branch otomatis gagal dimuat. Ketik manual.</div>
+                            @endif
+                            
+                            <flux:button wire:click="saveAutoBackupSettings" variant="outline" size="sm" class="w-full">Simpan & Muat Branch</flux:button>
                         </div>
                     </div>
                     
