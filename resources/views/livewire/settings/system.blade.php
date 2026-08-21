@@ -593,13 +593,26 @@ new class extends Component {
                 </div>
                 <div class="flex flex-wrap items-center gap-3">
                     <!-- Upload Input -->
-                    <div class="relative flex items-center">
+                    <div class="relative flex items-center"
+                         x-data="{ isUploading: false, progress: 0 }"
+                         x-on:livewire-upload-start="isUploading = true; progress = 0"
+                         x-on:livewire-upload-finish="isUploading = false"
+                         x-on:livewire-upload-error="isUploading = false; Flux.toast({text: 'Gagal mengunggah file. Ukuran file mungkin melebihi batas server (upload_max_filesize).', variant: 'danger'})"
+                         x-on:livewire-upload-progress="progress = $event.detail.progress">
                         <label class="cursor-pointer bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-medium h-8 px-3 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors flex items-center gap-2 whitespace-nowrap shadow-sm">
                             <flux:icon.arrow-up-tray class="w-4 h-4" />
                             <span>Unggah (.zip)</span>
                             <input type="file" wire:model="uploadedBackupFile" class="hidden" accept=".zip,.sqlite" />
                         </label>
-                        <div wire:loading wire:target="uploadedBackupFile" class="absolute right-0 -bottom-6 w-max text-xs font-semibold text-zinc-500 animate-pulse">Mengunggah...</div>
+                        
+                        <!-- Progress Bar (Alpine) -->
+                        <div x-show="isUploading" class="absolute right-0 -bottom-5 w-[120px]" style="display: none;">
+                            <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-1.5">
+                                <div class="bg-indigo-600 h-1.5 rounded-full transition-all duration-150" x-bind:style="`width: ${progress}%`"></div>
+                            </div>
+                            <div class="text-[10px] text-zinc-500 text-right mt-0.5" x-text="`${progress}%`"></div>
+                        </div>
+
                         @error('uploadedBackupFile') <div class="absolute right-0 -bottom-6 w-max text-xs font-semibold text-red-500">{{ $message }}</div> @enderror
                     </div>
 
