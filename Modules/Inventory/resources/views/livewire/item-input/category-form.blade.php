@@ -52,7 +52,7 @@ $delete = function (Category $category) {
 };
 ?>
 
-<div x-on:open-category-modal.window="$wire.openModal()" >
+<div x-on:open-category-modal.window="$wire.openModal($event.detail?.id ?? null)">
     @if ($show)
     <div class="flex justify-between items-center mb-6">
         <flux:heading size="lg">Pengelolaan Kategori</flux:heading>

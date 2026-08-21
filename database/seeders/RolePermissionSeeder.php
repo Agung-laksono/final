@@ -180,6 +180,20 @@ class RolePermissionSeeder extends Seeder
             // Fulfillment Gudang (Permission KHUSUS, terpisah dari Sales & Produksi)
             'inventory.sales.delivery',        // Akses menu Pengiriman Penjualan (Gudang saja)
             'inventory.production.fulfillment', // Akses menu Pemenuhan Produksi (Gudang saja)
+
+            // Master Data Barang (Quick-Manage dari Form Barang)
+            'inventory.kategori.create',
+            'inventory.kategori.update',
+            'inventory.kategori.delete',
+            'inventory.subkategori.create',
+            'inventory.subkategori.update',
+            'inventory.subkategori.delete',
+            'inventory.tipe.create',
+            'inventory.tipe.update',
+            'inventory.tipe.delete',
+            'inventory.satuan.create',
+            'inventory.satuan.update',
+            'inventory.satuan.delete',
         ];
 
         foreach ($permissions as $permission) {
@@ -209,6 +223,11 @@ class RolePermissionSeeder extends Seeder
             'inventory.notifikasi.view',
             'purchase.queue.view',
             'sales.order.view',
+            // Master Data Barang
+            'inventory.kategori.create', 'inventory.kategori.update', 'inventory.kategori.delete',
+            'inventory.subkategori.create', 'inventory.subkategori.update', 'inventory.subkategori.delete',
+            'inventory.tipe.create', 'inventory.tipe.update', 'inventory.tipe.delete',
+            'inventory.satuan.create', 'inventory.satuan.update', 'inventory.satuan.delete',
         ]);
 
         $roleStafGudang = Role::firstOrCreate(['name' => 'Staf Gudang']);

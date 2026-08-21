@@ -73,11 +73,43 @@ new class extends Component {
     public $subcategories = [];
     public $availableTags = [];
 
+    // Permission flags untuk quick-manage master data
+    public bool $canCreateKategori  = false;
+    public bool $canUpdateKategori  = false;
+    public bool $canDeleteKategori  = false;
+    public bool $canCreateSubkat    = false;
+    public bool $canUpdateSubkat    = false;
+    public bool $canDeleteSubkat    = false;
+    public bool $canCreateTipe      = false;
+    public bool $canUpdateTipe      = false;
+    public bool $canDeleteTipe      = false;
+    public bool $canCreateSatuan    = false;
+    public bool $canUpdateSatuan    = false;
+    public bool $canDeleteSatuan    = false;
+
     public function mount()
     {
         $this->units = Unit::orderBy('name')->get();
         $this->types = Type::orderBy('name')->get();
         $this->categories = Category::orderBy('name')->get();
+        $this->loadPermissions();
+    }
+
+    protected function loadPermissions(): void
+    {
+        $user = auth()->user();
+        $this->canCreateKategori = $user->can('inventory.kategori.create');
+        $this->canUpdateKategori = $user->can('inventory.kategori.update');
+        $this->canDeleteKategori = $user->can('inventory.kategori.delete');
+        $this->canCreateSubkat   = $user->can('inventory.subkategori.create');
+        $this->canUpdateSubkat   = $user->can('inventory.subkategori.update');
+        $this->canDeleteSubkat   = $user->can('inventory.subkategori.delete');
+        $this->canCreateTipe     = $user->can('inventory.tipe.create');
+        $this->canUpdateTipe     = $user->can('inventory.tipe.update');
+        $this->canDeleteTipe     = $user->can('inventory.tipe.delete');
+        $this->canCreateSatuan   = $user->can('inventory.satuan.create');
+        $this->canUpdateSatuan   = $user->can('inventory.satuan.update');
+        $this->canDeleteSatuan   = $user->can('inventory.satuan.delete');
     }
 
     public function updatedCategoryId($value)
@@ -354,6 +386,47 @@ new class extends Component {
             }
         }
     }
+
+    public function deleteCategory(): void
+    {
+        Category::find($this->category_id)?->delete();
+        $this->categories = Category::orderBy('name')->get();
+        $this->category_id = '';
+        $this->subcategories = [];
+        $this->sub_category_id = '';
+        $this->dispatch('category-updated', options: $this->categories);
+        $this->dispatch('subcategory-updated', options: collect());
+        Flux::toast('Kategori berhasil dihapus.');
+    }
+
+    public function deleteSubcategory(): void
+    {
+        SubCategory::find($this->sub_category_id)?->delete();
+        if ($this->category_id) {
+            $this->subcategories = SubCategory::where('category_id', $this->category_id)->orderBy('name')->get();
+        }
+        $this->sub_category_id = '';
+        $this->dispatch('subcategory-updated', options: $this->subcategories);
+        Flux::toast('Sub Kategori berhasil dihapus.');
+    }
+
+    public function deleteType(): void
+    {
+        Type::find($this->type_id)?->delete();
+        $this->types = Type::orderBy('name')->get();
+        $this->type_id = '';
+        $this->dispatch('type-updated', options: $this->types);
+        Flux::toast('Tipe berhasil dihapus.');
+    }
+
+    public function deleteUnit(): void
+    {
+        Unit::find($this->unit_id)?->delete();
+        $this->units = Unit::orderBy('name')->get();
+        $this->unit_id = '';
+        $this->dispatch('unit-updated', options: $this->units);
+        Flux::toast('Satuan berhasil dihapus.');
+    }
 };
 ?>
 
@@ -524,9 +597,28 @@ new class extends Component {
                                 <div>
                                     <div class="flex justify-between items-center mb-1.5">
                                         <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Kategori <span class="text-red-500">*</span></label>
-                                        <button type="button" x-on:click="$flux.modal('category-modal').show()" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5" title="Tambah Baru">
-                                            <flux:icon.plus class="w-3 h-3" /> Baru
-                                        </button>
+                                        <div class="flex items-center gap-1.5">
+                                            @if($canUpdateKategori)
+                                            <button type="button" x-show="$wire.category_id" style="display:none;"
+                                                x-on:click="$dispatch('open-category-modal', {id: $wire.category_id})"
+                                                class="text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-0.5 transition-colors" title="Edit Kategori">
+                                                <flux:icon.pencil class="w-3 h-3" /> Edit
+                                            </button>
+                                            @endif
+                                            @if($canDeleteKategori)
+                                            <button type="button" x-show="$wire.category_id" style="display:none;"
+                                                wire:click="deleteCategory"
+                                                wire:confirm="Yakin hapus kategori ini? Barang yang sudah terkait tidak ikut terhapus."
+                                                class="text-[11px] font-medium text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-0.5 transition-colors" title="Hapus Kategori">
+                                                <flux:icon.trash class="w-3 h-3" /> Hapus
+                                            </button>
+                                            @endif
+                                            @if($canCreateKategori)
+                                            <button type="button" x-on:click="$flux.modal('category-modal').show()" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5" title="Tambah Baru">
+                                                <flux:icon.plus class="w-3 h-3" /> Baru
+                                            </button>
+                                            @endif
+                                        </div>
                                     </div>
                                     <flux:select wire:model.live="category_id" class="w-full">
                                         <flux:select.option value="">-- Pilih Kategori --</flux:select.option>
@@ -540,9 +632,28 @@ new class extends Component {
                                 <div>
                                     <div class="flex justify-between items-center mb-1.5">
                                         <label class="text-sm font-medium" :class="!$wire.category_id ? 'text-zinc-400 dark:text-zinc-500' : 'text-zinc-700 dark:text-zinc-300'">Sub Kategori</label>
-                                        <button type="button" x-bind:disabled="!$wire.category_id" x-on:click="$dispatch('open-subcategory-modal', { category_id: $wire.category_id })" class="text-[11px] font-medium transition-colors flex items-center gap-0.5" :class="!$wire.category_id ? 'text-zinc-400 dark:text-zinc-500 cursor-not-allowed' : 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300'" title="Tambah Baru">
-                                            <flux:icon.plus class="w-3 h-3" /> Baru
-                                        </button>
+                                        <div class="flex items-center gap-1.5">
+                                            @if($canUpdateSubkat)
+                                            <button type="button" x-show="$wire.sub_category_id" style="display:none;"
+                                                x-on:click="$dispatch('open-subcategory-modal', {id: $wire.sub_category_id})"
+                                                class="text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-0.5 transition-colors" title="Edit Sub Kategori">
+                                                <flux:icon.pencil class="w-3 h-3" /> Edit
+                                            </button>
+                                            @endif
+                                            @if($canDeleteSubkat)
+                                            <button type="button" x-show="$wire.sub_category_id" style="display:none;"
+                                                wire:click="deleteSubcategory"
+                                                wire:confirm="Yakin hapus sub kategori ini?"
+                                                class="text-[11px] font-medium text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-0.5 transition-colors" title="Hapus Sub Kategori">
+                                                <flux:icon.trash class="w-3 h-3" /> Hapus
+                                            </button>
+                                            @endif
+                                            @if($canCreateSubkat)
+                                            <button type="button" x-bind:disabled="!$wire.category_id" x-on:click="$dispatch('open-subcategory-modal', { category_id: $wire.category_id })" class="text-[11px] font-medium transition-colors flex items-center gap-0.5" :class="!$wire.category_id ? 'text-zinc-400 dark:text-zinc-500 cursor-not-allowed' : 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300'" title="Tambah Baru">
+                                                <flux:icon.plus class="w-3 h-3" /> Baru
+                                            </button>
+                                            @endif
+                                        </div>
                                     </div>
                                     <flux:select wire:model.live="sub_category_id" class="w-full" x-bind:disabled="!$wire.category_id">
                                         <flux:select.option value="">-- Pilih Sub --</flux:select.option>
@@ -556,9 +667,28 @@ new class extends Component {
                                 <div>
                                     <div class="flex justify-between items-center mb-1.5">
                                         <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Tipe Barang <span class="text-red-500">*</span></label>
-                                        <button type="button" x-on:click="$flux.modal('type-modal').show()" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5" title="Tambah Baru">
-                                            <flux:icon.plus class="w-3 h-3" /> Baru
-                                        </button>
+                                        <div class="flex items-center gap-1.5">
+                                            @if($canUpdateTipe)
+                                            <button type="button" x-show="$wire.type_id" style="display:none;"
+                                                x-on:click="$dispatch('open-type-modal', {id: $wire.type_id})"
+                                                class="text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-0.5 transition-colors" title="Edit Tipe">
+                                                <flux:icon.pencil class="w-3 h-3" /> Edit
+                                            </button>
+                                            @endif
+                                            @if($canDeleteTipe)
+                                            <button type="button" x-show="$wire.type_id" style="display:none;"
+                                                wire:click="deleteType"
+                                                wire:confirm="Yakin hapus tipe ini? Barang yang sudah terkait tidak ikut terhapus."
+                                                class="text-[11px] font-medium text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-0.5 transition-colors" title="Hapus Tipe">
+                                                <flux:icon.trash class="w-3 h-3" /> Hapus
+                                            </button>
+                                            @endif
+                                            @if($canCreateTipe)
+                                            <button type="button" x-on:click="$flux.modal('type-modal').show()" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5" title="Tambah Baru">
+                                                <flux:icon.plus class="w-3 h-3" /> Baru
+                                            </button>
+                                            @endif
+                                        </div>
                                     </div>
                                     <flux:select wire:model.live="type_id" class="w-full">
                                         <flux:select.option value="">-- Pilih Tipe --</flux:select.option>
@@ -572,9 +702,28 @@ new class extends Component {
                                 <div>
                                     <div class="flex justify-between items-center mb-1.5">
                                         <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Satuan <span class="text-red-500">*</span></label>
-                                        <button type="button" x-on:click="$flux.modal('unit-modal').show()" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5" title="Tambah Baru">
-                                            <flux:icon.plus class="w-3 h-3" /> Baru
-                                        </button>
+                                        <div class="flex items-center gap-1.5">
+                                            @if($canUpdateSatuan)
+                                            <button type="button" x-show="$wire.unit_id" style="display:none;"
+                                                x-on:click="$dispatch('open-unit-modal', {id: $wire.unit_id})"
+                                                class="text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-0.5 transition-colors" title="Edit Satuan">
+                                                <flux:icon.pencil class="w-3 h-3" /> Edit
+                                            </button>
+                                            @endif
+                                            @if($canDeleteSatuan)
+                                            <button type="button" x-show="$wire.unit_id" style="display:none;"
+                                                wire:click="deleteUnit"
+                                                wire:confirm="Yakin hapus satuan ini? Barang yang sudah terkait tidak ikut terhapus."
+                                                class="text-[11px] font-medium text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-0.5 transition-colors" title="Hapus Satuan">
+                                                <flux:icon.trash class="w-3 h-3" /> Hapus
+                                            </button>
+                                            @endif
+                                            @if($canCreateSatuan)
+                                            <button type="button" x-on:click="$flux.modal('unit-modal').show()" class="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-0.5" title="Tambah Baru">
+                                                <flux:icon.plus class="w-3 h-3" /> Baru
+                                            </button>
+                                            @endif
+                                        </div>
                                     </div>
                                     <flux:select wire:model.live="unit_id" class="w-full">
                                         <flux:select.option value="">-- Pilih Satuan --</flux:select.option>

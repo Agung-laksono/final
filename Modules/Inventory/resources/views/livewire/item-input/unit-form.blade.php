@@ -81,7 +81,7 @@ $delete = function (Unit $unit) {
 
 ?>
 
-<div x-on:open-unit-modal.window="$wire.openModal()">
+<div x-on:open-unit-modal.window="$wire.openModal($event.detail?.id ?? null)">
     @if ($show)
     {{-- Header & Tombol Tambah --}}
     <div class="flex justify-between items-center mb-6">

@@ -62,7 +62,7 @@ $delete = function (Type $type) {
 };
 ?>
 
-<div     x-on:open-type-modal.window="$wire.openModal()">
+<div x-on:open-type-modal.window="$wire.openModal($event.detail?.id ?? null)">
     @if ($show)
     <div class="flex justify-between items-center mb-6">
         <flux:heading size="lg">Pengelolaan Tipe Barang</flux:heading>
