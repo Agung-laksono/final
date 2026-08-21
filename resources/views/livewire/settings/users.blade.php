@@ -122,18 +122,21 @@ on(['role-updated' => function () {
         <div>
             <div class="flex gap-2">
                 @can('users.create')
-                <flux:button x-on:click="$flux.modal('create-user-modal').show()" variant="ghost" icon="user-plus">Tambah User</flux:button>
+                <flux:button x-on:click="$flux.modal('create-user-modal').show()" variant="ghost" icon="user-plus">
+                    <span class="hidden sm:inline">Tambah User</span>
+                </flux:button>
                 @endcan
                 @role('Super Admin')
-                <flux:button x-on:click="$flux.modal('roles-list-modal').show()" variant="primary" icon="shield-check">Kelola Jabatan</flux:button>
+                <flux:button x-on:click="$flux.modal('roles-list-modal').show()" variant="primary" icon="shield-check">
+                    <span class="hidden sm:inline">Kelola Jabatan</span>
+                </flux:button>
                 @endrole
             </div>
         </div>
     </div>
 
-    <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6 shadow-sm px-4 pb-2">
-        <x-table.wrapper>
-    <flux:table class="table-mobile-cards">
+    <x-table.wrapper class="mb-6">
+        <flux:table class="table-mobile-cards">
             <flux:table.columns>
                 <flux:table.column>Nama & Email / Username</flux:table.column>
                 <flux:table.column>Role Aktif</flux:table.column>
@@ -192,8 +195,7 @@ on(['role-updated' => function () {
                 @endforelse
             </flux:table.rows>
         </flux:table>
-</x-table.wrapper>
-    </div>
+    </x-table.wrapper>
 
     @if($this->getUsers()->hasMorePages())
         <div class="flex justify-center mt-4">
@@ -262,7 +264,7 @@ on(['role-updated' => function () {
     <livewire:settings.assign-role-modal />
 
     {{-- Modal List Jabatan --}}
-    <flux:modal name="roles-list-modal" class="md:w-[800px]">
+    <flux:modal name="roles-list-modal" class="w-full" style="max-width: min(95vw, 900px);" scroll="body">
         <livewire:settings.roles />
     </flux:modal>
 

@@ -62,52 +62,30 @@ on(['permissions-updated' => function () {
         <flux:button x-on:click="$flux.modal('create-role-modal').show()" variant="primary" icon="plus">Tambah Jabatan</flux:button>
     </div>
 
-    <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6 shadow-sm px-4 pb-2">
-        <x-table.wrapper>
-    <flux:table class="table-mobile-cards">
-            <flux:table.columns>
-                <flux:table.column>Nama Jabatan</flux:table.column>
-                <flux:table.column>Jumlah Wewenang</flux:table.column>
-                <flux:table.column>Aksi</flux:table.column>
-            </flux:table.columns>
-
-            <flux:table.rows>
-                @forelse ($this->getRoles() as $role)
-                    <flux:table.row :key="$role->id">
-                        <flux:table.cell>
-                            <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $role->name }}</span>
-                        </flux:table.cell>
-
-                        <flux:table.cell>
-                            <flux:badge size="sm" class="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                                {{ $role->permissions_count }} Hak Akses
-                            </flux:badge>
-                        </flux:table.cell>
-
-                        <flux:table.cell>
-                            <div class="flex gap-2 items-center">
-                                <flux:button size="sm" wire:click="openEditModal({{ $role->id }})" variant="ghost" class="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100" icon="pencil-square">
-                                    Edit
-                                </flux:button>
-                                <flux:button size="sm" x-on:click="$dispatch('open-role-permissions', { roleId: {{ $role->id }} })" variant="ghost" class="text-blue-600 hover:text-blue-700" icon="cog-8-tooth">
-                                    Akses
-                                </flux:button>
-                            </div>
-                        </flux:table.cell>
-                    </flux:table.row>
-                @empty
-                    <flux:table.row>
-                        <flux:table.cell colspan="3">
-                            <div class="flex flex-col items-center justify-center py-8 text-zinc-500">
-                                <flux:icon.shield-check class="w-12 h-12 mb-3 text-zinc-300" />
-                                <p>Belum ada jabatan khusus.</p>
-                            </div>
-                        </flux:table.cell>
-                    </flux:table.row>
-                @endforelse
-            </flux:table.rows>
-        </flux:table>
-</x-table.wrapper>
+    <div class="space-y-2">
+        @forelse ($this->getRoles() as $role)
+            <div class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-700/50">
+                <div class="min-w-0">
+                    <p class="font-medium text-sm text-zinc-900 dark:text-zinc-100 truncate">{{ $role->name }}</p>
+                    <flux:badge size="sm" class="mt-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                        {{ $role->permissions_count }} Hak Akses
+                    </flux:badge>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <flux:button size="sm" wire:click="openEditModal({{ $role->id }})" variant="ghost" icon="pencil-square" class="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+                        Edit
+                    </flux:button>
+                    <flux:button size="sm" x-on:click="$dispatch('open-role-permissions', { roleId: {{ $role->id }} })" variant="ghost" icon="cog-8-tooth" class="text-blue-600 hover:text-blue-700">
+                        Akses
+                    </flux:button>
+                </div>
+            </div>
+        @empty
+            <div class="flex flex-col items-center justify-center py-10 text-zinc-400">
+                <flux:icon.shield-check class="w-10 h-10 mb-2 text-zinc-300" />
+                <p class="text-sm">Belum ada jabatan khusus.</p>
+            </div>
+        @endforelse
     </div>
 
     {{-- Modal Tambah Jabatan --}}
@@ -152,7 +130,7 @@ on(['permissions-updated' => function () {
                     <flux:modal.close>
                         <flux:button variant="ghost"> Batal </flux:button>
                     </flux:modal.close>
-                    <flux:button icon="check" type="submit" variant="primary"> Simpan P </flux:button>
+                    <flux:button icon="check" type="submit" variant="primary"> Simpan </flux:button>
                 </div>
             </form>
         </flux:modal>
