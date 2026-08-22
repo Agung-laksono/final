@@ -328,7 +328,14 @@
                     <p class="text-sm">Tidak ada gambar detail</p>
                 </div>
             @endif
-
+            @if(!empty($item->custom_attachments) || (isset($item->item->image) && $item->item->image))
+                <!-- Diagonal Brand Watermark -->
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-20 overflow-hidden">
+                    <div class="transform -rotate-[30deg] text-white/40 font-black text-2xl tracking-[0.25em] uppercase border-2 border-white/30 px-6 py-2 rounded-lg text-center" style="text-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+                        {{ $purchaseOrder->creator->brand ? $purchaseOrder->creator->brand->name : ($purchaseOrder->brand->name ?? 'PERUSAHAAN') }}
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 
