@@ -164,10 +164,7 @@ $confirmRouteToProduction = function () {
             $this->dispatch('open-custom-bom-modal', requestId: $req->id, qty: $this->woTargetQty);
             return;
         }
-        // Generate sequential PROD-0001 format
-        $latestProd = ProductionOrder::orderBy('id', 'desc')->first();
-        $nextId = $latestProd ? $latestProd->id + 1 : 1;
-        $orderNumber = 'PROD-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $orderNumber = \App\Services\CodeGenerator::generateNextCode(ProductionOrder::class, 'order_number', 'PROD-');
         
         // --- BOM EXPLOSION ---
         $recipe = \Modules\Production\Models\ProductionRecipe::where('item_id', $req->item_id)

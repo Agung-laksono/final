@@ -176,8 +176,7 @@ $confirmSaveMaklon = function () {
         $vendor = Vendor::find($this->vendor_id);
         if (!$vendor) return null;
 
-        $nextId = PurchaseOrder::max('id') + 1;
-        $poNumber = 'GUNJAS-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $poNumber = \App\Services\CodeGenerator::generateNextCode(PurchaseOrder::class, 'po_number', 'GUNJAS-');
 
         $totalAmount = array_sum($this->costs);
 

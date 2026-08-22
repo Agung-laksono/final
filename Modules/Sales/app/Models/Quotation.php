@@ -38,13 +38,7 @@ class Quotation extends Model
 
         static::creating(function ($model) {
             if (empty($model->quotation_number)) {
-                $prefix = 'SQ-';
-                
-                // Ambil ID terakhir, jika belum ada set jadi 1
-                $lastId = static::max('id') ?? 0;
-                $nextId = $lastId + 1;
-                
-                $model->quotation_number = $prefix . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+                $model->quotation_number = \App\Services\CodeGenerator::generateNextCode(static::class, 'quotation_number', 'SQ-');
             }
             if (empty($model->created_by)) {
                 $model->created_by = auth()->id();

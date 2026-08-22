@@ -57,6 +57,10 @@ new class extends Component {
     public $availableBranches = [];
     public $updateCheckResult = null;
     public $isUpdating = false;
+    public $updatePhase = 0;
+    public $updateProgress = 0;
+    public $updatePhaseText = '';
+    public $updateError = null;
 
     public function mount() {
         $this->loadBackups();
@@ -184,33 +188,62 @@ new class extends Component {
         }
     }
 
-    public function performSystemUpdate()
+    public function startStepUpdate()
     {
         if (empty($this->githubRepo)) return;
-        
         $this->isUpdating = true;
+        $this->updateError = null;
+        $this->updatePhase = 1;
+        $this->updateProgress = 20;
+        $this->updatePhaseText = 'Fase 1/4: Membuat cadangan (backup) database & file sistem...';
         
-        try {
-            // 1. Buat Backup sebelum Update
-            $this->createBackup();
+        $this->dispatch('run-update-step', step: 1);
+    }
 
-            // 2. Lakukan Update via UpdateService
+    public function executeUpdateStep($step)
+    {
+        try {
             $updateService = app(\App\Services\UpdateService::class);
-            $result = $updateService->performUpdate($this->githubRepo, $this->githubBranch);
-            
-            if ($result['status'] === 'success') {
-                \Flux::toast($result['message'], variant: 'success');
-                $this->updateCheckResult = null;
-            } else {
-                \Flux::toast('Gagal Update: ' . $result['message'], variant: 'danger');
+
+            if ($step == 1) {
+                // 1. Backup
+                $this->createBackup();
+                $this->updatePhase = 2;
+                $this->updateProgress = 45;
+                $this->updatePhaseText = 'Fase 2/4: Mengunduh paket kode terbaru dari GitHub (' . $this->githubBranch . ')...';
+                $this->dispatch('run-update-step', step: 2);
+            } elseif ($step == 2) {
+                // 2. Download
+                $updateService->downloadUpdate($this->githubRepo, $this->githubBranch);
+                $this->updatePhase = 3;
+                $this->updateProgress = 70;
+                $this->updatePhaseText = 'Fase 3/4: Mengekstrak dan menimpa berkas sistem...';
+                $this->dispatch('run-update-step', step: 3);
+            } elseif ($step == 3) {
+                // 3. Extract & Copy
+                $updateService->extractAndApplyUpdate();
+                $this->updatePhase = 4;
+                $this->updateProgress = 90;
+                $this->updatePhaseText = 'Fase 4/4: Memperbarui skema database & membersihkan cache...';
+                $this->dispatch('run-update-step', step: 4);
+            } elseif ($step == 4) {
+                // 4. Finalize
+                $updateService->finalizeUpdate();
+                $this->updatePhase = 5;
+                $this->updateProgress = 100;
+                $this->updatePhaseText = 'Pembaruan Berhasil! Memuat ulang sistem...';
+                $this->isUpdating = false;
+                
+                \Flux::toast('Sistem berhasil diperbarui ke versi terbaru!', variant: 'success');
+                $this->js('setTimeout(() => window.location.reload(), 2500)');
             }
         } catch (\Exception $e) {
-            \Flux::toast('Terjadi Kesalahan Kritis: ' . $e->getMessage(), variant: 'danger');
+            $this->isUpdating = false;
+            $this->updatePhase = 0;
+            $this->updateProgress = 0;
+            $this->updateError = $e->getMessage();
+            \Flux::toast('Gagal Update: ' . $e->getMessage(), variant: 'danger');
         }
-        
-        $this->isUpdating = false;
-        // Opsional: Reload window
-        $this->js('setTimeout(() => window.location.reload(), 2000)');
     }
 
     public function updatedUploadedJsonFile() {
@@ -736,15 +769,66 @@ new class extends Component {
                                         </div>
                                     </div>
 
-                                    <div class="pt-2 border-t border-zinc-200 dark:border-zinc-700 flex justify-end">
-                                        <flux:button 
-                                            wire:click="performSystemUpdate" 
-                                            wire:confirm="PERINGATAN: Sistem akan menimpa (replace) source code dengan versi terbaru dari GitHub. Pastikan tidak ada perubahan kode manual di server. Lanjutkan?"
-                                            variant="primary" 
-                                            icon="arrow-down-tray">
-                                            <span wire:loading.remove wire:target="performSystemUpdate">Update Sistem Sekarang</span>
-                                            <span wire:loading wire:target="performSystemUpdate">Mengunduh & Memperbarui...</span>
-                                        </flux:button>
+                                    <div x-data="{
+                                        init() {
+                                            Livewire.on('run-update-step', (data) => {
+                                                setTimeout(() => {
+                                                    $wire.executeUpdateStep(data.step);
+                                                }, 500);
+                                            });
+                                        }
+                                    }">
+                                        @if($isUpdating || $updatePhase > 0)
+                                            <div class="space-y-4 bg-zinc-50 dark:bg-zinc-800 p-5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                                <div class="flex items-center justify-between">
+                                                    <div class="flex items-center gap-2.5">
+                                                        @if($updatePhase < 5)
+                                                            <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                            </svg>
+                                                        @else
+                                                            <flux:icon.check-circle class="w-5 h-5 text-emerald-500" />
+                                                        @endif
+                                                        <span class="font-bold text-sm text-zinc-900 dark:text-white">{{ $updatePhaseText }}</span>
+                                                    </div>
+                                                    <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">{{ $updateProgress }}%</span>
+                                                </div>
+
+                                                <!-- Progress Bar -->
+                                                <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3 overflow-hidden shadow-inner">
+                                                    <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out" 
+                                                         style="width: {{ $updateProgress }}%"></div>
+                                                </div>
+
+                                                <!-- Stepper indicators -->
+                                                <div class="grid grid-cols-4 gap-2 pt-2 text-[11px] font-medium text-center">
+                                                    <div class="{{ $updatePhase >= 1 ? 'text-indigo-600 font-bold' : 'text-zinc-400' }}">1. Backup Data</div>
+                                                    <div class="{{ $updatePhase >= 2 ? 'text-indigo-600 font-bold' : 'text-zinc-400' }}">2. Unduh ZIP</div>
+                                                    <div class="{{ $updatePhase >= 3 ? 'text-indigo-600 font-bold' : 'text-zinc-400' }}">3. Pasang Berkas</div>
+                                                    <div class="{{ $updatePhase >= 4 ? ($updatePhase == 5 ? 'text-emerald-600 font-bold' : 'text-indigo-600 font-bold') : 'text-zinc-400' }}">4. Migrasi DB</div>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <div class="pt-2 border-t border-zinc-200 dark:border-zinc-700 flex justify-end">
+                                                <flux:button 
+                                                    wire:click="startStepUpdate" 
+                                                    wire:confirm="PERINGATAN: Sistem akan menimpa (replace) source code dengan versi terbaru dari GitHub. Pastikan tidak ada perubahan kode manual di server. Lanjutkan?"
+                                                    variant="primary" 
+                                                    icon="arrow-down-tray">
+                                                    Update Sistem Sekarang
+                                                </flux:button>
+                                            </div>
+                                        @endif
+
+                                        @if($updateError && !$isUpdating)
+                                            <div class="mt-3 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-xs">
+                                                <div class="font-bold mb-1 flex items-center gap-1.5">
+                                                    <flux:icon.exclamation-triangle class="w-4 h-4" /> Proses Pembaruan Gagal
+                                                </div>
+                                                <div>{{ $updateError }}</div>
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             @endif

@@ -228,10 +228,7 @@ $saveCart = function ($cartData) {
     $this->pajak_nominal = $cartData['pajak_nominal'] ?? 0;
 
     if (!$this->order_id) {
-        // Generate PEM-1000 format
-        $latestPo = PurchaseOrder::orderBy('id', 'desc')->first();
-        $nextId = $latestPo ? $latestPo->id + 1 : 1;
-        $this->po_number = 'PEM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $this->po_number = \App\Services\CodeGenerator::generateNextCode(PurchaseOrder::class, 'po_number', 'PEM-');
     }
 
     $this->validate([

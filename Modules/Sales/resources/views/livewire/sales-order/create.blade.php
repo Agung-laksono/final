@@ -123,9 +123,7 @@ mount(function ($id = null) {
         
         $quotation = \Modules\Sales\Models\Quotation::with(['items.item.unit', 'customer'])->findOrFail($quotationId);
         
-        $latestPo = SalesOrder::orderBy('id', 'desc')->first();
-        $nextId = $latestPo ? $latestPo->id + 1 : 1;
-        $this->so_number = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $this->so_number = \App\Services\CodeGenerator::generateNextCode(SalesOrder::class, 'so_number', 'ODM-');
         
         $this->customer_id = $quotation->customer_id;
         
@@ -173,9 +171,7 @@ mount(function ($id = null) {
             $this->tax_percent = round(($this->tax / ($quotation->items->sum('subtotal') + $this->shipping_fee - $this->discount)) * 100, 2);
         }
     } else {
-        $latestPo = SalesOrder::orderBy('id', 'desc')->first();
-        $nextId = $latestPo ? $latestPo->id + 1 : 1;
-        $this->so_number = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $this->so_number = \App\Services\CodeGenerator::generateNextCode(SalesOrder::class, 'so_number', 'ODM-');
     }
 });
 
@@ -269,10 +265,7 @@ $saveCart = function ($cartData) {
     $this->tax = $cartData['tax'] ?? 0;
 
     if (!$this->order_id) {
-        // Generate ODM-1000 format
-        $latestPo = SalesOrder::orderBy('id', 'desc')->first();
-        $nextId = $latestPo ? $latestPo->id + 1 : 1;
-        $this->so_number = 'ODM-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $this->so_number = \App\Services\CodeGenerator::generateNextCode(SalesOrder::class, 'so_number', 'ODM-');
     }
 
     $this->validate([

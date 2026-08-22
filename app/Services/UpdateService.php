@@ -11,12 +11,20 @@ use Exception;
 
 class UpdateService
 {
+    private $tempZipPath;
+    private $extractPath;
+
+    public function __construct()
+    {
+        $this->tempZipPath = storage_path('app/temp_update.zip');
+        $this->extractPath = storage_path('app/temp_update_extracted');
+    }
+
     /**
      * Cek versi terbaru dari GitHub.
      */
     public function checkLatestUpdate($repo, $branch = 'main')
     {
-        // Tambahkan timestamp agar GitHub API tidak me-return cache versi lama (cache-busting)
         $timestamp = now()->timestamp;
         $response = Http::withHeaders([
             'User-Agent' => 'ERP-Update-System',
@@ -41,65 +49,88 @@ class UpdateService
     }
 
     /**
-     * Melakukan proses unduh dan ekstraksi pembaruan.
+     * Tahap 1: Unduh file ZIP dari GitHub
+     */
+    public function downloadUpdate($repo, $branch = 'main')
+    {
+        $zipUrl = "https://github.com/{$repo}/archive/refs/heads/{$branch}.zip";
+        
+        $response = Http::withHeaders([
+            'User-Agent' => 'ERP-Update-System',
+        ])->timeout(300)->get($zipUrl);
+
+        if (!$response->successful()) {
+            throw new Exception("Gagal mengunduh file update dari GitHub (HTTP " . $response->status() . ").");
+        }
+
+        File::put($this->tempZipPath, $response->body());
+        return true;
+    }
+
+    /**
+     * Tahap 2: Ekstrak dan timpa file kode
+     */
+    public function extractAndApplyUpdate()
+    {
+        if (!File::exists($this->tempZipPath)) {
+            throw new Exception("File ZIP update tidak ditemukan.");
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($this->tempZipPath) !== true) {
+            throw new Exception("Gagal membuka file ZIP pembaruan.");
+        }
+
+        if (File::exists($this->extractPath)) {
+            File::deleteDirectory($this->extractPath);
+        }
+        
+        $zip->extractTo($this->extractPath);
+        $zip->close();
+
+        $extractedFolders = File::directories($this->extractPath);
+        if (count($extractedFolders) === 0) {
+            throw new Exception("Struktur file ZIP tidak valid.");
+        }
+
+        $sourcePath = $extractedFolders[0];
+        $this->copyDirectoryAndReplace($sourcePath, base_path());
+
+        // Bersihkan direktori temporary
+        File::deleteDirectory($this->extractPath);
+        File::delete($this->tempZipPath);
+
+        return true;
+    }
+
+    /**
+     * Tahap 3: Migrasi database dan bersihkan cache
+     */
+    public function finalizeUpdate()
+    {
+        // Clear caches
+        Artisan::call('optimize:clear');
+        
+        // Migrate database (force untuk production)
+        Artisan::call('migrate', ['--force' => true]);
+
+        return true;
+    }
+
+    /**
+     * Melakukan proses update sekaligus (Full)
      */
     public function performUpdate($repo, $branch = 'main')
     {
-        $zipUrl = "https://github.com/{$repo}/archive/refs/heads/{$branch}.zip";
-        $tempZipPath = storage_path('app/temp_update.zip');
-        $extractPath = storage_path('app/temp_update_extracted');
-
         try {
-            // 1. Download ZIP
-            $response = Http::withHeaders([
-                'User-Agent' => 'ERP-Update-System',
-            ])->timeout(300)->get($zipUrl);
-
-            if (!$response->successful()) {
-                throw new Exception("Gagal mengunduh file update dari GitHub.");
-            }
-
-            File::put($tempZipPath, $response->body());
-
-            // 2. Ekstrak ZIP
-            $zip = new ZipArchive();
-            if ($zip->open($tempZipPath) === true) {
-                // Hapus folder ekstrak lama jika ada
-                if (File::exists($extractPath)) {
-                    File::deleteDirectory($extractPath);
-                }
-                
-                $zip->extractTo($extractPath);
-                $zip->close();
-            } else {
-                throw new Exception("Gagal mengekstrak file ZIP.");
-            }
-
-            // 3. Pindahkan file dari folder hasil ekstrak ke base_path()
-            // GitHub mengekstrak ke dalam subfolder bernama repo-branch (misal: my-erp-main)
-            $extractedFolders = File::directories($extractPath);
-            if (count($extractedFolders) === 0) {
-                throw new Exception("Struktur file ZIP tidak valid.");
-            }
-
-            $sourcePath = $extractedFolders[0]; // Folder root dari zip
-            
-            // Kita pindahkan isinya satu per satu untuk menimpa file lama
-            $this->copyDirectoryAndReplace($sourcePath, base_path());
-
-            // 4. Bersihkan file sementara
-            File::deleteDirectory($extractPath);
-            File::delete($tempZipPath);
-
-            // 5. Jalankan Post-Update Scripts
-            $this->runPostUpdateCommands();
+            $this->downloadUpdate($repo, $branch);
+            $this->extractAndApplyUpdate();
+            $this->finalizeUpdate();
 
             return ['status' => 'success', 'message' => 'Sistem berhasil diperbarui!'];
-            
         } catch (Exception $e) {
-            // Cleanup
-            if (File::exists($tempZipPath)) File::delete($tempZipPath);
-            if (File::exists($extractPath)) File::deleteDirectory($extractPath);
+            if (File::exists($this->tempZipPath)) File::delete($this->tempZipPath);
+            if (File::exists($this->extractPath)) File::deleteDirectory($this->extractPath);
             
             return ['status' => 'error', 'message' => $e->getMessage()];
         }
@@ -122,26 +153,11 @@ class UpdateService
             if ($item->isDir()) {
                 $this->copyDirectoryAndReplace($item->getPathname(), $target);
             } else {
-                // Abaikan file .env atau konfigurasi sensitif lainnya jika diperlukan
-                // File yang sering tidak boleh ditimpa jika ada di repo (sebaiknya diabaikan)
                 if (in_array($item->getBasename(), ['.env', '.env.example'])) {
                     continue;
                 }
                 File::copy($item->getPathname(), $target);
             }
         }
-    }
-
-    /**
-     * Jalankan perintah paska-update
-     */
-    private function runPostUpdateCommands()
-    {
-        // Clear caches
-        Artisan::call('optimize:clear');
-        
-        // Migrate database (force untuk bypass interaksi di production)
-        Artisan::call('migrate', ['--force' => true]);
-        
     }
 }
