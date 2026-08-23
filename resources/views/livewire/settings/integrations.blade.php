@@ -523,7 +523,20 @@ new class extends Component {
                             </flux:select>
                         </div>
                         <div>
-                            <flux:input wire:model="waReportTime" type="time" step="60" label="Waktu Pengiriman (24 Jam - WIB)" placeholder="23:59" description="Format 24 Jam WIB (Contoh: 23:59)." />
+                            <flux:input 
+                                wire:model="waReportTime" 
+                                type="text" 
+                                label="Waktu Pengiriman (24 Jam - WIB)" 
+                                placeholder="23:59" 
+                                maxlength="5"
+                                description="Format 24 Jam (Contoh: 23:59 atau 18:30)."
+                                x-data
+                                x-on:input="
+                                    let v = $el.value.replace(/[^0-9:]/g, '');
+                                    if (v.length === 2 && !$el.value.includes(':')) v = v + ':';
+                                    $el.value = v.slice(0, 5);
+                                "
+                            />
                         </div>
                         <div>
                             <flux:input 
