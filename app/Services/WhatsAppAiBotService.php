@@ -182,14 +182,14 @@ Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
         $nameLower = strtolower($providerName);
 
         if (str_contains($nameLower, 'openai')) {
-            $res = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
+            $res = Http::withoutVerifying()->withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
                 'model' => 'gpt-4o-mini',
                 'messages' => [
                     ['role' => 'system', 'content' => $systemInstruction],
                     ['role' => 'user', 'content' => $promptText . $contextText]
                 ],
             ]);
-            return $res->json('choices.0.message.content') ?? 'Gagal memproses AI.';
+            return $res->json('choices.0.message.content') ?? 'Gagal memproses OpenAI.';
         } elseif (str_contains($nameLower, 'anthropic') || str_contains($nameLower, 'claude')) {
             $res = Http::withoutVerifying()->withHeaders([
                 'x-api-key' => $apiKey,
@@ -203,17 +203,32 @@ Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
             ]);
             return $res->json('content.0.text') ?? 'Gagal memproses AI Claude.';
         } else {
-            // Default Gemini API
+            // Default Gemini API with Candidate Fallback & withoutVerifying
             $payload = [
                 'system_instruction' => ['parts' => [['text' => $systemInstruction]]],
                 'contents' => [
                     ['role' => 'user', 'parts' => [['text' => $promptText . $contextText]]]
                 ]
             ];
-            $res = Http::withHeaders(['Content-Type' => 'application/json'])
-                ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={$apiKey}", $payload);
-            
-            return $res->json('candidates.0.content.parts.0.text') ?? 'Gagal memproses AI Gemini.';
+
+            $candidateModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-3.6-flash'];
+            $res = null;
+
+            foreach ($candidateModels as $modelName) {
+                $res = Http::withoutVerifying()
+                    ->withHeaders(['Content-Type' => 'application/json'])
+                    ->post("https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key={$apiKey}", $payload);
+                
+                if ($res && $res->successful() && !empty($res->json('candidates.0.content.parts.0.text'))) {
+                    return $res->json('candidates.0.content.parts.0.text');
+                }
+            }
+
+            if ($res) {
+                Log::error("WhatsApp Gemini AI Error: " . $res->body());
+            }
+
+            return 'Gagal memproses AI Gemini. Mohon cek API Key di menu Settings Integrasi.';
         }
     }
 }
