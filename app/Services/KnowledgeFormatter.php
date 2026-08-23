@@ -141,8 +141,13 @@ class KnowledgeFormatter
         $courierName = $so->courierVendor->name ?? 'Kurir Internal';
         $creatorName = $so->creator->name ?? 'Sistem';
 
-        $total = 'Rp ' . number_format($so->total_amount ?? 0, 0, ',', '.');
-        $paid = 'Rp ' . number_format($so->paid_amount ?? 0, 0, ',', '.');
+        $totalVal = floatval($so->grand_total ?? ($so->total_amount ?? 0));
+        $paidVal = floatval($so->paid_amount ?? 0);
+        $unpaidVal = max(0, $totalVal - $paidVal);
+
+        $total = 'Rp ' . number_format($totalVal, 0, ',', '.');
+        $paid = 'Rp ' . number_format($paidVal, 0, ',', '.');
+        $unpaid = 'Rp ' . number_format($unpaidVal, 0, ',', '.');
         $orderDate = $so->order_date ? date('d-m-Y', strtotime($so->order_date)) : date('d-m-Y', strtotime($so->created_at));
 
         $statusText = match ($so->status) {
@@ -179,7 +184,7 @@ class KnowledgeFormatter
         return "Transaksi Penjualan (Sales Order): Nomor SO {$so->so_number}. Tanggal: {$orderDate}. " .
                "Pelanggan / Customer: {$customerName} (Telepon: {$customerPhone}). " .
                "Status Pesanan: {$statusText}. Status Pembayaran: {$paymentStatusText}. " .
-               "Total Transaksi: {$total}. Jumlah Terbayar: {$paid}. Dibuat Oleh: {$creatorName}. Ekspedisi/Kurir: {$courierName}. " .
+               "Total Transaksi: {$total}. Jumlah Terbayar: {$paid}. Sisa Tagihan (Piutang): {$unpaid}. Dibuat Oleh: {$creatorName}. Ekspedisi/Kurir: {$courierName}. " .
                "Daftar Barang Yang Dipesan: [{$itemListStr}].{$notesStr}";
     }
 
@@ -211,8 +216,13 @@ class KnowledgeFormatter
         $po->loadMissing(['vendor', 'items.item']);
 
         $vendorName = $po->vendor->name ?? 'Vendor Umum';
-        $total = 'Rp ' . number_format($po->total_amount ?? 0, 0, ',', '.');
-        $paid = 'Rp ' . number_format($po->paid_amount ?? 0, 0, ',', '.');
+        $totalVal = floatval($po->grand_total ?? ($po->total_amount ?? 0));
+        $paidVal = floatval($po->paid_amount ?? 0);
+        $unpaidVal = max(0, $totalVal - $paidVal);
+
+        $total = 'Rp ' . number_format($totalVal, 0, ',', '.');
+        $paid = 'Rp ' . number_format($paidVal, 0, ',', '.');
+        $unpaid = 'Rp ' . number_format($unpaidVal, 0, ',', '.');
         $orderDate = $po->order_date ? date('d-m-Y', strtotime($po->order_date)) : date('d-m-Y', strtotime($po->created_at));
 
         $itemsText = [];
@@ -230,7 +240,7 @@ class KnowledgeFormatter
 
         return "Transaksi Pembelian (Purchase Order): Nomor PO {$po->po_number}. Tanggal: {$orderDate}. " .
                "Vendor / Supplier: {$vendorName}. Status Pembelian: {$po->status}. Status Pembayaran: {$po->payment_status}. " .
-               "Total Nilai Pembelian: {$total}. Jumlah Terbayar: {$paid}. " .
+               "Total Nilai Pembelian: {$total}. Jumlah Terbayar: {$paid}. Sisa Hutang Tagihan: {$unpaid}. " .
                "Daftar Barang Dibeli: [{$itemListStr}].";
     }
 
