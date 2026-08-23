@@ -43,15 +43,6 @@ new class extends Component
             }
         }
 
-        // Fallback to GEMINI_API_KEY from .env if no Gemini provider configured in DB
-        $hasGeminiInDb = collect($this->configuredProviders)->contains(fn($p) => strtolower($p['name']) === 'gemini');
-        if (!$hasGeminiInDb && env('GEMINI_API_KEY')) {
-            $this->configuredProviders[] = [
-                'name' => 'Gemini',
-                'key' => env('GEMINI_API_KEY'),
-            ];
-        }
-
         // Default selected provider to first available
         if (empty($this->selectedProvider) && !empty($this->configuredProviders)) {
             $this->selectedProvider = $this->configuredProviders[0]['name'];
@@ -597,11 +588,16 @@ Gaya Penulisan yang WAJIB dipatuhi:
                             wire:model="newMessage"
                             class="w-full bg-transparent !border-none !border-0 !ring-0 !outline-none !shadow-none !p-0 text-[13px] focus:ring-0 focus:border-none focus:outline-none resize-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-500 max-h-[80px] leading-snug"
                             style="box-shadow: none;"
-                            placeholder="Aa"
+                            placeholder="Ketik pesan..."
                             rows="1"
                             x-data
-                            x-init="$el.style.height='18px'; $el.addEventListener('input', function(){ this.style.height='18px'; this.style.height=Math.min(this.scrollHeight, 80)+'px'; })"
-                            wire:keydown.enter.prevent="sendMessage"
+                            x-init="
+                                $el.style.height = '18px';
+                                $el.addEventListener('input', function() {
+                                    this.style.height = '18px';
+                                    this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+                                });
+                            "
                         ></textarea>
                     </div>
 

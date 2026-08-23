@@ -12,7 +12,20 @@ class GroqService
 
     public function __construct()
     {
-        $this->apiKey = env('GEMINI_API_KEY'); // We keep the env name the same for compatibility
+        $keyInDb = null;
+        $aiProvidersJson = \App\Models\Setting::where('key', 'ai_providers')->value('value');
+        if ($aiProvidersJson) {
+            $providers = json_decode($aiProvidersJson, true) ?? [];
+            foreach ($providers as $p) {
+                if (str_contains(strtolower($p['name'] ?? ''), 'groq')) {
+                    if (!empty(trim($p['key'] ?? ''))) {
+                        $keyInDb = trim($p['key']);
+                        break;
+                    }
+                }
+            }
+        }
+        $this->apiKey = $keyInDb ?: '';
     }
 
     /**
@@ -22,7 +35,7 @@ class GroqService
     {
         if (empty($this->apiKey)) {
             Log::error('API Key is missing.');
-            return "Maaf, sistem AI belum dikonfigurasi (API Key hilang).";
+            return "Maaf, API Key Groq belum diisi. Silakan atur API Key pada menu Pengaturan > Integrasi.";
         }
 
         $url = "{$this->baseUrl}/chat/completions";

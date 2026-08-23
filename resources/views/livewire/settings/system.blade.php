@@ -90,6 +90,7 @@ new class extends Component {
 
         if (!empty($this->githubRepo)) {
             $this->fetchBranches();
+            $this->checkSystemUpdate(true);
         }
     }
 
@@ -141,6 +142,7 @@ new class extends Component {
         // Coba refresh branch saat repo di-save
         if (!empty($this->githubRepo)) {
             $this->fetchBranches();
+            $this->checkSystemUpdate(true);
         }
     }
 
@@ -165,11 +167,11 @@ new class extends Component {
         }
     }
 
-    public function checkSystemUpdate()
+    public function checkSystemUpdate(bool $quiet = false)
     {
         $this->updateCheckResult = null;
         if (empty($this->githubRepo)) {
-            \Flux::toast('Repository GitHub belum diatur!', variant: 'danger');
+            if (!$quiet) \Flux::toast('Repository GitHub belum diatur!', variant: 'danger');
             return;
         }
 
@@ -179,12 +181,12 @@ new class extends Component {
             
             if ($result['status'] === 'success') {
                 $this->updateCheckResult = $result;
-                \Flux::toast('Pengecekan update berhasil.', variant: 'success');
+                if (!$quiet) \Flux::toast('Pengecekan update berhasil.', variant: 'success');
             } else {
-                \Flux::toast($result['message'], variant: 'danger');
+                if (!$quiet) \Flux::toast($result['message'], variant: 'danger');
             }
         } catch (\Exception $e) {
-            \Flux::toast('Gagal mengecek update: ' . $e->getMessage(), variant: 'danger');
+            if (!$quiet) \Flux::toast('Gagal mengecek update: ' . $e->getMessage(), variant: 'danger');
         }
     }
 
@@ -228,7 +230,8 @@ new class extends Component {
                 $this->dispatch('run-update-step', step: 4);
             } elseif ($step == 4) {
                 // 4. Finalize
-                $updateService->finalizeUpdate();
+                $latestSha = $this->updateCheckResult['commit_sha'] ?? null;
+                $updateService->finalizeUpdate($latestSha);
                 $this->updatePhase = 5;
                 $this->updateProgress = 100;
                 $this->updatePhaseText = 'Pembaruan Berhasil! Memuat ulang sistem...';
@@ -749,87 +752,114 @@ new class extends Component {
                                 </div>
                             @else
                                 <div class="space-y-4">
-                                    <div class="flex items-start justify-between">
-                                        <div>
-                                            <h4 class="font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                                                <flux:icon.check-circle class="w-5 h-5 text-emerald-500" /> Pembaruan Ditemukan!
-                                            </h4>
-                                            <p class="text-sm text-zinc-500 mt-1">Commit terbaru di repository Anda:</p>
+                                    @if(!empty($updateCheckResult['is_up_to_date']))
+                                        {{-- UP TO DATE STATE --}}
+                                        <div class="flex items-start justify-between">
+                                            <div>
+                                                <h4 class="font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                                                    <flux:icon.check-circle class="w-5 h-5 text-emerald-500" /> Sistem Sudah Versi Terbaru
+                                                </h4>
+                                                <p class="text-xs text-zinc-500 mt-1">Aplikasi Anda menggunakan versi kode mutakhir dari branch <span class="font-semibold text-zinc-700 dark:text-zinc-300">{{ $githubBranch }}</span>.</p>
+                                            </div>
+                                            <flux:button wire:click="checkSystemUpdate" variant="subtle" size="sm" icon="arrow-path">Cek Ulang</flux:button>
                                         </div>
-                                        <flux:button wire:click="checkSystemUpdate" variant="subtle" size="sm" icon="arrow-path">Cek Ulang</flux:button>
-                                    </div>
-                                    
-                                    <div class="bg-zinc-50 dark:bg-zinc-800 rounded-md p-4 border border-zinc-100 dark:border-zinc-700 font-mono text-sm">
-                                        <div class="text-zinc-600 dark:text-zinc-400 mb-2 truncate">
-                                            <span class="font-semibold">Pesan:</span> "{{ $updateCheckResult['commit_message'] }}"
+                                        
+                                        <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-lg p-3.5 font-mono text-xs text-emerald-900 dark:text-emerald-300">
+                                            <div class="mb-1 truncate font-semibold">
+                                                Commit SHA Terpasang: {{ substr($updateCheckResult['commit_sha'], 0, 7) }}
+                                            </div>
+                                            <div class="truncate text-emerald-700 dark:text-emerald-400">
+                                                Pesan Commit: "{{ $updateCheckResult['commit_message'] }}"
+                                            </div>
+                                            <div class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">
+                                                Tanggal: {{ \Carbon\Carbon::parse($updateCheckResult['date'])->timezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
+                                            </div>
                                         </div>
-                                        <div class="text-zinc-500 text-xs">
-                                            <span class="font-semibold">SHA:</span> {{ substr($updateCheckResult['commit_sha'], 0, 7) }} &bull; 
-                                            <span class="font-semibold">Tanggal:</span> {{ \Carbon\Carbon::parse($updateCheckResult['date'])->timezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
+                                    @else
+                                        {{-- UPDATE AVAILABLE STATE --}}
+                                        <div class="flex items-start justify-between">
+                                            <div>
+                                                <h4 class="font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                                                    <flux:icon.arrow-path class="w-5 h-5 text-indigo-500 animate-spin" /> Pembaruan Ditemukan!
+                                                </h4>
+                                                <p class="text-sm text-zinc-500 mt-1">Commit terbaru di repository Anda:</p>
+                                            </div>
+                                            <flux:button wire:click="checkSystemUpdate" variant="subtle" size="sm" icon="arrow-path">Cek Ulang</flux:button>
                                         </div>
-                                    </div>
+                                        
+                                        <div class="bg-zinc-50 dark:bg-zinc-800 rounded-md p-4 border border-zinc-100 dark:border-zinc-700 font-mono text-sm">
+                                            <div class="text-zinc-600 dark:text-zinc-400 mb-2 truncate">
+                                                <span class="font-semibold">Pesan:</span> "{{ $updateCheckResult['commit_message'] }}"
+                                            </div>
+                                            <div class="text-zinc-500 text-xs">
+                                                <span class="font-semibold">SHA Terbaru:</span> {{ substr($updateCheckResult['commit_sha'], 0, 7) }} &bull; 
+                                                <span class="font-semibold">Tanggal:</span> {{ \Carbon\Carbon::parse($updateCheckResult['date'])->timezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
+                                            </div>
+                                        </div>
 
-                                    <div x-data="{
-                                        init() {
-                                            Livewire.on('run-update-step', (data) => {
-                                                setTimeout(() => {
-                                                    $wire.executeUpdateStep(data.step);
-                                                }, 500);
-                                            });
-                                        }
-                                    }">
-                                        @if($isUpdating || $updatePhase > 0)
-                                            <div class="space-y-4 bg-zinc-50 dark:bg-zinc-800 p-5 rounded-lg border border-zinc-200 dark:border-zinc-700">
-                                                <div class="flex items-center justify-between">
-                                                    <div class="flex items-center gap-2.5">
-                                                        @if($updatePhase < 5)
-                                                            <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                            </svg>
-                                                        @else
-                                                            <flux:icon.check-circle class="w-5 h-5 text-emerald-500" />
-                                                        @endif
-                                                        <span class="font-bold text-sm text-zinc-900 dark:text-white">{{ $updatePhaseText }}</span>
+                                        <div x-data="{
+                                            init() {
+                                                Livewire.on('run-update-step', (data) => {
+                                                    setTimeout(() => {
+                                                        $wire.executeUpdateStep(data.step);
+                                                    }, 500);
+                                                });
+                                            }
+                                        }">
+                                            @if($isUpdating || $updatePhase > 0)
+                                                <div class="space-y-4 bg-zinc-50 dark:bg-zinc-800 p-5 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                                                    <div class="flex items-center justify-between">
+                                                        <div class="flex items-center gap-2.5">
+                                                            @if($updatePhase < 5)
+                                                                <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                </svg>
+                                                            @else
+                                                                <flux:icon.check-circle class="w-5 h-5 text-emerald-500" />
+                                                            @endif
+                                                            <span class="font-bold text-sm text-zinc-900 dark:text-white">{{ $updatePhaseText }}</span>
+                                                        </div>
+                                                        <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">{{ $updateProgress }}%</span>
                                                     </div>
-                                                    <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">{{ $updateProgress }}%</span>
-                                                </div>
 
-                                                <!-- Progress Bar -->
-                                                <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3 overflow-hidden shadow-inner">
-                                                    <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out" 
-                                                         style="width: {{ $updateProgress }}%"></div>
-                                                </div>
+                                                    <!-- Progress Bar -->
+                                                    <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-3 overflow-hidden shadow-inner">
+                                                        <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out" 
+                                                             style="width: {{ $updateProgress }}%"></div>
+                                                    </div>
 
-                                                <!-- Stepper indicators -->
-                                                <div class="grid grid-cols-4 gap-2 pt-2 text-[11px] font-medium text-center">
-                                                    <div class="{{ $updatePhase >= 1 ? 'text-indigo-600 font-bold' : 'text-zinc-400' }}">1. Backup Data</div>
-                                                    <div class="{{ $updatePhase >= 2 ? 'text-indigo-600 font-bold' : 'text-zinc-400' }}">2. Unduh ZIP</div>
-                                                    <div class="{{ $updatePhase >= 3 ? 'text-indigo-600 font-bold' : 'text-zinc-400' }}">3. Pasang Berkas</div>
-                                                    <div class="{{ $updatePhase >= 4 ? ($updatePhase == 5 ? 'text-emerald-600 font-bold' : 'text-indigo-600 font-bold') : 'text-zinc-400' }}">4. Migrasi DB</div>
+                                                    <!-- Stepper indicators -->
+                                                    <div class="grid grid-cols-4 gap-2 pt-2 text-[11px] font-medium text-center">
+                                                        <div class="{{ $updatePhase >= 1 ? 'text-indigo-600 font-bold' : 'text-zinc-400' }}">1. Backup Data</div>
+                                                        <div class="{{ $updatePhase >= 2 ? 'text-indigo-600 font-bold' : 'text-zinc-400' }}">2. Unduh ZIP</div>
+                                                        <div class="{{ $updatePhase >= 3 ? 'text-indigo-600 font-bold' : 'text-zinc-400' }}">3. Pasang Berkas</div>
+                                                        <div class="{{ $updatePhase >= 4 ? ($updatePhase == 5 ? 'text-emerald-600 font-bold' : 'text-indigo-600 font-bold') : 'text-zinc-400' }}">4. Migrasi DB</div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        @else
-                                            <div class="pt-2 border-t border-zinc-200 dark:border-zinc-700 flex justify-end">
-                                                <flux:button 
-                                                    wire:click="startStepUpdate" 
-                                                    wire:confirm="PERINGATAN: Sistem akan menimpa (replace) source code dengan versi terbaru dari GitHub. Pastikan tidak ada perubahan kode manual di server. Lanjutkan?"
-                                                    variant="primary" 
-                                                    icon="arrow-down-tray">
-                                                    Update Sistem Sekarang
-                                                </flux:button>
-                                            </div>
-                                        @endif
+                                            @else
+                                                <div class="pt-2 border-t border-zinc-200 dark:border-zinc-700 flex justify-end">
+                                                    <flux:button 
+                                                        wire:click="startStepUpdate" 
+                                                        wire:confirm="PERINGATAN: Sistem akan menimpa (replace) source code dengan versi terbaru dari GitHub. Pastikan tidak ada perubahan kode manual di server. Lanjutkan?"
+                                                        variant="primary" 
+                                                        icon="arrow-down-tray"
+                                                    >
+                                                        Perbarui Sekarang
+                                                    </flux:button>
+                                                </div>
+                                            @endif
 
-                                        @if($updateError && !$isUpdating)
-                                            <div class="mt-3 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-xs">
-                                                <div class="font-bold mb-1 flex items-center gap-1.5">
-                                                    <flux:icon.exclamation-triangle class="w-4 h-4" /> Proses Pembaruan Gagal
+                                            @if($updateError && !$isUpdating)
+                                                <div class="mt-3 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-xs">
+                                                    <div class="font-bold mb-1 flex items-center gap-1.5">
+                                                        <flux:icon.exclamation-triangle class="w-4 h-4" /> Proses Pembaruan Gagal
+                                                    </div>
+                                                    <div>{{ $updateError }}</div>
                                                 </div>
-                                                <div>{{ $updateError }}</div>
-                                            </div>
-                                        @endif
-                                    </div>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
                             @endif
                             

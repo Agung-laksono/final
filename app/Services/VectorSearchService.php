@@ -9,13 +9,30 @@ use Illuminate\Support\Facades\Log;
 class VectorSearchService
 {
     /**
+     * Resolve Gemini API Key strictly from Database Settings
+     */
+    public function getApiKey(): ?string
+    {
+        $aiProvidersJson = \App\Models\Setting::where('key', 'ai_providers')->value('value');
+        if ($aiProvidersJson) {
+            $providers = json_decode($aiProvidersJson, true) ?? [];
+            foreach ($providers as $p) {
+                if (strtolower(trim($p['name'] ?? '')) === 'gemini' && !empty(trim($p['key'] ?? ''))) {
+                    return trim($p['key']);
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Get embedding from Gemini API for a given text.
      */
     public function getEmbedding(string $text): ?array
     {
-        $apiKey = env('GEMINI_API_KEY');
+        $apiKey = $this->getApiKey();
         if (!$apiKey) {
-            throw new \Exception('GEMINI_API_KEY tidak ditemukan di .env');
+            throw new \Exception('API Key Gemini belum diisi. Silakan atur API Key pada menu Pengaturan > Integrasi.');
         }
 
         $response = Http::withHeaders([
@@ -57,9 +74,9 @@ class VectorSearchService
      */
     public function getBatchEmbeddings(array $texts): array
     {
-        $apiKey = env('GEMINI_API_KEY');
+        $apiKey = $this->getApiKey();
         if (!$apiKey) {
-            throw new \Exception('GEMINI_API_KEY tidak ditemukan di .env');
+            throw new \Exception('API Key Gemini belum diisi. Silakan atur API Key pada menu Pengaturan > Integrasi.');
         }
 
         $requests = [];
@@ -188,9 +205,9 @@ class VectorSearchService
      */
     public function generateChatCompletion(string $systemPrompt, array $historyMessages): string
     {
-        $apiKey = env('GEMINI_API_KEY');
+        $apiKey = $this->getApiKey();
         if (!$apiKey) {
-            throw new \Exception('GEMINI_API_KEY tidak ditemukan di .env');
+            throw new \Exception('API Key Gemini belum diisi. Silakan atur API Key pada menu Pengaturan > Integrasi.');
         }
 
         $payload = [

@@ -12,13 +12,26 @@ class ClaudeService
 
     public function __construct()
     {
-        $this->apiKey = env('CLAUDE_API_KEY', '');
+        $keyInDb = null;
+        $aiProvidersJson = \App\Models\Setting::where('key', 'ai_providers')->value('value');
+        if ($aiProvidersJson) {
+            $providers = json_decode($aiProvidersJson, true) ?? [];
+            foreach ($providers as $p) {
+                if (str_contains(strtolower($p['name'] ?? ''), 'claude') || str_contains(strtolower($p['name'] ?? ''), 'anthropic')) {
+                    if (!empty(trim($p['key'] ?? ''))) {
+                        $keyInDb = trim($p['key']);
+                        break;
+                    }
+                }
+            }
+        }
+        $this->apiKey = $keyInDb ?: '';
     }
 
     public function chat(array $messages, array $tools = [], string $systemPrompt = '')
     {
         if (empty($this->apiKey)) {
-            return "Maaf, API Key Claude belum dikonfigurasi.";
+            return "Maaf, API Key Claude belum diisi. Silakan atur API Key pada menu Pengaturan > Integrasi.";
         }
 
         $url = "{$this->baseUrl}/messages";

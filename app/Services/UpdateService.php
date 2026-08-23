@@ -33,9 +33,22 @@ class UpdateService
 
         if ($response->successful()) {
             $data = $response->json();
+            $latestSha = $data['sha'] ?? null;
+            
+            // Dapatkan SHA terpasang saat ini di aplikasi
+            $localSha = \App\Models\Setting::where('key', 'system_current_sha')->value('value');
+            if (!$localSha && file_exists(base_path('.git'))) {
+                @exec('git rev-parse HEAD', $gitOutput);
+                $localSha = $gitOutput[0] ?? null;
+            }
+
+            $isUpToDate = !empty($localSha) && !empty($latestSha) && (substr($localSha, 0, 7) === substr($latestSha, 0, 7));
+
             return [
                 'status' => 'success',
-                'commit_sha' => $data['sha'] ?? null,
+                'commit_sha' => $latestSha,
+                'local_sha' => $localSha,
+                'is_up_to_date' => $isUpToDate,
                 'commit_message' => $data['commit']['message'] ?? '',
                 'date' => $data['commit']['author']['date'] ?? '',
                 'url' => $data['html_url'] ?? '',
@@ -104,15 +117,23 @@ class UpdateService
     }
 
     /**
-     * Tahap 3: Migrasi database dan bersihkan cache
+     * Tahap 3: Migrasi database, bersihkan cache, dan simpan SHA commit aktif
      */
-    public function finalizeUpdate()
+    public function finalizeUpdate($commitSha = null)
     {
         // Clear caches
         Artisan::call('optimize:clear');
         
         // Migrate database (force untuk production)
         Artisan::call('migrate', ['--force' => true]);
+
+        // Simpan SHA commit terpasang ke tabel Settings
+        if ($commitSha) {
+            \App\Models\Setting::updateOrCreate(
+                ['key' => 'system_current_sha'],
+                ['value' => $commitSha]
+            );
+        }
 
         return true;
     }
