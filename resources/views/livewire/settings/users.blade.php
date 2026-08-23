@@ -14,6 +14,7 @@ state([
     'newUserName' => '',
     'newUserUsername' => '',
     'newUserEmail' => '',
+    'newUserPhone' => '',
     'newUserPassword' => '',
     'newUserPasswordConfirmation' => '',
     
@@ -22,6 +23,7 @@ state([
     'editUserName' => '',
     'editUserUsername' => '',
     'editUserEmail' => '',
+    'editUserPhone' => '',
     'editUserPassword' => '',
     'editUserPasswordConfirmation' => '',
 ]);
@@ -31,7 +33,8 @@ $getUsers = function () {
         ->with('roles')
         ->when($this->search, function ($query) {
             $query->where('name', 'like', '%' . $this->search . '%')
-                  ->orWhere('email', 'like', '%' . $this->search . '%');
+                  ->orWhere('email', 'like', '%' . $this->search . '%')
+                  ->orWhere('phone', 'like', '%' . $this->search . '%');
         })
         ->paginate($this->perPage);
 };
@@ -47,6 +50,7 @@ $createUser = function () {
         'newUserName' => 'required|string|max:255',
         'newUserUsername' => 'required|string|alpha_dash|max:255|unique:users,username',
         'newUserEmail' => 'required|string|email|max:255|unique:users,email',
+        'newUserPhone' => 'nullable|string|max:50',
         'newUserPassword' => 'required|string|min:8|same:newUserPasswordConfirmation',
     ]);
 
@@ -54,10 +58,11 @@ $createUser = function () {
         'name' => $this->newUserName,
         'username' => \Illuminate\Support\Str::lower($this->newUserUsername),
         'email' => $this->newUserEmail,
+        'phone' => $this->newUserPhone,
         'password' => \Illuminate\Support\Facades\Hash::make($this->newUserPassword),
     ]);
     
-    $this->reset('newUserName', 'newUserUsername', 'newUserEmail', 'newUserPassword', 'newUserPasswordConfirmation');
+    $this->reset('newUserName', 'newUserUsername', 'newUserEmail', 'newUserPhone', 'newUserPassword', 'newUserPasswordConfirmation');
     
     \Flux::toast('Pengguna berhasil didaftarkan!', variant: 'success');
     \Flux::modal('create-user-modal')->close();
@@ -70,6 +75,7 @@ $editUser = function ($id) {
     $this->editUserName = $user->name;
     $this->editUserUsername = $user->username;
     $this->editUserEmail = $user->email;
+    $this->editUserPhone = $user->phone ?? '';
     $this->editUserPassword = '';
     $this->editUserPasswordConfirmation = '';
     $this->resetValidation();
@@ -84,6 +90,7 @@ $updateUser = function () {
         'editUserName' => 'required|string|max:255',
         'editUserUsername' => 'required|string|alpha_dash|max:255|unique:users,username,' . $user->id,
         'editUserEmail' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+        'editUserPhone' => 'nullable|string|max:50',
     ];
 
     if (!empty($this->editUserPassword)) {
@@ -95,6 +102,7 @@ $updateUser = function () {
     $user->name = $this->editUserName;
     $user->username = \Illuminate\Support\Str::lower($this->editUserUsername);
     $user->email = $this->editUserEmail;
+    $user->phone = $this->editUserPhone;
     
     if (!empty($this->editUserPassword)) {
         $user->password = \Illuminate\Support\Facades\Hash::make($this->editUserPassword);
@@ -152,7 +160,7 @@ on(['role-updated' => function () {
                                 <div class="flex items-center gap-2">
                                     <div class="flex flex-col">
                                         <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $user->name }}</span>
-                                        <span class="text-xs text-zinc-500">{{ $user->email }} @if($user->username)&bull; {{ $user->username }}@endif</span>
+                                        <span class="text-xs text-zinc-500">{{ $user->email }} @if($user->username)&bull; {{ $user->username }}@endif @if($user->phone)&bull; 📱 {{ $user->phone }}@endif</span>
                                     </div>
                                     @can('users.update')
                                         <flux:button size="sm" x-on:click="$wire.editUser({{ $user->id }})" variant="subtle" icon="pencil-square" class="text-zinc-400 hover:text-zinc-700 px-2 h-7" />
@@ -216,6 +224,7 @@ on(['role-updated' => function () {
             <flux:input wire:model="newUserName" label="Nama Lengkap" required />
             <flux:input wire:model="newUserUsername" label="Username" placeholder="tanpa_spasi" required x-on:input="$el.value = $el.value.toLowerCase()" />
             <flux:input wire:model="newUserEmail" type="email" label="Alamat Email" required />
+            <flux:input wire:model="newUserPhone" label="Nomor WhatsApp / HP" placeholder="Contoh: 081234567890" description="Untuk WhatsApp AI Bot & Notifikasi Laporan Eksekutif." />
             <flux:input wire:model="newUserPassword" type="password" label="Kata Sandi" required viewable />
             <flux:input wire:model="newUserPasswordConfirmation" type="password" label="Konfirmasi Kata Sandi" required viewable />
 
@@ -242,6 +251,7 @@ on(['role-updated' => function () {
             <flux:input wire:model="editUserName" label="Nama Lengkap" required />
             <flux:input wire:model="editUserUsername" label="Username" placeholder="tanpa_spasi" required x-on:input="$el.value = $el.value.toLowerCase()" />
             <flux:input wire:model="editUserEmail" type="email" label="Alamat Email" required />
+            <flux:input wire:model="editUserPhone" label="Nomor WhatsApp / HP" placeholder="Contoh: 081234567890" description="Untuk WhatsApp AI Bot & Notifikasi Laporan Eksekutif." />
             
             <div class="pt-2 border-t border-zinc-200 dark:border-zinc-700">
                 <flux:label class="mb-2">Ubah Kata Sandi <span class="text-zinc-400 text-xs font-normal">(Kosongkan jika tidak ingin diubah)</span></flux:label>
