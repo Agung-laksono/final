@@ -326,15 +326,12 @@ new class extends Component {
         $zip = new \ZipArchive();
         if ($zip->open($backupPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
             
-            // Add Databases (Main Database & Wilayah Database)
-            $dbPath = database_path('database.sqlite');
-            if (file_exists($dbPath)) {
-                $zip->addFile($dbPath, 'database.sqlite');
-            }
-
-            $wilayahPath = database_path('wilayah.sqlite');
-            if (file_exists($wilayahPath)) {
-                $zip->addFile($wilayahPath, 'wilayah.sqlite');
+            // Add ALL Database Files (.sqlite) dynamically from database/ directory
+            $sqliteFiles = File::files(database_path());
+            foreach ($sqliteFiles as $file) {
+                if ($file->getExtension() === 'sqlite') {
+                    $zip->addFile($file->getPathname(), $file->getFilename());
+                }
             }
 
             // Add Public Storage Images
@@ -396,12 +393,12 @@ new class extends Component {
             // Unzip process
             $zip = new \ZipArchive();
             if ($zip->open($backupPath) === TRUE) {
-                // Extract databases
-                if ($zip->locateName('database.sqlite') !== false) {
-                    $zip->extractTo(database_path(), 'database.sqlite');
-                }
-                if ($zip->locateName('wilayah.sqlite') !== false) {
-                    $zip->extractTo(database_path(), 'wilayah.sqlite');
+                // Extract ALL database files (.sqlite) dynamically
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $filename = $zip->getNameIndex($i);
+                    if (str_ends_with($filename, '.sqlite')) {
+                        $zip->extractTo(database_path(), $filename);
+                    }
                 }
                 
                 // Extract images to storage/app/public
