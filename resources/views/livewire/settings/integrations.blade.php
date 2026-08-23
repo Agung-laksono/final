@@ -339,19 +339,50 @@ new class extends Component {
             </div>
 
             {{-- RAG Knowledge Base Sync Section --}}
-            <div class="mt-4 p-4 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div>
-                    <h5 class="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
-                        <flux:icon.cpu-chip class="w-4 h-4 text-indigo-500" /> Basis Pengetahuan RAG (Retrieval-Augmented Generation)
-                    </h5>
-                    <p class="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5">
-                        Klik tombol ini untuk mengindeks seluruh data lama (Barang, Sales Order, Purchase Order, Keuangan, Customer, Supplier) agar AI dapat langsung membaca dan menjawab data transaksi bisnis Anda.
-                    </p>
+            @php
+                $ragCount = \App\Models\AiKnowledgeBase::count();
+                $ragLatest = \App\Models\AiKnowledgeBase::latest('updated_at')->value('updated_at');
+            @endphp
+            <div class="mt-4 p-4 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 rounded-xl flex flex-col gap-3">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h5 class="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                                <flux:icon.cpu-chip class="w-4 h-4 text-indigo-500" /> Basis Pengetahuan RAG (Retrieval-Augmented Generation)
+                            </h5>
+                            @if($ragCount > 0)
+                                <span class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Terindeks & Aktif
+                                </span>
+                            @else
+                                <span class="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/20">
+                                    Belum Diindeks
+                                </span>
+                            @endif
+                        </div>
+                        <p class="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5">
+                            Klik tombol ini untuk mengindeks seluruh data lama (Barang, Sales Order, Purchase Order, Keuangan, Customer, Supplier) agar AI dapat langsung membaca dan menjawab data transaksi bisnis Anda.
+                        </p>
+                    </div>
+                    <flux:button variant="primary" icon="arrow-path" size="sm" wire:click="reindexKnowledgeBase" wire:loading.attr="disabled" class="shrink-0">
+                        <span wire:loading.remove wire:target="reindexKnowledgeBase">Indeks Data RAG Sekarang</span>
+                        <span wire:loading wire:target="reindexKnowledgeBase">Mengindeks Data...</span>
+                    </flux:button>
                 </div>
-                <flux:button variant="primary" icon="arrow-path" size="sm" wire:click="reindexKnowledgeBase" wire:loading.attr="disabled" class="shrink-0">
-                    <span wire:loading.remove wire:target="reindexKnowledgeBase">Indeks Data RAG Sekarang</span>
-                    <span wire:loading wire:target="reindexKnowledgeBase">Mengindeks Data...</span>
-                </flux:button>
+
+                {{-- Live RAG Status Info --}}
+                <div class="flex flex-wrap items-center gap-4 pt-2 border-t border-indigo-100/80 dark:border-indigo-900/40 text-[11px] text-zinc-600 dark:text-zinc-400">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-semibold text-zinc-700 dark:text-zinc-300">Total Terindeks:</span>
+                        <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-white dark:bg-zinc-900 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 shadow-xs">{{ number_format($ragCount) }} Record</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-semibold text-zinc-700 dark:text-zinc-300">Terakhir Sinkron:</span>
+                        <span class="font-mono text-zinc-600 dark:text-zinc-400">
+                            {{ $ragLatest ? \Carbon\Carbon::parse($ragLatest)->timezone('Asia/Jakarta')->format('d M Y H:i') . ' WIB' : 'Belum pernah' }}
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
         
