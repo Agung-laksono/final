@@ -56,6 +56,13 @@ new class extends Component
         $this->messages = [];
     }
 
+    public function sendQuickPrompt(string $prompt)
+    {
+        if ($this->isTyping) return;
+        $this->newMessage = $prompt;
+        $this->sendMessage();
+    }
+
     public function sendMessage()
     {
         $this->validate(['newMessage' => 'required|min:1']);
@@ -304,7 +311,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
                 }
             }
 
-            if ($replyText) {
+            if ($replyText && $this->isTyping) {
                 $this->messages[] = [
                     'role' => 'model',
                     'parts' => [['text' => $replyText]],
@@ -319,15 +326,20 @@ Gaya Penulisan yang WAJIB dipatuhi:
                 }, $this->messages);
 
                 Cache::put("ai_chat_history_{$userId}", $cleanMessages, now()->addHours(24));
+            } elseif (!$this->isTyping) {
+                // Cancelled during HTTP execution
+                return;
             } else {
                 throw new \Exception("Tidak mendapat respons dari AI.");
             }
 
         } catch (\Exception $e) {
-            $this->messages[] = [
-                'role' => 'model',
-                'parts' => [['text' => "⚠️ **Kendala Koneksi AI ({$providerName})**\n\n*{$e->getMessage()}*.\n\n💡 **Solusi**: Silakan periksa kembali API Key **{$providerName}** pada menu **Pengaturan > Integrasi**."]]
-            ];
+            if ($this->isTyping) {
+                $this->messages[] = [
+                    'role' => 'model',
+                    'parts' => [['text' => "⚠️ **Kendala Koneksi AI ({$providerName})**\n\n*{$e->getMessage()}*.\n\n💡 **Solusi**: Silakan periksa kembali API Key **{$providerName}** pada menu **Pengaturan > Integrasi**."]]
+                ];
+            }
         }
 
         $this->isTyping = false;
@@ -351,6 +363,8 @@ Gaya Penulisan yang WAJIB dipatuhi:
         open: localStorage.getItem('ai_chat_open') === 'true',
         minimized: false,
         dragging: false,
+        speechListening: false,
+        recognition: null,
         startX: 0,
         posX: localStorage.getItem('ai_chat_pos') ? parseInt(localStorage.getItem('ai_chat_pos')) : (window.innerWidth - 340 - 16),
         init() {
@@ -394,10 +408,95 @@ Gaya Penulisan yang WAJIB dipatuhi:
                 let c = document.getElementById('ai-chat-container');
                 if(c) c.scrollTop = c.scrollHeight;
             });
+        },
+        copyAnswerText(el) {
+            if(!el) return;
+            let text = el.innerText || el.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                if (typeof Flux !== 'undefined' && Flux.toast) {
+                    Flux.toast('Jawaban AI berhasil disalin!', { variant: 'success' });
+                }
+            });
+        },
+        toggleVoiceInput() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                alert('Browser Anda belum mendukung fitur Voice Input. Gunakan Chrome atau Edge terbaru.');
+                return;
+            }
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (this.speechListening) {
+                if (this.recognition) this.recognition.stop();
+                this.speechListening = false;
+                return;
+            }
+            this.recognition = new SpeechRecognition();
+            this.recognition.lang = 'id-ID';
+            this.recognition.interimResults = false;
+            this.recognition.onstart = () => { this.speechListening = true; };
+            this.recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                $wire.newMessage = ($wire.newMessage ? $wire.newMessage + ' ' : '') + transcript;
+                this.speechListening = false;
+            };
+            this.recognition.onerror = () => { this.speechListening = false; };
+            this.recognition.onend = () => { this.speechListening = false; };
+            this.recognition.start();
+        },
+        exportChatLog() {
+            if ($wire.messages.length === 0) return;
+            let text = '=== DIALOG OBROLAN ROMLAH ASISTEN ERP ===\n';
+            text += 'Tanggal Export: ' + new Date().toLocaleString('id-ID') + '\n\n';
+            $wire.messages.forEach((m, idx) => {
+                let role = m.role === 'user' ? 'PENGGUNA' : 'ROMLAH AI';
+                let content = m.parts && m.parts[0] ? m.parts[0].text : '';
+                text += `[${idx+1}] ${role}:\n${content}\n\n-----------------------------------\n\n`;
+            });
+            let blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            let a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `analisis-romlah-ai-${new Date().toISOString().slice(0,10)}.txt`;
+            a.click();
         }
     }"
     style="position: fixed; inset: 0; pointer-events: none; z-index: 9999;"
 >
+    <style>
+        #ai-chat-container table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.5rem 0;
+            font-size: 11px;
+            overflow-x: auto;
+            display: block;
+        }
+        #ai-chat-container th {
+            background-color: rgba(99, 102, 241, 0.12);
+            color: #4f46e5;
+            font-weight: 700;
+            padding: 5px 8px;
+            border: 1px solid rgba(228, 228, 231, 0.8);
+            text-align: left;
+        }
+        .dark #ai-chat-container th {
+            background-color: rgba(99, 102, 241, 0.25);
+            color: #818cf8;
+            border-color: rgba(63, 63, 70, 0.8);
+        }
+        #ai-chat-container td {
+            padding: 4px 8px;
+            border: 1px solid rgba(228, 228, 231, 0.8);
+        }
+        .dark #ai-chat-container td {
+            border-color: rgba(63, 63, 70, 0.8);
+        }
+        #ai-chat-container tr:nth-child(even) {
+            background-color: rgba(244, 244, 245, 0.6);
+        }
+        .dark #ai-chat-container tr:nth-child(even) {
+            background-color: rgba(39, 39, 42, 0.6);
+        }
+    </style>
+
     {{-- TRIGGER BUTTON --}}
     <button
         type="button"
@@ -425,17 +524,17 @@ Gaya Penulisan yang WAJIB dipatuhi:
         x-transition:leave-start="opacity-100 scale-100"
         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
         :style="`left: ${posX}px; position: absolute;`"
-        class="bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-[85px] w-[340px] max-w-[calc(100vw-16px)] flex flex-col rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 pointer-events-auto"
+        class="bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-[85px] w-[350px] max-w-[calc(100vw-16px)] flex flex-col rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 pointer-events-auto"
     >
         {{-- MESSENGER HEADER --}}
         <div
             @mousedown="startDrag($event)"
             @touchstart.passive="startDrag($event)"
-            class="flex items-center gap-2.5 px-3 py-2.5 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 cursor-grab active:cursor-grabbing select-none shrink-0"
+            class="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 cursor-grab active:cursor-grabbing select-none shrink-0"
         >
             {{-- Avatar dengan status online --}}
             <div class="relative shrink-0">
-                <div class="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm">
+                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm">
                     <flux:icon.sparkles class="w-4 h-4" />
                 </div>
                 <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-zinc-900 rounded-full"></span>
@@ -444,13 +543,13 @@ Gaya Penulisan yang WAJIB dipatuhi:
             {{-- Nama & Provider Selector --}}
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1">
-                    <span class="font-semibold text-[13px] text-zinc-900 dark:text-white truncate">ROMLAH Asisten</span>
+                    <span class="font-bold text-[13px] text-zinc-900 dark:text-white truncate">ROMLAH Asisten</span>
                 </div>
                 @if(count($configuredProviders) > 0)
                     <div class="relative inline-block mt-0.5">
                         <select 
                             wire:model.live="selectedProvider" 
-                            class="text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-0.5 focus:outline-none focus:ring-0 cursor-pointer"
+                            class="text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-0.5 focus:outline-none focus:ring-0 cursor-pointer"
                         >
                             @foreach($configuredProviders as $p)
                                 <option value="{{ $p['name'] }}">{{ $p['name'] }}</option>
@@ -458,20 +557,25 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         </select>
                     </div>
                 @else
-                    <a href="{{ route('settings.integrations') }}" class="text-[11px] text-zinc-400 hover:text-indigo-500 font-medium">Set API Key</a>
+                    <a href="{{ route('settings.integrations') }}" class="text-[10px] text-zinc-400 hover:text-indigo-500 font-medium">Set API Key</a>
                 @endif
             </div>
 
             {{-- Action buttons --}}
             <div class="flex items-center gap-0.5 shrink-0">
-                <button wire:click="clearChat" title="Hapus Obrolan" class="w-8 h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 transition-colors">
-                    <flux:icon.trash class="w-4 h-4" />
+                @if(count($messages) > 0)
+                    <button @click="exportChatLog()" title="Unduh Catatan Obrolan" class="w-7 h-7 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 transition-colors">
+                        <flux:icon.arrow-down-tray class="w-3.5 h-3.5" />
+                    </button>
+                @endif
+                <button wire:click="clearChat" title="Hapus Obrolan" class="w-7 h-7 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 transition-colors">
+                    <flux:icon.trash class="w-3.5 h-3.5" />
                 </button>
-                <button @click="minimized = !minimized" title="Perkecil" class="w-8 h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 transition-colors">
-                    <flux:icon.minus class="w-4 h-4" />
+                <button @click="minimized = !minimized" title="Perkecil" class="w-7 h-7 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 transition-colors">
+                    <flux:icon.minus class="w-3.5 h-3.5" />
                 </button>
-                <button @click="open = false" title="Tutup" class="w-8 h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 transition-colors">
-                    <flux:icon.x-mark class="w-4 h-4" />
+                <button @click="open = false" title="Tutup" class="w-7 h-7 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-400 transition-colors">
+                    <flux:icon.x-mark class="w-3.5 h-3.5" />
                 </button>
             </div>
         </div>
@@ -482,17 +586,39 @@ Gaya Penulisan yang WAJIB dipatuhi:
             {{-- MESSAGES --}}
             <div
                 id="ai-chat-container"
-                class="overflow-y-auto px-3 py-3 space-y-1.5 bg-white dark:bg-zinc-900"
+                class="overflow-y-auto px-3 py-3 space-y-2.5 bg-white dark:bg-zinc-900"
                 style="height: 320px;"
             >
                 @if(count($messages) === 0)
-                    <div class="h-full flex flex-col items-center justify-center text-center pb-4">
-                        <div class="w-14 h-14 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md mb-3">
-                            <flux:icon.sparkles class="w-7 h-7" />
+                    <div class="h-full flex flex-col items-center justify-center text-center pb-2 px-2">
+                        <div class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md mb-2">
+                            <flux:icon.sparkles class="w-6 h-6" />
                         </div>
-                        <h4 class="font-semibold text-sm text-zinc-800 dark:text-zinc-200">ROMLAH Asisten</h4>
-                        <p class="text-xs text-indigo-500 font-medium mt-1">{{ $selectedProvider ?: 'Multi-AI System' }}</p>
-                        <p class="text-xs text-zinc-400 mt-3 max-w-[200px]">Tanyakan apa saja seputar data bisnis atau operasional Anda.</p>
+                        <h4 class="font-bold text-xs text-zinc-800 dark:text-zinc-200">ROMLAH AI Asisten ERP</h4>
+                        <p class="text-[11px] text-indigo-500 font-semibold mt-0.5">{{ $selectedProvider ?: 'Multi-AI System' }}</p>
+                        
+                        <!-- Quick Suggestion Chips -->
+                        <div class="mt-3 w-full space-y-1.5 text-left">
+                            <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider px-1">Pertanyaan Cepat:</p>
+                            <div class="grid grid-cols-1 gap-1">
+                                <button wire:click="sendQuickPrompt('Berapa total saldo kas & bank hari ini?')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
+                                    <span class="text-indigo-500">💳</span>
+                                    <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Total Saldo Kas Hari Ini</span>
+                                </button>
+                                <button wire:click="sendQuickPrompt('Cek stok barang yang paling sedikit')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
+                                    <span class="text-amber-500">📦</span>
+                                    <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Cek Stok Paling Menipis</span>
+                                </button>
+                                <button wire:click="sendQuickPrompt('Cek piutang penjualan (AR) yang belum lunas')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
+                                    <span class="text-blue-500">📥</span>
+                                    <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Cek Piutang SO Belum Lunas</span>
+                                </button>
+                                <button wire:click="sendQuickPrompt('Tampilkan ringkasan Sales Order bulan ini')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
+                                    <span class="text-emerald-500">📑</span>
+                                    <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Ringkasan Sales Order</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 @endif
 
@@ -509,10 +635,10 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         @endif
 
                         {{-- Bubble --}}
-                        <div class="max-w-[78%] px-3 py-2 text-[13px] leading-snug rounded-2xl
+                        <div class="relative group max-w-[84%] px-3 py-2 text-[12px] leading-relaxed rounded-2xl
                             {{ $isUser
                                 ? 'bg-indigo-600 text-white rounded-br-md'
-                                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-bl-md prose prose-sm dark:prose-invert max-w-none prose-p:mb-3 prose-p:leading-relaxed prose-ul:my-2 prose-li:my-0.5'
+                                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-bl-md prose prose-sm dark:prose-invert max-w-none prose-p:mb-2 prose-p:leading-relaxed prose-ul:my-1.5 prose-li:my-0.5'
                             }}">
                             @if($isUser)
                                 {{ $msg['parts'][0]['text'] }}
@@ -563,10 +689,32 @@ Gaya Penulisan yang WAJIB dipatuhi:
                                         }
                                     }">
                                         <div style="display:none" x-ref="hiddenText">{!! Str::markdown($msg['parts'][0]['text']) !!}</div>
-                                        <div x-html="visibleHtml"></div>
+                                        <div x-ref="answerBody" x-html="visibleHtml"></div>
+                                        
+                                        <!-- Copy button for typing output -->
+                                        <button 
+                                            @click="copyAnswerText($refs.answerBody)" 
+                                            class="mt-1.5 inline-flex items-center gap-1 text-[10px] text-zinc-400 hover:text-indigo-500 transition-colors"
+                                            title="Salin Jawaban Ini"
+                                        >
+                                            <flux:icon.clipboard class="w-3 h-3" />
+                                            <span>Salin Jawaban</span>
+                                        </button>
                                     </div>
                                 @else
-                                    {!! Str::markdown($msg['parts'][0]['text']) !!}
+                                    <div x-ref="answerStaticBody">{!! Str::markdown($msg['parts'][0]['text']) !!}</div>
+                                    
+                                    <!-- Copy button for static output -->
+                                    <div class="mt-1.5 pt-1 border-t border-zinc-200/50 dark:border-zinc-700/50 flex justify-end">
+                                        <button 
+                                            @click="copyAnswerText($refs.answerStaticBody)" 
+                                            class="inline-flex items-center gap-1 text-[10px] font-medium text-zinc-400 hover:text-indigo-500 transition-colors"
+                                            title="Salin Jawaban Ini"
+                                        >
+                                            <flux:icon.clipboard class="w-3 h-3" />
+                                            <span>Salin</span>
+                                        </button>
+                                    </div>
                                 @endif
                             @endif
                         </div>
@@ -579,7 +727,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         <div class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white shrink-0 mb-0.5 shadow-sm">
                             <flux:icon.sparkles class="w-3 h-3" />
                         </div>
-                        <div class="bg-zinc-100 dark:bg-zinc-800 rounded-2xl rounded-bl-md px-3.5 py-3 flex gap-1 items-center">
+                        <div class="bg-zinc-100 dark:bg-zinc-800 rounded-2xl rounded-bl-md px-3.5 py-2.5 flex gap-1 items-center">
                             <div class="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></div>
                             <div class="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style="animation-delay:.15s"></div>
                             <div class="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style="animation-delay:.3s"></div>
@@ -590,11 +738,11 @@ Gaya Penulisan yang WAJIB dipatuhi:
 
             {{-- INPUT BAR --}}
             <div class="px-2 py-2 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
-                {{-- RAG Toggle --}}
+                {{-- RAG Toggle & Quick Actions --}}
                 <div class="flex items-center justify-between px-1 mb-1.5">
                     <div class="flex items-center gap-1 text-zinc-400">
                         <flux:icon.cpu-chip class="w-3 h-3" />
-                        <span class="text-[10px] font-medium">Data Internal (RAG)</span>
+                        <span class="text-[10px] font-semibold">Data Internal (RAG)</span>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer scale-[0.75] origin-right">
                         <input type="checkbox" wire:model.live="useRag" class="sr-only peer">
@@ -604,6 +752,17 @@ Gaya Penulisan yang WAJIB dipatuhi:
 
                 {{-- Input row --}}
                 <form @submit.prevent="if ($wire.isTyping) { return; } else { $wire.sendMessage() }" class="flex items-end gap-1.5">
+                    {{-- Voice Input Mic Button --}}
+                    <button
+                        type="button"
+                        @click="toggleVoiceInput()"
+                        class="w-9 h-9 shrink-0 rounded-full flex items-center justify-center transition-all border border-zinc-200 dark:border-zinc-700"
+                        :class="speechListening ? 'bg-rose-500 text-white animate-pulse border-rose-600' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-indigo-600'"
+                        :title="speechListening ? 'Sedang Mendengarkan Suara...' : 'Ketik Menggunakan Suara'"
+                    >
+                        <flux:icon.microphone class="w-4 h-4" />
+                    </button>
+
                     {{-- Text field --}}
                     <div 
                         class="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-3xl px-3.5 py-2 flex items-end min-h-[36px] transition-all"
@@ -612,7 +771,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         <textarea
                             wire:model.live="newMessage"
                             :disabled="$wire.isTyping"
-                            class="w-full bg-transparent !border-none !border-0 !ring-0 !outline-none !shadow-none !p-0 text-[13px] focus:ring-0 focus:border-none focus:outline-none resize-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-500 max-h-[80px] leading-snug disabled:cursor-not-allowed disabled:opacity-60"
+                            class="w-full bg-transparent !border-none !border-0 !ring-0 !outline-none !shadow-none !p-0 text-[12px] focus:ring-0 focus:border-none focus:outline-none resize-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-500 max-h-[80px] leading-snug disabled:cursor-not-allowed disabled:opacity-60"
                             style="box-shadow: none;"
                             :placeholder="$wire.isTyping ? 'AI sedang memproses jawaban...' : 'Ketik pesan...'"
                             rows="1"
@@ -623,7 +782,6 @@ Gaya Penulisan yang WAJIB dipatuhi:
                                     this.style.height = '18px';
                                     this.style.height = Math.min(this.scrollHeight, 80) + 'px';
                                 });
-                                Livewire.on('transaction-saved', () => { $el.style.height = '18px'; });
                                 Livewire.hook('commit', ({ component, commit, respond, succeed, fail }) => {
                                     succeed(() => {
                                         if (!$wire.newMessage) {
