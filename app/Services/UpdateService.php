@@ -127,11 +127,11 @@ class UpdateService
         // Migrate database (force untuk production)
         Artisan::call('migrate', ['--force' => true]);
 
-        // Eksekusi seeder aman (Akses Role/Permission, Menu Navigasi, & Setting default)
+        // Eksekusi seeder aman khusus sistem (Akses Role/Permission, Menu Navigasi, & Setting default - TANPA DATA DUMMY)
         try {
-            Artisan::call('db:seed', ['--force' => true, '--class' => 'DatabaseSeeder']);
+            Artisan::call('db:seed', ['--force' => true, '--class' => 'Database\\Seeders\\SystemUpdateSeeder']);
         } catch (\Exception $e) {
-            // Log/abaikan jika seeder sudah terisi
+            // Log/abaikan jika terjadi kendala minor seeder
         }
 
         // Simpan SHA commit terpasang ke tabel Settings
