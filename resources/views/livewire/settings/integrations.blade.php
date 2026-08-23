@@ -23,7 +23,8 @@ new class extends Component {
 
     public $waReportEnabled = false;
     public $waReportFrequency = 'daily';
-    public $waReportTime = '23:59';
+    public $waReportHour = '23';
+    public $waReportMinute = '59';
     public $waReportRecipients = '';
 
     public $beamsTestStatus = null;
@@ -81,7 +82,12 @@ new class extends Component {
 
         $this->waReportEnabled = Setting::where('key', 'wa_report_enabled')->value('value') === 'true';
         $this->waReportFrequency = Setting::where('key', 'wa_report_frequency')->value('value') ?? 'daily';
-        $this->waReportTime = Setting::where('key', 'wa_report_time')->value('value') ?? '23:59';
+        
+        $timeStr = Setting::where('key', 'wa_report_time')->value('value') ?? '23:59';
+        $timeParts = explode(':', $timeStr);
+        $this->waReportHour = sprintf('%02d', intval($timeParts[0] ?? 23));
+        $this->waReportMinute = sprintf('%02d', intval($timeParts[1] ?? 59));
+        
         $this->waReportRecipients = Setting::where('key', 'wa_report_recipients')->value('value') ?? '';
         
         $aiProvidersJson = Setting::where('key', 'ai_providers')->value('value');
@@ -215,7 +221,7 @@ new class extends Component {
             'ai_providers' => json_encode($this->aiProviders),
             'wa_report_enabled' => $this->waReportEnabled ? 'true' : 'false',
             'wa_report_frequency' => $this->waReportFrequency,
-            'wa_report_time' => $this->waReportTime,
+            'wa_report_time' => sprintf('%02d:%02d', intval($this->waReportHour), intval($this->waReportMinute)),
             'wa_report_recipients' => $this->waReportRecipients,
         ];
 
@@ -523,20 +529,27 @@ new class extends Component {
                             </flux:select>
                         </div>
                         <div>
-                            <flux:input 
-                                wire:model="waReportTime" 
-                                type="text" 
-                                label="Waktu Pengiriman (24 Jam - WIB)" 
-                                placeholder="23:59" 
-                                maxlength="5"
-                                description="Format 24 Jam (Contoh: 23:59 atau 18:30)."
-                                x-data
-                                x-on:input="
-                                    let v = $el.value.replace(/[^0-9:]/g, '');
-                                    if (v.length === 2 && !$el.value.includes(':')) v = v + ':';
-                                    $el.value = v.slice(0, 5);
-                                "
-                            />
+                            <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Jam Pengiriman (WIB - 24 Jam)</label>
+                            <div class="flex items-center gap-1.5">
+                                <div class="flex-1">
+                                    <flux:select wire:model.live="waReportHour">
+                                        @for($h = 0; $h < 24; $h++)
+                                            @php $val = sprintf('%02d', $h); @endphp
+                                            <option value="{{ $val }}">Jam {{ $val }}</option>
+                                        @endfor
+                                    </flux:select>
+                                </div>
+                                <span class="font-bold text-zinc-500 text-sm">:</span>
+                                <div class="flex-1">
+                                    <flux:select wire:model.live="waReportMinute">
+                                        @for($m = 0; $m < 60; $m += 5)
+                                            @php $val = sprintf('%02d', $m); @endphp
+                                            <option value="{{ $val }}">{{ $val }} mnt</option>
+                                        @endfor
+                                        <option value="59">59 mnt</option>
+                                    </flux:select>
+                                </div>
+                            </div>
                         </div>
                         <div>
                             <flux:input 
@@ -549,7 +562,7 @@ new class extends Component {
                     </div>
 
                     <div class="flex items-center justify-between pt-2">
-                        <span class="text-xs text-emerald-700 dark:text-emerald-400 font-medium">💡 Jadwal aktif di server: {{ strtoupper($waReportFrequency) }} Pukul {{ $waReportTime }} WIB</span>
+                        <span class="text-xs text-emerald-700 dark:text-emerald-400 font-medium">💡 Jadwal aktif di server: {{ strtoupper($waReportFrequency) }} Pukul {{ sprintf('%02d:%02d', intval($waReportHour), intval($waReportMinute)) }} WIB</span>
                         <flux:button variant="subtle" icon="paper-airplane" size="sm" wire:click="sendTestWaReport" wire:loading.attr="disabled">
                             <span wire:loading.remove wire:target="sendTestWaReport">Kirim Laporan WA Sekarang (Tes)</span>
                             <span wire:loading wire:target="sendTestWaReport">Sending WA...</span>
