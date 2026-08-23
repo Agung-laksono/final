@@ -213,10 +213,12 @@ class SendExecutiveWaReportCommand extends Command
         }
 
         // 3. Format WhatsApp Message
-        $companyName = Setting::where('key', 'company_name')->value('value') ?? 'PT. Romlah Jaya';
+        $companyName = trim(Setting::where('key', 'company_name')->value('value') ?? '');
         
         $msg = "📊 *LAPORAN EKSEKUTIF ERP METRICS*\n";
-        $msg .= "🏢 *{$companyName}*\n";
+        if (!empty($companyName)) {
+            $msg .= "🏢 *{$companyName}*\n";
+        }
         $msg .= "🗓️ Tanggal: {$dateFormatted} | Jam: {$timeFormatted} WIB\n";
         $msg .= "==============================\n\n";
 
@@ -260,7 +262,7 @@ class SendExecutiveWaReportCommand extends Command
         $msg .= "• Batch SPK Selesai Hari Ini: {$prodCompletedToday} Batch\n";
         $msg .= "• Batch SPK Sedang Berjalan: {$prodInProgress} Batch\n";
         $msg .= "==============================\n\n";
-        $msg .= "💡 *Laporan ini dikirim secara otomatis oleh ROMLAH ERP System via Fonnte WA.*";
+        $msg .= "💡 *Laporan ini dikirim secara otomatis oleh Sistem ERP via Fonnte WA.*";
 
         // 4. Send via Fonnte
         $response = $fonnte->sendMessage($recipients, $msg);
