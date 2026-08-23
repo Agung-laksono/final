@@ -141,17 +141,25 @@ new class extends Component
 
             $userRoleLower = strtolower($userRole);
             
-            if (str_contains($userRoleLower, 'super admin') || str_contains($userRoleLower, 'admin') || str_contains($userRoleLower, 'direktur') || str_contains($userRoleLower, 'owner') || str_contains($userRoleLower, 'manager')) {
+            if (str_contains($userRoleLower, 'super admin') || (method_exists($user, 'hasRole') && $user->hasRole('Super Admin'))) {
                 $isSuperAdmin = true;
                 $hasFinanceAccess = true;
                 $hasSalesAccess = true;
                 $hasInventoryAccess = true;
                 $hasProductionAccess = true;
             } else {
-                $hasFinanceAccess = str_contains($userRoleLower, 'finance') || str_contains($userRoleLower, 'keuangan') || (method_exists($user, 'can') && $user->can('view-finance'));
-                $hasSalesAccess = str_contains($userRoleLower, 'sales') || str_contains($userRoleLower, 'penjualan') || (method_exists($user, 'can') && $user->can('view-sales'));
-                $hasInventoryAccess = str_contains($userRoleLower, 'gudang') || str_contains($userRoleLower, 'inventory') || (method_exists($user, 'can') && $user->can('view-inventory'));
-                $hasProductionAccess = str_contains($userRoleLower, 'produksi') || str_contains($userRoleLower, 'production') || (method_exists($user, 'can') && $user->can('view-production'));
+                // Dynamic Spatie Permission check with fallback to role keywords
+                $hasFinanceAccess = ($user->can('finance.dashboard.view') || $user->can('finance.inbox.view') || $user->can('finance.payables.view') || $user->can('finance.transfers.view'))
+                    || str_contains($userRoleLower, 'finance') || str_contains($userRoleLower, 'keuangan') || str_contains($userRoleLower, 'direktur') || str_contains($userRoleLower, 'manager');
+
+                $hasSalesAccess = ($user->can('sales.order.view') || $user->can('sales.customer.view') || $user->can('sales.quotation.view'))
+                    || str_contains($userRoleLower, 'sales') || str_contains($userRoleLower, 'penjualan');
+
+                $hasInventoryAccess = ($user->can('inventory.dashboard.view') || $user->can('inventory.item.view') || $user->can('inventory.warehouse.view'))
+                    || str_contains($userRoleLower, 'gudang') || str_contains($userRoleLower, 'inventory');
+
+                $hasProductionAccess = ($user->can('production.order.view'))
+                    || str_contains($userRoleLower, 'produksi') || str_contains($userRoleLower, 'production');
             }
         }
 
@@ -663,8 +671,13 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         <!-- Quick Suggestion Chips (Role-Aware) -->
                         @php
                             $u = auth()->user();
-                            $uRoleStr = strtolower($u ? (method_exists($u, 'getRoleNames') ? implode(',', $u->getRoleNames()->toArray()) : (string)($u->role ?? '')) : '');
-                            $canSeeFinance = str_contains($uRoleStr, 'super admin') || str_contains($uRoleStr, 'admin') || str_contains($uRoleStr, 'finance') || str_contains($uRoleStr, 'keuangan') || str_contains($uRoleStr, 'direktur') || str_contains($uRoleStr, 'manager');
+                            $canSeeFinance = $u && (
+                                (method_exists($u, 'hasRole') && $u->hasRole('Super Admin')) || 
+                                $u->can('finance.dashboard.view') || 
+                                $u->can('finance.inbox.view') ||
+                                str_contains(strtolower(implode(',', method_exists($u, 'getRoleNames') ? $u->getRoleNames()->toArray() : [])), 'finance') ||
+                                str_contains(strtolower(implode(',', method_exists($u, 'getRoleNames') ? $u->getRoleNames()->toArray() : [])), 'admin')
+                            );
                         @endphp
                         <div class="mt-3 w-full space-y-1.5 text-left">
                             <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider px-1">Pertanyaan Cepat:</p>
