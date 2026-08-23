@@ -5,6 +5,11 @@ use Livewire\Volt\Volt;
 
 Route::view('/', 'welcome')->name('home');
 
+// Fonnte Webhook Routes
+Route::any('/fonnte/webhook', [\Modules\Communication\Http\Controllers\FonnteWebhookController::class, 'handle']);
+Route::any('/webhook/fonnte', [\Modules\Communication\Http\Controllers\FonnteWebhookController::class, 'handle']);
+Route::any('/api/fonnte/webhook', [\Modules\Communication\Http\Controllers\FonnteWebhookController::class, 'handle']);
+
 // Dynamic PWA Manifest — reads name, icon, colors from settings table
 Route::get('/manifest.json', function () {
     $get = fn($key, $default) => \App\Models\Setting::where('key', $key)->value('value') ?? $default;
