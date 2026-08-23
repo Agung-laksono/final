@@ -122,18 +122,73 @@ new class extends Component
 
         $promptText = $lastMessage['parts'][0]['text'];
         $userId = auth()->id() ?? 'guest';
+        $user = auth()->user();
+        $userName = $user ? $user->name : 'Pengguna ERP';
+        $userEmail = $user ? $user->email : '-';
+        $userRole = 'Tamu/Guest';
+        $isSuperAdmin = false;
+        $hasFinanceAccess = false;
+        $hasSalesAccess = false;
+        $hasInventoryAccess = false;
+        $hasProductionAccess = false;
 
-        // Prepare RAG Context
+        if ($user) {
+            if (method_exists($user, 'getRoleNames') && $user->getRoleNames()->count() > 0) {
+                $userRole = implode(', ', $user->getRoleNames()->toArray());
+            } elseif (isset($user->role)) {
+                $userRole = (string) $user->role;
+            }
+
+            $userRoleLower = strtolower($userRole);
+            
+            if (str_contains($userRoleLower, 'super admin') || str_contains($userRoleLower, 'admin') || str_contains($userRoleLower, 'direktur') || str_contains($userRoleLower, 'owner') || str_contains($userRoleLower, 'manager')) {
+                $isSuperAdmin = true;
+                $hasFinanceAccess = true;
+                $hasSalesAccess = true;
+                $hasInventoryAccess = true;
+                $hasProductionAccess = true;
+            } else {
+                $hasFinanceAccess = str_contains($userRoleLower, 'finance') || str_contains($userRoleLower, 'keuangan') || (method_exists($user, 'can') && $user->can('view-finance'));
+                $hasSalesAccess = str_contains($userRoleLower, 'sales') || str_contains($userRoleLower, 'penjualan') || (method_exists($user, 'can') && $user->can('view-sales'));
+                $hasInventoryAccess = str_contains($userRoleLower, 'gudang') || str_contains($userRoleLower, 'inventory') || (method_exists($user, 'can') && $user->can('view-inventory'));
+                $hasProductionAccess = str_contains($userRoleLower, 'produksi') || str_contains($userRoleLower, 'production') || (method_exists($user, 'can') && $user->can('view-production'));
+            }
+        }
+
+        // Prepare RAG Context with Role Security Filtering
         $contextText = "";
         if ($this->useRag) {
             try {
                 $vectorService = app(VectorSearchService::class);
-                $relevantData = $vectorService->search($promptText, 7);
+                $relevantData = $vectorService->search($promptText, 10);
                 
-                if (count($relevantData) > 0) {
-                    $contextText = "\n\n[DOKUMEN & CONTEXT DATA INTERNAL ERP SAAT INI]:\n";
-                    foreach ($relevantData as $index => $data) {
-                        $contextText .= ($index + 1) . ". " . $data['content_text'] . "\n";
+                // Filter out documents user is not authorized to see
+                $filteredData = array_filter($relevantData, function($data) use ($hasFinanceAccess, $hasProductionAccess) {
+                    $modelClass = $data['model_type'] ?? '';
+                    $contentText = strtolower($data['content_text'] ?? '');
+                    
+                    // Filter Finance Data for non-finance users
+                    if (!$hasFinanceAccess) {
+                        if (str_contains($modelClass, 'Finance') || str_contains($contentText, 'saldo kas') || str_contains($contentText, 'rekening bca') || str_contains($contentText, 'laba rugi') || str_contains($contentText, 'jurnal transaksi')) {
+                            return false;
+                        }
+                    }
+
+                    // Filter Production Data for non-production non-admin users
+                    if (!$hasProductionAccess && !$hasFinanceAccess) {
+                        if (str_contains($modelClass, 'Production') || str_contains($contentText, 'resep bom') || str_contains($contentText, 'biaya produksi')) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+
+                if (count($filteredData) > 0) {
+                    $contextText = "\n\n[DOKUMEN & CONTEXT DATA INTERNAL ERP TERSEDIA SESUAI HAK AKSES PERAN PENGGUNA SAAT INI]:\n";
+                    $idx = 1;
+                    foreach ($filteredData as $data) {
+                        $contextText .= ($idx++) . ". " . $data['content_text'] . "\n";
                     }
                 }
             } catch (\Exception $e) {
@@ -162,34 +217,33 @@ new class extends Component
         $apiKey = $activeProvider['key'];
         $providerName = $activeProvider['name'];
 
-        $user = auth()->user();
-        $userName = $user ? $user->name : 'Pengguna ERP';
-        $userEmail = $user ? $user->email : '-';
-        $userRole = '-';
-        if ($user) {
-            if (method_exists($user, 'getRoleNames') && $user->getRoleNames()->count() > 0) {
-                $userRole = implode(', ', $user->getRoleNames()->toArray());
-            } elseif (isset($user->role)) {
-                $userRole = (string) $user->role;
-            }
-        }
-
         $assistantName = $this->assistantName ?: 'ROMLAH Asisten';
         $personaPrompt = !empty(trim($this->customInstruction)) 
             ? "\nPetunjuk Khusus Persona & Gaya Bahasa:\n" . trim($this->customInstruction) . "\n"
             : "";
+
+        $securityGuardrail = "\n[RESTRIKSI HAK AKSES PERAN & KEAMANAN DATA SANGAT KETAT]:\n";
+        $securityGuardrail .= "- Pengguna saat ini ('{$userName}') memiliki Peran/Jabatan: '{$userRole}'.\n";
+
+        if (!$hasFinanceAccess) {
+            $securityGuardrail .= "- 🛑 DILARANG KERAS memberikan informasi apapun terkait KEUANGAN PERUSAHAAN (Saldo Kas, Mutasi Rekening, Omset/Laba Rugi, Piutang Keuangan, atau Laporan Kas Bank). Pengguna ini TIDAK MEMILIKI HAK AKSES FINANCE.\n";
+            $securityGuardrail .= "  Jika pengguna menanyakan data keuangan/saldo kas/laba rugi, JAWAB DENGAN SOPAN: 'Mohon maaf {$userName}, informasi data keuangan & saldo kas perusahaan hanya dapat diakses oleh Divisi Finance dan Manajemen.'\n";
+        }
+        if (!$hasProductionAccess && !$isSuperAdmin) {
+            $securityGuardrail .= "- 🛑 DILARANG KERAS membeberkan detail resep rahasia/BOM produksi atau HPP produksi internal kecuali hanya status umum jadwal produksi.\n";
+        }
 
         $systemInstruction = "Kamu adalah {$assistantName}, AI Pintar Resmi terintegrasi dalam sistem ERP perusahaan.
 Pengguna yang sedang berinteraksi dan berbicara denganmu saat ini adalah:
 - Nama Lengkap: {$userName}
 - Email: {$userEmail}
 - Peran/Jabatan: {$userRole}
-{$personaPrompt}
-Tugas utamamu adalah membantu {$userName} menjawab pertanyaan seputar operasional bisnis, stok barang, penjualan (Sales Order), pembelian (Purchase Order), produksi, keuangan, pelanggan, dan vendor berdasarkan DATA INTERNAL ERP di atas secara tepat, akurat, profesional, dan ramah.
+{$personaPrompt}{$securityGuardrail}
+Tugas utamamu adalah membantu {$userName} menjawab pertanyaan seputar operasional bisnis, stok barang, penjualan (Sales Order), pembelian (Purchase Order), produksi, keuangan, pelanggan, dan vendor berdasarkan DATA INTERNAL ERP yang diizinkan di atas secara tepat, akurat, profesional, dan ramah.
 
 Gaya Penulisan yang WAJIB dipatuhi:
 - TIDAK PERLU selalu mengulang sapaan 'Halo [Nama]' atau salam pembuka di setiap jawaban obrolan. Langsung jawab inti pertanyaan secara natural, efektif, dan profesional. (Hanya sapa jika diawal percakapan baru).
-- Utamakan menggunakan informasi dari [DOKUMEN & CONTEXT DATA INTERNAL ERP SAAT INI].
+- Utamakan menggunakan informasi dari [DOKUMEN & CONTEXT DATA INTERNAL ERP TERSEDIA SESUAI HAK AKSES PERAN PENGGUNA SAAT INI].
 - Sajikan informasi secara sangat terstruktur. Gunakan format tabel markdown atau poin-poin (bullet list) untuk penjelasan yang memuat daftar item/transaksi.
 - Format seluruh angka nominal uang menjadi Rupiah yang rapi (contoh: Rp 15.000.000).
 - Gunakan DOUBLE ENTER (baris kosong) untuk memisahkan setiap paragraf atau poin agar tampilan bersih dan nyaman dibaca.
@@ -606,14 +660,21 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         <h4 class="font-bold text-xs text-zinc-800 dark:text-zinc-200">ROMLAH AI Asisten ERP</h4>
                         <p class="text-[11px] text-indigo-500 font-semibold mt-0.5">{{ $selectedProvider ?: 'Multi-AI System' }}</p>
                         
-                        <!-- Quick Suggestion Chips -->
+                        <!-- Quick Suggestion Chips (Role-Aware) -->
+                        @php
+                            $u = auth()->user();
+                            $uRoleStr = strtolower($u ? (method_exists($u, 'getRoleNames') ? implode(',', $u->getRoleNames()->toArray()) : (string)($u->role ?? '')) : '');
+                            $canSeeFinance = str_contains($uRoleStr, 'super admin') || str_contains($uRoleStr, 'admin') || str_contains($uRoleStr, 'finance') || str_contains($uRoleStr, 'keuangan') || str_contains($uRoleStr, 'direktur') || str_contains($uRoleStr, 'manager');
+                        @endphp
                         <div class="mt-3 w-full space-y-1.5 text-left">
                             <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider px-1">Pertanyaan Cepat:</p>
                             <div class="grid grid-cols-1 gap-1">
-                                <button wire:click="sendQuickPrompt('Berapa total saldo kas & bank hari ini?')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
-                                    <span class="text-indigo-500">💳</span>
-                                    <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Total Saldo Kas Hari Ini</span>
-                                </button>
+                                @if($canSeeFinance)
+                                    <button wire:click="sendQuickPrompt('Berapa total saldo kas & bank hari ini?')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
+                                        <span class="text-indigo-500">💳</span>
+                                        <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Total Saldo Kas Hari Ini</span>
+                                    </button>
+                                @endif
                                 <button wire:click="sendQuickPrompt('Cek stok barang yang paling sedikit')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
                                     <span class="text-amber-500">📦</span>
                                     <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Cek Stok Paling Menipis</span>
