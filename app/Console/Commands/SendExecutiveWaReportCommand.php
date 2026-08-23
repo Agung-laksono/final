@@ -70,6 +70,8 @@ class SendExecutiveWaReportCommand extends Command
         $totalArUnpaid = 0;
         $totalApUnpaid = 0;
         $accountBalances = [];
+        $cashInBreakdown = [];
+        $cashOutBreakdown = [];
 
         if (class_exists(\Modules\Finance\Models\FinanceTransaction::class)) {
             try {
@@ -79,6 +81,36 @@ class SendExecutiveWaReportCommand extends Command
                 $cashOutToday = \Modules\Finance\Models\FinanceTransaction::whereBetween('created_at', [$todayStart, $todayEnd])
                     ->whereIn('type', ['out', 'expense', 'keluar'])
                     ->sum('amount');
+
+                // Breakdown Kas Masuk
+                $todayInTxs = \Modules\Finance\Models\FinanceTransaction::with('category')
+                    ->whereBetween('created_at', [$todayStart, $todayEnd])
+                    ->whereIn('type', ['in', 'income', 'masuk'])
+                    ->get();
+                $groupedIn = [];
+                foreach ($todayInTxs as $t) {
+                    $cName = $t->category->name ?? ($t->description ?: 'Penerimaan Penjualan');
+                    $groupedIn[$cName] = ($groupedIn[$cName] ?? 0) + ($t->amount ?? 0);
+                }
+                arsort($groupedIn);
+                foreach (array_slice($groupedIn, 0, 3) as $cName => $amt) {
+                    $cashInBreakdown[] = "  └ *Pemasukan ({$cName})*: Rp " . number_format($amt, 0, ',', '.');
+                }
+
+                // Breakdown Kas Keluar
+                $todayOutTxs = \Modules\Finance\Models\FinanceTransaction::with('category')
+                    ->whereBetween('created_at', [$todayStart, $todayEnd])
+                    ->whereIn('type', ['out', 'expense', 'keluar'])
+                    ->get();
+                $groupedOut = [];
+                foreach ($todayOutTxs as $t) {
+                    $cName = $t->category->name ?? ($t->description ?: 'Pengeluaran Operasional');
+                    $groupedOut[$cName] = ($groupedOut[$cName] ?? 0) + ($t->amount ?? 0);
+                }
+                arsort($groupedOut);
+                foreach (array_slice($groupedOut, 0, 3) as $cName => $amt) {
+                    $cashOutBreakdown[] = "  └ *Pengeluaran ({$cName})*: Rp " . number_format($amt, 0, ',', '.');
+                }
             } catch (\Exception $e) {}
         }
 
@@ -92,11 +124,12 @@ class SendExecutiveWaReportCommand extends Command
             } catch (\Exception $e) {}
         }
 
-        // B. Sales Data
+        // B. Sales Data & Salesperson Breakdown
         $salesCountToday = 0;
         $salesOmsetToday = 0;
         $salesOmsetMonth = 0;
         $soDraftCount = 0;
+        $salespersonBreakdown = [];
 
         if (class_exists(\Modules\Sales\Models\SalesOrder::class)) {
             try {
@@ -110,6 +143,25 @@ class SendExecutiveWaReportCommand extends Command
 
                 $soDraftCount = \Modules\Sales\Models\SalesOrder::where('status', 'draft')->count();
                 $totalArUnpaid = \Modules\Sales\Models\SalesOrder::whereNotIn('status', ['cancelled', 'completed', 'paid'])->sum('total_amount');
+
+                // Breakdown per Salesperson
+                $todaySales = \Modules\Sales\Models\SalesOrder::with('creator')
+                    ->whereBetween('created_at', [$todayStart, $todayEnd])
+                    ->get();
+                
+                $groupedSales = [];
+                foreach ($todaySales as $so) {
+                    $sName = $so->creator->name ?? 'Sales Tim / Admin';
+                    if (!isset($groupedSales[$sName])) {
+                        $groupedSales[$sName] = ['count' => 0, 'amount' => 0];
+                    }
+                    $groupedSales[$sName]['count']++;
+                    $groupedSales[$sName]['amount'] += ($so->total_amount ?? 0);
+                }
+
+                foreach ($groupedSales as $sName => $sData) {
+                    $salespersonBreakdown[] = "  └ *{$sName}*: {$sData['count']} Order (Rp " . number_format($sData['amount'], 0, ',', '.') . ")";
+                }
             } catch (\Exception $e) {}
         }
 
@@ -170,7 +222,13 @@ class SendExecutiveWaReportCommand extends Command
 
         $msg .= "💳 *1. FINANSIAL & SALDO KAS/BANK*\n";
         $msg .= "• Kas Masuk Hari Ini: Rp " . number_format($cashInToday, 0, ',', '.') . "\n";
+        if (count($cashInBreakdown) > 0) {
+            $msg .= implode("\n", $cashInBreakdown) . "\n";
+        }
         $msg .= "• Kas Keluar Hari Ini: Rp " . number_format($cashOutToday, 0, ',', '.') . "\n";
+        if (count($cashOutBreakdown) > 0) {
+            $msg .= implode("\n", $cashOutBreakdown) . "\n";
+        }
         $msg .= "• *Total Saldo Kas & Bank*: Rp " . number_format($totalCashBankBalance, 0, ',', '.') . "\n";
         if (count($accountBalances) > 0) {
             $msg .= implode("\n", $accountBalances) . "\n";
@@ -178,9 +236,12 @@ class SendExecutiveWaReportCommand extends Command
         $msg .= "• Estimasi Piutang Pelanggan (AR): Rp " . number_format($totalArUnpaid, 0, ',', '.') . "\n";
         $msg .= "• Estimasi Hutang Supplier (AP): Rp " . number_format($totalApUnpaid, 0, ',', '.') . "\n\n";
 
-        $msg .= "🛒 *2. PENJUALAN & OMSET (SALES)*\n";
+        $msg .= "🛒 *2. PENJUALAN & PERFORMA SALES*\n";
         $msg .= "• Order Masuk Hari Ini: {$salesCountToday} Transaksi\n";
         $msg .= "• *Omset Penjualan Hari Ini*: Rp " . number_format($salesOmsetToday, 0, ',', '.') . "\n";
+        if (count($salespersonBreakdown) > 0) {
+            $msg .= "  *Rincian Performa Tim Sales:*\n" . implode("\n", $salespersonBreakdown) . "\n";
+        }
         $msg .= "• Total Omset Bulan Ini (MTD): Rp " . number_format($salesOmsetMonth, 0, ',', '.') . "\n";
         $msg .= "• Draft SO Menunggu Approve: {$soDraftCount} Order\n\n";
 
