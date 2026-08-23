@@ -610,13 +610,21 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         :class="{'opacity-50 cursor-not-allowed bg-zinc-200 dark:bg-zinc-800/60': $wire.isTyping}"
                     >
                         <textarea
-                            wire:model="newMessage"
+                            wire:model.live="newMessage"
                             :disabled="$wire.isTyping"
                             class="w-full bg-transparent !border-none !border-0 !ring-0 !outline-none !shadow-none !p-0 text-[13px] focus:ring-0 focus:border-none focus:outline-none resize-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-500 max-h-[80px] leading-snug disabled:cursor-not-allowed disabled:opacity-60"
                             style="box-shadow: none;"
                             :placeholder="$wire.isTyping ? 'AI sedang memproses jawaban...' : 'Ketik pesan...'"
                             rows="1"
-                            @keydown.enter.prevent="if (!$wire.isTyping && $event.target.value.trim() !== '') { $wire.sendMessage(); }"
+                            @keydown.enter="
+                                if ($event.shiftKey) return;
+                                $event.preventDefault();
+                                if (!$wire.isTyping && $el.value.trim() !== '') {
+                                    $wire.newMessage = $el.value;
+                                    $wire.sendMessage();
+                                    $el.style.height = '18px';
+                                }
+                            "
                             x-data
                             x-init="
                                 $el.style.height = '18px';
