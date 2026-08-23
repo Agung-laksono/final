@@ -326,10 +326,15 @@ new class extends Component {
         $zip = new \ZipArchive();
         if ($zip->open($backupPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
             
-            // Add Database
+            // Add Databases (Main Database & Wilayah Database)
             $dbPath = database_path('database.sqlite');
             if (file_exists($dbPath)) {
                 $zip->addFile($dbPath, 'database.sqlite');
+            }
+
+            $wilayahPath = database_path('wilayah.sqlite');
+            if (file_exists($wilayahPath)) {
+                $zip->addFile($wilayahPath, 'wilayah.sqlite');
             }
 
             // Add Public Storage Images
@@ -391,9 +396,12 @@ new class extends Component {
             // Unzip process
             $zip = new \ZipArchive();
             if ($zip->open($backupPath) === TRUE) {
-                // Extract database
+                // Extract databases
                 if ($zip->locateName('database.sqlite') !== false) {
                     $zip->extractTo(database_path(), 'database.sqlite');
+                }
+                if ($zip->locateName('wilayah.sqlite') !== false) {
+                    $zip->extractTo(database_path(), 'wilayah.sqlite');
                 }
                 
                 // Extract images to storage/app/public
