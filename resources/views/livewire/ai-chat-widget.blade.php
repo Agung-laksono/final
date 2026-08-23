@@ -616,21 +616,20 @@ Gaya Penulisan yang WAJIB dipatuhi:
                             style="box-shadow: none;"
                             :placeholder="$wire.isTyping ? 'AI sedang memproses jawaban...' : 'Ketik pesan...'"
                             rows="1"
-                            @keydown.enter="
-                                if ($event.shiftKey) return;
-                                $event.preventDefault();
-                                if (!$wire.isTyping && $el.value.trim() !== '') {
-                                    $wire.newMessage = $el.value;
-                                    $wire.sendMessage();
-                                    $el.style.height = '18px';
-                                }
-                            "
                             x-data
                             x-init="
                                 $el.style.height = '18px';
                                 $el.addEventListener('input', function() {
                                     this.style.height = '18px';
                                     this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+                                });
+                                Livewire.on('transaction-saved', () => { $el.style.height = '18px'; });
+                                Livewire.hook('commit', ({ component, commit, respond, succeed, fail }) => {
+                                    succeed(() => {
+                                        if (!$wire.newMessage) {
+                                            $el.style.height = '18px';
+                                        }
+                                    });
                                 });
                             "
                         ></textarea>
