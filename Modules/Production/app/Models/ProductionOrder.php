@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ProductionOrder extends Model
 {
-    use HasFactory, \App\Traits\UpdatesMenuBadges, \App\Traits\ScopedToWarehouse;
+    use HasFactory, \App\Traits\UpdatesMenuBadges, \App\Traits\ScopedToWarehouse, \App\Traits\SearchableAiKnowledge;
 
     public const WAREHOUSE_SCOPE_COLUMN = 'target_warehouse_id';
 

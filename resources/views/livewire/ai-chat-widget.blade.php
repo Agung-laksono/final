@@ -4,18 +4,58 @@ use Livewire\Volt\Component;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use App\Services\VectorSearchService;
+use App\Models\Setting;
 
 new class extends Component
 {
     public array $messages = [];
     public string $newMessage = '';
-    public bool $useRag = false;
+    public bool $useRag = true;
     public bool $isTyping = false;
+    public string $selectedProvider = '';
+    public array $configuredProviders = [];
 
     public function mount()
     {
         $userId = auth()->id() ?? 'guest';
-        $this->messages = Cache::get("ai_chat_history_{$userId}", []);
+        $history = Cache::get("ai_chat_history_{$userId}", []);
+        $this->messages = array_map(function($msg) {
+            unset($msg['is_new']);
+            return $msg;
+        }, $history);
+        $this->loadProviders();
+    }
+
+    public function loadProviders()
+    {
+        $this->configuredProviders = [];
+        $aiProvidersJson = Setting::where('key', 'ai_providers')->value('value');
+        
+        if ($aiProvidersJson) {
+            $providers = json_decode($aiProvidersJson, true) ?? [];
+            foreach ($providers as $p) {
+                if (!empty(trim($p['name'] ?? '')) && !empty(trim($p['key'] ?? ''))) {
+                    $this->configuredProviders[] = [
+                        'name' => trim($p['name']),
+                        'key' => trim($p['key']),
+                    ];
+                }
+            }
+        }
+
+        // Fallback to GEMINI_API_KEY from .env if no Gemini provider configured in DB
+        $hasGeminiInDb = collect($this->configuredProviders)->contains(fn($p) => strtolower($p['name']) === 'gemini');
+        if (!$hasGeminiInDb && env('GEMINI_API_KEY')) {
+            $this->configuredProviders[] = [
+                'name' => 'Gemini',
+                'key' => env('GEMINI_API_KEY'),
+            ];
+        }
+
+        // Default selected provider to first available
+        if (empty($this->selectedProvider) && !empty($this->configuredProviders)) {
+            $this->selectedProvider = $this->configuredProviders[0]['name'];
+        }
     }
 
     public function clearChat()
@@ -42,15 +82,14 @@ new class extends Component
 
         $this->isTyping = true;
         
-        // Kirim event agar Livewire me-render bubble user dan typing indicator
-        // sebelum mulai menghubungi API Google yang memakan waktu lama
         $this->dispatch('trigger-ai-response');
     }
 
     #[\Livewire\Attributes\On('trigger-ai-response')]
     public function generateAiResponse()
     {
-        // Pastikan ada pesan user terakhir
+        $this->loadProviders();
+
         $lastMessage = end($this->messages);
         if (!$lastMessage || $lastMessage['role'] !== 'user') {
             $this->isTyping = false;
@@ -60,100 +99,221 @@ new class extends Component
         $promptText = $lastMessage['parts'][0]['text'];
         $userId = auth()->id() ?? 'guest';
 
-        // Prepare context if RAG is used
+        // Prepare RAG Context
         $contextText = "";
         if ($this->useRag) {
             try {
                 $vectorService = app(VectorSearchService::class);
-                $relevantData = $vectorService->search($promptText, 5);
+                $relevantData = $vectorService->search($promptText, 7);
                 
                 if (count($relevantData) > 0) {
-                    $contextText = "\n\n[CONTEXT DARI DATABASE INTERNAL]:\n";
+                    $contextText = "\n\n[DOKUMEN & CONTEXT DATA INTERNAL ERP SAAT INI]:\n";
                     foreach ($relevantData as $index => $data) {
-                        $contextText .= ($index + 1) . ". Sumber (" . $data['model_type'] . "): " . $data['content_text'] . "\n";
+                        $contextText .= ($index + 1) . ". " . $data['content_text'] . "\n";
                     }
                 }
             } catch (\Exception $e) {
-                // Ignore errors from VectorSearchService if not set up properly
+                // Ignore errors
             }
         }
 
-        // Format history for Gemini API
-        $historyForGemini = [];
-        foreach ($this->messages as $msg) {
-            $historyForGemini[] = $msg;
+        // Find active selected provider config
+        $activeProvider = collect($this->configuredProviders)
+            ->first(fn($p) => strtolower($p['name']) === strtolower($this->selectedProvider));
+
+        if (!$activeProvider && !empty($this->configuredProviders)) {
+            $activeProvider = $this->configuredProviders[0];
+            $this->selectedProvider = $activeProvider['name'];
         }
 
-        // Inject context to the last user message secretly before sending
-        if ($contextText !== "") {
-            $lastIndex = count($historyForGemini) - 1;
-            $historyForGemini[$lastIndex]['parts'][0]['text'] .= $contextText . "\n\nJawab pertanyaan pengguna berdasarkan CONTEXT di atas jika relevan. Jika tidak ada di konteks, jawab dengan pengetahuan umummu.";
-        }
-
-        $apiKey = env('GEMINI_API_KEY');
-        if (!$apiKey) {
+        if (!$activeProvider || empty($activeProvider['key'])) {
             $this->messages[] = [
                 'role' => 'model',
-                'parts' => [['text' => 'Error: API Key Gemini belum diatur di .env']]
+                'parts' => [['text' => "⚠️ **API Key Belum Dikonfigurasi**\n\nSilakan masukkan API Key untuk provider **{$this->selectedProvider}** pada menu **Pengaturan > Integrasi**."]]
             ];
             $this->isTyping = false;
             return;
         }
 
-        $systemInstruction = "Kamu adalah ROMLAH Asisten, AI pintar terintegrasi dalam sistem ERP perusahaan. 
-Berikut panduan membaca data sistem ini:
-1. sales_orders & sales_deliveries: Transaksi penjualan dan pengiriman barang.
-2. purchase_orders & purchase_receipts: Pembelian ke vendor dan penerimaan barang di gudang.
-3. inventory_items: Master data produk. Di dalamnya mencakup relasi ke Kategori Barang (Category) dan Tipe Barang (Type).
-4. inventory_movements & inventory_warehouses: Riwayat mutasi perpindahan stok antar gudang.
-5. finance_transactions & finance_accounts: Data arus kas, rekening, dan pembayaran.
-6. Status & Pembayaran: 
-   - Jika pembayaran berstatus 'pending', artinya pembayaran sedang 'menunggu konfirmasi'.
-   - Status order umumnya meliputi: draft, pending (menunggu), processing (diproses), completed (selesai/lunas), dan cancelled (batal).
+        $apiKey = $activeProvider['key'];
+        $providerName = $activeProvider['name'];
 
-Tugas utamamu: Saat menerima data JSON mentah dari sistem RAG (Data Internal), terjemahkan data ID, Kategori, Tipe, maupun Status tersebut menjadi penjelasan bahasa manusia yang mengalir, mudah dipahami, singkat, namun profesional.
+        $user = auth()->user();
+        $userName = $user ? $user->name : 'Pengguna ERP';
+        $userEmail = $user ? $user->email : '-';
+        $userRole = '-';
+        if ($user) {
+            if (method_exists($user, 'getRoleNames') && $user->getRoleNames()->count() > 0) {
+                $userRole = implode(', ', $user->getRoleNames()->toArray());
+            } elseif (isset($user->role)) {
+                $userRole = (string) $user->role;
+            }
+        }
+
+        $systemInstruction = "Kamu adalah ROMLAH Asisten, AI Pintar Resmi terintegrasi dalam sistem ERP perusahaan.
+Pengguna yang sedang berinteraksi dan berbicara denganmu saat ini adalah:
+- Nama Lengkap: {$userName}
+- Email: {$userEmail}
+- Peran/Jabatan: {$userRole}
+
+Tugas utamamu adalah membantu {$userName} menjawab pertanyaan seputar operasional bisnis, stok barang, penjualan (Sales Order), pembelian (Purchase Order), produksi, keuangan, pelanggan, dan vendor berdasarkan DATA INTERNAL ERP di atas secara tepat, akurat, profesional, dan ramah.
 
 Gaya Penulisan yang WAJIB dipatuhi:
-- Kamu adalah orang yang sangat terstruktur dalam menjelaskan sesuatu dan sangat rapi dalam melakukan klasifikasi data/informasi.
-- Jadilah penulis yang sangat rapi. Jangan pernah memberikan paragraf panjang yang bertumpuk (wall of text).
-- Gunakan DOUBLE ENTER (dua kali enter / baris kosong) untuk memisahkan setiap paragraf atau poin utama agar jaraknya terlihat sangat jelas.
-- Pastikan selalu ada spasi setelah tanda titik (.) sebelum memulai kalimat baru.
-- Gunakan list (bullet points) secara ekstensif jika menjelaskan lebih dari dua item atau saat melakukan klasifikasi.";
+- Sapa pengguna secara pribadi dengan namanya ({$userName}) jika relevan.
+- Utamakan menggunakan informasi dari [DOKUMEN & CONTEXT DATA INTERNAL ERP SAAT INI].
+- Sajikan informasi secara sangat terstruktur. Gunakan format tabel markdown atau poin-poin (bullet list) untuk penjelasan yang memuat daftar item/transaksi.
+- Format seluruh angka nominal uang menjadi Rupiah yang rapi (contoh: Rp 15.000.000).
+- Gunakan DOUBLE ENTER (baris kosong) untuk memisahkan setiap paragraf atau poin agar tampilan bersih dan nyaman dibaca.
+- Jawab secara singkat, jelas, padat, dan langsung menjawab inti pertanyaan pengguna.";
 
         try {
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-            ])->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=' . $apiKey, [
-                'system_instruction' => [
-                    'parts' => [
-                        ['text' => $systemInstruction]
-                    ]
-                ],
-                'contents' => $historyForGemini
-            ]);
+            $replyText = null;
+            $nameLower = strtolower($providerName);
 
-            if ($response->successful()) {
-                $replyText = $response->json('candidates.0.content.parts.0.text') ?? 'Tidak ada respons.';
-                
-                // Tambahkan tanda khusus untuk pesan baru agar Alpine bisa me-memicu efek ngetik
+            if (str_contains($nameLower, 'openai')) {
+                // OpenAI API Call
+                $messagesPayload = [['role' => 'system', 'content' => $systemInstruction]];
+                foreach ($this->messages as $msg) {
+                    $role = $msg['role'] === 'user' ? 'user' : 'assistant';
+                    $text = $msg['parts'][0]['text'];
+                    $messagesPayload[] = ['role' => $role, 'content' => $text];
+                }
+                if ($contextText !== "") {
+                    $lastIdx = count($messagesPayload) - 1;
+                    $messagesPayload[$lastIdx]['content'] .= $contextText . "\n\nJawab berdasarkan DATA INTERNAL di atas jika relevan.";
+                }
+
+                $res = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => 'gpt-4o-mini',
+                    'messages' => $messagesPayload,
+                ]);
+
+                if ($res->successful()) {
+                    $replyText = $res->json('choices.0.message.content');
+                } else {
+                    $err = $res->json('error.message') ?? $res->status();
+                    throw new \Exception("OpenAI Error: {$err}");
+                }
+            } elseif (str_contains($nameLower, 'anthropic') || str_contains($nameLower, 'claude')) {
+                // Anthropic Claude API Call
+                $messagesPayload = [];
+                foreach ($this->messages as $msg) {
+                    $role = $msg['role'] === 'user' ? 'user' : 'assistant';
+                    $text = $msg['parts'][0]['text'];
+                    $messagesPayload[] = ['role' => $role, 'content' => $text];
+                }
+                if ($contextText !== "") {
+                    $lastIdx = count($messagesPayload) - 1;
+                    $messagesPayload[$lastIdx]['content'] .= $contextText . "\n\nJawab berdasarkan DATA INTERNAL di atas jika relevan.";
+                }
+
+                $candidateClaudeModels = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-5-20250929', 'claude-sonnet-4-6', 'claude-sonnet-5', 'claude-3-5-haiku-20241022'];
+                $res = null;
+                foreach ($candidateClaudeModels as $modelName) {
+                    $res = Http::withoutVerifying()->withHeaders([
+                        'x-api-key' => $apiKey,
+                        'anthropic-version' => '2023-06-01',
+                        'content-type' => 'application/json'
+                    ])->post('https://api.anthropic.com/v1/messages', [
+                        'model' => $modelName,
+                        'max_tokens' => 1000,
+                        'system' => $systemInstruction,
+                        'messages' => $messagesPayload
+                    ]);
+
+                    if ($res->successful()) break;
+                }
+
+                if ($res && $res->successful()) {
+                    $replyText = $res->json('content.0.text');
+                } else {
+                    $err = ($res ? $res->json('error.message') : null) ?? 'Gagal menghubungi server Claude';
+                    throw new \Exception("Claude Error: {$err}");
+                }
+            } elseif (str_contains($nameLower, 'groq')) {
+                // Groq API Call
+                $messagesPayload = [['role' => 'system', 'content' => $systemInstruction]];
+                foreach ($this->messages as $msg) {
+                    $role = $msg['role'] === 'user' ? 'user' : 'assistant';
+                    $text = $msg['parts'][0]['text'];
+                    $messagesPayload[] = ['role' => $role, 'content' => $text];
+                }
+                if ($contextText !== "") {
+                    $lastIdx = count($messagesPayload) - 1;
+                    $messagesPayload[$lastIdx]['content'] .= $contextText . "\n\nJawab berdasarkan DATA INTERNAL di atas jika relevan.";
+                }
+
+                $res = Http::withoutVerifying()->withToken($apiKey)->post('https://api.groq.com/openai/v1/chat/completions', [
+                    'model' => 'llama-3.3-70b-versatile',
+                    'messages' => $messagesPayload,
+                ]);
+
+                if ($res->successful()) {
+                    $replyText = $res->json('choices.0.message.content');
+                } else {
+                    $err = $res->json('error.message') ?? $res->status();
+                    throw new \Exception("Groq Error: {$err}");
+                }
+            } else {
+                // Default: Google Gemini API Call
+                $historyForGemini = [];
+                foreach ($this->messages as $msg) {
+                    $historyForGemini[] = [
+                        'role' => $msg['role'],
+                        'parts' => $msg['parts']
+                    ];
+                }
+                if ($contextText !== "") {
+                    $lastIndex = count($historyForGemini) - 1;
+                    $historyForGemini[$lastIndex]['parts'][0]['text'] .= $contextText . "\n\nJawab pertanyaan pengguna berdasarkan DATA INTERNAL di atas jika relevan.";
+                }
+
+                $payload = [
+                    'system_instruction' => [
+                        'parts' => [['text' => $systemInstruction]]
+                    ],
+                    'contents' => $historyForGemini
+                ];
+
+                $candidateModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-3.6-flash'];
+                $res = null;
+                foreach ($candidateModels as $modelName) {
+                    $res = Http::withHeaders(['Content-Type' => 'application/json'])
+                        ->post("https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key={$apiKey}", $payload);
+                    if ($res->successful()) break;
+                }
+
+                if ($res && $res->successful()) {
+                    $replyText = $res->json('candidates.0.content.parts.0.text');
+                } else {
+                    $err = ($res ? $res->json('error.message') : null) ?? 'Gagal menghubungi server Gemini AI';
+                    throw new \Exception("Gemini Error: {$err}");
+                }
+            }
+
+            if ($replyText) {
                 $this->messages[] = [
                     'role' => 'model',
                     'parts' => [['text' => $replyText]],
                     'is_new' => true 
                 ];
-                Cache::put("ai_chat_history_{$userId}", $this->messages, now()->addHours(24));
+
+                // Simpan ke Cache TANPA flag is_new agar tab lain tidak ikut me-replay animasi penulisan
+                $cleanMessages = array_map(function($m) {
+                    $clean = $m;
+                    unset($clean['is_new']);
+                    return $clean;
+                }, $this->messages);
+
+                Cache::put("ai_chat_history_{$userId}", $cleanMessages, now()->addHours(24));
             } else {
-                $errorMsg = $response->json('error.message') ?? 'Unknown error';
-                $this->messages[] = [
-                    'role' => 'model',
-                    'parts' => [['text' => 'API Error: ' . $errorMsg]]
-                ];
+                throw new \Exception("Tidak mendapat respons dari AI.");
             }
 
         } catch (\Exception $e) {
             $this->messages[] = [
                 'role' => 'model',
-                'parts' => [['text' => 'Error: ' . $e->getMessage()]]
+                'parts' => [['text' => "⚠️ **Kendala Koneksi AI ({$providerName})**\n\n*{$e->getMessage()}*.\n\n💡 **Solusi**: Silakan periksa kembali API Key **{$providerName}** pada menu **Pengaturan > Integrasi**."]]
             ];
         }
 
@@ -195,7 +355,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
             this.$watch('$wire.useRag', val => localStorage.setItem('ai_chat_rag', val));
         },
         startDrag(e) {
-            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea')) return;
+            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea') || e.target.closest('select')) return;
             this.dragging = true;
             this.startX = (e.touches ? e.touches[0].clientX : e.clientX) - this.posX;
             window.addEventListener('mousemove', this.onDrag.bind(this));
@@ -268,13 +428,25 @@ Gaya Penulisan yang WAJIB dipatuhi:
                 <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-zinc-900 rounded-full"></span>
             </div>
 
-            {{-- Nama & status --}}
+            {{-- Nama & Provider Selector --}}
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1">
                     <span class="font-semibold text-[13px] text-zinc-900 dark:text-white truncate">ROMLAH Asisten</span>
-                    <flux:icon.chevron-down class="w-3 h-3 text-zinc-400 shrink-0" />
                 </div>
-                <span class="text-[11px] text-green-500 font-medium">Aktif sekarang</span>
+                @if(count($configuredProviders) > 0)
+                    <div class="relative inline-block mt-0.5">
+                        <select 
+                            wire:model.live="selectedProvider" 
+                            class="text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-0.5 focus:outline-none focus:ring-0 cursor-pointer"
+                        >
+                            @foreach($configuredProviders as $p)
+                                <option value="{{ $p['name'] }}">{{ $p['name'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @else
+                    <a href="{{ route('settings.integrations') }}" class="text-[11px] text-zinc-400 hover:text-indigo-500 font-medium">Set API Key</a>
+                @endif
             </div>
 
             {{-- Action buttons --}}
@@ -305,8 +477,8 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         <div class="w-14 h-14 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md mb-3">
                             <flux:icon.sparkles class="w-7 h-7" />
                         </div>
-                        <h4 class="font-semibold text-sm text-zinc-800 dark:text-zinc-200">AI Assistant</h4>
-                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Gemini 3.5 Flash</p>
+                        <h4 class="font-semibold text-sm text-zinc-800 dark:text-zinc-200">ROMLAH Asisten</h4>
+                        <p class="text-xs text-indigo-500 font-medium mt-1">{{ $selectedProvider ?: 'Multi-AI System' }}</p>
                         <p class="text-xs text-zinc-400 mt-3 max-w-[200px]">Tanyakan apa saja seputar data bisnis atau operasional Anda.</p>
                     </div>
                 @endif
@@ -334,14 +506,17 @@ Gaya Penulisan yang WAJIB dipatuhi:
                             @else
                                 @if(isset($msg['is_new']) && $msg['is_new'])
                                     <div x-data="{
+                                        done: false,
                                         fullHtml: '',
                                         visibleHtml: '',
                                         init() {
+                                            if (this.done) return;
                                             this.fullHtml = this.$refs.hiddenText.innerHTML;
                                             let i = 0, inTag = false, inEntity = false;
                                             let iv = setInterval(() => {
                                                 if (i >= this.fullHtml.length) {
                                                     clearInterval(iv);
+                                                    this.done = true;
                                                     this.$wire.call('markAsOld');
                                                     let c = document.getElementById('ai-chat-container');
                                                     if(c) c.scrollTop = c.scrollHeight;
@@ -367,12 +542,11 @@ Gaya Penulisan yang WAJIB dipatuhi:
                                                     this.visibleHtml += this.fullHtml[i++];
                                                 }
 
-                                                // Update scroll secara halus agar tidak berkedip seperti TV jadul
                                                 if (i % 8 === 0) {
                                                     let c = document.getElementById('ai-chat-container');
                                                     if(c) c.scrollTop = c.scrollHeight;
                                                 }
-                                            }, 25); // Kecepatan diatur di sini: 25 milidetik per huruf (lebih lambat & nyaman dibaca)
+                                            }, 25);
                                         }
                                     }">
                                         <div style="display:none" x-ref="hiddenText">{!! Str::markdown($msg['parts'][0]['text']) !!}</div>
@@ -401,13 +575,13 @@ Gaya Penulisan yang WAJIB dipatuhi:
                 @endif
             </div>
 
-            {{-- INPUT BAR (Facebook Messenger style) --}}
+            {{-- INPUT BAR --}}
             <div class="px-2 py-2 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
-                {{-- RAG Toggle (compact) --}}
+                {{-- RAG Toggle --}}
                 <div class="flex items-center justify-between px-1 mb-1.5">
                     <div class="flex items-center gap-1 text-zinc-400">
                         <flux:icon.cpu-chip class="w-3 h-3" />
-                        <span class="text-[10px] font-medium">Data Internal</span>
+                        <span class="text-[10px] font-medium">Data Internal (RAG)</span>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer scale-[0.75] origin-right">
                         <input type="checkbox" wire:model.live="useRag" class="sr-only peer">
@@ -431,7 +605,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         ></textarea>
                     </div>
 
-                    {{-- Send / Thumbs-up button --}}
+                    {{-- Send button --}}
                     <button
                         type="submit"
                         class="w-9 h-9 shrink-0 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-all shadow-sm disabled:opacity-40"

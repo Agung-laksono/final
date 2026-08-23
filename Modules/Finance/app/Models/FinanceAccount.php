@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class FinanceAccount extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Traits\SearchableAiKnowledge;
 
     /**
      * The attributes that are mass assignable.

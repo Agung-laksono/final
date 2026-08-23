@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class SalesOrder extends Model
 {
-    use HasFactory, \App\Traits\UpdatesMenuBadges;
+    use HasFactory, \App\Traits\UpdatesMenuBadges, \App\Traits\SearchableAiKnowledge;
 
     protected $guarded = ['id'];
 

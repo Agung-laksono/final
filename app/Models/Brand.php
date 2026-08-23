@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Brand extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Traits\SearchableAiKnowledge;
 
     protected $fillable = [
         'name',

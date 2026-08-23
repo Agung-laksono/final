@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PurchaseOrder extends Model
 {
-    use HasFactory, \App\Traits\UpdatesMenuBadges;
+    use HasFactory, \App\Traits\UpdatesMenuBadges, \App\Traits\SearchableAiKnowledge;
 
     /**
      * The attributes that are mass assignable.

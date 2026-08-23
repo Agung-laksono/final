@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Warehouse extends Model
 {
-    use HasFactory, \App\Traits\ScopedToWarehouse;
+    use HasFactory, \App\Traits\ScopedToWarehouse, \App\Traits\SearchableAiKnowledge;
 
     public const WAREHOUSE_SCOPE_COLUMN = 'id';
 

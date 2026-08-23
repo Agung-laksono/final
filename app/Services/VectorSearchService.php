@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class VectorSearchService
 {
@@ -17,7 +18,6 @@ class VectorSearchService
             throw new \Exception('GEMINI_API_KEY tidak ditemukan di .env');
         }
 
-        // Menggunakan model embedding bawaan Gemini
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
         ])->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=' . $apiKey, [
@@ -31,6 +31,22 @@ class VectorSearchService
 
         if ($response->successful()) {
             return $response->json('embedding.values');
+        }
+
+        // Fallback ke text-embedding-004 jika gemini-embedding-2 mengalami kegagalan
+        $fallback = Http::withHeaders([
+            'Content-Type' => 'application/json',
+        ])->post('https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=' . $apiKey, [
+            'model' => 'models/text-embedding-004',
+            'content' => [
+                'parts' => [
+                    ['text' => $text]
+                ]
+            ]
+        ]);
+
+        if ($fallback->successful()) {
+            return $fallback->json('embedding.values');
         }
 
         throw new \Exception('Gagal mendapatkan embedding: ' . $response->body());
@@ -100,49 +116,75 @@ class VectorSearchService
     }
 
     /**
-     * Search the most relevant rows across ALL indexed models in ai_knowledge_bases.
+     * Search the most relevant rows across ALL indexed models in ai_knowledge_bases using HYBRID search.
+     * Combines Cosine Similarity Vector Search with Exact Keyword SQL Matching.
      */
-    public function search(string $query, int $limit = 5): array
+    public function search(string $query, int $limit = 7): array
     {
-        // 1. Ubah pertanyaan (query) menjadi vektor
-        $queryVector = $this->getEmbedding($query);
-        if (!$queryVector) {
-            return [];
-        }
+        $resultsMap = [];
 
-        // 2. Tarik semua data dari tabel ai_knowledge_bases
-        // Catatan: Ini aman untuk SQLite tabel kecil-menengah (< 20.000 baris)
-        $rows = DB::table('ai_knowledge_bases')->whereNotNull('embedding')->get(['id', 'model_type', 'model_id', 'content_text', 'embedding']);
+        // 1. Keyword SQL Search (Pencarian Kata Kunci Presisi untuk Kode SO/Produk/Nama Customer)
+        $cleanQuery = preg_replace('/[^\w\s-]/u', ' ', $query);
+        $tokens = array_filter(explode(' ', $cleanQuery), fn($t) => strlen(trim($t)) >= 3);
 
-        $results = [];
+        if (!empty($tokens)) {
+            $kwQuery = DB::table('ai_knowledge_bases');
+            $kwQuery->where(function ($q) use ($tokens) {
+                foreach ($tokens as $token) {
+                    $q->orWhere('content_text', 'LIKE', '%' . $token . '%');
+                }
+            });
 
-        // 3. Hitung cosine similarity di memory
-        foreach ($rows as $row) {
-            $rowVector = json_decode($row->embedding, true);
-            
-            if (is_array($rowVector)) {
-                $similarity = $this->cosineSimilarity($queryVector, $rowVector);
-                
-                // Tambahkan score similarity ke data
+            $kwRows = $kwQuery->take(20)->get(['id', 'model_type', 'model_id', 'content_text', 'embedding']);
+            foreach ($kwRows as $row) {
                 $rowArray = (array) $row;
-                // Kita tidak perlu mengembalikan vektor penuhnya
                 unset($rowArray['embedding']);
-                $rowArray['_similarity'] = $similarity;
-                $results[] = $rowArray;
+                $rowArray['_score'] = 0.5; // Base score for keyword match
+                $rowArray['_match_type'] = 'keyword';
+                $resultsMap[$row->id] = $rowArray;
             }
         }
 
-        // 4. Urutkan berdasarkan similarity tertinggi (paling mirip)
-        usort($results, function($a, $b) {
-            return $b['_similarity'] <=> $a['_similarity'];
+        // 2. Vector Cosine Similarity Search
+        try {
+            $queryVector = $this->getEmbedding($query);
+            if ($queryVector) {
+                $rows = DB::table('ai_knowledge_bases')->whereNotNull('embedding')->get(['id', 'model_type', 'model_id', 'content_text', 'embedding']);
+                foreach ($rows as $row) {
+                    $rowVector = json_decode($row->embedding, true);
+                    if (is_array($rowVector)) {
+                        $similarity = $this->cosineSimilarity($queryVector, $rowVector);
+                        
+                        if (!isset($resultsMap[$row->id])) {
+                            $rowArray = (array) $row;
+                            unset($rowArray['embedding']);
+                            $rowArray['_score'] = $similarity;
+                            $rowArray['_match_type'] = 'vector';
+                            $resultsMap[$row->id] = $rowArray;
+                        } else {
+                            // Boost score if matched by both keyword AND vector similarity!
+                            $resultsMap[$row->id]['_score'] = max($resultsMap[$row->id]['_score'], $similarity) + 0.35;
+                            $resultsMap[$row->id]['_match_type'] = 'hybrid';
+                        }
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning("Vector search fallback to keyword search: " . $e->getMessage());
+        }
+
+        // 3. Urutkan berdasarkan score tertinggi
+        $results = array_values($resultsMap);
+        usort($results, function ($a, $b) {
+            return $b['_score'] <=> $a['_score'];
         });
 
-        // 5. Ambil Top N (limit)
+        // 4. Ambil Top N (limit)
         return array_slice($results, 0, $limit);
     }
 
     /**
-     * Generate chat completion using Gemini 1.5 Flash.
+     * Generate chat completion using Gemini API.
      */
     public function generateChatCompletion(string $systemPrompt, array $historyMessages): string
     {
@@ -160,12 +202,25 @@ class VectorSearchService
             'contents' => $historyMessages
         ];
 
+        // Coba gemini-3.6-flash
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
-        ])->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=' . $apiKey, $payload);
+        ])->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' . $apiKey, $payload);
 
         if ($response->successful()) {
             $data = $response->json();
+            if (isset($data['candidates'][0]['content']['parts'][0]['text'])) {
+                return $data['candidates'][0]['content']['parts'][0]['text'];
+            }
+        }
+
+        // Fallback ke gemini-1.5-flash-latest
+        $fallback = Http::withHeaders([
+            'Content-Type' => 'application/json',
+        ])->post('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' . $apiKey, $payload);
+
+        if ($fallback->successful()) {
+            $data = $fallback->json();
             if (isset($data['candidates'][0]['content']['parts'][0]['text'])) {
                 return $data['candidates'][0]['content']['parts'][0]['text'];
             }

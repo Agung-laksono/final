@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Customer extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Traits\SearchableAiKnowledge;
 
     protected $guarded = ['id'];
 

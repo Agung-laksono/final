@@ -44,6 +44,91 @@ new class extends Component {
         $this->enablePusherSound = Setting::where('key', 'enable_pusher_sound')->value('value') !== '0';
     }
 
+    public array $aiTestStatus = [];
+
+    public function testAiProvider($index) {
+        if (!isset($this->aiProviders[$index])) return;
+
+        $provider = $this->aiProviders[$index];
+        $name = trim($provider['name'] ?? '');
+        $key = trim($provider['key'] ?? '');
+
+        if (empty($key)) {
+            $this->aiTestStatus[$index] = 'error';
+            \Flux::toast("API Key untuk provider {$name} belum diisi!", variant: 'danger');
+            return;
+        }
+
+        try {
+            $nameLower = strtolower($name);
+
+            if (str_contains($nameLower, 'gemini') || empty($name)) {
+                // Test Google Gemini API
+                $candidateModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-3.6-flash'];
+                $response = null;
+                foreach ($candidateModels as $modelName) {
+                    $response = \Illuminate\Support\Facades\Http::post("https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key={$key}", [
+                        'contents' => [
+                            ['role' => 'user', 'parts' => [['text' => 'Tes koneksi API, jawab dengan kata OK']]]
+                        ]
+                    ]);
+                    if ($response->successful()) break;
+                }
+
+                if ($response && $response->successful()) {
+                    $reply = $response->json('candidates.0.content.parts.0.text') ?? 'OK';
+                    $this->aiTestStatus[$index] = 'success';
+                    \Flux::toast("Koneksi {$name} Berhasil! Respons AI: {$reply}", variant: 'success');
+                } else {
+                    $errorDetail = ($response ? $response->json('error.message') : null) ?? 'Gagal menghubungi Gemini API';
+                    $this->aiTestStatus[$index] = 'error';
+                    \Flux::toast("Koneksi {$name} GAGAL: {$errorDetail}", variant: 'danger');
+                }
+            } elseif (str_contains($nameLower, 'openai')) {
+                $response = \Illuminate\Support\Facades\Http::withToken($key)->get('https://api.openai.com/v1/models');
+                if ($response->successful()) {
+                    $this->aiTestStatus[$index] = 'success';
+                    \Flux::toast("Koneksi {$name} Berhasil!", variant: 'success');
+                } else {
+                    $errorDetail = $response->json('error.message') ?? 'Invalid API key';
+                    $this->aiTestStatus[$index] = 'error';
+                    \Flux::toast("Koneksi {$name} GAGAL: {$errorDetail}", variant: 'danger');
+                }
+            } elseif (str_contains($nameLower, 'anthropic') || str_contains($nameLower, 'claude')) {
+                $candidateClaudeModels = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-5-20250929', 'claude-sonnet-4-6', 'claude-sonnet-5', 'claude-3-5-haiku-20241022'];
+                $response = null;
+                foreach ($candidateClaudeModels as $modelName) {
+                    $response = \Illuminate\Support\Facades\Http::withoutVerifying()->withHeaders([
+                        'x-api-key' => $key,
+                        'anthropic-version' => '2023-06-01',
+                        'content-type' => 'application/json'
+                    ])->post('https://api.anthropic.com/v1/messages', [
+                        'model' => $modelName,
+                        'max_tokens' => 20,
+                        'messages' => [['role' => 'user', 'content' => 'hi']]
+                    ]);
+
+                    if ($response->successful()) break;
+                }
+
+                if ($response && $response->successful()) {
+                    $this->aiTestStatus[$index] = 'success';
+                    \Flux::toast("Koneksi {$name} Berhasil!", variant: 'success');
+                } else {
+                    $errorDetail = ($response ? $response->json('error.message') : null) ?? 'Invalid API key / model';
+                    $this->aiTestStatus[$index] = 'error';
+                    \Flux::toast("Koneksi {$name} GAGAL: {$errorDetail}", variant: 'danger');
+                }
+            } else {
+                $this->aiTestStatus[$index] = 'success';
+                \Flux::toast("Format API Key {$name} tersimpan.", variant: 'success');
+            }
+        } catch (\Exception $e) {
+            $this->aiTestStatus[$index] = 'error';
+            \Flux::toast("Koneksi {$name} Error: " . $e->getMessage(), variant: 'danger');
+        }
+    }
+
     public function addAiProvider() {
         $this->aiProviders[] = ['name' => '', 'key' => ''];
     }
@@ -205,21 +290,36 @@ new class extends Component {
         <div class="space-y-4">
             <flux:heading size="lg">AI Assistant (Kredensial Model)</flux:heading>
             <flux:subheading>
-                Tambahkan atau kurangi provider AI sesuai kebutuhan Anda. Anda bisa memilih model mana yang akan digunakan langsung dari antarmuka Chat AI nantinya.
+                Tambahkan provider AI sesuai kebutuhan Anda. Dapatkan API Key secara gratis dari: 
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-600 dark:text-indigo-400 underline font-medium hover:text-indigo-500">Google AI Studio (Gemini)</a>, 
+                <a href="https://platform.openai.com/api-keys" target="_blank" class="text-indigo-600 dark:text-indigo-400 underline font-medium hover:text-indigo-500">OpenAI API Keys</a>, atau 
+                <a href="https://console.anthropic.com/settings/keys" target="_blank" class="text-indigo-600 dark:text-indigo-400 underline font-medium hover:text-indigo-500">Anthropic Console (Claude)</a>.
             </flux:subheading>
 
             <flux:switch wire:model="enableAiChat" label="Tampilkan Chat AI" description="Tampilkan atau sembunyikan fitur asisten Chat AI di antarmuka aplikasi." class="mb-4" />
 
             <div class="space-y-4">
                 @foreach($aiProviders as $index => $provider)
-                    <div class="flex items-start gap-4">
-                        <div class="flex-1">
-                            <flux:input wire:model="aiProviders.{{ $index }}.name" placeholder="Nama Provider (Misal: OpenAI)" />
+                    <div class="flex items-center gap-3">
+                        <div class="w-1/3">
+                            <flux:input wire:model="aiProviders.{{ $index }}.name" placeholder="Nama Provider (Misal: Gemini)" />
                         </div>
                         <div class="flex-1">
                             <flux:input wire:model="aiProviders.{{ $index }}.key" type="password" placeholder="API Key" />
                         </div>
-                        <flux:button variant="danger" icon="trash" wire:click="removeAiProvider({{ $index }})" class="mt-1" />
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <flux:button 
+                                variant="outline" 
+                                icon="bolt" 
+                                size="sm"
+                                wire:click="testAiProvider({{ $index }})" 
+                                wire:loading.attr="disabled"
+                                title="Tes Koneksi API"
+                            >
+                                Tes Koneksi
+                            </flux:button>
+                            <flux:button variant="danger" icon="trash" size="sm" wire:click="removeAiProvider({{ $index }})" />
+                        </div>
                     </div>
                 @endforeach
             </div>

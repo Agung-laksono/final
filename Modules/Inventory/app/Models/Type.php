@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Type extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Traits\SearchableAiKnowledge;
 
     // Membuka semua kolom agar bisa diisi (Mass Assignment), kecuali kolom ID
     protected $guarded = ['id'];
