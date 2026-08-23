@@ -171,12 +171,25 @@ class FonnteWebhookController extends Controller
             if (!$isFromMe && $messageType === 'text') {
                 $cleanText = trim($messageText);
                 $isAiAutoReply = \App\Models\Setting::where('key', 'wa_ai_bot_auto_reply')->value('value') === 'true';
-                $isAiPrefix = (bool) preg_match('/^(\/ai|@ai|tanya ai|ai\s)/i', $cleanText);
+                $isAiPrefix = (bool) preg_match('/^(\/ai|@ai|\/claude|@claude|\/openai|@openai|\/gpt|@gpt|\/gemini|@gemini|tanya ai|ai\s)/i', $cleanText);
 
                 if ($isAiAutoReply || $isAiPrefix) {
-                    $promptToAi = preg_replace('/^(\/ai|@ai|tanya ai|ai\s)\s*/i', '', $cleanText);
+                    $requestedProvider = null;
+                    if (preg_match('/^(\/claude|@claude)/i', $cleanText)) {
+                        $requestedProvider = 'Anthropic';
+                        $promptToAi = preg_replace('/^(\/claude|@claude)\s*/i', '', $cleanText);
+                    } elseif (preg_match('/^(\/openai|@openai|\/gpt|@gpt)/i', $cleanText)) {
+                        $requestedProvider = 'OpenAI';
+                        $promptToAi = preg_replace('/^(\/openai|@openai|\/gpt|@gpt)\s*/i', '', $cleanText);
+                    } elseif (preg_match('/^(\/gemini|@gemini)/i', $cleanText)) {
+                        $requestedProvider = 'Gemini';
+                        $promptToAi = preg_replace('/^(\/gemini|@gemini)\s*/i', '', $cleanText);
+                    } else {
+                        $promptToAi = preg_replace('/^(\/ai|@ai|tanya ai|ai\s)\s*/i', '', $cleanText);
+                    }
+
                     if (!empty(trim($promptToAi))) {
-                        app(\App\Services\WhatsAppAiBotService::class)->processAndReply($phoneNumber, $promptToAi, $conversation);
+                        app(\App\Services\WhatsAppAiBotService::class)->processAndReply($phoneNumber, $promptToAi, $conversation, $requestedProvider);
                     }
                 }
             }

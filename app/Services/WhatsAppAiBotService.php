@@ -14,7 +14,7 @@ class WhatsAppAiBotService
     /**
      * Process incoming WhatsApp prompt and reply with AI Assistant answer.
      */
-    public function processAndReply(string $phoneNumber, string $promptText, WaConversation $conversation = null): ?string
+    public function processAndReply(string $phoneNumber, string $promptText, WaConversation $conversation = null, ?string $requestedProvider = null): ?string
     {
         try {
             // 1. Identify User by Phone Number
@@ -126,24 +126,37 @@ Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
 - Berikan jawaban yang ringkas, jelas, padat, dan ramah.
 - Gunakan DOUBLE ENTER untuk memisahkan poin/paragraf.";
 
-            // 4. Generate AI Reply
+            // 4. Generate AI Reply with Requested Provider Priority
             $aiProvidersJson = Setting::where('key', 'ai_providers')->value('value');
             $providers = $aiProvidersJson ? json_decode($aiProvidersJson, true) : [];
-            $apiKey = null;
-            $providerName = 'Gemini';
+            
+            $targetProviderName = $requestedProvider ?: (Setting::where('key', 'active_ai_provider')->value('value') ?? 'Anthropic');
 
+            usort($providers, function($a, $b) use ($targetProviderName) {
+                $aName = strtolower($a['name'] ?? '');
+                $bName = strtolower($b['name'] ?? '');
+                $target = strtolower($targetProviderName);
+
+                if (str_contains($aName, $target) || str_contains($target, $aName)) return -1;
+                if (str_contains($bName, $target) || str_contains($target, $bName)) return 1;
+                return 0;
+            });
+
+            $replyText = null;
             foreach ($providers as $p) {
-                if (!empty(trim($p['key'] ?? ''))) {
-                    $providerName = trim($p['name'] ?? 'Gemini');
-                    $apiKey = trim($p['key']);
-                    break;
+                $pKey = trim($p['key'] ?? '');
+                $pName = trim($p['name'] ?? '');
+                if (!empty($pKey)) {
+                    $resText = $this->callAiApi($pName, $pKey, $systemInstruction, $promptText, $contextText);
+                    if (!empty($resText) && !str_contains(strtolower($resText), 'gagal')) {
+                        $replyText = $resText;
+                        break;
+                    }
                 }
             }
 
-            if (!$apiKey) {
-                $replyText = "Mohon maaf, API Key AI Assistant belum dikonfigurasi oleh administrator ERP.";
-            } else {
-                $replyText = $this->callAiApi($providerName, $apiKey, $systemInstruction, $promptText, $contextText);
+            if (empty($replyText) || str_contains(strtolower($replyText), 'gagal')) {
+                $replyText = "Mohon maaf, terjadi kendala koneksi ke server AI Assistant. Mohon pastikan API Key provider diisi pada Pengaturan Integrasi.";
             }
 
             // 5. Send Response via Fonnte API
