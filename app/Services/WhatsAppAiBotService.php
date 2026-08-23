@@ -204,17 +204,29 @@ Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
             ]);
             return $res->json('choices.0.message.content') ?? 'Gagal memproses OpenAI.';
         } elseif (str_contains($nameLower, 'anthropic') || str_contains($nameLower, 'claude')) {
-            $res = Http::withoutVerifying()->withHeaders([
-                'x-api-key' => $apiKey,
-                'anthropic-version' => '2023-06-01',
-                'content-type' => 'application/json'
-            ])->post('https://api.anthropic.com/v1/messages', [
-                'model' => 'claude-3-5-haiku-20241022',
-                'max_tokens' => 1000,
-                'system' => $systemInstruction,
-                'messages' => [['role' => 'user', 'content' => $promptText . $contextText]]
-            ]);
-            return $res->json('content.0.text') ?? 'Gagal memproses AI Claude.';
+            $candidateClaudeModels = ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307', 'claude-3-sonnet-20240229'];
+            $res = null;
+            foreach ($candidateClaudeModels as $modelName) {
+                $res = Http::withoutVerifying()->withHeaders([
+                    'x-api-key' => $apiKey,
+                    'anthropic-version' => '2023-06-01',
+                    'content-type' => 'application/json'
+                ])->post('https://api.anthropic.com/v1/messages', [
+                    'model' => $modelName,
+                    'max_tokens' => 1000,
+                    'system' => $systemInstruction,
+                    'messages' => [['role' => 'user', 'content' => $promptText . $contextText]]
+                ]);
+
+                if ($res && $res->successful() && !empty($res->json('content.0.text'))) {
+                    return $res->json('content.0.text');
+                }
+            }
+
+            if ($res) {
+                Log::error("WhatsApp Claude AI Error: " . json_encode($res->json()));
+            }
+            return 'Gagal memproses AI Claude.';
         } else {
             // Default Gemini API with Candidate Fallback & withoutVerifying
             $payload = [
@@ -224,7 +236,7 @@ Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
                 ]
             ];
 
-            $candidateModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-3.6-flash'];
+            $candidateModels = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
             $res = null;
 
             foreach ($candidateModels as $modelName) {
@@ -238,10 +250,10 @@ Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
             }
 
             if ($res) {
-                Log::error("WhatsApp Gemini AI Error: " . $res->body());
+                Log::error("WhatsApp Gemini AI Error: " . json_encode($res->json()));
             }
 
-            return 'Gagal memproses AI Gemini. Mohon cek API Key di menu Settings Integrasi.';
+            return 'Gagal memproses AI Gemini.';
         }
     }
 }
