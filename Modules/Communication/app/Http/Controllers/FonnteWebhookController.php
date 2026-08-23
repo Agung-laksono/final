@@ -167,12 +167,13 @@ class FonnteWebhookController extends Controller
             broadcast(new \Modules\Communication\Events\NewWhatsAppMessage($waMessage))->toOthers();
 
             // 4. Trigger Auto-Reply ROMLAH AI Assistant via WhatsApp
-            if (!$isFromMe && $messageType === 'text') {
+            if ($messageType === 'text') {
                 $cleanText = trim($messageText);
                 $isAiAutoReply = \App\Models\Setting::where('key', 'wa_ai_bot_auto_reply')->value('value') === 'true';
                 $isAiPrefix = (bool) preg_match('/^(\/ai|@ai|\/claude|@claude|\/openai|@openai|\/gpt|@gpt|\/gemini|@gemini|tanya ai|ai\s)/i', $cleanText);
 
-                if ($isAiAutoReply || $isAiPrefix) {
+                // Mengizinkan pesan diproses jika menggunakan perintah prefix (/ai, /claude, dll) meskipun dari nomor HP sendiri (Self-Chat / Catatan Diri)
+                if ($isAiPrefix || ($isAiAutoReply && !$isFromMe)) {
                     $requestedProvider = null;
                     if (preg_match('/^(\/claude|@claude)/i', $cleanText)) {
                         $requestedProvider = 'Anthropic';
