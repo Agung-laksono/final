@@ -37,11 +37,11 @@ try {
         $scheduleWa = Schedule::command('app:send-executive-report');
         
         if ($frequencyWa === 'daily') {
-            $scheduleWa->dailyAt($timeWa)->withoutOverlapping();
+            $scheduleWa->dailyAt($timeWa)->timezone('Asia/Jakarta')->withoutOverlapping();
         } elseif ($frequencyWa === 'weekly') {
-            $scheduleWa->weekly()->at($timeWa)->withoutOverlapping();
+            $scheduleWa->weekly()->at($timeWa)->timezone('Asia/Jakarta')->withoutOverlapping();
         } elseif ($frequencyWa === 'monthly') {
-            $scheduleWa->monthly()->at($timeWa)->withoutOverlapping();
+            $scheduleWa->monthly()->at($timeWa)->timezone('Asia/Jakarta')->withoutOverlapping();
         }
     }
 } catch (\Exception $e) {

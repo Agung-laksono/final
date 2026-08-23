@@ -523,7 +523,7 @@ new class extends Component {
                             </flux:select>
                         </div>
                         <div>
-                            <flux:input wire:model="waReportTime" type="time" label="Waktu Pengiriman (WIB)" placeholder="23:59" description="Jadwal pengiriman pesan WA." />
+                            <flux:input wire:model="waReportTime" type="time" step="60" label="Waktu Pengiriman (24 Jam - WIB)" placeholder="23:59" description="Format 24 Jam WIB (Contoh: 23:59)." />
                         </div>
                         <div>
                             <flux:input 
