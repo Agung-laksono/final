@@ -60,9 +60,17 @@ new class extends Component {
     }
 
     public function sendTestWaReport() {
+        if (empty(trim($this->waReportRecipients))) {
+            \Flux::toast('Harap masukkan nomor WA penerima terlebih dahulu!', variant: 'danger');
+            return;
+        }
+
         try {
-            \Illuminate\Support\Facades\Artisan::call('app:send-executive-report');
-            \Flux::toast('Laporan Eksekutif WA Berhasil Dikirim ke Nomor WhatsApp!', variant: 'success');
+            $this->save();
+            \Illuminate\Support\Facades\Artisan::call('app:send-executive-report', [
+                '--target' => trim($this->waReportRecipients)
+            ]);
+            \Flux::toast('Laporan Eksekutif WA Berhasil Dikirim ke nomor: ' . $this->waReportRecipients, variant: 'success');
         } catch (\Exception $e) {
             \Flux::toast('Gagal mengirim Laporan WA: ' . $e->getMessage(), variant: 'danger');
         }
