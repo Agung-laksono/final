@@ -261,12 +261,12 @@ class KnowledgeFormatter
 
     protected static function formatFinanceAccount(Model $acc): string
     {
-        $balance = 'Rp ' . number_format($acc->balance ?? 0, 0, ',', '.');
+        $balance = 'Rp ' . number_format($acc->current_balance ?? ($acc->balance ?? 0), 0, ',', '.');
         $status = ($acc->is_active ?? 1) ? 'Aktif' : 'Non-Aktif';
         $accNumber = $acc->account_number ? " No. Rekening: {$acc->account_number}." : "";
 
         return "Rekening & Akun Kas Keuangan: {$acc->name}. Jenis: {$acc->type}.{$accNumber} " .
-               "Saldo Kas Saat Ini: {$balance}. Status Rekening: {$status}.";
+               "Saldo Kas Saat Ini (Current Balance): {$balance}. Status Rekening: {$status}.";
     }
 
     protected static function formatProductionOrder(Model $po): string
