@@ -83,8 +83,8 @@ class FonnteWebhookController extends Controller
                 }
             }
             
-            // Jika pesan ini memang hanya berisi update status/state, hentikan di sini
-            if ($status || $state) {
+            // Jika pesan ini memang HANYA berisi update status/state TANPA teks pesan, hentikan di sini
+            if (($status || $state) && !$request->has('pesan') && !$request->has('message')) {
                 return response()->json(['status' => 'success (status update)'], 200);
             }
         }
@@ -100,9 +100,8 @@ class FonnteWebhookController extends Controller
         $isFromMe = false;
         $phoneNumber = preg_replace('/[^0-9]/', '', $sender);
         
-        // Deteksi apakah pesan dikirim oleh staff dari HP (Outgoing Message dari Device)
-        // Fonnte menggunakan flag "quick" = true jika pesan ditangkap oleh fitur Quick Reply (balasan dari HP sendiri)
-        if ($request->boolean('fromMe') || $request->boolean('is_from_me') || $request->boolean('isfromme') || $request->boolean('quick')) {
+        // Deteksi apakah pesan dikirim oleh device HP kita sendiri
+        if ($request->boolean('fromMe') || $request->boolean('is_from_me') || $request->boolean('isfromme')) {
             $isFromMe = true;
         } elseif ($pengirim && $deviceNumber && $pengirim === $deviceNumber) {
             $isFromMe = true; // Pengirim adalah nomor device kita sendiri

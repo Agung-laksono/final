@@ -585,16 +585,32 @@ new class extends Component {
                     <flux:switch wire:model.live="waAiBotAutoReply" label="Auto-Reply Semua Pesan WA" />
                 </div>
 
-                <div class="pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-xs text-zinc-600 dark:text-zinc-400 space-y-2">
-                    <p class="font-semibold text-zinc-800 dark:text-zinc-200">📌 Cara Mengakses AI dari WhatsApp HP Anda:</p>
-                    <ul class="list-disc list-inside space-y-1 pl-1 text-[11px]">
-                        <li><b>Mode Perintah Prefix:</b> Kirim WA ke nomor perusahaan diawali <code class="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.5 rounded text-indigo-700 dark:text-indigo-300">/ai</code> atau <code class="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.5 rounded text-indigo-700 dark:text-indigo-300">@ai</code> (Contoh: <code class="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded">/ai Berapa total saldo kas hari ini?</code>).</li>
-                        <li><b>Mode Auto-Reply 24/7:</b> Jika saklar di atas diaktifkan (ON), AI akan membalas seluruh pesan WA yang masuk secara otomatis.</li>
-                        <li><b>Keamanan Hak Akses Spatie:</b> Jawaban AI di WhatsApp 100% mematuhi hak akses Spatie Permission dari nomor HP staf yang terdaftar.</li>
-                    </ul>
-                    <div class="mt-2 p-2 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-                        <span class="text-[10px] font-mono text-zinc-500">URL Webhook Fonnte: {{ url('/api/fonnte/webhook') }}</span>
-                        <span class="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 font-bold px-2 py-0.5 rounded">Aktif</span>
+                <div class="pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-xs text-zinc-600 dark:text-zinc-400 space-y-3">
+                    <p class="font-semibold text-zinc-800 dark:text-zinc-200">📌 Panduan Lengkap Penggunaan WhatsApp AI & Fonnte Webhook:</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                        <div class="bg-white dark:bg-zinc-900 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50 space-y-1">
+                            <span class="font-bold text-indigo-700 dark:text-indigo-300">1. Perintah Pilih Mesin AI (WhatsApp Prefix):</span>
+                            <ul class="list-disc list-inside space-y-0.5 text-zinc-600 dark:text-zinc-400">
+                                <li><code class="bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 px-1 py-0.5 rounded font-mono">/claude [pertanyaan]</code> : Tanya via Anthropic Claude 3.5</li>
+                                <li><code class="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-1 py-0.5 rounded font-mono">/openai [pertanyaan]</code> : Tanya via OpenAI GPT-4o Mini</li>
+                                <li><code class="bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 px-1 py-0.5 rounded font-mono">/gemini [pertanyaan]</code> : Tanya via Google Gemini 2.0</li>
+                                <li><code class="bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-1 py-0.5 rounded font-mono">/ai [pertanyaan]</code> : Mode standar AI Assistant</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-white dark:bg-zinc-900 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50 space-y-1">
+                            <span class="font-bold text-indigo-700 dark:text-indigo-300">2. Keamanan & Hak Akses Pengguna:</span>
+                            <p class="text-zinc-600 dark:text-zinc-400">Pastikan nomor WhatsApp pengguna terdaftar di menu <a href="{{ route('settings.users') }}" class="text-indigo-600 dark:text-indigo-400 underline">Pengaturan > Pengguna</a>. Jawaban AI otomatis mematuhi hak akses Spatie Role pengguna tersebut.</p>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-indigo-100/60 dark:bg-indigo-950/80 rounded-xl border border-indigo-200 dark:border-indigo-800 space-y-1">
+                        <span class="font-bold text-indigo-950 dark:text-indigo-200">⚙️ URL Webhook Resmi Fonnte (Masukkan ke Dashboard Fonnte):</span>
+                        <div class="flex items-center justify-between bg-white dark:bg-zinc-900 p-2 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                            <code class="text-[11px] font-mono text-indigo-700 dark:text-indigo-300 font-bold select-all">{{ url('/api/fonnte/webhook') }}</code>
+                            <span class="text-[10px] bg-emerald-500 text-white font-bold px-2 py-0.5 rounded">URL Aktif</span>
+                        </div>
                     </div>
                 </div>
             </div>
