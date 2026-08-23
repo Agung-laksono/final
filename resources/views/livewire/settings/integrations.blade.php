@@ -23,6 +23,35 @@ new class extends Component {
 
     public $beamsTestStatus = null;
     public $channelsTestStatus = null;
+    public $fonnteTestStatus = null;
+
+    public function testFonnte() {
+        if (empty(trim($this->fonnteToken))) {
+            $this->fonnteTestStatus = 'error';
+            \Flux::toast('Fonnte API Token belum diisi!', variant: 'danger');
+            return;
+        }
+
+        try {
+            $res = \Illuminate\Support\Facades\Http::withoutVerifying()->withHeaders([
+                'Authorization' => trim($this->fonnteToken)
+            ])->post('https://api.fonnte.com/device');
+
+            if ($res->successful() && $res->json('status')) {
+                $this->fonnteTestStatus = 'success';
+                $device = $res->json('name') ?? ($res->json('device') ?? 'Terkoneksi');
+                $quota = $res->json('quota') ?? '-';
+                \Flux::toast("Koneksi Fonnte WA Berhasil! Device: {$device}, Quota: {$quota}", variant: 'success');
+            } else {
+                $err = $res->json('reason') ?? 'Token Fonnte tidak valid atau Device Disconnected';
+                $this->fonnteTestStatus = 'error';
+                \Flux::toast("Koneksi Fonnte Gagal: {$err}", variant: 'danger');
+            }
+        } catch (\Exception $e) {
+            $this->fonnteTestStatus = 'error';
+            \Flux::toast('Fonnte Test Error: ' . $e->getMessage(), variant: 'danger');
+        }
+    }
 
     public function mount() {
         $this->clarityId = Setting::where('key', 'clarity_id')->value('value') ?? '';
@@ -439,6 +468,14 @@ new class extends Component {
                 placeholder="Masukkan Token Fonnte..." 
                 description="Token ini didapatkan dari dashboard Fonnte Anda."
             />
+
+            <div class="mt-2" x-data="{ status: $wire.entangle('fonnteTestStatus') }" x-init="$watch('status', value => { if (value) setTimeout(() => status = null, 4000) })">
+                <flux:button wire:click="testFonnte" 
+                             x-bind:class="status === 'success' ? '!bg-green-500 !text-white !border-green-500 hover:!bg-green-600' : (status === 'error' ? '!bg-red-500 !text-white !border-red-500 hover:!bg-red-600' : '')"
+                             variant="outline" icon="bolt" size="sm" wire:loading.attr="disabled">
+                    <span x-text="status === 'success' ? 'Perangkat WA Terkoneksi!' : (status === 'error' ? 'Gagal Terkoneksi!' : 'Test Koneksi Device Fonnte')"></span>
+                </flux:button>
+            </div>
         </div>
 
         <flux:separator />

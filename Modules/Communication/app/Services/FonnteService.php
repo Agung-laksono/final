@@ -12,7 +12,10 @@ class FonnteService
 
     public function __construct()
     {
-        $this->token = config('services.fonnte.token') ?? env('FONNTE_TOKEN', '');
+        $dbToken = \App\Models\Setting::where('key', 'fonnte_token')->value('value');
+        $this->token = !empty(trim($dbToken ?? '')) 
+            ? trim($dbToken) 
+            : (config('services.fonnte.token') ?? env('FONNTE_TOKEN', ''));
     }
 
     /**
