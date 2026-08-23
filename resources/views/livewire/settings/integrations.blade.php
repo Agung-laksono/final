@@ -133,6 +133,16 @@ new class extends Component {
         $this->aiProviders[] = ['name' => '', 'key' => ''];
     }
 
+    public function reindexKnowledgeBase() {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('ai:index', ['model_class' => 'all']);
+            $count = \App\Models\AiKnowledgeBase::count();
+            \Flux::toast("Indeks Data RAG AI Berhasil! Total {$count} data ERP telah terindeks.", variant: 'success');
+        } catch (\Exception $e) {
+            \Flux::toast('Gagal melakukan indeks RAG: ' . $e->getMessage(), variant: 'danger');
+        }
+    }
+
     public function removeAiProvider($index) {
         unset($this->aiProviders[$index]);
         $this->aiProviders = array_values($this->aiProviders);
@@ -324,7 +334,25 @@ new class extends Component {
                 @endforeach
             </div>
 
-            <flux:button variant="subtle" icon="plus" wire:click="addAiProvider">Tambah Provider AI</flux:button>
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <flux:button variant="subtle" icon="plus" wire:click="addAiProvider">Tambah Provider AI</flux:button>
+            </div>
+
+            {{-- RAG Knowledge Base Sync Section --}}
+            <div class="mt-4 p-4 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                    <h5 class="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                        <flux:icon.cpu-chip class="w-4 h-4 text-indigo-500" /> Basis Pengetahuan RAG (Retrieval-Augmented Generation)
+                    </h5>
+                    <p class="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5">
+                        Klik tombol ini untuk mengindeks seluruh data lama (Barang, Sales Order, Purchase Order, Keuangan, Customer, Supplier) agar AI dapat langsung membaca dan menjawab data transaksi bisnis Anda.
+                    </p>
+                </div>
+                <flux:button variant="primary" icon="arrow-path" size="sm" wire:click="reindexKnowledgeBase" wire:loading.attr="disabled" class="shrink-0">
+                    <span wire:loading.remove wire:target="reindexKnowledgeBase">Indeks Data RAG Sekarang</span>
+                    <span wire:loading wire:target="reindexKnowledgeBase">Mengindeks Data...</span>
+                </flux:button>
+            </div>
         </div>
         
         <flux:separator />
