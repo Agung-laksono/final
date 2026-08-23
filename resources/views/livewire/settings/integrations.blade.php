@@ -15,6 +15,8 @@ new class extends Component {
     public $pusherCluster = '';
     public $fonnteToken = '';
     public $aiProviders = [];
+    public $aiAssistantName = 'ROMLAH Asisten';
+    public $aiCustomInstruction = '';
     public $gudangHandlesShipping = false;
     public $enableAiChat = false;
     public $enablePusherSound = true;
@@ -31,6 +33,8 @@ new class extends Component {
         $this->pusherSecret = Setting::where('key', 'pusher_secret')->value('value') ?? '';
         $this->pusherCluster = Setting::where('key', 'pusher_cluster')->value('value') ?? '';
         $this->fonnteToken = Setting::where('key', 'fonnte_token')->value('value') ?? '';
+        $this->aiAssistantName = Setting::where('key', 'ai_assistant_name')->value('value') ?? 'ROMLAH Asisten';
+        $this->aiCustomInstruction = Setting::where('key', 'ai_custom_instruction')->value('value') ?? '';
         
         $aiProvidersJson = Setting::where('key', 'ai_providers')->value('value');
         $this->aiProviders = $aiProvidersJson ? json_decode($aiProvidersJson, true) : [
@@ -158,6 +162,8 @@ new class extends Component {
             'pusher_secret' => $this->pusherSecret,
             'pusher_cluster' => $this->pusherCluster,
             'fonnte_token' => $this->fonnteToken,
+            'ai_assistant_name' => $this->aiAssistantName ?: 'ROMLAH Asisten',
+            'ai_custom_instruction' => $this->aiCustomInstruction,
             'ai_providers' => json_encode($this->aiProviders),
         ];
 
@@ -307,6 +313,37 @@ new class extends Component {
             </flux:subheading>
 
             <flux:switch wire:model="enableAiChat" label="Tampilkan Chat AI" description="Tampilkan atau sembunyikan fitur asisten Chat AI di antarmuka aplikasi." class="mb-4" />
+
+            <!-- Profil & Personalisasi Asisten AI -->
+            <div class="bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-2xl p-5 space-y-4 mb-6">
+                <div class="flex items-center gap-2">
+                    <flux:icon.sparkles class="w-5 h-5 text-indigo-500" />
+                    <flux:heading size="lg">Profil & Personalisasi Asisten AI</flux:heading>
+                </div>
+                <flux:subheading>
+                    Sesuaikan nama panggilan dan instruksi khusus (persona) untuk gaya obrolan & fokus analisis AI perusahaan Anda.
+                </flux:subheading>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <flux:input 
+                            wire:model="aiAssistantName" 
+                            label="Nama Asisten AI" 
+                            placeholder="Contoh: ROMLAH Asisten" 
+                            description="Nama yang tampil pada header widget chat."
+                        />
+                    </div>
+                    <div class="md:col-span-2">
+                        <flux:textarea 
+                            wire:model="aiCustomInstruction" 
+                            label="Instruksi Khusus / Gaya Bahasa AI (Opsional)" 
+                            placeholder="Contoh: Kamu adalah asisten resmi PT. Romlah Jaya. Berikan jawaban yang ramah, sopan, dan utamakan analisis stok minimum serta piutang." 
+                            description="Petunjuk khusus kepribadian, gaya obrolan, dan fokus analisis AI."
+                            rows="2"
+                        />
+                    </div>
+                </div>
+            </div>
 
             <div class="space-y-4">
                 @foreach($aiProviders as $index => $provider)

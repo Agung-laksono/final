@@ -14,6 +14,8 @@ new class extends Component
     public bool $isTyping = false;
     public string $selectedProvider = '';
     public array $configuredProviders = [];
+    public string $assistantName = 'ROMLAH Asisten';
+    public string $customInstruction = '';
 
     public function mount()
     {
@@ -23,6 +25,8 @@ new class extends Component
             unset($msg['is_new']);
             return $msg;
         }, $history);
+        $this->assistantName = Setting::where('key', 'ai_assistant_name')->value('value') ?? 'ROMLAH Asisten';
+        $this->customInstruction = Setting::where('key', 'ai_custom_instruction')->value('value') ?? '';
         $this->loadProviders();
     }
 
@@ -170,12 +174,17 @@ new class extends Component
             }
         }
 
-        $systemInstruction = "Kamu adalah ROMLAH Asisten, AI Pintar Resmi terintegrasi dalam sistem ERP perusahaan.
+        $assistantName = $this->assistantName ?: 'ROMLAH Asisten';
+        $personaPrompt = !empty(trim($this->customInstruction)) 
+            ? "\nPetunjuk Khusus Persona & Gaya Bahasa:\n" . trim($this->customInstruction) . "\n"
+            : "";
+
+        $systemInstruction = "Kamu adalah {$assistantName}, AI Pintar Resmi terintegrasi dalam sistem ERP perusahaan.
 Pengguna yang sedang berinteraksi dan berbicara denganmu saat ini adalah:
 - Nama Lengkap: {$userName}
 - Email: {$userEmail}
 - Peran/Jabatan: {$userRole}
-
+{$personaPrompt}
 Tugas utamamu adalah membantu {$userName} menjawab pertanyaan seputar operasional bisnis, stok barang, penjualan (Sales Order), pembelian (Purchase Order), produksi, keuangan, pelanggan, dan vendor berdasarkan DATA INTERNAL ERP di atas secara tepat, akurat, profesional, dan ramah.
 
 Gaya Penulisan yang WAJIB dipatuhi:
@@ -543,7 +552,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
             {{-- Nama & Provider Selector --}}
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1">
-                    <span class="font-bold text-[13px] text-zinc-900 dark:text-white truncate">ROMLAH Asisten</span>
+                    <span class="font-bold text-[13px] text-zinc-900 dark:text-white truncate">{{ $assistantName }}</span>
                 </div>
                 @if(count($configuredProviders) > 0)
                     <div class="relative inline-block mt-0.5">
