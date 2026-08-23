@@ -98,6 +98,31 @@ class WhatsAppAiBotService
                 // Ignore RAG search errors
             }
 
+            // 2.5 Fetch Recent Chat History for Multi-Turn Conversational Intelligence
+            $chatHistoryText = "";
+            if (!$conversation) {
+                $conversation = WaConversation::where('phone_number', $phoneNumber)->first();
+            }
+
+            if ($conversation) {
+                $recentMessages = $conversation->messages()
+                    ->latest('id')
+                    ->take(6)
+                    ->get()
+                    ->reverse();
+
+                if ($recentMessages->count() > 0) {
+                    $chatHistoryText = "\n\n[RIWAYAT OBROLAN WHATSAPP SEBELUMNYA WITH USER]:\n";
+                    foreach ($recentMessages as $m) {
+                        $role = $m->direction === 'out' ? 'ROMLAH Asisten' : $userName;
+                        $msgText = trim(str_replace('> _Sent via fonnte.com_', '', $m->message));
+                        if (!empty($msgText)) {
+                            $chatHistoryText .= "- {$role}: {$msgText}\n";
+                        }
+                    }
+                }
+            }
+
             // 3. Load Active Provider and System Instructions
             $assistantName = Setting::where('key', 'ai_assistant_name')->value('value') ?? 'ROMLAH Asisten';
             $customInstruction = Setting::where('key', 'ai_custom_instruction')->value('value') ?? '';
@@ -118,8 +143,8 @@ class WhatsAppAiBotService
 Pengguna WhatsApp yang sedang mengobrol denganmu saat ini:
 - Nama Lengkap: {$userName}
 - Peran/Jabatan: {$userRole}
-{$personaPrompt}{$securityGuardrail}
-Tugas utamamu adalah membantu {$userName} menjawab pertanyaan seputar operasional bisnis, stok barang, penjualan, pembelian, produksi, keuangan, atau informasi produk berdasarkan DATA INTERNAL ERP di atas.
+{$personaPrompt}{$securityGuardrail}{$chatHistoryText}
+Tugas utamamu adalah membantu {$userName} menjawab pertanyaan seputar operasional bisnis, stok barang, penjualan, pembelian, produksi, keuangan, atau informasi produk berdasarkan DATA INTERNAL ERP di atas dan RIWAYAT OBROLAN SEBELUMNYA.
 
 Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
 - Format jawaban dengan cetak tebal (*kata*) untuk penekanan khas WhatsApp.
