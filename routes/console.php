@@ -27,6 +27,23 @@ try {
             $schedule->monthly()->at($time)->withoutOverlapping();
         }
     }
+
+    // Mendaftarkan jadwal Laporan Eksekutif WA Otomatis
+    $waReportEnabled = Setting::where('key', 'wa_report_enabled')->value('value') === 'true';
+    if ($waReportEnabled) {
+        $frequencyWa = Setting::where('key', 'wa_report_frequency')->value('value') ?? 'daily';
+        $timeWa = Setting::where('key', 'wa_report_time')->value('value') ?? '23:59';
+        
+        $scheduleWa = Schedule::command('app:send-executive-report');
+        
+        if ($frequencyWa === 'daily') {
+            $scheduleWa->dailyAt($timeWa)->withoutOverlapping();
+        } elseif ($frequencyWa === 'weekly') {
+            $scheduleWa->weekly()->at($timeWa)->withoutOverlapping();
+        } elseif ($frequencyWa === 'monthly') {
+            $scheduleWa->monthly()->at($timeWa)->withoutOverlapping();
+        }
+    }
 } catch (\Exception $e) {
     // Abaikan jika migrasi/database belum siap
 }

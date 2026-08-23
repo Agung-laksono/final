@@ -21,6 +21,11 @@ new class extends Component {
     public $enableAiChat = false;
     public $enablePusherSound = true;
 
+    public $waReportEnabled = false;
+    public $waReportFrequency = 'daily';
+    public $waReportTime = '23:59';
+    public $waReportRecipients = '';
+
     public $beamsTestStatus = null;
     public $channelsTestStatus = null;
     public $fonnteTestStatus = null;
@@ -53,6 +58,15 @@ new class extends Component {
         }
     }
 
+    public function sendTestWaReport() {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('app:send-executive-report');
+            \Flux::toast('Laporan Eksekutif WA Berhasil Dikirim ke Nomor WhatsApp!', variant: 'success');
+        } catch (\Exception $e) {
+            \Flux::toast('Gagal mengirim Laporan WA: ' . $e->getMessage(), variant: 'danger');
+        }
+    }
+
     public function mount() {
         $this->clarityId = Setting::where('key', 'clarity_id')->value('value') ?? '';
         $this->beamsInstanceId = Setting::where('key', 'beams_instance_id')->value('value') ?? '';
@@ -64,6 +78,11 @@ new class extends Component {
         $this->fonnteToken = Setting::where('key', 'fonnte_token')->value('value') ?? '';
         $this->aiAssistantName = Setting::where('key', 'ai_assistant_name')->value('value') ?? 'ROMLAH Asisten';
         $this->aiCustomInstruction = Setting::where('key', 'ai_custom_instruction')->value('value') ?? '';
+
+        $this->waReportEnabled = Setting::where('key', 'wa_report_enabled')->value('value') === 'true';
+        $this->waReportFrequency = Setting::where('key', 'wa_report_frequency')->value('value') ?? 'daily';
+        $this->waReportTime = Setting::where('key', 'wa_report_time')->value('value') ?? '23:59';
+        $this->waReportRecipients = Setting::where('key', 'wa_report_recipients')->value('value') ?? '';
         
         $aiProvidersJson = Setting::where('key', 'ai_providers')->value('value');
         $this->aiProviders = $aiProvidersJson ? json_decode($aiProvidersJson, true) : [
@@ -194,6 +213,10 @@ new class extends Component {
             'ai_assistant_name' => $this->aiAssistantName ?: 'ROMLAH Asisten',
             'ai_custom_instruction' => $this->aiCustomInstruction,
             'ai_providers' => json_encode($this->aiProviders),
+            'wa_report_enabled' => $this->waReportEnabled ? 'true' : 'false',
+            'wa_report_frequency' => $this->waReportFrequency,
+            'wa_report_time' => $this->waReportTime,
+            'wa_report_recipients' => $this->waReportRecipients,
         ];
 
         foreach ($settings as $key => $value) {
@@ -475,6 +498,51 @@ new class extends Component {
                              variant="outline" icon="bolt" size="sm" wire:loading.attr="disabled">
                     <span x-text="status === 'success' ? 'Perangkat WA Terkoneksi!' : (status === 'error' ? 'Gagal Terkoneksi!' : 'Test Koneksi Device Fonnte')"></span>
                 </flux:button>
+            </div>
+
+            <!-- Jadwal Laporan Eksekutif WhatsApp Otomatis -->
+            <div class="mt-6 p-5 bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <flux:icon.document-chart-bar class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                        <div>
+                            <h5 class="text-sm font-bold text-emerald-950 dark:text-emerald-200">Laporan Operasional Eksekutif WA Otomatis</h5>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">Kirim rangkuman performa seluruh divisi (Keuangan, Sales, Gudang, Produksi) secara otomatis via WhatsApp.</p>
+                        </div>
+                    </div>
+                    <flux:switch wire:model.live="waReportEnabled" label="Aktifkan Laporan WA" />
+                </div>
+
+                @if($waReportEnabled)
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-emerald-100 dark:border-emerald-900/40">
+                        <div>
+                            <flux:select wire:model="waReportFrequency" label="Frekuensi Pengiriman">
+                                <option value="daily">Harian (Setiap Hari)</option>
+                                <option value="weekly">Mingguan (Setiap Minggu)</option>
+                                <option value="monthly">Bulanan (Setiap Akhir Bulan)</option>
+                            </flux:select>
+                        </div>
+                        <div>
+                            <flux:input wire:model="waReportTime" type="time" label="Waktu Pengiriman (WIB)" placeholder="23:59" description="Jadwal pengiriman pesan WA." />
+                        </div>
+                        <div>
+                            <flux:input 
+                                wire:model="waReportRecipients" 
+                                label="Nomor WA Penerima" 
+                                placeholder="Contoh: 081234567890, 089876543210" 
+                                description="Nomor Owner / Super Admin (pisahkan koma)."
+                            />
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2">
+                        <span class="text-xs text-emerald-700 dark:text-emerald-400 font-medium">💡 Jadwal aktif di server: {{ strtoupper($waReportFrequency) }} Pukul {{ $waReportTime }} WIB</span>
+                        <flux:button variant="subtle" icon="paper-airplane" size="sm" wire:click="sendTestWaReport" wire:loading.attr="disabled">
+                            <span wire:loading.remove wire:target="sendTestWaReport">Kirim Laporan WA Sekarang (Tes)</span>
+                            <span wire:loading wire:target="sendTestWaReport">Sending WA...</span>
+                        </flux:button>
+                    </div>
+                @endif
             </div>
         </div>
 
