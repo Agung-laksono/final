@@ -26,10 +26,49 @@ new class extends Component {
     public $waReportMinute = '59';
     public $waReportRecipients = '';
     public $waAiBotAutoReply = false;
+    public $waAiTestPhone = '';
+    public $waAiTestPrompt = '@claude Berapa total saldo kas hari ini?';
 
     public $beamsTestStatus = null;
     public $channelsTestStatus = null;
     public $fonnteTestStatus = null;
+
+    public function testWaAiBot() {
+        $user = auth()->user();
+        $targetPhone = !empty(trim($this->waAiTestPhone)) 
+            ? trim($this->waAiTestPhone) 
+            : ($user->phone ?? '0895336804591');
+
+        $prompt = !empty(trim($this->waAiTestPrompt)) 
+            ? trim($this->waAiTestPrompt) 
+            : '@claude Berapa total saldo kas hari ini?';
+
+        try {
+            $requestedProvider = null;
+            if (preg_match('/^(\/claude|@claude)/i', $prompt)) {
+                $requestedProvider = 'Anthropic';
+                $promptToAi = preg_replace('/^(\/claude|@claude)\s*/i', '', $prompt);
+            } elseif (preg_match('/^(\/openai|@openai|\/gpt|@gpt)/i', $prompt)) {
+                $requestedProvider = 'OpenAI';
+                $promptToAi = preg_replace('/^(\/openai|@openai|\/gpt|@gpt)\s*/i', '', $prompt);
+            } elseif (preg_match('/^(\/gemini|@gemini)/i', $prompt)) {
+                $requestedProvider = 'Gemini';
+                $promptToAi = preg_replace('/^(\/gemini|@gemini)\s*/i', '', $prompt);
+            } else {
+                $promptToAi = preg_replace('/^(\/ai|@ai|tanya ai|ai\s)\s*/i', '', $prompt);
+            }
+
+            $reply = app(\App\Services\WhatsAppAiBotService::class)->processAndReply($targetPhone, $promptToAi, null, $requestedProvider);
+
+            if (!empty($reply)) {
+                \Flux::toast("Tes WA AI Bot Berhasil! Balasan AI dikirim via WhatsApp ke {$targetPhone}.", variant: 'success');
+            } else {
+                \Flux::toast("Peringatan: Balasan AI kosong. Mohon pastikan API Key provider diisi pada Pengaturan.", variant: 'warning');
+            }
+        } catch (\Exception $e) {
+            \Flux::toast("Gagal Tes WA AI Bot: " . $e->getMessage(), variant: 'danger');
+        }
+    }
 
     public function testFonnte() {
         if (empty(trim($this->fonnteToken))) {
@@ -610,6 +649,35 @@ new class extends Component {
                         <div class="flex items-center justify-between bg-white dark:bg-zinc-900 p-2 rounded-lg border border-indigo-200 dark:border-indigo-800">
                             <code class="text-[11px] font-mono text-indigo-700 dark:text-indigo-300 font-bold select-all">{{ url('/api/fonnte/webhook') }}</code>
                             <span class="text-[10px] bg-emerald-500 text-white font-bold px-2 py-0.5 rounded">URL Aktif</span>
+                        </div>
+                    </div>
+
+                    <!-- Form Tes Simulasi WA AI Bot -->
+                    <div class="pt-3 border-t border-indigo-200/80 dark:border-indigo-900/60 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-indigo-950 dark:text-indigo-200">🧪 Tes Simulasi Kirim WA AI Bot Langsung dari Web:</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <flux:input 
+                                    wire:model="waAiTestPhone" 
+                                    label="Nomor WA Tujuan Tes" 
+                                    placeholder="Contoh: 0895336804591" 
+                                />
+                            </div>
+                            <div class="md:col-span-2">
+                                <flux:input 
+                                    wire:model="waAiTestPrompt" 
+                                    label="Pesan Prompt Tes WA" 
+                                    placeholder="Contoh: @claude Berapa total saldo kas hari ini?" 
+                                />
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <flux:button variant="subtle" icon="paper-airplane" size="sm" wire:click="testWaAiBot" wire:loading.attr="disabled">
+                                <span wire:loading.remove wire:target="testWaAiBot">Kirim Tes Simulasi WA AI Bot</span>
+                                <span wire:loading wire:target="testWaAiBot">Sending WA AI...</span>
+                            </flux:button>
                         </div>
                     </div>
                 </div>
