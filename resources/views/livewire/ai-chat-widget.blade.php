@@ -76,9 +76,31 @@ new class extends Component
         $this->dispatch('trigger-ai-response');
     }
 
+    public function stopAiResponse()
+    {
+        $this->isTyping = false;
+        $this->messages[] = [
+            'role' => 'model',
+            'parts' => [['text' => '🛑 *Proses pembuatan jawaban AI dihentikan oleh pengguna.*']]
+        ];
+
+        $userId = auth()->id() ?? 'guest';
+        $cleanMessages = array_map(function($m) {
+            $clean = $m;
+            unset($clean['is_new']);
+            return $clean;
+        }, $this->messages);
+
+        Cache::put("ai_chat_history_{$userId}", $cleanMessages, now()->addHours(24));
+    }
+
     #[\Livewire\Attributes\On('trigger-ai-response')]
     public function generateAiResponse()
     {
+        if (!$this->isTyping) {
+            return;
+        }
+
         $this->loadProviders();
 
         $lastMessage = end($this->messages);
@@ -581,15 +603,20 @@ Gaya Penulisan yang WAJIB dipatuhi:
                 </div>
 
                 {{-- Input row --}}
-                <form wire:submit="sendMessage" class="flex items-end gap-1.5">
+                <form @submit.prevent="if ($wire.isTyping) { return; } else { $wire.sendMessage() }" class="flex items-end gap-1.5">
                     {{-- Text field --}}
-                    <div class="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-3xl px-3.5 py-2 flex items-end min-h-[36px]">
+                    <div 
+                        class="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-3xl px-3.5 py-2 flex items-end min-h-[36px] transition-all"
+                        :class="{'opacity-50 cursor-not-allowed bg-zinc-200 dark:bg-zinc-800/60': $wire.isTyping}"
+                    >
                         <textarea
                             wire:model="newMessage"
-                            class="w-full bg-transparent !border-none !border-0 !ring-0 !outline-none !shadow-none !p-0 text-[13px] focus:ring-0 focus:border-none focus:outline-none resize-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-500 max-h-[80px] leading-snug"
+                            :disabled="$wire.isTyping"
+                            class="w-full bg-transparent !border-none !border-0 !ring-0 !outline-none !shadow-none !p-0 text-[13px] focus:ring-0 focus:border-none focus:outline-none resize-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-500 max-h-[80px] leading-snug disabled:cursor-not-allowed disabled:opacity-60"
                             style="box-shadow: none;"
-                            placeholder="Ketik pesan..."
+                            :placeholder="$wire.isTyping ? 'AI sedang memproses jawaban...' : 'Ketik pesan...'"
                             rows="1"
+                            @keydown.enter.prevent="if (!$wire.isTyping && $event.target.value.trim() !== '') { $wire.sendMessage(); }"
                             x-data
                             x-init="
                                 $el.style.height = '18px';
@@ -601,14 +628,29 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         ></textarea>
                     </div>
 
-                    {{-- Send button --}}
-                    <button
-                        type="submit"
-                        class="w-9 h-9 shrink-0 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-all shadow-sm disabled:opacity-40"
-                        wire:loading.attr="disabled" wire:target="sendMessage"
-                    >
-                        <flux:icon.paper-airplane class="w-4 h-4" />
-                    </button>
+                    {{-- Dynamic Send vs Stop Button --}}
+                    <template x-if="$wire.isTyping">
+                        <button
+                            type="button"
+                            wire:click="stopAiResponse"
+                            class="w-9 h-9 shrink-0 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center transition-all shadow-md animate-pulse"
+                            title="Hentikan Proses AI"
+                        >
+                            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                            </svg>
+                        </button>
+                    </template>
+
+                    <template x-if="!$wire.isTyping">
+                        <button
+                            type="submit"
+                            class="w-9 h-9 shrink-0 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-all shadow-sm disabled:opacity-40"
+                            :disabled="$wire.newMessage.trim() === ''"
+                        >
+                            <flux:icon.paper-airplane class="w-4 h-4" />
+                        </button>
+                    </template>
                 </form>
             </div>
         </div>
