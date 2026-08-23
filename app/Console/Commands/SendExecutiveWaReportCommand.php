@@ -69,6 +69,7 @@ class SendExecutiveWaReportCommand extends Command
         $totalCashBankBalance = 0;
         $totalArUnpaid = 0;
         $totalApUnpaid = 0;
+        $accountBalances = [];
 
         if (class_exists(\Modules\Finance\Models\FinanceTransaction::class)) {
             try {
@@ -83,34 +84,66 @@ class SendExecutiveWaReportCommand extends Command
 
         if (class_exists(\Modules\Finance\Models\FinanceAccount::class)) {
             try {
-                $totalCashBankBalance = \Modules\Finance\Models\FinanceAccount::where('status', 'active')->sum('current_balance');
+                $accounts = \Modules\Finance\Models\FinanceAccount::where('status', 'active')->get();
+                $totalCashBankBalance = $accounts->sum('current_balance');
+                foreach ($accounts as $acc) {
+                    $accountBalances[] = "  └ *{$acc->name}*: Rp " . number_format($acc->current_balance ?? 0, 0, ',', '.');
+                }
             } catch (\Exception $e) {}
         }
 
         // B. Sales Data
         $salesCountToday = 0;
         $salesOmsetToday = 0;
+        $salesOmsetMonth = 0;
+        $soDraftCount = 0;
+
         if (class_exists(\Modules\Sales\Models\SalesOrder::class)) {
             try {
                 $salesQuery = \Modules\Sales\Models\SalesOrder::whereBetween('created_at', [$todayStart, $todayEnd]);
                 $salesCountToday = $salesQuery->count();
                 $salesOmsetToday = $salesQuery->sum('total_amount');
 
+                $monthStart = now()->startOfMonth();
+                $salesOmsetMonth = \Modules\Sales\Models\SalesOrder::whereBetween('created_at', [$monthStart, $todayEnd])
+                    ->sum('total_amount');
+
+                $soDraftCount = \Modules\Sales\Models\SalesOrder::where('status', 'draft')->count();
                 $totalArUnpaid = \Modules\Sales\Models\SalesOrder::whereNotIn('status', ['cancelled', 'completed', 'paid'])->sum('total_amount');
             } catch (\Exception $e) {}
         }
 
         // C. Inventory Data
         $lowStockCount = 0;
+        $lowStockItems = [];
+        $totalInventoryAssetValue = 0;
+
         if (class_exists(\Modules\Inventory\Models\Item::class)) {
             try {
-                $lowStockCount = \Modules\Inventory\Models\Item::whereColumn('stock', '<=', 'min_stock')->count();
+                $items = \Modules\Inventory\Models\Item::all();
+                foreach ($items as $it) {
+                    $stock = $it->stock ?? 0;
+                    $cost = $it->cost_price ?? ($it->unit_price ?? 0);
+                    $totalInventoryAssetValue += ($stock * $cost);
+                    
+                    if ($it->min_stock && $stock <= $it->min_stock) {
+                        $lowStockCount++;
+                        if (count($lowStockItems) < 3) {
+                            $lowStockItems[] = "  └ *{$it->name}*: {$stock} {$it->unit} (Min: {$it->min_stock})";
+                        }
+                    }
+                }
             } catch (\Exception $e) {}
         }
 
         // D. Purchase Data
+        $poCountToday = 0;
+        $poAmountToday = 0;
         if (class_exists(\Modules\Purchase\Models\PurchaseOrder::class)) {
             try {
+                $poToday = \Modules\Purchase\Models\PurchaseOrder::whereBetween('created_at', [$todayStart, $todayEnd]);
+                $poCountToday = $poToday->count();
+                $poAmountToday = $poToday->sum('total_amount');
                 $totalApUnpaid = \Modules\Purchase\Models\PurchaseOrder::whereNotIn('status', ['cancelled', 'completed', 'paid'])->sum('total_amount');
             } catch (\Exception $e) {}
         }
@@ -135,25 +168,38 @@ class SendExecutiveWaReportCommand extends Command
         $msg .= "🗓️ Tanggal: {$dateFormatted} | Jam: {$timeFormatted} WIB\n";
         $msg .= "==============================\n\n";
 
-        $msg .= "💳 *1. RINGKASAN KEUANGAN*\n";
+        $msg .= "💳 *1. FINANSIAL & SALDO KAS/BANK*\n";
         $msg .= "• Kas Masuk Hari Ini: Rp " . number_format($cashInToday, 0, ',', '.') . "\n";
         $msg .= "• Kas Keluar Hari Ini: Rp " . number_format($cashOutToday, 0, ',', '.') . "\n";
-        $msg .= "• Total Saldo Kas & Bank: Rp " . number_format($totalCashBankBalance, 0, ',', '.') . "\n";
-        $msg .= "• Estimasi Sisa Piutang (AR): Rp " . number_format($totalArUnpaid, 0, ',', '.') . "\n";
-        $msg .= "• Estimasi Sisa Hutang (AP): Rp " . number_format($totalApUnpaid, 0, ',', '.') . "\n\n";
+        $msg .= "• *Total Saldo Kas & Bank*: Rp " . number_format($totalCashBankBalance, 0, ',', '.') . "\n";
+        if (count($accountBalances) > 0) {
+            $msg .= implode("\n", $accountBalances) . "\n";
+        }
+        $msg .= "• Estimasi Piutang Pelanggan (AR): Rp " . number_format($totalArUnpaid, 0, ',', '.') . "\n";
+        $msg .= "• Estimasi Hutang Supplier (AP): Rp " . number_format($totalApUnpaid, 0, ',', '.') . "\n\n";
 
-        $msg .= "🛒 *2. RINGKASAN PENJUALAN (SALES)*\n";
-        $msg .= "• Total Order Hari Ini: {$salesCountToday} Transaksi\n";
-        $msg .= "• Total Omset Penjualan: Rp " . number_format($salesOmsetToday, 0, ',', '.') . "\n\n";
+        $msg .= "🛒 *2. PENJUALAN & OMSET (SALES)*\n";
+        $msg .= "• Order Masuk Hari Ini: {$salesCountToday} Transaksi\n";
+        $msg .= "• *Omset Penjualan Hari Ini*: Rp " . number_format($salesOmsetToday, 0, ',', '.') . "\n";
+        $msg .= "• Total Omset Bulan Ini (MTD): Rp " . number_format($salesOmsetMonth, 0, ',', '.') . "\n";
+        $msg .= "• Draft SO Menunggu Approve: {$soDraftCount} Order\n\n";
 
-        $msg .= "📦 *3. GUDANG & INVENTORY*\n";
-        $msg .= "• Peringatan Stok Menipis: {$lowStockCount} Items\n\n";
+        $msg .= "📦 *3. GUDANG & INVENTARIS*\n";
+        $msg .= "• Total Nilai Aset Stok: Rp " . number_format($totalInventoryAssetValue, 0, ',', '.') . "\n";
+        $msg .= "• Peringatan Stok Menipis: {$lowStockCount} Item\n";
+        if (count($lowStockItems) > 0) {
+            $msg .= implode("\n", $lowStockItems) . "\n";
+        }
+        $msg .= "\n";
 
-        $msg .= "🏭 *4. PRODUKSI*\n";
-        $msg .= "• Batch Selesai Hari Ini: {$prodCompletedToday} Order\n";
-        $msg .= "• Batch Dalam Proses: {$prodInProgress} Order\n";
+        $msg .= "🛒 *4. PEMBELIAN (PURCHASING)*\n";
+        $msg .= "• PO Belanja Hari Ini: {$poCountToday} Order (Rp " . number_format($poAmountToday, 0, ',', '.') . ")\n\n";
+
+        $msg .= "🏭 *5. MANUFAKTUR & PRODUKSI*\n";
+        $msg .= "• Batch SPK Selesai Hari Ini: {$prodCompletedToday} Batch\n";
+        $msg .= "• Batch SPK Sedang Berjalan: {$prodInProgress} Batch\n";
         $msg .= "==============================\n\n";
-        $msg .= "💡 *Pesan otomatis dikirim oleh ROMLAH ERP Assistant via Fonnte WA.*";
+        $msg .= "💡 *Laporan ini dikirim secara otomatis oleh ROMLAH ERP System via Fonnte WA.*";
 
         // 4. Send via Fonnte
         $response = $fonnte->sendMessage($recipients, $msg);

@@ -608,6 +608,18 @@ new class extends Component {
                             <span wire:loading wire:target="sendTestWaReport">Sending WA...</span>
                         </flux:button>
                     </div>
+
+                    <!-- Box Perintah Cronjob Server -->
+                    <div class="pt-3 border-t border-emerald-200/80 dark:border-emerald-900/60 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-emerald-950 dark:text-emerald-200">⏰ Perintah Cronjob Server (Masukkan ke cPanel / Server VPS):</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-600 dark:text-zinc-400">Agar laporan terkirim otomatis di server hosting, tambahkan baris perintah cronjob berikut pada cPanel (menu Cron Jobs) atau Crontab server VPS Anda:</p>
+                        <div class="bg-white dark:bg-zinc-900 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
+                            <code class="text-[11px] font-mono text-emerald-700 dark:text-emerald-300 font-bold select-all">* * * * * cd {{ base_path() }} && php artisan schedule:run >> /dev/null 2>&1</code>
+                            <span class="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded">Laravel Scheduler</span>
+                        </div>
+                    </div>
                 @endif
             </div>
 
