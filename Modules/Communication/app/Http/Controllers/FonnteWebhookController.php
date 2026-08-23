@@ -167,6 +167,20 @@ class FonnteWebhookController extends Controller
             // 3. Trigger Broadcast Event untuk UI Chat Real-time
             broadcast(new \Modules\Communication\Events\NewWhatsAppMessage($waMessage))->toOthers();
 
+            // 4. Trigger Auto-Reply ROMLAH AI Assistant via WhatsApp
+            if (!$isFromMe && $messageType === 'text') {
+                $cleanText = trim($messageText);
+                $isAiAutoReply = \App\Models\Setting::where('key', 'wa_ai_bot_auto_reply')->value('value') === 'true';
+                $isAiPrefix = (bool) preg_match('/^(\/ai|@ai|tanya ai|ai\s)/i', $cleanText);
+
+                if ($isAiAutoReply || $isAiPrefix) {
+                    $promptToAi = preg_replace('/^(\/ai|@ai|tanya ai|ai\s)\s*/i', '', $cleanText);
+                    if (!empty(trim($promptToAi))) {
+                        app(\App\Services\WhatsAppAiBotService::class)->processAndReply($phoneNumber, $promptToAi, $conversation);
+                    }
+                }
+            }
+
             return response()->json(['status' => 'success'], 200);
 
         } catch (\Exception $e) {

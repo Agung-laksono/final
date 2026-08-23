@@ -26,6 +26,7 @@ new class extends Component {
     public $waReportHour = '23';
     public $waReportMinute = '59';
     public $waReportRecipients = '';
+    public $waAiBotAutoReply = false;
 
     public $beamsTestStatus = null;
     public $channelsTestStatus = null;
@@ -97,6 +98,7 @@ new class extends Component {
         $this->waReportMinute = sprintf('%02d', intval($timeParts[1] ?? 59));
         
         $this->waReportRecipients = Setting::where('key', 'wa_report_recipients')->value('value') ?? '';
+        $this->waAiBotAutoReply = Setting::where('key', 'wa_ai_bot_auto_reply')->value('value') === 'true';
         
         $aiProvidersJson = Setting::where('key', 'ai_providers')->value('value');
         $this->aiProviders = $aiProvidersJson ? json_decode($aiProvidersJson, true) : [
@@ -231,6 +233,7 @@ new class extends Component {
             'wa_report_frequency' => $this->waReportFrequency,
             'wa_report_time' => sprintf('%02d:%02d', intval($this->waReportHour), intval($this->waReportMinute)),
             'wa_report_recipients' => $this->waReportRecipients,
+            'wa_ai_bot_auto_reply' => $this->waAiBotAutoReply ? 'true' : 'false',
         ];
 
         foreach ($settings as $key => $value) {
@@ -577,6 +580,33 @@ new class extends Component {
                         </flux:button>
                     </div>
                 @endif
+            </div>
+
+            <!-- WhatsApp AI Bot Integration Card -->
+            <div class="mt-4 p-5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <flux:icon.sparkles class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        <div>
+                            <h5 class="text-sm font-bold text-indigo-950 dark:text-indigo-200">ROMLAH AI Assistant WhatsApp Bot</h5>
+                            <p class="text-xs text-zinc-500 dark:text-zinc-400">Akses dan tanya jawab data ERP langsung melalui pesan WhatsApp HP Anda.</p>
+                        </div>
+                    </div>
+                    <flux:switch wire:model.live="waAiBotAutoReply" label="Auto-Reply Semua Pesan WA" />
+                </div>
+
+                <div class="pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-xs text-zinc-600 dark:text-zinc-400 space-y-2">
+                    <p class="font-semibold text-zinc-800 dark:text-zinc-200">📌 Cara Mengakses AI dari WhatsApp HP Anda:</p>
+                    <ul class="list-disc list-inside space-y-1 pl-1 text-[11px]">
+                        <li><b>Mode Perintah Prefix:</b> Kirim WA ke nomor perusahaan diawali <code class="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.5 rounded text-indigo-700 dark:text-indigo-300">/ai</code> atau <code class="bg-indigo-100 dark:bg-indigo-900 px-1 py-0.5 rounded text-indigo-700 dark:text-indigo-300">@ai</code> (Contoh: <code class="bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded">/ai Berapa total saldo kas hari ini?</code>).</li>
+                        <li><b>Mode Auto-Reply 24/7:</b> Jika saklar di atas diaktifkan (ON), AI akan membalas seluruh pesan WA yang masuk secara otomatis.</li>
+                        <li><b>Keamanan Hak Akses Spatie:</b> Jawaban AI di WhatsApp 100% mematuhi hak akses Spatie Permission dari nomor HP staf yang terdaftar.</li>
+                    </ul>
+                    <div class="mt-2 p-2 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                        <span class="text-[10px] font-mono text-zinc-500">URL Webhook Fonnte: {{ url('/api/fonnte/webhook') }}</span>
+                        <span class="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 font-bold px-2 py-0.5 rounded">Aktif</span>
+                    </div>
+                </div>
             </div>
         </div>
 
