@@ -628,29 +628,24 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         ></textarea>
                     </div>
 
-                    {{-- Dynamic Send vs Stop Button --}}
-                    <template x-if="$wire.isTyping">
-                        <button
-                            type="button"
-                            wire:click="stopAiResponse"
-                            class="w-9 h-9 shrink-0 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center transition-all shadow-md animate-pulse"
-                            title="Hentikan Proses AI"
-                        >
+                    {{-- Single Dynamic Send / Stop Button (Prevents DOM duplication) --}}
+                    <button
+                        :type="$wire.isTyping ? 'button' : 'submit'"
+                        @click="if ($wire.isTyping) { $wire.stopAiResponse(); }"
+                        class="w-9 h-9 shrink-0 rounded-full flex items-center justify-center transition-all shadow-sm disabled:opacity-40"
+                        :class="$wire.isTyping ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse' : 'bg-indigo-600 hover:bg-indigo-700 text-white'"
+                        :disabled="!$wire.isTyping && $wire.newMessage.trim() === ''"
+                        :title="$wire.isTyping ? 'Hentikan Proses AI' : 'Kirim Pesan'"
+                    >
+                        <div x-show="$wire.isTyping">
                             <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
                                 <rect x="6" y="6" width="12" height="12" rx="2" />
                             </svg>
-                        </button>
-                    </template>
-
-                    <template x-if="!$wire.isTyping">
-                        <button
-                            type="submit"
-                            class="w-9 h-9 shrink-0 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center transition-all shadow-sm disabled:opacity-40"
-                            :disabled="$wire.newMessage.trim() === ''"
-                        >
+                        </div>
+                        <div x-show="!$wire.isTyping">
                             <flux:icon.paper-airplane class="w-4 h-4" />
-                        </button>
-                    </template>
+                        </div>
+                    </button>
                 </form>
             </div>
         </div>
