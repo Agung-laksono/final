@@ -13,6 +13,7 @@ state([
     'requireOutboundApproval' => false,
     'requireProductionApproval' => false,
     'requireQcApproval' => false,
+    'gudangHandlesShipping' => false,
 ]);
 
 mount(function () {
@@ -24,6 +25,7 @@ mount(function () {
     $this->requireOutboundApproval = Setting::where('key', 'require_outbound_approval')->value('value') == '1';
     $this->requireProductionApproval = Setting::where('key', 'require_production_approval')->value('value') == '1';
     $this->requireQcApproval = Setting::where('key', 'require_qc_approval')->value('value') == '1';
+    $this->gudangHandlesShipping = Setting::where('key', 'gudang_handles_shipping')->value('value') == '1';
 });
 
 $save = function () {
@@ -36,6 +38,7 @@ $save = function () {
         'require_outbound_approval' => $this->requireOutboundApproval,
         'require_production_approval' => $this->requireProductionApproval,
         'require_qc_approval' => $this->requireQcApproval,
+        'gudang_handles_shipping' => $this->gudangHandlesShipping,
     ];
 
     foreach ($boolSettings as $key => $boolVal) {
@@ -44,17 +47,38 @@ $save = function () {
         Cache::put("setting_{$key}", $val, now()->addHour());
         
         Cache::forget("workflow_setting_{$key}"); // Bersihkan cache workflow
+        if ($key === 'gudang_handles_shipping') {
+            Cache::forget('setting_gudang_handles_shipping');
+            \App\Events\SettingUpdated::safeDispatch('gudang_handles_shipping', $val);
+        }
     }
 
-    \Flux::toast('Pengaturan Workflow berhasil disimpan!');
+    \Flux::toast('Pengaturan Workflow & Operasi Gudang berhasil disimpan!');
 };
 
 ?>
 
-<x-pages::settings.layout :heading="__('Workflow Delegation')" :subheading="__('Atur apakah aplikasi dijalankan oleh 1 orang (Solo) atau oleh banyak orang dengan berbagai departemen.')">
+<x-pages::settings.layout :heading="__('Workflow Delegation')" :subheading="__('Atur alur kerja antar departemen dan operasi fisik gudang.')">
     
     <form wire:submit="save" class="space-y-8">
         
+        <div class="space-y-4">
+            <flux:heading size="lg">Operasi Gudang & Logistik Pengiriman</flux:heading>
+            <flux:subheading>Pengaturan tanggung jawab tim gudang dan alur barang masuk/keluar.</flux:subheading>
+
+            <div class="flex flex-col gap-4 border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-zinc-50 dark:bg-zinc-800/50">
+                <flux:switch wire:model="gudangHandlesShipping" 
+                             label="Tim Gudang Mengelola Pengiriman & Input Resi Ekspedisi (Logistik)" 
+                             description="Jika aktif, tim Gudang bertugas menginput nama kurir/ekspedisi dan nomor resi pengiriman pada menu Surat Jalan / Sales Delivery. Jika nonaktif, proses ini dilakukan oleh Sales." />
+                
+                <flux:switch wire:model="requireOutboundApproval" label="Kepala Gudang: Verifikasi Pengeluaran Barang (Outbound)" description="Jika aktif, stok fisik tidak terpotong saat staff packing melakukan scan, melainkan membutuhkan persetujuan dari Kepala Gudang." />
+                
+                <flux:switch wire:model="requireInventoryApproval" label="Gudang Inbox: Verifikasi Penerimaan Barang Supplier (Inbound)" description="Jika aktif, barang yang datang dari supplier tidak otomatis menambah stok sistem sebelum orang gudang memverifikasinya." />
+            </div>
+        </div>
+
+        <flux:separator />
+
         <div class="space-y-4">
             <flux:heading size="lg">Alur Penjualan (Order-to-Cash)</flux:heading>
             <flux:subheading>Pengaturan alur saat ada pesanan masuk dari pelanggan.</flux:subheading>
@@ -63,8 +87,6 @@ $save = function () {
                 <flux:switch wire:model="requireSalesApproval" label="Sales Manager: Butuh Persetujuan Sales Order" description="Jika aktif, SO baru (Draft) harus disetujui Manajer sebelum lanjut ke pembayaran/packing." />
                 
                 <flux:switch wire:model="requireFinanceApproval" label="Finance: Butuh Validasi Pembayaran" description="Jika aktif, staf Finance harus memverifikasi bukti mutasi bank secara manual sebelum statusnya menjadi Lunas." />
-                
-                <flux:switch wire:model="requireOutboundApproval" label="Kepala Gudang: Verifikasi Pengeluaran Barang (Outbound)" description="Jika aktif, stok fisik tidak terpotong saat staff packing melakukan scan, melainkan butuh klik persetujuan dari Kepala Gudang." />
             </div>
         </div>
 
@@ -76,8 +98,6 @@ $save = function () {
 
             <div class="flex flex-col gap-4 border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 bg-zinc-50 dark:bg-zinc-800/50">
                 <flux:switch wire:model="requirePurchaseApproval" label="Purchasing Manager: Butuh Persetujuan PO Baru" description="Jika aktif, Purchase Order (PO) butuh tanda tangan manajer sebelum dokumennya sah." />
-                
-                <flux:switch wire:model="requireInventoryApproval" label="Gudang Inbox: Butuh Verifikasi Penerimaan Barang" description="Jika aktif, barang yang datang dari supplier tidak otomatis menambah stok sistem sebelum orang gudang memverifikasinya." />
             </div>
         </div>
 

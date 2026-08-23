@@ -17,7 +17,6 @@ new class extends Component {
     public $aiProviders = [];
     public $aiAssistantName = 'ROMLAH Asisten';
     public $aiCustomInstruction = '';
-    public $gudangHandlesShipping = false;
     public $enableAiChat = false;
     public $enablePusherSound = true;
 
@@ -107,7 +106,6 @@ new class extends Component {
             ['name' => 'Gemini', 'key' => ''],
         ];
         
-        $this->gudangHandlesShipping = Setting::where('key', 'gudang_handles_shipping')->value('value') == '1';
         $this->enableAiChat = Setting::where('key', 'enable_ai_chat')->value('value') == '1';
         $this->enablePusherSound = Setting::where('key', 'enable_pusher_sound')->value('value') !== '0';
     }
@@ -243,12 +241,6 @@ new class extends Component {
             );
         }
         
-        $shippingValue = $this->gudangHandlesShipping ? '1' : '0';
-        Setting::updateOrCreate(
-            ['key' => 'gudang_handles_shipping'],
-            ['value' => $shippingValue]
-        );
-
         $enableAiChatValue = $this->enableAiChat ? '1' : '0';
         Setting::updateOrCreate(
             ['key' => 'enable_ai_chat'],
@@ -261,7 +253,6 @@ new class extends Component {
             ['value' => $soundValue]
         );
 
-        Cache::put('setting_gudang_handles_shipping', $shippingValue, now()->addHour());
         Cache::put('setting_enable_ai_chat', $enableAiChatValue, now()->addHour());
         Cache::forget('setting_clarity_id');
         Cache::forget('setting_enable_pusher_sound');
@@ -269,7 +260,6 @@ new class extends Component {
 
         $this->js("window.ENABLE_PUSHER_SOUND = " . ($this->enablePusherSound ? 'true' : 'false'));
 
-        SettingUpdated::safeDispatch('gudang_handles_shipping', $shippingValue);
         SettingUpdated::safeDispatch('enable_ai_chat', $enableAiChatValue);
 
         \Flux::toast('Pengaturan berhasil disimpan!');
