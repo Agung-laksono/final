@@ -211,9 +211,9 @@
                     <div class="flex gap-3">
                         <div class="w-12 h-12 bg-zinc-200 border border-zinc-300 rounded overflow-hidden shrink-0">
                             @if(!empty($item->custom_attachments))
-                                <img src="{{ Storage::url($item->custom_attachments[0]) }}" class="w-full h-full object-cover">
+                                <img src="{{ Storage::url($item->custom_attachments[0]) }}" class="w-full h-full object-contain">
                             @elseif(isset($item->item->image) && $item->item->image)
-                                <img src="{{ Storage::url($item->item->image) }}" class="w-full h-full object-cover">
+                                <img src="{{ Storage::url($item->item->image) }}" class="w-full h-full object-contain">
                             @else
                                 <div class="w-full h-full flex items-center justify-center text-zinc-400">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -235,7 +235,7 @@
                         </div>
                     </div>
                 </td>
-                <td class="text-center text-zinc-600">{{ $item->qty }} {{ $item->item->unit->name ?? 'Set' }}</td>
+                <td class="text-center text-zinc-600">{{ $item->quantity }} {{ $item->item->unit->name ?? 'Set' }}</td>
                 <td class="text-right text-zinc-600">{{ number_format($item->unit_price, 0, ',', '.') }}</td>
                 <td class="text-right text-zinc-600">{{ number_format($item->subtotal, 0, ',', '.') }}</td>
             </tr>
@@ -277,6 +277,22 @@
             </table>
         </div>
     </div>
+
+    <!-- Signatures -->
+    <div class="mt-16 flex justify-between text-center pb-4">
+        <div class="w-1/3">
+            <div class="text-zinc-600 font-medium mb-24">Menyetujui (Pihak Vendor),</div>
+            <div class="font-bold text-black border-b border-black pb-1 px-4 inline-block min-w-[200px]">{{ $purchaseOrder->vendor->name ?? $purchaseOrder->vendor_name ?? '...................................' }}</div>
+        </div>
+        <div class="w-1/3">
+            <div class="text-zinc-600 font-medium mb-24">Hormat Kami (Pemesan),</div>
+            <div class="font-bold text-black border-b border-black pb-1 px-4 inline-block min-w-[200px]">{{ $purchaseOrder->creator->name ?? '...................................' }}</div>
+            @if($purchaseOrder->creator && $purchaseOrder->creator->roles && $purchaseOrder->creator->roles->count() > 0)
+                <div class="text-xs text-zinc-500 mt-1 uppercase">{{ $purchaseOrder->creator->roles->first()->name }}</div>
+            @endif
+        </div>
+    </div>
+
     </div> <!-- Close flex-grow wrapper -->
 </div>
 
@@ -319,9 +335,9 @@
     <div class="w-full flex justify-center mb-12">
         <div class="w-[500px] h-[500px] border border-zinc-200 bg-zinc-100 rounded flex items-center justify-center overflow-hidden shadow-sm relative">
             @if(!empty($item->custom_attachments))
-                <img src="{{ Storage::url($item->custom_attachments[0]) }}" class="w-full h-full object-cover">
+                <img src="{{ Storage::url($item->custom_attachments[0]) }}" class="w-full h-full object-contain">
             @elseif(isset($item->item->image) && $item->item->image)
-                <img src="{{ Storage::url($item->item->image) }}" class="w-full h-full object-cover">
+                <img src="{{ Storage::url($item->item->image) }}" class="w-full h-full object-contain">
             @else
                 <div class="text-center text-zinc-400 z-10">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -362,20 +378,15 @@
         @endif
         @if($item->notes)
         <tr>
-            <td class="border border-black p-3 w-48 font-medium text-amber-700">Catatan Custom</td>
+            <td class="border border-black p-3 w-48 font-medium text-amber-700">Catatan</td>
             <td class="border border-black p-3 whitespace-pre-wrap text-amber-800 text-base font-semibold prose prose-sm prose-p:my-0">{!! $item->notes !!}</td>
             <td class="border border-black p-3 w-16"></td>
         </tr>
         @endif
         <tr>
             <td class="border border-black p-3 w-48 font-medium">Jumlah</td>
-            <td class="border border-black p-3">{{ $item->qty }} {{ $item->item->unit->name ?? 'Set' }}</td>
+            <td class="border border-black p-3">{{ $item->quantity }} {{ $item->item->unit->name ?? 'Set' }}</td>
             <td class="border border-black p-3 w-16"></td>
-        </tr>
-        <tr>
-            <td class="border border-black p-3 font-medium">Harga/Unit</td>
-            <td class="border border-black p-3">Rp. {{ number_format($item->unit_price, 0, ',', '.') }}</td>
-            <td class="border border-black p-3"></td>
         </tr>
     </table>
 </div>
