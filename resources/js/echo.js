@@ -31,7 +31,9 @@ if (window.PUSHER_CONFIG && window.PUSHER_CONFIG.key) {
 } else {
     console.warn("VITE_PUSHER_KEY is missing in .env. Real-time updates are disabled.");
     window.Echo = {
-        channel: () => ({ listen: () => ({}) }),
-        private: () => ({ listen: () => ({}) })
+        channel: () => ({ listen: () => ({}), stopListening: () => ({}) }),
+        private: () => ({ listen: () => ({}), stopListening: () => ({}) }),
+        leaveChannel: () => ({}),
+        leave: () => ({}),
     };
 }

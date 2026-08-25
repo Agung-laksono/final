@@ -229,9 +229,6 @@
                             @if($item->item->code)
                                 <br><span class="font-mono text-[10px] text-zinc-400 normal-case">{{ $item->item->code }}</span>
                             @endif
-                            @if($item->notes)
-                                <br><span class="text-[10px] text-zinc-400 normal-case">{!! $item->notes !!}</span>
-                            @endif
                         </div>
                     </div>
                 </td>
