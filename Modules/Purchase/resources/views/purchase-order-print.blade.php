@@ -274,6 +274,18 @@
                     <td>Total</td>
                     <td>{{ number_format($purchaseOrder->total_amount, 0, ',', '.') }}</td>
                 </tr>
+                @php
+                    $totalPaid = $purchaseOrder->payments ? $purchaseOrder->payments->sum('amount') : 0;
+                    $sisaTagihan = max(0, $purchaseOrder->total_amount - $totalPaid);
+                @endphp
+                <tr class="text-zinc-600">
+                    <td>Telah Dibayar (DP)</td>
+                    <td>{{ number_format($totalPaid, 0, ',', '.') }}</td>
+                </tr>
+                <tr class="font-bold {{ $sisaTagihan > 0 ? 'text-red-600' : 'text-emerald-600' }}">
+                    <td>Sisa Tagihan</td>
+                    <td>{{ number_format($sisaTagihan, 0, ',', '.') }}</td>
+                </tr>
             </table>
         </div>
     </div>
@@ -328,6 +340,9 @@
             {{ $item->item->alias }} <span class="text-[28px] text-zinc-500 normal-case font-medium ml-1">- {{ $item->item->name }}</span>
         @else
             {{ $item->item->name }}
+        @endif
+        @if($item->item->code)
+            <div class="text-xl font-mono text-zinc-500 normal-case mt-2 tracking-normal">SKU: {{ $item->item->code }}</div>
         @endif
     </h2>
 
