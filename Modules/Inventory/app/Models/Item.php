@@ -86,9 +86,18 @@ class Item extends Model
             ->value('remaining') ?? 0;
 
         // 3. Incoming (Purchase Queue/Order)
-        $poQty = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $this->id)
-            ->whereNotIn('status', ['completed', 'rejected'])
+        $poQueueQty = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $this->id)
+            ->whereIn('status', ['approved'])
             ->sum('requested_qty') ?? 0;
+            
+        $poQty = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $this->id)
+            ->whereHas('purchaseOrder', function($q) {
+                $q->whereNotIn('status', ['draft', 'completed', 'cancelled']);
+            })
+            ->selectRaw('SUM(quantity - received_quantity) as remaining')
+            ->value('remaining') ?? 0;
+
+        $incomingPo = $poQueueQty + $poQty;
 
         // 4. Committed (Booking from Sales Order)
         $bookingQty = \Modules\Sales\Models\SalesOrderItem::where('item_id', $this->id)
@@ -97,7 +106,7 @@ class Item extends Model
             })
             ->sum('qty') ?? 0;
 
-        $atp = $totalStock + $wipQty + $poQty - $bookingQty;
+        $atp = $totalStock + $wipQty + $incomingPo - $bookingQty;
         return max(0, $atp);
     }
 
@@ -116,12 +125,15 @@ class Item extends Model
             ->value('remaining') ?? 0;
 
         $purchaseQueue = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $this->id)
-            ->whereIn('status', ['approved'])
+            ->whereIn('status', ['pending_approval', 'approved'])
             ->sum('requested_qty') ?? 0;
 
-        $purchaseOrder = \Modules\Purchase\Models\PurchaseQueue::where('item_id', $this->id)
-            ->whereIn('status', ['ordered'])
-            ->sum('requested_qty') ?? 0;
+        $purchaseOrder = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $this->id)
+            ->whereHas('purchaseOrder', function($q) {
+                $q->whereNotIn('status', ['draft', 'completed', 'cancelled']);
+            })
+            ->selectRaw('SUM(quantity - received_quantity) as remaining')
+            ->value('remaining') ?? 0;
             
         $salesCommitted = \Modules\Sales\Models\SalesOrderItem::where('item_id', $this->id)
             ->whereHas('salesOrder', function($q) {

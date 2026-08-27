@@ -214,6 +214,9 @@
                                 @else
                                     {{ $item->item->name }}
                                 @endif
+                                @if($item->item->code)
+                                    <div class="text-sm font-mono text-zinc-500 normal-case tracking-normal mt-0.5">SKU: {{ $item->item->code }}</div>
+                                @endif
                             </h4>
                             <span class="text-sm font-medium bg-white px-2 py-1 rounded border border-zinc-200 shadow-sm">Kuantitas: {{ max(1, $item->quantity) }} {{ $item->item->unit->name ?? 'pcs' }}</span>
                         </div>

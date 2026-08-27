@@ -111,15 +111,25 @@
 <div class="page-container px-8 py-8 relative flex flex-col">
     <!-- Header Section -->
     <div class="flex justify-between items-start mb-8">
-        <div>
+        <div class="flex items-center gap-4">
             @if($purchaseOrder->creator->brand && $purchaseOrder->creator->brand->logo)
                 <img src="{{ Storage::url($purchaseOrder->creator->brand->logo) }}" alt="Logo" class="h-20 w-auto object-contain">
             @else
-                <h1 class="text-3xl font-bold text-amber-700 font-serif tracking-tighter">
+                <h1 class="text-4xl font-bold text-amber-700 font-serif tracking-tighter">
                     {{ $purchaseOrder->creator->brand ? substr($purchaseOrder->creator->brand->name, 0, 2) : 'SO' }}
                 </h1>
-                <div class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">PRODUSEN KAMI</div>
             @endif
+            <div class="flex flex-col">
+                <h2 class="text-xl font-black uppercase tracking-tight text-zinc-900">{{ $purchaseOrder->creator->brand ? $purchaseOrder->creator->brand->name : 'PERUSAHAAN' }}</h2>
+                @if($purchaseOrder->creator->brand && $purchaseOrder->creator->brand->phone)
+                    <div class="text-sm font-medium text-zinc-600">{{ $purchaseOrder->creator->brand->phone }}</div>
+                @elseif($purchaseOrder->creator && $purchaseOrder->creator->phone)
+                    <div class="text-sm font-medium text-zinc-600">{{ $purchaseOrder->creator->phone }}</div>
+                @endif
+                @if($purchaseOrder->creator->brand && $purchaseOrder->creator->brand->website)
+                    <div class="text-xs text-zinc-500">{{ $purchaseOrder->creator->brand->website }}</div>
+                @endif
+            </div>
         </div>
         <div class="text-right">
             <div class="text-2xl mb-1"><span class="text-zinc-900 font-medium">Purchase Order</span> <span class="font-black">{{ $purchaseOrder->po_number }}</span></div>
@@ -130,50 +140,21 @@
         </div>
     </div>
 
-    <!-- Pihak Pertama / Pihak Kedua Section -->
-    <div class="flex gap-8 mb-8 border-t-2 border-black pt-4">
-        <!-- Pihak Pertama (Pengirim) -->
-        <div class="w-1/2 text-[13px] leading-relaxed">
-            <div class="font-semibold text-zinc-500 mb-1">DARI :</div>
-            @php 
-                $senderPhone = null;
-                if($purchaseOrder->creator->brand && $purchaseOrder->creator->brand->phone) { $senderPhone = $purchaseOrder->creator->brand->phone; }
-                elseif($purchaseOrder->creator->phone) { $senderPhone = $purchaseOrder->creator->phone; }
-            @endphp
-            <div class="font-bold text-base uppercase text-black">
-                {{ $purchaseOrder->creator->brand ? $purchaseOrder->creator->brand->name : 'PERUSAHAAN' }}
-                @if($senderPhone) <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $senderPhone }})</span> @endif
-            </div>
-            @if($purchaseOrder->creator->brand && $purchaseOrder->creator->brand->address)
-                <div class="whitespace-pre-line">{{ $purchaseOrder->creator->brand->address }}</div>
-            @endif
-            
-            <div class="mt-1.5 text-zinc-700">
-                @php $contacts = []; @endphp
-                @if($purchaseOrder->creator->brand && $purchaseOrder->creator->brand->email) @php $contacts[] = $purchaseOrder->creator->brand->email; @endphp @endif
-                @if($purchaseOrder->creator->brand && $purchaseOrder->creator->brand->website) @php $contacts[] = $purchaseOrder->creator->brand->website; @endphp @endif
-                
-                @if(!empty($contacts))
-                    <div>{{ implode(' • ', $contacts) }}</div>
-                @endif
-                
-                @if($purchaseOrder->creator->brand && $purchaseOrder->creator->brand->npwp)
-                    <div>NPWP: {{ $purchaseOrder->creator->brand->npwp }}</div>
-                @endif
-            </div>
-        </div>
-
-        <!-- Pihak Kedua (Penerima) -->
-        <div class="w-1/2 text-[13px] leading-relaxed">
-            <div class="font-semibold text-zinc-500 mb-1">KEPADA :</div>
-            <div class="font-bold text-base uppercase text-black">
+    <!-- Pihak Kedua (Penerima) -->
+    <div class="mb-6 border-t-2 border-black pt-4 text-[13px] leading-relaxed">
+        <div class="flex items-baseline gap-2 mb-1.5">
+            <div class="font-semibold text-zinc-500 text-sm">KEPADA :</div>
+            <div class="font-bold text-lg uppercase text-black">
                 {{ $purchaseOrder->vendor->name ?? $purchaseOrder->vendor_name ?? 'Pelanggan Umum' }}
-                @if($purchaseOrder->vendor && $purchaseOrder->vendor->phone) 
-                    <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $purchaseOrder->vendor->phone }})</span> 
-                @elseif($purchaseOrder->vendor_phone)
-                    <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $purchaseOrder->vendor_phone }})</span>
-                @endif
             </div>
+            @if($purchaseOrder->vendor && $purchaseOrder->vendor->phone) 
+                <div class="font-medium text-sm normal-case text-zinc-600">({{ $purchaseOrder->vendor->phone }})</div> 
+            @elseif($purchaseOrder->vendor_phone)
+                <div class="font-medium text-sm normal-case text-zinc-600">({{ $purchaseOrder->vendor_phone }})</div>
+            @endif
+        </div>
+        
+        <div class="text-sm text-zinc-800">
             @php
                 $vendorRegion = $purchaseOrder->vendor ? collect([
                     $purchaseOrder->vendor->province,
@@ -184,7 +165,7 @@
                 $vendorDetail = $purchaseOrder->shipping_address ?? ($purchaseOrder->vendor ? $purchaseOrder->vendor->address : '-');
             @endphp
             @if($vendorRegion)
-                <div>{{ $vendorRegion }}</div>
+                <div class="mb-0.5">{{ $vendorRegion }}</div>
             @endif
             <div class="whitespace-pre-line">{{ $vendorDetail }}</div>
         </div>
