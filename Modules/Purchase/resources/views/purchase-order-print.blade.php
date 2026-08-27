@@ -29,7 +29,6 @@
                 margin: 0 !important;
                 padding: 1cm;
                 box-shadow: none !important;
-                min-height: auto !important;
                 background-color: transparent !important;
             }
             table { page-break-inside: auto; }
@@ -286,9 +285,10 @@
             </table>
         </div>
     </div>
+    </div> <!-- Close flex-grow wrapper here -->
 
     <!-- Signatures -->
-    <div class="mt-16 flex justify-between text-center pb-4">
+    <div class="mt-auto flex justify-between text-center pb-4 pt-16">
         <div class="w-1/3">
             <div class="text-zinc-600 font-medium mb-24">Menyetujui (Pihak Vendor),</div>
             <div class="font-bold text-black border-b border-black pb-1 px-4 inline-block min-w-[200px]">{{ $purchaseOrder->vendor->name ?? $purchaseOrder->vendor_name ?? '...................................' }}</div>
@@ -302,7 +302,6 @@
         </div>
     </div>
 
-    </div> <!-- Close flex-grow wrapper -->
 </div>
 
 <!-- PAGE 2, 3..: DETAILS -->

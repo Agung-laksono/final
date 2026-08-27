@@ -35,7 +35,6 @@
                 margin: 0 !important;
                 padding: 0 !important;
                 box-shadow: none !important;
-                min-height: 99vh !important; /* Forces stretch to bottom, 99vh prevents accidental extra blank page */
                 background-color: transparent !important;
             }
             .break-before-page { page-break-before: always; }

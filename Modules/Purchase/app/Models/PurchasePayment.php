@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PurchasePayment extends Model
 {
-    use HasFactory, \App\Traits\UpdatesMenuBadges;
+    use HasFactory, \App\Traits\UpdatesMenuBadges, \App\Traits\SearchableAiKnowledge;
 
     protected $fillable = [
         'purchase_order_id',

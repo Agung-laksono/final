@@ -84,6 +84,12 @@ class KnowledgeFormatter
                 case 'Modules\Communication\Models\WaMessage':
                     return static::formatWaMessage($model);
 
+                case 'Modules\Sales\Models\SalesPayment':
+                    return static::formatSalesPayment($model);
+
+                case 'Modules\Purchase\Models\PurchasePayment':
+                    return static::formatPurchasePayment($model);
+
                 default:
                     return static::formatGeneric($model);
             }
@@ -254,9 +260,9 @@ class KnowledgeFormatter
         $date = $trx->transaction_date ? date('d-m-Y', strtotime($trx->transaction_date)) : date('d-m-Y', strtotime($trx->created_at));
 
         $typeText = match ($trx->type) {
-            'income' => 'Kas Masuk (Pemasukan)',
-            'expense' => 'Kas Keluar (Pengeluaran)',
-            'transfer' => 'Transfer Antar Rekening',
+            'income' => 'Kas Masuk (Pemasukan / Uang Masuk / Terima Uang / Pendapatan / Profit)',
+            'expense' => 'Kas Keluar (Pengeluaran / Uang Keluar / Bayar / Belanja / Bon)',
+            'transfer' => 'Transfer Antar Rekening (Mutasi)',
             default => $trx->type,
         };
 
@@ -429,6 +435,44 @@ class KnowledgeFormatter
         $dir = $msg->direction === 'in' ? 'Pesan Masuk dari Pelanggan' : 'Pesan Keluar dari Agen';
         $text = trim($msg->message ?? '');
         return "Riwayat Obrolan WhatsApp ({$dir}): \"{$text}\". Tanggal: {$msg->created_at}.";
+    }
+
+    protected static function formatSalesPayment(Model $payment): string
+    {
+        $payment->loadMissing(['salesOrder.customer', 'financeAccount']);
+        $soNumber = $payment->salesOrder->so_number ?? 'Unknown';
+        $customerName = $payment->salesOrder->customer->name ?? 'Pelanggan';
+        $accountName = $payment->financeAccount->name ?? 'Kas Umum';
+        $amount = 'Rp ' . number_format($payment->amount ?? 0, 0, ',', '.');
+        $date = $payment->payment_date ? date('d-m-Y', strtotime($payment->payment_date)) : date('d-m-Y', strtotime($payment->created_at));
+        $status = match ($payment->status) {
+            'verified' => 'Lunas / Terverifikasi',
+            'rejected' => 'Ditolak',
+            default => 'Menunggu Verifikasi (Pending)',
+        };
+
+        return "Pembayaran dari Pelanggan (Uang Masuk / Terima Uang / Pelunasan Piutang / Dibayar): Tanggal {$date}. " .
+               "Untuk Tagihan/Nota Penjualan (SO): {$soNumber}. Dari Pelanggan: {$customerName}. " .
+               "Jumlah Pembayaran: {$amount}. Masuk ke Rekening: {$accountName}. Status Pembayaran: {$status}.";
+    }
+
+    protected static function formatPurchasePayment(Model $payment): string
+    {
+        $payment->loadMissing(['purchaseOrder.vendor', 'financeAccount']);
+        $poNumber = $payment->purchaseOrder->po_number ?? 'Unknown';
+        $vendorName = $payment->purchaseOrder->vendor->name ?? 'Vendor';
+        $accountName = $payment->financeAccount->name ?? 'Kas Umum';
+        $amount = 'Rp ' . number_format($payment->amount ?? 0, 0, ',', '.');
+        $date = $payment->payment_date ? date('d-m-Y', strtotime($payment->payment_date)) : date('d-m-Y', strtotime($payment->created_at));
+        $status = match ($payment->status) {
+            'verified' => 'Lunas / Terverifikasi',
+            'rejected' => 'Ditolak',
+            default => 'Menunggu Verifikasi (Pending)',
+        };
+
+        return "Pembayaran ke Vendor (Uang Keluar / Bayar Supplier / Pelunasan Hutang / Nota / Ngutang / Bayar Barang): Tanggal {$date}. " .
+               "Untuk Tagihan/Nota Pembelian (PO): {$poNumber}. Ke Vendor/Supplier: {$vendorName}. " .
+               "Jumlah Pembayaran: {$amount}. Keluar dari Rekening: {$accountName}. Status Pembayaran: {$status}.";
     }
 
     protected static function formatGeneric(Model $model): string

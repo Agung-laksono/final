@@ -29,7 +29,6 @@
                 margin: 0 !important;
                 padding: 1cm;
                 box-shadow: none !important;
-                min-height: auto !important;
                 background-color: transparent !important;
             }
             table { page-break-inside: auto; }

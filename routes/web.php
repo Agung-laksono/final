@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
-Route::view('/', 'welcome')->name('home');
+Route::view('/', 'welcome')->middleware('guest')->name('home');
 
 // Fonnte Webhook Routes
 Route::any('/fonnte/webhook', [\Modules\Communication\Http\Controllers\FonnteWebhookController::class, 'handle']);
