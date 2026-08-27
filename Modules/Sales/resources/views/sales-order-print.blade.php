@@ -111,15 +111,23 @@
 <div class="page-container px-8 py-8 relative flex flex-col">
     <!-- Header Section -->
     <div class="flex justify-between items-start mb-8">
-        <div>
+        <div class="flex items-center gap-4">
             @if($salesOrder->creator->brand && $salesOrder->creator->brand->logo)
                 <img src="{{ Storage::url($salesOrder->creator->brand->logo) }}" alt="Logo" class="h-20 w-auto object-contain">
             @else
-                <h1 class="text-3xl font-bold text-amber-700 font-serif tracking-tighter">
+                <h1 class="text-4xl font-bold text-amber-700 font-serif tracking-tighter">
                     {{ $salesOrder->creator->brand ? substr($salesOrder->creator->brand->name, 0, 2) : 'SO' }}
                 </h1>
-                <div class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">PRODUSEN KAMI</div>
             @endif
+            <div class="flex flex-col">
+                <h2 class="text-xl font-black uppercase tracking-tight text-zinc-900">{{ $salesOrder->creator->brand ? $salesOrder->creator->brand->name : 'PERUSAHAAN' }}</h2>
+                @if($salesOrder->creator->brand && $salesOrder->creator->brand->phone)
+                    <div class="text-sm font-medium text-zinc-600">{{ $salesOrder->creator->brand->phone }}</div>
+                @endif
+                @if($salesOrder->creator->brand && $salesOrder->creator->brand->website)
+                    <div class="text-xs text-zinc-500">{{ $salesOrder->creator->brand->website }}</div>
+                @endif
+            </div>
         </div>
         <div class="text-right">
             <div class="text-2xl mb-1"><span class="text-zinc-900 font-medium">Sales Order</span> <span class="font-black">{{ $salesOrder->so_number }}</span></div>
@@ -130,50 +138,21 @@
         </div>
     </div>
 
-    <!-- Pihak Pertama / Pihak Kedua Section -->
-    <div class="flex gap-8 mb-8 border-t-2 border-black pt-4">
-        <!-- Pihak Pertama (Pengirim) -->
-        <div class="w-1/2 text-[13px] leading-relaxed">
-            <div class="font-semibold text-zinc-500 mb-1">DARI :</div>
-            @php 
-                $senderPhone = null;
-                if($salesOrder->creator->brand && $salesOrder->creator->brand->phone) { $senderPhone = $salesOrder->creator->brand->phone; }
-                elseif($salesOrder->creator->phone) { $senderPhone = $salesOrder->creator->phone; }
-            @endphp
-            <div class="font-bold text-base uppercase text-black">
-                {{ $salesOrder->creator->brand ? $salesOrder->creator->brand->name : 'PERUSAHAAN' }}
-                @if($senderPhone) <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $senderPhone }})</span> @endif
-            </div>
-            @if($salesOrder->creator->brand && $salesOrder->creator->brand->address)
-                <div class="whitespace-pre-line">{{ $salesOrder->creator->brand->address }}</div>
-            @endif
-            
-            <div class="mt-1.5 text-zinc-700">
-                @php $contacts = []; @endphp
-                @if($salesOrder->creator->brand && $salesOrder->creator->brand->email) @php $contacts[] = $salesOrder->creator->brand->email; @endphp @endif
-                @if($salesOrder->creator->brand && $salesOrder->creator->brand->website) @php $contacts[] = $salesOrder->creator->brand->website; @endphp @endif
-                
-                @if(!empty($contacts))
-                    <div>{{ implode(' • ', $contacts) }}</div>
-                @endif
-                
-                @if($salesOrder->creator->brand && $salesOrder->creator->brand->npwp)
-                    <div>NPWP: {{ $salesOrder->creator->brand->npwp }}</div>
-                @endif
-            </div>
-        </div>
-
-        <!-- Pihak Kedua (Penerima) -->
-        <div class="w-1/2 text-[13px] leading-relaxed">
-            <div class="font-semibold text-zinc-500 mb-1">KEPADA :</div>
-            <div class="font-bold text-base uppercase text-black">
+    <!-- Pihak Kedua (Penerima) -->
+    <div class="mb-6 border-t-2 border-black pt-4 text-[13px] leading-relaxed">
+        <div class="flex items-baseline gap-2 mb-1.5">
+            <div class="font-semibold text-zinc-500 text-sm">KEPADA :</div>
+            <div class="font-bold text-lg uppercase text-black">
                 {{ $salesOrder->customer->name ?? $salesOrder->customer_name ?? 'Pelanggan Umum' }}
-                @if($salesOrder->customer && $salesOrder->customer->phone) 
-                    <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $salesOrder->customer->phone }})</span> 
-                @elseif($salesOrder->customer_phone)
-                    <span class="font-normal text-[13px] normal-case text-zinc-600 ml-1">({{ $salesOrder->customer_phone }})</span>
-                @endif
             </div>
+            @if($salesOrder->customer && $salesOrder->customer->phone) 
+                <div class="font-medium text-sm normal-case text-zinc-600">({{ $salesOrder->customer->phone }})</div> 
+            @elseif($salesOrder->customer_phone)
+                <div class="font-medium text-sm normal-case text-zinc-600">({{ $salesOrder->customer_phone }})</div>
+            @endif
+        </div>
+        
+        <div class="text-sm text-zinc-800">
             @php
                 $customerRegion = $salesOrder->customer ? collect([
                     $salesOrder->customer->province,
@@ -184,7 +163,7 @@
                 $customerDetail = $salesOrder->shipping_address ?? ($salesOrder->customer ? $salesOrder->customer->address : '-');
             @endphp
             @if($customerRegion)
-                <div>{{ $customerRegion }}</div>
+                <div class="mb-0.5">{{ $customerRegion }}</div>
             @endif
             <div class="whitespace-pre-line">{{ $customerDetail }}</div>
         </div>
