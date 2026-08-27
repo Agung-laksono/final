@@ -291,6 +291,9 @@
         @else
             {{ $item->item->name }}
         @endif
+        @if($item->item->code)
+            <div class="text-xl font-mono text-zinc-500 normal-case mt-2 tracking-normal">SKU: {{ $item->item->code }}</div>
+        @endif
     </h2>
 
     <!-- Image -->
