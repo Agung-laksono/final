@@ -534,7 +534,7 @@ $saveCart = function ($cartData) {
                             </div>
 
                             {{-- Image Container (Top on Mobile, Left on Desktop) --}}
-                            <div class="w-full sm:w-32 h-32 sm:h-auto shrink-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center relative rounded-t-2xl sm:rounded-none sm:rounded-l-2xl overflow-hidden group">
+                            <div class="w-full sm:w-32 aspect-[4/3] sm:aspect-auto sm:h-auto shrink-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center relative rounded-t-2xl sm:rounded-none sm:rounded-l-2xl overflow-hidden group">
                                 <template x-if="item.custom_attachments && item.custom_attachments.length > 0">
                                     <img :src="'/storage/' + item.custom_attachments[0]" class="w-full h-full object-cover absolute inset-0">
                                 </template>
@@ -569,7 +569,7 @@ $saveCart = function ($cartData) {
                                         />
                                     </div>
 
-                                    <div :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom' }">
+                                    <div :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom', get isRichText() { return item.note && (item.note.includes('<') && item.note.includes('>')); } }">
                                         <div x-show="item.note" x-cloak>
                                             <flux:button size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
                                         </div>
