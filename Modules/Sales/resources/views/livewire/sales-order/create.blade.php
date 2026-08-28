@@ -353,6 +353,15 @@ $saveCart = function ($cartData) {
         );
     }
 
+    // Jika status akhir adalah processing (misalnya di Mode Solo / tanpa persetujuan), 
+    // lakukan pengecekan stok & pembuatan permintaan barang otomatis.
+    if ($isNew && $finalStatus === 'processing') {
+        $hasDeficit = $po->checkStockAndCreateInventoryRequests();
+        if ($hasDeficit) {
+            \App\Events\KanbanUpdated::safeDispatch('inventory_request');
+        }
+    }
+
     if ($isNew && $po->status === 'pending_approval') {
         $recipients = \App\Models\User::permission('sales.notifikasi.view')
             ->orWhereHas('roles', function($q) { $q->where('name', 'Super Admin'); })
