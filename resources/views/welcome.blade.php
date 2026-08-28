@@ -3,7 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Romlah ERP - Beranda</title>
+    <title>Beranda - {{ config('app.name', 'Laravel') }}</title>
+
+    @php
+        $pwaIconPath = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_icon', function () {
+            if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return null;
+            return \App\Models\Setting::where('key', 'pwa_icon')->value('value');
+        });
+        $appIconUrl = $pwaIconPath ? asset('storage/' . $pwaIconPath) : null;
+    @endphp
+
+    @if($appIconUrl)
+        <link rel="icon" href="{{ $appIconUrl }}">
+        <link rel="apple-touch-icon" href="{{ $appIconUrl }}">
+    @else
+        <link rel="icon" href="/favicon.ico" sizes="any">
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    @endif
 
     <!-- Memuat Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
