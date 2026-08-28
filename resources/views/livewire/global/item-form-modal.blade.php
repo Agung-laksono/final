@@ -213,6 +213,8 @@ new class extends Component {
         // Dispatch event khusus — diproses setelah 3x queueMicrotask di Livewire JS,
         // memberi Alpine cukup waktu selesai inisialisasi sebelum modal dibuka
         $this->dispatch('do-open-item-modal');
+        // Reset cropper state so previous uploads are visually cleared when reopening modal
+        $this->dispatch('reset-cropper');
     }
 
     #[On('unit-updated')]
@@ -510,7 +512,86 @@ new class extends Component {
                         {{-- STEP 3: SPESIFIKASI --}}
                         <div x-show="step === 3 || step === 5" x-transition.opacity :class="step === 5 ? 'p-5 bg-zinc-50/30 dark:bg-zinc-800/10 border border-zinc-200 dark:border-zinc-700 rounded-xl space-y-6' : 'space-y-6'" style="display: none;">
                             {{-- Deskripsi --}}
-                            <flux:textarea wire:model="description" label="Spesifikasi / Deskripsi" placeholder="Tuliskan spesifikasi lengkap, ukuran, atau keterangan tambahan..." rows="4" />
+                            <div class="relative">
+                                <flux:textarea wire:model="description" label="Spesifikasi / Deskripsi" placeholder="Tuliskan spesifikasi lengkap, ukuran, atau keterangan tambahan..." rows="4" />
+                                
+                                <div class="mt-2.5 flex flex-wrap items-center gap-2" x-data="{
+                                    options: JSON.parse(localStorage.getItem('item_spec_suggestions')) || ['Panjang', 'Lebar', 'Tinggi', 'Dimensi', 'Bahan', 'Warna', 'Berat', 'Garansi'],
+                                    newOption: '',
+                                    showAdd: false,
+                                    deleteMode: false,
+                                    
+                                    appendSuggestion(text) {
+                                        if (this.deleteMode) return;
+                                        
+                                        let current = $wire.get('description') || '';
+                                        if (current === '') {
+                                            $wire.set('description', text + ': ');
+                                        } else {
+                                            if (!current.endsWith('\n')) current += '\n';
+                                            $wire.set('description', current + text + ': ');
+                                        }
+                                        let textarea = $el.closest('.relative').querySelector('textarea');
+                                        if (textarea) {
+                                            setTimeout(() => { textarea.focus(); }, 50);
+                                        }
+                                    },
+                                    
+                                    addOption() {
+                                        let val = this.newOption.trim();
+                                        if (val && !this.options.includes(val)) {
+                                            this.options.push(val);
+                                            localStorage.setItem('item_spec_suggestions', JSON.stringify(this.options));
+                                        }
+                                        this.newOption = '';
+                                        this.showAdd = false;
+                                    },
+                                    
+                                    removeOption(val) {
+                                        this.options = this.options.filter(o => o !== val);
+                                        if(this.options.length === 0) {
+                                            this.options = ['Panjang'];
+                                            this.deleteMode = false;
+                                        }
+                                        localStorage.setItem('item_spec_suggestions', JSON.stringify(this.options));
+                                    }
+                                }">
+                                    <span class="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mr-1">Ide Format:</span>
+                                    
+                                    <template x-for="opt in options" :key="opt">
+                                        <div class="relative">
+                                            <button type="button" 
+                                                @click="deleteMode ? removeOption(opt) : appendSuggestion(opt)" 
+                                                :class="deleteMode ? 'animate-pulse ring-2 ring-red-400 border-transparent bg-red-50 text-red-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 border-zinc-200 dark:border-zinc-700'"
+                                                class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border transition-all focus:outline-none cursor-pointer">
+                                                <flux:icon.plus x-show="!deleteMode" class="w-3 h-3 mr-1 opacity-70" />
+                                                <span x-text="opt"></span>
+                                            </button>
+                                            <button type="button" x-show="deleteMode" @click.stop="removeOption(opt)" style="display: none;" class="absolute -top-1.5 -right-1.5 flex items-center justify-center w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[8px] hover:bg-red-600 shadow-sm z-10 focus:outline-none">
+                                                ✕
+                                            </button>
+                                        </div>
+                                    </template>
+                                    
+                                    {{-- Tombol Tambah & Hapus --}}
+                                    <div class="relative flex items-center gap-1 ml-1" @click.away="showAdd = false">
+                                        <button type="button" x-show="!showAdd" @click="showAdd = true; $nextTick(() => $refs.newOptInput.focus())" class="text-zinc-400 hover:text-indigo-600 focus:outline-none p-1" title="Tambah Ide Format Baru">
+                                            <flux:icon.plus class="w-3.5 h-3.5" />
+                                        </button>
+                                        
+                                        <button type="button" x-show="!showAdd" @click="deleteMode = !deleteMode" class="text-zinc-400 hover:text-red-500 focus:outline-none p-1" title="Hapus Ide Format" :class="deleteMode ? 'text-red-500 bg-red-50 dark:bg-red-500/10 rounded' : ''">
+                                            <flux:icon.trash class="w-3.5 h-3.5" />
+                                        </button>
+                                        
+                                        <div x-show="showAdd" style="display: none;" class="flex items-center gap-1">
+                                            <input type="text" x-ref="newOptInput" x-model="newOption" @keydown.enter.prevent="addOption()" @keydown.escape="showAdd = false" placeholder="Ketik..." class="w-20 px-2 py-0.5 text-[11px] rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                                            <button type="button" @click="addOption()" class="p-0.5 text-indigo-600 hover:text-indigo-800 focus:outline-none">
+                                                <flux:icon.check class="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             {{-- Tags --}}
                             <div class="space-y-1" x-data="{
