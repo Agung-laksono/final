@@ -20,6 +20,8 @@ state([
     'purchase_order' => 0,
     'sales_committed' => 0,
     'atp' => 0,
+    'atp_fisik' => 0,
+    'atp_proyeksi' => 0,
     'groupVariants' => false,
     'custom_variants_count' => 0, // Disimpan terpisah agar tidak hilang saat Livewire rehydration
 ]);
@@ -30,6 +32,8 @@ $customVariantsList = computed(function () {
     return \Modules\Sales\Models\SalesOrderItem::with('salesOrder.customer')
         ->where('item_id', $this->item->id)
         ->whereNotNull('custom_attributes')
+        ->where('custom_attributes', '!=', '[]')
+        ->where('custom_attributes', '!=', '{}')
         ->latest('id')
         ->limit(100)
         ->get();
@@ -65,6 +69,8 @@ $fetchData = function ($id) {
     $this->purchase_order = $stats['purchase_order'] ?? 0;
     $this->sales_committed = $stats['sales_committed'] ?? 0;
     $this->atp = $this->item->getATP();
+    $this->atp_fisik = $stats['atp_fisik'] ?? 0;
+    $this->atp_proyeksi = $stats['atp_proyeksi'] ?? 0;
 };
 
 $switchTab = function ($newTab) {
@@ -542,28 +548,32 @@ $saveInitialStock = function () {
                                         Status Pipeline (Realtime)
                                     </h3>
                                     
-                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
                                         <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm flex flex-col justify-between">
-                                            <div class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Dalam Pembelian</div>
+                                            <div class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Dlm Pembelian</div>
                                             <div class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ $purchase_order + $purchase_queue }} <span class="text-[10px] font-normal text-zinc-400 ml-0.5">{{ $item->unit?->name }}</span></div>
                                         </div>
                                         <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm flex flex-col justify-between">
-                                            <div class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Dalam Produksi</div>
+                                            <div class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Dlm Produksi</div>
                                             <div class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ $production }} <span class="text-[10px] font-normal text-zinc-400 ml-0.5">{{ $item->unit?->name }}</span></div>
                                         </div>
                                         <div class="bg-white dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm flex flex-col justify-between">
-                                            <div class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Pesanan (Booking)</div>
+                                            <div class="text-[9px] text-zinc-500 uppercase tracking-wider font-bold mb-1">Booking/Dipesan</div>
                                             <div class="text-lg font-bold text-rose-600 dark:text-rose-400">{{ $sales_committed }} <span class="text-[10px] font-normal text-zinc-400 ml-0.5">{{ $item->unit?->name }}</span></div>
                                         </div>
                                         <div class="bg-emerald-50 dark:bg-emerald-500/10 p-3 rounded-lg border border-emerald-200 dark:border-emerald-500/30 shadow-sm flex flex-col justify-between">
-                                            <div class="text-[9px] text-emerald-700 dark:text-emerald-400 uppercase tracking-wider font-bold mb-1" title="Available to Promise (Siap Jual)">Siap Jual (ATP)</div>
-                                            <div class="text-lg font-bold text-emerald-600 dark:text-emerald-400">{{ $atp }} <span class="text-[10px] font-normal text-emerald-500/70 ml-0.5">{{ $item->unit?->name }}</span></div>
+                                            <div class="text-[9px] text-emerald-700 dark:text-emerald-400 uppercase tracking-wider font-bold mb-1" title="Stok Fisik - Booking">ATP Fisik</div>
+                                            <div class="text-lg font-bold text-emerald-600 dark:text-emerald-400">{{ $atp_fisik }} <span class="text-[10px] font-normal text-emerald-500/70 ml-0.5">{{ $item->unit?->name }}</span></div>
+                                        </div>
+                                        <div class="bg-indigo-50 dark:bg-indigo-500/10 p-3 rounded-lg border border-indigo-200 dark:border-indigo-500/30 shadow-sm flex flex-col justify-between">
+                                            <div class="text-[9px] text-indigo-700 dark:text-indigo-400 uppercase tracking-wider font-bold mb-1" title="Fisik + Masuk - Booking">ATP Proyeksi</div>
+                                            <div class="text-lg font-bold text-indigo-600 dark:text-indigo-400">{{ $atp_proyeksi }} <span class="text-[10px] font-normal text-indigo-500/70 ml-0.5">{{ $item->unit?->name }}</span></div>
                                         </div>
                                     </div>
                                     
-                                    <div class="text-[10px] text-zinc-500 flex items-center gap-1.5 mb-6">
-                                        <flux:icon.information-circle class="w-3.5 h-3.5" />
-                                        <span><strong>ATP (Available to Promise)</strong> = Stok Fisik + Barang Masuk (Beli/Produksi) - Pesanan Keluar.</span>
+                                    <div class="text-[10px] text-zinc-500 flex flex-col gap-1.5 mb-6">
+                                        <div class="flex items-center gap-1.5"><flux:icon.information-circle class="w-3.5 h-3.5 shrink-0" /> <span><strong>ATP Fisik</strong> = Stok Fisik di Gudang - Pesanan Booking Keluar. (Barang siap kirim saat ini).</span></div>
+                                        <div class="flex items-center gap-1.5"><flux:icon.information-circle class="w-3.5 h-3.5 shrink-0" /> <span><strong>ATP Proyeksi</strong> = ATP Fisik + Barang Masuk (Pembelian & Produksi). (Barang siap dikirim masa depan).</span></div>
                                     </div>
                                 </div>
 
@@ -848,9 +858,16 @@ $saveInitialStock = function () {
                                             {{ $variant->salesOrder?->customer?->name ?? 'Pelanggan Umum' }}
                                         </div>
                                         @if(!empty($variant->custom_attributes))
-                                            <div class="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-3">
-                                                {{ collect($variant->custom_attributes)->map(fn($v, $k) => $k . ': ' . (is_array($v) ? implode(', ', $v) : $v))->implode(' | ') }}
+                                            <div class="mt-2 flex flex-wrap gap-1">
+                                                @foreach($variant->custom_attributes as $key => $val)
+                                                    <div class="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800 text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                        <span class="font-semibold uppercase tracking-wider">{{ $key }}:</span>
+                                                        <span>{{ is_array($val) ? implode(', ', $val) : $val }}</span>
+                                                    </div>
+                                                @endforeach
                                             </div>
+                                        @else
+                                            <div class="text-[10px] text-zinc-400 italic mt-1">Tanpa atribut kustom</div>
                                         @endif
                                     </div>
                                 </div>

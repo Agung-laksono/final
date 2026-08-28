@@ -536,6 +536,30 @@ new class extends Component {
                                 </div>
                             </div>
                              
+                             {{-- Micro-Row: Pipeline Stats --}}
+                             @php
+                                 $stats = $item->getInventoryStats();
+                                 $po = $stats['purchase_order'] + $stats['purchase_queue'];
+                                 $wip = $stats['production'];
+                                 $book = $stats['sales_committed'];
+                                 $atpFisik = $stats['atp_fisik'] ?? 0;
+                                 $atpProyeksi = $stats['atp_proyeksi'] ?? 0;
+                                 
+                                 $badges = [];
+                                 if($po > 0) $badges[] = '<span title="Dalam Pembelian">PO: '.$po.'</span>';
+                                 if($wip > 0) $badges[] = '<span title="Dalam Produksi">WIP: '.$wip.'</span>';
+                                 if($book > 0) $badges[] = '<span title="Pesanan Keluar">Book: '.$book.'</span>';
+                                 
+                                 $fisikColor = $atpFisik > 0 ? 'text-emerald-500/90' : 'text-rose-500/90';
+                                 $badges[] = '<span title="ATP Fisik (Siap Kirim Sekarang)" class="'.$fisikColor.' font-bold">ATP(F): '.$atpFisik.'</span>';
+
+                                 $proColor = $atpProyeksi > 0 ? 'text-indigo-500/90' : 'text-rose-500/90';
+                                 $badges[] = '<span title="ATP Proyeksi (Stok Masa Depan)" class="'.$proColor.' font-bold">ATP(P): '.$atpProyeksi.'</span>';
+                             @endphp
+                             <div class="mt-1.5 flex flex-wrap items-center gap-1.5 text-[8px] font-medium text-zinc-400 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/50 px-1.5 py-0.5 rounded border border-zinc-100 dark:border-zinc-700">
+                                 {!! implode(' <span class="text-zinc-300 dark:text-zinc-600">&bull;</span> ', $badges) !!}
+                             </div>
+
                              {{-- Tombol Lihat Varian (Alpine Client-Side) --}}
                              @if(collect($item->customVariants)->filter(fn($v) => !empty($v->custom_attachments))->count() > 0)
                                  <button type="button" @click.stop="expandedIds.includes({{ $item->id }}) ? expandedIds = expandedIds.filter(id => id !== {{ $item->id }}) : expandedIds.push({{ $item->id }})"

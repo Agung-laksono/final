@@ -389,6 +389,8 @@ $delete = function (Item $item) {
                     'wip' => $stats['production'],
                     'book' => $stats['sales_committed'],
                     'atp' => $item->getATP(),
+                    'atp_fisik' => $stats['atp_fisik'] ?? 0,
+                    'atp_proyeksi' => $stats['atp_proyeksi'] ?? 0,
                     'warehouses' => $warehousesInfo,
                     'is_active' => $item->is_active,
                 ];
@@ -422,6 +424,8 @@ $delete = function (Item $item) {
                         'wip' => null,
                         'book' => null,
                         'atp' => null,
+                        'atp_fisik' => null,
+                        'atp_proyeksi' => null,
                         'warehouses' => null,
                         'is_active' => null,
                     ];
@@ -797,15 +801,19 @@ $delete = function (Item $item) {
                             $po = $stats['purchase_order'] + $stats['purchase_queue'];
                             $wip = $stats['production'];
                             $book = $stats['sales_committed'];
-                            $atp = $item->getATP();
+                            $atpFisik = $stats['atp_fisik'] ?? 0;
+                            $atpProyeksi = $stats['atp_proyeksi'] ?? 0;
                             
                             $badges = [];
                             if($po > 0) $badges[] = '<span title="Dalam Pembelian">PO: '.$po.'</span>';
                             if($wip > 0) $badges[] = '<span title="Dalam Produksi">WIP: '.$wip.'</span>';
                             if($book > 0) $badges[] = '<span title="Pesanan Keluar">Book: '.$book.'</span>';
                             
-                            $atpColor = $atp > 0 ? 'text-emerald-500/90' : 'text-rose-500/90';
-                            $badges[] = '<span title="Siap Jual (Available to Promise)" class="'.$atpColor.' font-bold">ATP: '.$atp.'</span>';
+                            $fisikColor = $atpFisik > 0 ? 'text-emerald-500/90' : 'text-rose-500/90';
+                            $badges[] = '<span title="ATP Fisik (Siap Kirim Sekarang)" class="'.$fisikColor.' font-bold">ATP(F): '.$atpFisik.'</span>';
+                            
+                            $proColor = $atpProyeksi > 0 ? 'text-indigo-500/90' : 'text-rose-500/90';
+                            $badges[] = '<span title="ATP Proyeksi (Stok Masa Depan)" class="'.$proColor.' font-bold">ATP(P): '.$atpProyeksi.'</span>';
                         @endphp
                         <div class="mt-1.5 flex flex-wrap items-center gap-1.5 text-[8px] font-medium text-zinc-400 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900/50 px-1.5 py-0.5 rounded border border-zinc-100 dark:border-zinc-700">
                             {!! implode(' <span class="text-zinc-300 dark:text-zinc-600">&bull;</span> ', $badges) !!}
@@ -934,7 +942,8 @@ $delete = function (Item $item) {
                                                 <template x-if="item.po > 0"><span class="text-zinc-400 bg-zinc-800 px-1 rounded">PO:<span x-text="item.po"></span></span></template>
                                                 <template x-if="item.wip > 0"><span class="text-zinc-400 bg-zinc-800 px-1 rounded">WIP:<span x-text="item.wip"></span></span></template>
                                                 <template x-if="item.book > 0"><span class="text-zinc-400 bg-zinc-800 px-1 rounded">Book:<span x-text="item.book"></span></span></template>
-                                                <span class="font-bold" :class="item.atp > 0 ? 'text-emerald-400' : 'text-rose-400'">ATP: <span x-text="item.atp"></span></span>
+                                                <span class="font-bold" :class="item.atp_fisik > 0 ? 'text-emerald-400' : 'text-rose-400'">ATP(F): <span x-text="item.atp_fisik"></span></span>
+                                                <span class="font-bold" :class="item.atp_proyeksi > 0 ? 'text-indigo-400' : 'text-rose-400'">ATP(P): <span x-text="item.atp_proyeksi"></span></span>
                                             </div>
                                         </div>
                                     </template>

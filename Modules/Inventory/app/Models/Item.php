@@ -65,7 +65,9 @@ class Item extends Model
     public function customVariants()
     {
         return $this->hasMany(\Modules\Sales\Models\SalesOrderItem::class)
-                    ->whereNotNull('custom_attributes');
+                    ->whereNotNull('custom_attributes')
+                    ->where('custom_attributes', '!=', '[]')
+                    ->where('custom_attributes', '!=', '{}');
     }
 
     /**
@@ -148,6 +150,9 @@ class Item extends Model
             ];
         })->toArray();
             
+        $atp_fisik = max(0, $physical - $salesCommitted);
+        $atp_proyeksi = max(0, $physical + $production + $purchaseQueue + $purchaseOrder - $salesCommitted);
+
         return [
             'physical' => $physical,
             'warehouse_details' => $warehouseDetails,
@@ -155,6 +160,8 @@ class Item extends Model
             'purchase_queue' => $purchaseQueue,
             'purchase_order' => $purchaseOrder,
             'sales_committed' => $salesCommitted,
+            'atp_fisik' => $atp_fisik,
+            'atp_proyeksi' => $atp_proyeksi,
         ];
     }
 
