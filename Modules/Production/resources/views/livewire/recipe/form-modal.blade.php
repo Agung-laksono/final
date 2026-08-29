@@ -211,8 +211,12 @@ $handleItemSelected = function ($itemData) {
                                                 </div>
                                             @endif
                                             <div>
+                                                <div class="mb-0.5">
+                                                    <span class="inline-block px-1 py-0.5 text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none">
+                                                        {{ $res->code }}
+                                                    </span>
+                                                </div>
                                                 <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100">{{ $res->name }}</div>
-                                                <div class="text-[10px] text-zinc-500 font-mono">{{ $res->code }}</div>
                                             </div>
                                         </li>
                                     @endforeach
@@ -251,8 +255,12 @@ $handleItemSelected = function ($itemData) {
                                             </div>
                                         @endif
                                         <div class="flex flex-col min-w-0">
+                                            <div class="mb-1">
+                                                <span class="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none shadow-sm">
+                                                    {{ $mat['code'] }}
+                                                </span>
+                                            </div>
                                             <span class="font-bold text-zinc-900 dark:text-zinc-100 text-sm truncate">{{ $mat['name'] }}</span>
-                                            <span class="text-[10px] text-zinc-500 font-mono mt-0.5">{{ $mat['code'] }}</span>
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-3 mt-1 sm:mt-0 justify-between sm:justify-end border-t sm:border-0 border-zinc-100 dark:border-zinc-700 pt-3 sm:pt-0">

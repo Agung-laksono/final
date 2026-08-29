@@ -339,9 +339,14 @@ $save = function() {
                     <flux:avatar src="{{ $item?->image ? Storage::url($item->image) : '' }}" fallback="{{ substr($item?->name ?? '?', 0, 2) }}" size="sm" class="rounded-lg shadow-sm" />
                 </div>
                 <div class="min-w-0">
+                    <div class="mb-1">
+                        <span class="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none shadow-sm">
+                            {{ $item?->code ?? '-' }}
+                        </span>
+                    </div>
                     <flux:heading size="md" class="truncate font-bold leading-tight">{{ $item?->name ?? 'Memuat...' }}</flux:heading>
                     <p class="mt-0.5 text-[10px] sm:text-xs text-zinc-500 font-mono">
-                        SKU: <strong>{{ $item?->code ?? '-' }}</strong> &bull; Antrean: <strong>{{ count($sos) }} SPK</strong>
+                        Antrean: <strong>{{ count($sos) }} SPK</strong>
                     </p>
                 </div>
             </div>

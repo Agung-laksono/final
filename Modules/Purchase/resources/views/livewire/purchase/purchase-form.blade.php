@@ -610,6 +610,10 @@ $saveCart = function ($cartData) {
 
                                 {{-- Product Info --}}
                                 <div class="pr-10 sm:pr-12">
+                                    <div class="mb-1">
+                                        <span class="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none shadow-sm" x-text="item.code || '-'">
+                                        </span>
+                                    </div>
                                     <h4 class="font-bold text-[#1a2b4c] dark:text-zinc-100 text-[14px] sm:text-[15px] leading-snug line-clamp-1 uppercase flex items-center flex-wrap">
                                         <span x-text="item.name"></span>
                                         <template x-if="(item.custom_attributes && item.custom_attributes.length > 0) || (item.custom_attachments && item.custom_attachments.length > 0) || (item.note && item.note.toUpperCase().includes('[CUSTOM]'))">
@@ -619,7 +623,7 @@ $saveCart = function ($cartData) {
                                         </template>
                                     </h4>
                                     <div class="text-[12px] sm:text-[13px] text-zinc-400 font-medium mt-0.5 sm:mt-1 uppercase flex items-center gap-2">
-                                        <span x-text="item.code || '-'"></span>
+                                        <!-- Code has been moved to badge above -->
                                     </div>
                                     
                                     {{-- Custom Badges Preview --}}

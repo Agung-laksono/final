@@ -109,7 +109,30 @@ $save = function () {
             }
         });
         
+        // Notify Warehouse Staff
+        foreach ($this->distributions as $dist) {
+            $wh = \Modules\Inventory\Models\Warehouse::find($dist['warehouse_id']);
+            if ($wh) {
+                // Determine vendor name (or Internal)
+                $vendorName = $this->order->purchaseOrder ? ($this->order->purchaseOrder->vendor->name ?? 'Vendor Maklon') : 'Internal Produksi';
+                
+                $warehouseUsers = \App\Models\User::withPermissionOrSuperAdmin('inventory.receipt.view')
+                    ->where(function($q) use ($wh) {
+                        $q->whereHas('warehouses', function($q2) use ($wh) {
+                            $q2->where('warehouses.id', $wh->id);
+                        })->orWhereHas('roles', function ($roleQuery) {
+                            $roleQuery->where('name', 'Super Admin');
+                        });
+                    })->get();
+
+                // Order number could be tricky to match precisely if we replicated, but the base number + waiting to be received is enough
+                $ordNum = $this->order->order_number; 
+                \Illuminate\Support\Facades\Notification::send($warehouseUsers, new \App\Notifications\ProductionRouteAllocatedNotification($ordNum, $vendorName, $wh->name));
+            }
+        }
+        
         $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('production_order');
         $this->show = false;
         \Flux::toast("Alokasi berhasil. Perintah penerimaan fisik telah diteruskan ke gudang cabang.", variant: 'success');
     }
@@ -125,6 +148,11 @@ $save = function () {
 
         @if($order)
             <div class="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <div class="mb-1">
+                    <span class="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none">
+                        {{ $order->item->code }}
+                    </span>
+                </div>
                 <div class="font-bold text-zinc-900 dark:text-white">{{ $order->item->name }}</div>
                 <div class="flex justify-between text-sm mt-2">
                     <div>No. Pesanan: <span class="font-bold">{{ $order->order_number }}</span></div>

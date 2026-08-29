@@ -22,8 +22,12 @@
                                 class="w-full text-left px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 focus:bg-zinc-100 dark:focus:bg-zinc-700 focus:outline-none transition-colors duration-150 flex justify-between items-center"
                             >
                                 <div>
+                                    <div class="mb-0.5">
+                                        <span class="inline-block px-1 py-0.5 text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none">
+                                            {{ $item->code }}
+                                        </span>
+                                    </div>
                                     <div class="font-medium text-zinc-900 dark:text-white text-sm">{{ $item->name }}</div>
-                                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $item->code }}</div>
                                 </div>
                                 @if($warehouseId)
                                     @php

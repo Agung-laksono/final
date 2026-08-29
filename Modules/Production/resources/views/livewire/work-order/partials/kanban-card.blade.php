@@ -97,9 +97,16 @@
                 </div>
             @endif
 
-            <span class="font-bold text-[10px] text-zinc-800 dark:text-zinc-100 leading-tight line-clamp-2" title="{{ $order->item->name }}">
-                {{ $order->item->name }}
-            </span>
+            <div class="min-w-0">
+                <div class="mb-1">
+                    <span class="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none shadow-sm">
+                        {{ $order->item->code }}
+                    </span>
+                </div>
+                <span class="font-bold text-[10px] text-zinc-800 dark:text-zinc-100 leading-tight line-clamp-2" title="{{ $order->item->name }}">
+                    {{ $order->item->name }}
+                </span>
+            </div>
         </div>
 
         @php
@@ -156,6 +163,27 @@
                 <span class="hover:text-blue-600 cursor-pointer flex items-center gap-1" wire:click="$dispatch('open-po-detail-modal', { poId: {{ $order->purchase_order_id }} })">
                     <flux:icon.truck class="w-2.5 h-2.5" /> PO: {{ $order->purchaseOrder->po_number }}
                 </span>
+                
+                @php
+                    $po = $order->purchaseOrder;
+                    $paidAmount = $po->payments ? $po->payments->where('status', 'verified')->sum('amount') : 0;
+                    $isPaid = $paidAmount >= $po->total_amount && $po->total_amount > 0;
+                    $isPartial = $paidAmount > 0 && !$isPaid;
+                @endphp
+                @if($isPaid)
+                    <span class="text-[8px] text-emerald-600 font-semibold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded border border-emerald-200 dark:border-emerald-800" title="Jasa Lunas">
+                        Lunas
+                    </span>
+                @elseif($isPartial)
+                    <span class="text-[8px] text-amber-600 font-semibold bg-amber-50 dark:bg-amber-900/30 px-1 rounded border border-amber-200 dark:border-amber-800" title="Dibayar Sebagian">
+                        Sisa: Rp {{ number_format($po->total_amount - $paidAmount, 0, ',', '.') }}
+                    </span>
+                @else
+                    <span class="text-[8px] text-red-600 font-semibold bg-red-50 dark:bg-red-900/30 px-1 rounded border border-red-200 dark:border-red-800" title="Belum Dibayar">
+                        Belum Dibayar
+                    </span>
+                @endif
+                
                 @if(count($order->completed_phases) > 0)
                     <span class="text-[8px] text-emerald-600 font-semibold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded border border-emerald-200 dark:border-emerald-800">
                         Ada Riwayat Jasa Luar

@@ -96,7 +96,7 @@ $orders = computed(function () {
     
     if (empty($ids)) return collect();
     
-    $result = ProductionOrder::with(['item', 'creator'])
+    $result = ProductionOrder::with(['item', 'creator', 'purchaseOrder.payments'])
         ->whereIn('id', $ids)
         ->get()
         ->sortByDesc('updated_at');

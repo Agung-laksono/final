@@ -590,10 +590,21 @@ $confirmSaveMaklon = function () {
                     <div class="bg-white dark:bg-white w-full shadow-xl border border-zinc-300 p-8 md:p-12 text-zinc-900 font-sans shrink-0 flex flex-col relative" style="max-width: 210mm; min-height: 297mm;">
                         
                         {{-- Document Header --}}
+                        @php $companyBrand = \App\Models\Brand::first(); @endphp
                         <div class="flex justify-between items-start border-b-2 border-zinc-900 pb-6 mb-6">
                             <div>
-                                <div class="text-2xl font-black uppercase tracking-wider text-zinc-900">Guna Jati</div>
-                                <div class="text-sm text-zinc-600 mt-1">Jl. Raya Industri No. 123, Jepara<br>Jawa Tengah, Indonesia</div>
+                                <div class="text-2xl font-black uppercase tracking-wider text-zinc-900">{{ $companyBrand ? $companyBrand->name : 'PERUSAHAAN' }}</div>
+                                <div class="text-sm text-zinc-600 mt-1">
+                                    @if($companyBrand && $companyBrand->address)
+                                        {!! nl2br(e($companyBrand->address)) !!}
+                                    @else
+                                        Alamat Perusahaan belum diatur
+                                    @endif
+                                    <br>
+                                    @if($companyBrand && $companyBrand->phone)
+                                        Telp: {{ $companyBrand->phone }}
+                                    @endif
+                                </div>
                             </div>
                             <div class="text-right">
                                 <h1 class="text-3xl font-black text-zinc-900 tracking-tight uppercase">SPK <span class="text-md normal-case">(Surat perintah kerja)</span></h1>

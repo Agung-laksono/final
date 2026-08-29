@@ -43,7 +43,7 @@ on(['open-po-detail-modal' => function ($poId) {
     },
     'echo:kanban.purchase_order,KanbanUpdated' => function () {
         if ($this->po) {
-            $this->po = PurchaseOrder::with(['vendor', 'items.item', 'payments.user'])->find($this->po->id);
+            $this->po = PurchaseOrder::with(['vendor', 'items.item', 'payments.creator'])->find($this->po->id);
         }
     }
 ]);
@@ -58,7 +58,7 @@ updated(['payment_amount' => function ($value) {
 }]);
 
 $loadData = function ($poId) {
-    $this->po = PurchaseOrder::with(['vendor', 'items.item', 'payments.user'])->find($poId);
+    $this->po = PurchaseOrder::with(['vendor', 'items.item', 'payments.creator'])->find($poId);
     $this->payment_amount = $this->remainingBalance;
 };
 
@@ -321,6 +321,11 @@ $cancelSPK = function () {
                             <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-white dark:bg-zinc-900/30 shadow-sm">
                                 <div class="bg-zinc-50 dark:bg-zinc-800/80 p-4 border-b border-zinc-200 dark:border-zinc-700 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                                     <div>
+                                        <div class="mb-1">
+                                            <span class="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none shadow-sm">
+                                                {{ $item->item->code }}
+                                            </span>
+                                        </div>
                                         <div class="font-bold text-lg text-zinc-900 dark:text-zinc-100">
                                             @if($item->item->alias)
                                                 {{ $item->item->alias }} <span class="text-sm text-zinc-500 normal-case font-medium ml-1">- {{ $item->item->name }}</span>
@@ -398,7 +403,7 @@ $cancelSPK = function () {
                                                     <span class="text-xs font-medium text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded">{{ \Carbon\Carbon::parse($payment->payment_date)->format('d M y') }}</span>
                                                 </div>
                                                 <div class="text-sm text-zinc-600 dark:text-zinc-400">{{ $payment->notes ?: 'Transfer/Kas' }}</div>
-                                                <div class="text-xs text-zinc-400 mt-2">Diterima oleh: {{ $payment->user?->name ?? 'Sistem' }}</div>
+                                                <div class="text-xs text-zinc-400 mt-2">Diterima oleh: {{ $payment->creator?->name ?? 'Sistem' }}</div>
                                                 @if($payment->status === 'pending')
                                                     <div class="mt-2 text-[10px] italic text-amber-600 dark:text-amber-500 border-t border-amber-200 dark:border-amber-800 pt-2">Menunggu pengecekan Finance...</div>
                                                 @elseif($payment->status === 'rejected' && $payment->rejection_reason)

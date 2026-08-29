@@ -213,6 +213,15 @@ $save = function () {
         
         $this->dispatch('status-updated');
         \App\Events\KanbanUpdated::safeDispatch('production_order');
+        
+        // Notify Production & Finance
+        if ($this->qty_good > 0 || $this->qty_reject > 0) {
+            $prodFinUsers = \App\Models\User::withPermissionOrSuperAdmin(['production.work-order.view', 'finance.payable.view'])->get();
+            $ordNum = $this->order->order_number;
+            $whName = $this->order->targetWarehouse->name ?? 'Gudang';
+            \Illuminate\Support\Facades\Notification::send($prodFinUsers, new \App\Notifications\ProductionItemReceivedNotification($ordNum, $whName));
+        }
+        
         $this->show = false;
         
         if ($this->qty_good > 0 && $this->qty_reject > 0) {
@@ -239,6 +248,11 @@ $save = function () {
 
         @if($order)
             <div class="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <div class="mb-1">
+                    <span class="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none">
+                        {{ $order->item->code }}
+                    </span>
+                </div>
                 <div class="font-bold text-zinc-900 dark:text-white">{{ $order->item->name }}</div>
                 <div class="flex justify-between text-sm mt-2">
                     <div>No. Pesanan: <span class="font-bold">{{ $order->order_number }}</span></div>

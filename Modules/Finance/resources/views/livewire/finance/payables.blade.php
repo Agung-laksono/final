@@ -277,10 +277,14 @@ new class extends Component {
             
             $this->selectedPo = PurchaseOrder::with('payments')->find($this->selectedPoId); // reload PO
             $this->paymentAmount = '';
+            $this->paymentDate = date('Y-m-d');
+            $this->paymentNotes = '';
+            $this->financeAccountId = '';
             $this->proof = null;
             
             // Tetap di modal, ganti tab lewat event browser jika diperlukan, atau tidak perlu (opsional)
             $this->dispatch('payment-saved');
+            $this->dispatch('reset-cropper');
             \App\Events\KanbanUpdated::safeDispatch('finance_payables');
             \Flux::toast('Pembayaran berhasil diproses dan dicatat ke buku besar!', variant: 'success');
             
@@ -711,9 +715,28 @@ new class extends Component {
                     <span class="text-zinc-500 text-xs">No PO/SPK:</span>
                     <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ $selectedPo->po_number }}</div>
                 </div>
-                <div>
+                <div class="col-span-2 sm:col-span-1">
                     <span class="text-zinc-500 text-xs">Vendor Maklon:</span>
-                    <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ $selectedPo->vendor->name ?? '-' }}</div>
+                    <div class="flex items-center gap-2 mt-1">
+                        @if($selectedPo->vendor && $selectedPo->vendor->image)
+                            <button type="button" @click="$dispatch('open-lightbox', { url: '{{ Storage::url($selectedPo->vendor->image) }}' })" class="shrink-0 hover:opacity-80 transition-opacity">
+                                <img src="{{ Storage::url($selectedPo->vendor->image) }}" class="w-8 h-8 rounded-full object-cover border border-zinc-200">
+                            </button>
+                        @elseif($selectedPo->vendor)
+                            <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-[10px] font-bold text-emerald-700 shrink-0 uppercase">
+                                {{ substr($selectedPo->vendor->name, 0, 2) }}
+                            </div>
+                        @endif
+                        <div class="flex flex-col">
+                            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm leading-tight">{{ $selectedPo->vendor->name ?? '-' }}</div>
+                            @if($selectedPo->vendor && $selectedPo->vendor->phone)
+                                <div class="text-[10px] text-zinc-500">{{ $selectedPo->vendor->phone }}</div>
+                            @endif
+                            @if($selectedPo->vendor && ($selectedPo->vendor->district || $selectedPo->vendor->city))
+                                <div class="text-[10px] text-zinc-500 line-clamp-1" title="{{ $selectedPo->vendor->district }}, {{ $selectedPo->vendor->city }}">{{ $selectedPo->vendor->district }}, {{ $selectedPo->vendor->city }}</div>
+                            @endif
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <span class="text-zinc-500 text-xs">Total Biaya Jasa:</span>
@@ -729,9 +752,23 @@ new class extends Component {
                 <span class="text-zinc-500 text-xs font-bold mb-2 block uppercase tracking-wider">Detail Item Produksi:</span>
                 <ul class="space-y-2">
                     @foreach($selectedPo->items as $item)
-                        <li class="flex justify-between items-center text-sm p-2 bg-white dark:bg-zinc-800 rounded border border-zinc-100 dark:border-zinc-700">
-                            <span class="font-medium text-zinc-700 dark:text-zinc-300">{{ $item->item->name ?? $item->item_name }}</span>
-                            <span class="font-bold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 rounded">{{ $item->quantity }} pcs</span>
+                        <li class="flex justify-between items-center text-sm p-2 bg-white dark:bg-zinc-800 rounded border border-zinc-100 dark:border-zinc-700 gap-3">
+                            <div class="flex items-center gap-3">
+                                @if($item->item && $item->item->image)
+                                    <button type="button" @click="$dispatch('open-lightbox', { url: '{{ Storage::url($item->item->image) }}' })" class="w-10 h-10 shrink-0 rounded bg-zinc-100 overflow-hidden border border-zinc-200 hover:opacity-80 transition-opacity" title="Lihat Foto Barang">
+                                        <img src="{{ Storage::url($item->item->image) }}" class="w-full h-full object-cover">
+                                    </button>
+                                @else
+                                    <div class="w-10 h-10 shrink-0 rounded bg-zinc-100 flex items-center justify-center text-zinc-400 border border-zinc-200">
+                                        <flux:icon.photo class="w-5 h-5" />
+                                    </div>
+                                @endif
+                                <div class="flex flex-col">
+                                    <span class="font-medium text-zinc-700 dark:text-zinc-300 leading-tight">{{ $item->item->name ?? $item->item_name }}</span>
+                                    <span class="text-[10px] text-zinc-500">{{ $item->item->code ?? '' }}</span>
+                                </div>
+                            </div>
+                            <span class="font-bold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 rounded shrink-0">{{ $item->quantity }} pcs</span>
                         </li>
                     @endforeach
                 </ul>

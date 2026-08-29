@@ -204,6 +204,11 @@ $getStatusBadge = function ($status) {
                                             </div>
                                         @endif
                                         <div class="flex-1">
+                                            <div class="mb-1">
+                                                <span class="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none shadow-sm">
+                                                    {{ $item->item->code }}
+                                                </span>
+                                            </div>
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100 leading-snug flex items-center gap-1.5 flex-wrap">
                                                 @if($item->item->alias)
                                                     <span class="font-bold">{{ $item->item->alias }}</span> <span class="text-xs text-zinc-500 normal-case font-normal">- {{ $item->item->name }}</span>
@@ -214,7 +219,7 @@ $getStatusBadge = function ($status) {
                                                     <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-500 border border-amber-200 dark:border-amber-800">CUSTOM</span>
                                                 @endif
                                             </div>
-                                            <div class="font-mono text-[10px] text-zinc-400">{{ $item->item->code }}</div>
+                                            <!-- Code has been moved to badge above -->
                                             @if(!empty($item->custom_attributes))
                                                 <div class="mt-1">
                                                     @foreach($item->custom_attributes as $attr)

@@ -479,8 +479,12 @@ $save = function () {
                                 @forelse($transfer_items as $index => $item)
                                     <tr class="block sm:table-row bg-white border-b dark:bg-zinc-900 dark:border-zinc-700 align-top p-4 sm:p-0">
                                         <td class="block sm:table-cell px-0 sm:px-3 md:px-4 py-2 sm:py-3 mb-3 sm:mb-0">
+                                            <div class="mb-1">
+                                                <span class="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none shadow-sm">
+                                                    {{ $item['sku'] }}
+                                                </span>
+                                            </div>
                                             <div class="font-medium text-base sm:text-sm text-zinc-900 dark:text-white">{{ $item['item_name'] }}</div>
-                                            <div class="text-xs text-zinc-500">{{ $item['sku'] }}</div>
                                             
                                             {{-- Menampilkan daftar barcode/label di bawah nama --}}
                                             @if(!empty($item['labels']))

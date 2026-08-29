@@ -9,6 +9,7 @@ use Flux\Flux;
 new class extends Component {
     public $itemId = null;
     public $itemName = '';
+    public $itemCode = '';
     public $historyItems = [];
 
     public function loadData($itemId)
@@ -17,6 +18,7 @@ new class extends Component {
         
         $item = Item::find($itemId);
         $this->itemName = $item ? $item->name : 'Varian Barang';
+        $this->itemCode = $item ? $item->code : '';
         
         $this->loadHistory();
     }
@@ -116,7 +118,9 @@ new class extends Component {
             <div>
                 <h2 class="text-xl font-bold text-slate-800">Galeri Varian</h2>
                 <p class="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5 font-medium">
-                    <flux:icon.cube class="w-3.5 h-3.5 text-slate-400" />
+                    <span class="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none">
+                        {{ $itemCode }}
+                    </span>
                     {{ $itemName }}
                 </p>
             </div>

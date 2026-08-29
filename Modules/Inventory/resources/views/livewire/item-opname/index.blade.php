@@ -494,6 +494,11 @@ $save = function () {
                                     {{-- Barang --}}
                                     <flux:table.cell class="block md:table-cell border-b border-dashed border-zinc-200 dark:border-zinc-700 md:border-b-0 pb-3 md:pb-3 mb-2 md:mb-0">
                                         <div class="flex flex-col w-full">
+                                            <div class="mb-1">
+                                                <span class="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none shadow-sm">
+                                                    {{ $item->code }}
+                                                </span>
+                                            </div>
                                             <span class="font-medium text-base md:text-sm text-zinc-900 dark:text-zinc-100">
                                                 @if($item->alias)
                                                     {{ $item->alias }} <span class="text-xs md:text-[10px] text-zinc-500 normal-case font-medium ml-1">- {{ $item->name }}</span>
@@ -501,7 +506,6 @@ $save = function () {
                                                     {{ $item->name }}
                                                 @endif
                                             </span>
-                                            <span class="text-xs md:text-[10px] font-mono text-zinc-500">{{ $item->code }}</span>
                                         </div>
                                     </flux:table.cell>
                                     

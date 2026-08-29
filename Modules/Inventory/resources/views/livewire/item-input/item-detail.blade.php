@@ -260,6 +260,10 @@ $saveInitialStock = function () {
         // Refresh Dasbor
         $this->refreshItem();
         
+        $this->dispatch('item-updated');
+        if (class_exists(\App\Events\InventoryUpdated::class)) {
+            \App\Events\InventoryUpdated::safeDispatch('Stok awal ' . $this->item->code . ' ditambahkan');
+        }
     } catch (\Exception $e) {
         \Illuminate\Support\Facades\DB::rollBack();
         \Illuminate\Support\Facades\Log::error('Saldo Awal Error: ' . $e->getMessage());
@@ -435,11 +439,13 @@ $saveInitialStock = function () {
                                     
                                     {{-- Info Identitas Barang --}}
                                     <div class="mt-4 flex flex-col gap-1 text-center items-center">
-                                        <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">{{ $item->name }}</h2>
-                                        <div class="flex items-center justify-center gap-2 mb-1 flex-wrap">
-                                            <span class="font-mono text-[10px] bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
+                                        <div class="mb-1">
+                                            <span class="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none shadow-sm">
                                                 {{ $item->code }}
                                             </span>
+                                        </div>
+                                        <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">{{ $item->name }}</h2>
+                                        <div class="flex items-center justify-center gap-2 mb-1 flex-wrap">
                                             <span class="text-[10px] font-medium text-zinc-500 flex items-center gap-1">
                                                 <flux:icon.tag class="w-3 h-3" />
                                                 {{ $item->category?->name ?? 'Tanpa Kategori' }} 

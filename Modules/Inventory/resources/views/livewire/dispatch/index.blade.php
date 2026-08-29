@@ -25,7 +25,10 @@ $receipts = computed(function () {
     return $query->get();
 });
 
-on(['status-updated' => function () {}]);
+on([
+    'status-updated' => function () {},
+    'echo:kanban,KanbanUpdated' => function () {}
+]);
 
 ?>
 
@@ -59,6 +62,11 @@ on(['status-updated' => function () {}]);
                                     @endif
                                 </div>
                                 <div>
+                                    <div class="mb-0.5">
+                                        <span class="inline-block px-1 py-0.5 text-[9px] font-mono font-bold bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded border border-zinc-300 dark:border-zinc-600 leading-none">
+                                            {{ $req->item->code }}
+                                        </span>
+                                    </div>
                                     <div class="font-bold text-sm text-zinc-900 dark:text-white line-clamp-1">{{ $req->item->name }}</div>
                                     <div class="text-[11px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
                                         <span class="font-bold text-blue-600 dark:text-blue-400">{{ $req->requested_qty }}</span>
