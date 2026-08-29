@@ -145,6 +145,27 @@ $openCreateWoModal = function ($requestId) {
     
     $req = InventoryRequest::with('item')->find($requestId);
     if ($req && $req->status !== 'routed') {
+        // Intercept Custom BOM for Make-To-Order
+        $isCustom = str_contains($req->notes ?? '', '[CUSTOM]');
+        
+        // Pengecekan BOM di awal (Front-loading)
+        if (!$isCustom) {
+            $recipeExists = \Modules\Production\Models\ProductionRecipe::where('item_id', $req->item_id)
+                ->where('is_active', true)
+                ->exists();
+                
+            if (!$recipeExists) {
+                // Simpan state agar setelah resep dibuat, kita bisa otomatis membuka modal WO
+                $this->woTargetRequestId = $req->id;
+                $this->woTargetItemName = $req->item->name;
+                $this->woTargetQty = $req->requested_qty;
+                $this->promptItemId = $req->item_id;
+                
+                \Flux::modal('recipe-prompt')->show();
+                return;
+            }
+        }
+
         $this->woTargetRequestId = $req->id;
         $this->woTargetItemName = $req->item->name;
         $this->woTargetQty = $req->requested_qty;
@@ -170,13 +191,6 @@ $confirmRouteToProduction = function () {
         $recipe = \Modules\Production\Models\ProductionRecipe::where('item_id', $req->item_id)
             ->where('is_active', true)
             ->first();
-            
-        if (!$recipe) {
-            $this->promptItemId = $req->item_id;
-            \Flux::modal('create-wo-modal')->close();
-            \Flux::modal('recipe-prompt')->show();
-            return;
-        }
             
         $hasDeficit = false;
         
@@ -207,14 +221,17 @@ $confirmRouteToProduction = function () {
                     ->update(['allocated_qty' => \Illuminate\Support\Facades\DB::raw('allocated_qty + ' . $needed)]);
 
                 if (!$updated) {
-                    \Illuminate\Support\Facades\DB::table('item_warehouse')->insert([
-                        'item_id' => $ri->item_id,
-                        'warehouse_id' => 1, // Default warehouse
-                        'stock' => 0,
-                        'allocated_qty' => $needed,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
+                    $defaultWarehouseId = \Modules\Inventory\Models\Warehouse::first()->id ?? null;
+                    if ($defaultWarehouseId) {
+                        \Illuminate\Support\Facades\DB::table('item_warehouse')->insert([
+                            'item_id' => $ri->item_id,
+                            'warehouse_id' => $defaultWarehouseId,
+                            'stock' => 0,
+                            'allocated_qty' => $needed,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
                 }
                 
                 if ($deficit > 0) {
@@ -300,7 +317,15 @@ $archive = function ($requestId) {
 
 on([
     'echo:kanban,KanbanUpdated' => function () {},
-    'status-updated' => function () {}
+    'status-updated' => function () {},
+    'recipe-saved' => function () {
+        // Jika user baru saja membuat BOM karena ditolak saat akan membuat WO
+        if ($this->promptItemId && $this->woTargetRequestId) {
+            $this->promptItemId = null; // Reset flag
+            // Buka kembali modal WO agar flow tidak terputus
+            \Flux::modal('create-wo-modal')->show();
+        }
+    }
 ]);
 ?>
 

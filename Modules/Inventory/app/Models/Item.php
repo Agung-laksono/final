@@ -74,7 +74,7 @@ class Item extends Model
      * Calculate Available to Promise (ATP)
      * ATP = Physical Stock + Incoming (WIP + PO) - Committed (Booking)
      */
-    public function getATP()
+    public function getATP($exclude_so_id = null)
     {
         // 1. Physical Stock
         $totalStock = \Illuminate\Support\Facades\DB::table('item_warehouse')
@@ -102,11 +102,16 @@ class Item extends Model
         $incomingPo = $poQueueQty + $poQty;
 
         // 4. Committed (Booking from Sales Order)
-        $bookingQty = \Modules\Sales\Models\SalesOrderItem::where('item_id', $this->id)
+        $bookingQuery = \Modules\Sales\Models\SalesOrderItem::where('item_id', $this->id)
             ->whereHas('salesOrder', function($q) {
                 $q->whereIn('status', ['approved', 'processing']);
-            })
-            ->sum('qty') ?? 0;
+            });
+            
+        if ($exclude_so_id) {
+            $bookingQuery->where('sales_order_id', '!=', $exclude_so_id);
+        }
+
+        $bookingQty = $bookingQuery->sum('qty') ?? 0;
 
         $atp = $totalStock + $wipQty + $incomingPo - $bookingQty;
         return max(0, $atp);

@@ -355,8 +355,12 @@ $saveCart = function ($cartData) {
 
     // Jika status akhir adalah processing (misalnya di Mode Solo / tanpa persetujuan), 
     // lakukan pengecekan stok & pembuatan permintaan barang otomatis.
+    \Illuminate\Support\Facades\Log::info("saveCart triggered. isNew: " . ($isNew ? 'true' : 'false') . ", finalStatus: {$finalStatus}, originalStatus: {$this->status}");
+    
     if ($isNew && $finalStatus === 'processing') {
+        \Illuminate\Support\Facades\Log::info("Memanggil checkStockAndCreateInventoryRequests() untuk SO: {$po->so_number}");
         $hasDeficit = $po->checkStockAndCreateInventoryRequests();
+        \Illuminate\Support\Facades\Log::info("Selesai dipanggil. hasDeficit = " . ($hasDeficit ? 'true' : 'false'));
         if ($hasDeficit) {
             \App\Events\KanbanUpdated::safeDispatch('inventory_request');
         }
