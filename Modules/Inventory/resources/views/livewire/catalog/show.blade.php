@@ -14,7 +14,21 @@ state([
     'type' => 'promo',
     'phone' => '',
     'error' => null,
+    'hash' => '',
+    'quantities' => [],
 ]);
+
+$updateQuantity = function ($itemId, $qty) {
+    if (!auth()->check()) return;
+    
+    $this->quantities[$itemId] = max(1, (int)$qty);
+    
+    $payload = \Illuminate\Support\Facades\Cache::get('catalog_' . $this->hash);
+    if ($payload) {
+        $payload['quantities'] = $this->quantities;
+        \Illuminate\Support\Facades\Cache::put('catalog_' . $this->hash, $payload, \Carbon\Carbon::parse($payload['exp']));
+    }
+};
 
 mount(function ($hash = null) {
     if (!$hash) {
@@ -34,6 +48,8 @@ mount(function ($hash = null) {
         $this->validUntil = Carbon::parse($decoded['exp']);
         $this->type = $decoded['type'] ?? 'promo';
         $this->phone = $decoded['phone'] ?? '';
+        $this->hash = $hash;
+        $this->quantities = $decoded['quantities'] ?? [];
         
         if (now()->isAfter($this->validUntil)) {
             $this->isExpired = true;
@@ -106,7 +122,7 @@ mount(function ($hash = null) {
         </div>
     @else
         @if($type === 'vendor')
-            @include('inventory::livewire.catalog.vendor-quote', ['items' => $items, 'title' => $title, 'validUntil' => $validUntil, 'phone' => $phone])
+            @include('inventory::livewire.catalog.vendor-quote', ['items' => $items, 'title' => $title, 'validUntil' => $validUntil, 'phone' => $phone, 'quantities' => $quantities])
         @else
             {{-- Header Promo --}}
             <div class="bg-indigo-600 dark:bg-indigo-900 shadow-sm sticky top-0 z-50">

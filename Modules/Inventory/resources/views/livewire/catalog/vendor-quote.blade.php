@@ -46,12 +46,28 @@
                     {{-- Details & Form --}}
                     <div class="p-4 flex-1 flex flex-col">
                         <div class="mb-4">
-                            <h3 class="font-bold text-zinc-900 dark:text-white leading-tight mb-1">{{ $item->alias ?: $item->name }}</h3>
+                            <h3 class="font-bold text-zinc-900 dark:text-white leading-tight mb-1">{{ $item->alias ? $item->alias . ' - ' . $item->name : $item->name }}</h3>
                             <div class="text-xs text-zinc-500 flex items-center gap-2 flex-wrap">
                                 <span class="bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">{{ $item->category?->name ?? 'Kategori' }}</span>
                                 @if($item->length && $item->width && $item->height)
                                     <span>P: {{ $item->length }} × L: {{ $item->width }} × T: {{ $item->height }} {{ $item->dimension_unit }}</span>
                                 @endif
+                            </div>
+                            
+                            {{-- Quantity Input (Auth) / Text (Guest) --}}
+                            <div class="mt-3 flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800">
+                                <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Jumlah:</span>
+                                @auth
+                                    <input type="number" min="1" 
+                                           wire:change="$updateQuantity({{ $item->id }}, $event.target.value)"
+                                           value="{{ $quantities[$item->id] ?? 1 }}"
+                                           class="w-20 bg-white dark:bg-zinc-900 border border-emerald-300 dark:border-emerald-700 rounded-md px-2 py-1 text-sm font-bold text-emerald-700 dark:text-emerald-400 focus:ring-1 focus:ring-emerald-500 outline-none text-center">
+                                    <span class="text-xs text-zinc-500 font-medium">{{ $item->unit?->name ?? 'Unit' }}</span>
+                                    <span class="text-[10px] text-zinc-400 ml-auto">(Otomatis tersimpan)</span>
+                                @else
+                                    <span class="text-sm font-black text-emerald-600 dark:text-emerald-400">{{ $quantities[$item->id] ?? 1 }}</span>
+                                    <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400">{{ $item->unit?->name ?? 'Unit' }}</span>
+                                @endauth
                             </div>
                         </div>
                         
@@ -105,7 +121,7 @@
         document.addEventListener('alpine:init', () => {
             Alpine.data('vendorQuoteForm', () => ({
                 quotes: {},
-                itemsData: @json($items->map(fn($i) => ['id' => $i->id, 'name' => $i->alias ?: $i->name, 'sku' => $i->sku])->keyBy('id')),
+                itemsData: {!! json_encode($items->map(fn($i) => ['id' => $i->id, 'name' => $i->alias ? $i->alias . ' - ' . $i->name : $i->name, 'sku' => $i->sku, 'qty' => $quantities[$i->id] ?? 1, 'unit' => $i->unit?->name ?? 'Unit'])->keyBy('id')) !!},
                 targetPhone: '{{ $phone }}',
                 
                 init() {
@@ -132,10 +148,12 @@
                             const item = this.itemsData[id];
                             
                             message += `${counter}. *${item.name}* (SKU: ${item.sku})\n`;
+                            message += `   Jumlah: ${item.qty} ${item.unit}\n`;
                             
                             if (quote.price) {
-                                message += `   Harga: ${this.formatRupiah(quote.price)}\n`;
-                                total += parseFloat(quote.price);
+                                let itemTotal = parseFloat(quote.price) * item.qty;
+                                message += `   Harga Borongan: ${this.formatRupiah(quote.price)} x ${item.qty} = ${this.formatRupiah(itemTotal)}\n`;
+                                total += itemTotal;
                             }
                             if (quote.notes) {
                                 message += `   Catatan: ${quote.notes}\n`;
