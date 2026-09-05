@@ -187,10 +187,20 @@
                 <td class="text-zinc-500">{{ $index + 1 }}</td>
                 <td>
                     <div class="flex gap-3">
-                        <!-- Placeholder image block, since no item image property found immediately -->
+                        <!-- Item Image -->
                         <div class="w-12 h-12 bg-zinc-200 border border-zinc-300 rounded overflow-hidden shrink-0">
-                            @if(isset($item->item->image) && $item->item->image)
-                                <img src="{{ Storage::url($item->item->image) }}" class="w-full h-full object-cover">
+                            @php
+                                $itemImage = null;
+                                if (!empty($item->custom_attachments) && is_array($item->custom_attachments) && count($item->custom_attachments) > 0) {
+                                    $itemImage = $item->custom_attachments[0]['path'] ?? ($item->custom_attachments[0] ?? null);
+                                }
+                                if (!$itemImage && isset($item->item->image)) {
+                                    $itemImage = $item->item->image;
+                                }
+                            @endphp
+                            
+                            @if($itemImage)
+                                <img src="{{ Storage::url($itemImage) }}" class="w-full h-full object-cover">
                             @else
                                 <div class="w-full h-full flex items-center justify-center text-zinc-400">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -203,8 +213,22 @@
                             @else
                                 {{ $item->item->name }}
                             @endif
+                            
+                            @if(!empty($item->custom_attributes) || !empty($item->custom_attachments) || str_contains(strtoupper($item->notes ?? ''), '[CUSTOM]'))
+                                <span class="ml-1 px-1 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700 border border-amber-200 align-text-bottom">CUSTOM</span>
+                            @endif
+                            
                             @if($item->item->code)
                                 <br><span class="font-mono text-[10px] text-zinc-400 normal-case">{{ $item->item->code }}</span>
+                            @endif
+                            
+                            @if(!empty($item->custom_attributes))
+                                <br>
+                                <div class="mt-0.5 space-y-0.5">
+                                @foreach($item->custom_attributes as $attr)
+                                    <span class="inline-block text-[9px] bg-zinc-100 border border-zinc-200 text-zinc-600 px-1 py-0.5 rounded normal-case mr-1">{{ $attr['key'] ?? '-' }}: <strong>{{ $attr['value'] ?? '-' }}</strong></span>
+                                @endforeach
+                                </div>
                             @endif
                             @if($item->notes)
                                 <br><span class="text-[10px] text-zinc-400 normal-case prose prose-sm prose-p:my-0">{!! $item->notes !!}</span>
@@ -355,8 +379,18 @@
     <!-- Image -->
     <div class="w-full flex justify-center mb-12">
         <div class="w-[500px] h-[500px] border border-zinc-200 bg-zinc-100 rounded flex items-center justify-center overflow-hidden shadow-sm relative">
-            @if(isset($item->item->image) && $item->item->image)
-                <img src="{{ Storage::url($item->item->image) }}" class="max-w-full max-h-full object-contain z-10">
+            @php
+                $detailImage = null;
+                if (!empty($item->custom_attachments) && is_array($item->custom_attachments) && count($item->custom_attachments) > 0) {
+                    $detailImage = $item->custom_attachments[0]['path'] ?? ($item->custom_attachments[0] ?? null);
+                }
+                if (!$detailImage && isset($item->item->image)) {
+                    $detailImage = $item->item->image;
+                }
+            @endphp
+            
+            @if($detailImage)
+                <img src="{{ Storage::url($detailImage) }}" class="max-w-full max-h-full object-contain z-10">
             @else
                 <div class="text-center text-zinc-400 z-10">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -364,7 +398,7 @@
                 </div>
             @endif
 
-            @if(isset($item->item->image) && $item->item->image)
+            @if($detailImage)
                 <!-- Diagonal Brand Watermark -->
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-20 overflow-hidden">
                     <div class="transform -rotate-[30deg] text-white/40 font-black text-2xl tracking-[0.25em] uppercase border-2 border-white/30 px-6 py-2 rounded-lg text-center" style="text-shadow: 0 2px 6px rgba(0,0,0,0.5);">
