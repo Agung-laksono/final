@@ -11,6 +11,8 @@ state([
     'validUntil' => null,
     'isExpired' => false,
     'items' => [],
+    'type' => 'promo',
+    'phone' => '',
     'error' => null,
 ]);
 
@@ -30,6 +32,8 @@ mount(function ($hash = null) {
 
         $this->title = $decoded['title'] ?? 'Katalog Promo';
         $this->validUntil = Carbon::parse($decoded['exp']);
+        $this->type = $decoded['type'] ?? 'promo';
+        $this->phone = $decoded['phone'] ?? '';
         
         if (now()->isAfter($this->validUntil)) {
             $this->isExpired = true;
@@ -42,7 +46,7 @@ mount(function ($hash = null) {
             ->get();
             
     } catch (\Exception $e) {
-        $this->error = 'Error sistem: ' . $e->getMessage() . ' (Data asli: ' . substr($data, 0, 20) . '...)';
+        $this->error = 'Error sistem: ' . $e->getMessage();
     }
 });
 
@@ -101,8 +105,11 @@ mount(function ($hash = null) {
             </div>
         </div>
     @else
-        {{-- Header Promo --}}
-        <div class="bg-indigo-600 dark:bg-indigo-900 shadow-sm sticky top-0 z-50">
+        @if($type === 'vendor')
+            @include('inventory::livewire.catalog.vendor-quote', ['items' => $items, 'title' => $title, 'validUntil' => $validUntil, 'phone' => $phone])
+        @else
+            {{-- Header Promo --}}
+            <div class="bg-indigo-600 dark:bg-indigo-900 shadow-sm sticky top-0 z-50">
             <div class="max-w-3xl mx-auto px-4 py-3 sm:py-4 flex flex-row items-center justify-between gap-3">
                 <div class="text-left flex-1 min-w-0">
                     <h1 class="text-lg sm:text-2xl font-bold text-white leading-tight truncate">{{ $title }}</h1>
@@ -194,5 +201,6 @@ mount(function ($hash = null) {
                 Hubungi staf Sales kami untuk pemesanan.
             </div>
         </div>
+        @endif
     @endif
 </div>

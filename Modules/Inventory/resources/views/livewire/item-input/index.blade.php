@@ -60,13 +60,22 @@ layout('layouts::app', ['title' => 'Master Data Inventory']);
         </div>
         
         <div class="flex items-center gap-2 md:gap-4">
-            <button @click="Livewire.dispatch('open-generate-catalog-modal', { data: JSON.parse(JSON.stringify($store.catalog.selectedItems)) })" 
+            <button @click="Livewire.dispatch('open-generate-catalog-modal', { data: JSON.parse(JSON.stringify($store.catalog.selectedItems)), type: 'promo' })" 
                     :disabled="$store.catalog.selectedItems.length === 0"
                     :class="$store.catalog.selectedItems.length === 0 ? 'opacity-50 cursor-not-allowed bg-zinc-700 hover:bg-zinc-700' : 'bg-indigo-600 hover:bg-indigo-500 active:scale-95 shadow-lg shadow-indigo-600/30'"
                     class="text-white px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-xs md:text-sm font-bold transition flex items-center gap-1.5 md:gap-2">
                 <flux:icon.document-duplicate class="w-3.5 h-3.5 md:w-4 md:h-4" />
-                <span class="hidden md:inline">Buat Katalog</span>
-                <span class="md:hidden">Buat</span>
+                <span class="hidden md:inline">Katalog Promo</span>
+                <span class="md:hidden">Promo</span>
+            </button>
+            
+            <button @click="Livewire.dispatch('open-generate-catalog-modal', { data: JSON.parse(JSON.stringify($store.catalog.selectedItems)), type: 'vendor' })" 
+                    :disabled="$store.catalog.selectedItems.length === 0"
+                    :class="$store.catalog.selectedItems.length === 0 ? 'opacity-50 cursor-not-allowed bg-zinc-700 hover:bg-zinc-700' : 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 shadow-lg shadow-emerald-600/30'"
+                    class="text-white px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-xs md:text-sm font-bold transition flex items-center gap-1.5 md:gap-2">
+                <flux:icon.document-text class="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span class="hidden md:inline">Form Vendor</span>
+                <span class="md:hidden">Vendor</span>
             </button>
             <button @click="$store.catalog.toggleSelectionMode()" class="text-zinc-400 hover:text-red-400 transition bg-zinc-800 hover:bg-zinc-800/80 p-1.5 md:p-2 rounded-xl" title="Batalkan Mode Katalog">
                 <flux:icon.x-mark class="w-4 h-4 md:w-5 md:h-5" />

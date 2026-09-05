@@ -10,6 +10,8 @@ state([
     'valid_until' => '',
     'showModal' => false,
     'generatedUrl' => '',
+    'type' => 'promo',
+    'phone' => '',
 ]);
 
 on([
@@ -18,25 +20,31 @@ on([
         Log::info('open-generate-catalog-modal payload', ['args' => $args]);
         
         $items = [];
+        $type = 'promo';
         if (!empty($args)) {
             // Check if Livewire passed it as a named argument
             if (array_key_exists('data', $args)) {
                 $items = $args['data'];
+                $type = $args['type'] ?? 'promo';
             } 
             // Check if Livewire passed it as the first positional argument
             elseif (array_key_exists(0, $args)) {
                 $first = $args[0];
                 if (is_array($first) && isset($first['data'])) {
                     $items = $first['data'];
+                    $type = $first['type'] ?? 'promo';
                 } elseif (is_array($first)) {
                     $items = $first;
+                    $type = $args[1] ?? 'promo';
                 }
             }
         }
         
         $this->items = $items;
+        $this->type = $type;
+        $this->phone = auth()->user()->phone ?? '';
         
-        $this->title = 'Katalog Promo';
+        $this->title = $type === 'vendor' ? 'Penawaran Harga Finishing' : 'Katalog Promo';
         $this->valid_until = now()->addDay()->format('Y-m-d\TH:i');
         $this->generatedUrl = '';
         $this->showModal = true;
@@ -53,6 +61,8 @@ $generateLink = function () {
         'title' => $this->title,
         'exp' => $this->valid_until,
         'items' => $this->items,
+        'type' => $this->type,
+        'phone' => $this->phone,
     ];
 
     $hash = \Illuminate\Support\Str::random(6);
@@ -72,7 +82,7 @@ $closeModal = function () {
 <flux:modal wire:model="showModal" class="md:w-[500px]">
     <div class="p-6">
         <div class="mb-4">
-            <h2 class="text-xl font-bold text-zinc-900 dark:text-white">Buat Katalog Sales</h2>
+            <h2 class="text-xl font-bold text-zinc-900 dark:text-white">{{ $type === 'vendor' ? 'Buat Form Vendor' : 'Buat Katalog Sales' }}</h2>
         </div>
 
         <div class="space-y-4 mb-6">
@@ -83,6 +93,10 @@ $closeModal = function () {
 
             <flux:input wire:model="title" label="Judul Katalog" placeholder="Contoh: Promo Spesial Kemerdekaan" />
             
+            @if($type === 'vendor')
+                <flux:input wire:model="phone" label="No WA Tujuan Pengajuan" placeholder="62812xxxxxx" description="Pesan pengajuan harga dari vendor akan otomatis dikirim ke nomor ini." />
+            @endif
+
             <flux:input type="datetime-local" wire:model="valid_until" label="Berlaku Hingga" />
             
             <div class="text-xs text-zinc-500 mt-1 flex items-center gap-1">
@@ -125,9 +139,11 @@ $closeModal = function () {
                 
                 <flux:spacer class="hidden sm:block" />
                 
-                <flux:button variant="subtle" id="btn-download-img" icon="photo" onclick="downloadCatalogImage()" class="w-full sm:w-auto">
-                    Download Gambar
-                </flux:button>
+                @if($type === 'promo')
+                    <flux:button variant="subtle" id="btn-download-img" icon="photo" onclick="downloadCatalogImage()" class="w-full sm:w-auto">
+                        Download Gambar
+                    </flux:button>
+                @endif
                 <flux:button wire:click="generateLink" variant="primary" icon="link" class="w-full sm:w-auto">
                     Buat Link
                 </flux:button>
