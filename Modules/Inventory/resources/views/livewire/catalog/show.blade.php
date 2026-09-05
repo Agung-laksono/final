@@ -58,7 +58,7 @@ mount(function ($hash = null) {
     <meta property="og:description" content="Katalog resmi berlaku hingga {{ $validUntil ? $validUntil->translatedFormat('d M Y, H:i') : '' }}" />
     <meta property="og:type" content="website" />
     @if(isset($items) && count($items) > 0)
-        @php $firstImg = $items->where('image', '!=', null)->first(); @endphpw
+        @php $firstImg = $items->where('image', '!=', null)->first(); @endphp
         @if($firstImg)
             <meta property="og:image" content="{{ asset('storage/' . $firstImg->image) }}" />
             <meta property="twitter:card" content="summary_large_image" />
