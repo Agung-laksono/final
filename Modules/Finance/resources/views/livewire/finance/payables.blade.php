@@ -39,6 +39,7 @@ new class extends Component {
         'paid' => 10,
         'hold' => 10,
         'refund' => 10,
+        'void' => 10,
     ];
 
     public function loadMoreColumn($status)
@@ -56,6 +57,7 @@ new class extends Component {
         'paid' => ['title' => 'Lunas', 'color' => 'emerald'],
         'hold' => ['title' => 'Bermasalah / Ditahan', 'color' => 'red'],
         'refund' => ['title' => 'Menunggu Refund', 'color' => 'rose'],
+        'void' => ['title' => 'Dibatalkan (Void)', 'color' => 'red'],
     ];
 
     public function with()
@@ -100,16 +102,15 @@ new class extends Component {
             'paid' => collect(),
             'hold' => collect(),
             'refund' => collect(),
+            'void' => collect(),
         ];
         
         foreach ($allOrders as $po) {
             $paidAmount = $po->payments->where('status', 'verified')->sum('amount');
             $isPaid = $paidAmount >= $po->total_amount && $po->total_amount > 0;
             
-            if ($po->status === 'cancelled') {
-                if ($paidAmount > 0) {
-                    $grouped['refund']->push($po);
-                }
+            if (in_array($po->status, ['cancelled', 'void'])) {
+                $grouped['void']->push($po);
             } elseif ($po->status === 'pending_approval') {
                 $grouped['pending_approval']->push($po);
             } elseif ($po->status === 'hold') {
@@ -128,9 +129,26 @@ new class extends Component {
         $finalOrders = [];
         $neededIds = [];
         $counts = [];
+        $totals = [];
         
         foreach ($grouped as $key => $collection) {
             $counts[$key] = $collection->count();
+            
+            // Calculate total balance needed/used
+            $sumTotal = $collection->sum('total_amount');
+            $sumPaid = $collection->sum(function($po) {
+                return $po->payments->where('status', 'verified')->sum('amount');
+            });
+            
+            if ($key === 'partial') {
+                $totals[$key] = 'Rp ' . number_format($sumPaid, 0, ',', '.') . ' / Rp ' . number_format($sumTotal, 0, ',', '.');
+            } elseif (in_array($key, ['paid', 'void'])) {
+                $totals[$key] = 'Rp ' . number_format($sumTotal, 0, ',', '.');
+            } else {
+                $sisa = $sumTotal - $sumPaid;
+                $totals[$key] = 'Rp ' . number_format(max(0, $sisa), 0, ',', '.');
+            }
+            
             $limited = $collection->take($this->columnLimits[$key] ?? 10);
             $finalOrders[$key] = $limited;
             $neededIds = array_merge($neededIds, $limited->pluck('id')->toArray());
@@ -149,6 +167,7 @@ new class extends Component {
         return [
             'orders' => $finalOrders,
             'counts' => $counts,
+            'totals' => $totals,
             'accounts' => $accounts,
         ];
     }
@@ -396,6 +415,11 @@ new class extends Component {
             :count="$counts[$colKey] ?? 0"
             :defaultCollapsed="$defaultCollapsed"
         >
+            <x-slot name="headerSubtitle">
+                @if(($totals[$colKey] ?? '') !== 'Rp 0' && ($totals[$colKey] ?? '') !== 'Rp 0 / Rp 0')
+                    {{ $totals[$colKey] ?? '' }}
+                @endif
+            </x-slot>
                         @forelse($orders[$colKey] as $po)
                             @php
                                 $paidAmount = $po->payments->where('status', 'verified')->sum('amount');

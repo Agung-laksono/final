@@ -151,6 +151,16 @@
                         <span class="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl shadow-lg text-sm font-semibold group-hover:scale-105 transition-transform origin-left" x-bind:class="activeMenu === 'dashboard' ? 'scale-105' : ''">Dashboard Utama</span>
                     </a>
                     @endcan
+                    
+                    {{-- Cockpit / Command Center --}}
+                    <a href="{{ route('command-center') }}" wire:navigate class="relative flex items-center gap-3 cursor-pointer group w-max" x-bind:class="activeMenu !== null && activeMenu !== 'dashboard' ? 'opacity-40 scale-95 grayscale' : 'opacity-100 scale-100'">
+                        <div class="relative flex items-center justify-center w-12 h-12 bg-rose-600 dark:bg-rose-500 border border-rose-500 dark:border-rose-400 rounded-full shadow-lg group-hover:bg-rose-700 dark:group-hover:bg-rose-600 transition-colors text-white">
+                            <flux:icon.squares-2x2 class="w-6 h-6" />
+                        </div>
+                        <span class="bg-rose-600 dark:bg-rose-500 border border-rose-500 dark:border-rose-400 text-white px-4 py-2 rounded-xl shadow-lg text-sm font-semibold group-hover:scale-105 transition-transform origin-left">
+                            Cockpit
+                        </span>
+                    </a>
                 </div>
                                 {{-- INVENTORY SUBMENU (MULTI-COLUMN) --}}
                 <div x-show="open && activeMenu === 'inventory'"

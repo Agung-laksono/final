@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 state([
     'showModal' => false,
     'modalMode' => 'create', // 'create', 'edit'
+    'showEmptyDeposits' => false, // Toggle for empty deposits
     
     // Form fields
     'accountId' => null,
@@ -24,7 +25,7 @@ state([
 
 rules([
     'name' => 'required|string|max:255',
-    'type' => 'required|in:cash,bank,ewallet',
+    'type' => 'required|in:cash,bank,ewallet,vendor_deposit,customer_deposit',
     'account_number' => 'nullable|string|max:50',
     'account_holder_name' => 'nullable|string|max:255',
     'initial_balance' => 'required|numeric|min:0',
@@ -36,6 +37,12 @@ $accounts = computed(function () {
     return FinanceAccount::with('user')
         ->when(!auth()->user()->hasRole('Super Admin'), function($q) {
             $q->where('user_id', auth()->id());
+        })
+        ->when(!$this->showEmptyDeposits, function($q) {
+            $q->where(function($query) {
+                $query->whereNotIn('type', ['vendor_deposit', 'customer_deposit'])
+                      ->orWhere('current_balance', '>', 0);
+            });
         })
         ->orderBy('type')
         ->orderBy('name')
@@ -165,11 +172,14 @@ $toggleStatus = function ($id) {
 
 <div class="space-y-6">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        @can('finance.accounts.create')
-        <flux:button variant="primary" icon="plus" wire:click="openCreateModal">
-            Tambah Akun
-        </flux:button>
-        @endcan
+        <div class="flex items-center gap-4">
+            @can('finance.accounts.create')
+            <flux:button variant="primary" icon="plus" wire:click="openCreateModal">
+                Tambah Akun
+            </flux:button>
+            @endcan
+            <flux:checkbox wire:model.live="showEmptyDeposits" label="Tampilkan Deposit Kosong" />
+        </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -185,11 +195,13 @@ $toggleStatus = function ($id) {
                 </div>
                 
                 <div class="w-12 h-12 rounded-full flex items-center justify-center mb-4
-                    {{ $account->type === 'bank' ? 'bg-blue-100 text-blue-600' : ($account->type === 'cash' ? 'bg-emerald-100 text-emerald-600' : 'bg-purple-100 text-purple-600') }}">
+                    {{ $account->type === 'bank' ? 'bg-blue-100 text-blue-600' : ($account->type === 'cash' ? 'bg-emerald-100 text-emerald-600' : (in_array($account->type, ['vendor_deposit', 'customer_deposit']) ? 'bg-amber-100 text-amber-600' : 'bg-purple-100 text-purple-600')) }}">
                     @if($account->type === 'bank')
                         <flux:icon.building-library class="w-6 h-6" />
                     @elseif($account->type === 'cash')
                         <flux:icon.banknotes class="w-6 h-6" />
+                    @elseif(in_array($account->type, ['vendor_deposit', 'customer_deposit']))
+                        <flux:icon.wallet class="w-6 h-6" />
                     @else
                         <flux:icon.device-phone-mobile class="w-6 h-6" />
                     @endif

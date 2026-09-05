@@ -6,12 +6,24 @@ use Modules\Purchase\Models\PurchaseOrder;
 state([
     'show' => false,
     'order' => null,
+    'showVoidModal' => false,
+    'voidRefundType' => 'vendor_credit',
 ]);
 
 on(['open-detail-modal' => function ($orderId) {
-    $this->order = PurchaseOrder::with(['vendor', 'items.item', 'creator'])->findOrFail($orderId);
+    $this->order = PurchaseOrder::with(['vendor', 'items.item', 'creator', 'payments'])->findOrFail($orderId);
     $this->show = true;
+    $this->showVoidModal = false;
+    $this->voidRefundType = 'vendor_credit';
 }]);
+
+$voidOrder = function (\App\Services\VoidService $voidService) {
+    $voidService->voidPurchaseOrder($this->order, $this->voidRefundType);
+    $this->showVoidModal = false;
+    $this->show = false;
+    $this->dispatch('refresh-purchase-orders');
+    \Flux::toast('Pesanan Pembelian berhasil dibatalkan (Void).', variant: 'success');
+};
 
 $getStatusBadge = function ($status) {
     $map = [
@@ -277,6 +289,11 @@ $getStatusBadge = function ($status) {
 
             {{-- Footer actions --}}
             <div class="flex justify-end gap-2 pt-1">
+                @if(in_array($order->status, ['draft', 'pending_approval', 'processing']))
+                    @can('purchase.order.update')
+                        <flux:button size="sm" variant="danger" icon="x-mark" wire:click="$set('showVoidModal', true)">Batalkan (Void)</flux:button>
+                    @endcan
+                @endif
                 <flux:button size="sm" variant="ghost" wire:click="$set('show', false)">Tutup</flux:button>
                 @if(in_array($order->status, ['processing', 'partially_received']))
                     @can('purchase.order.update')
@@ -295,6 +312,45 @@ $getStatusBadge = function ($status) {
             </div>
         @else
             <div class="p-8 text-center text-zinc-500">Memuat data...</div>
+        @endif
+    </x-modal>
+
+    <!-- Modal Konfirmasi Void -->
+    <x-modal wire:model="showVoidModal" maxWidth="md">
+        @if($order)
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-4 text-red-600">
+                    <div class="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                        <flux:icon.exclamation-triangle class="w-6 h-6" />
+                    </div>
+                    <h3 class="text-lg font-bold">Batalkan Pesanan (Void)</h3>
+                </div>
+                
+                <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                    Anda yakin ingin membatalkan pesanan <strong>{{ $order->po_number }}</strong>? Tindakan ini tidak dapat dibatalkan.
+                </p>
+
+                @php
+                    $totalPaid = $order->payments()->where('status', 'verified')->sum('amount');
+                @endphp
+
+                @if($totalPaid > 0)
+                    <div class="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg mb-4">
+                        <p class="text-sm font-medium text-amber-800 dark:text-amber-500 mb-2">
+                            ⚠️ Pesanan ini sudah memiliki pembayaran/DP sebesar <strong>Rp {{ number_format($totalPaid, 0, ',', '.') }}</strong>.
+                        </p>
+                        <flux:radio.group wire:model="voidRefundType" label="Penanganan Dana Masuk:" class="mt-2">
+                            <flux:radio value="vendor_credit" label="Simpan sebagai Deposit Vendor (Vendor Credit)" description="Saldo piutang di Vendor ini bertambah." />
+                            <flux:radio value="refund_cash" label="Refund Tunai (Kas)" description="Uang dikembalikan ke rekening perusahaan oleh Vendor." />
+                        </flux:radio.group>
+                    </div>
+                @endif
+
+                <div class="flex justify-end gap-2 mt-6">
+                    <flux:button variant="ghost" wire:click="$set('showVoidModal', false)">Batal</flux:button>
+                    <flux:button variant="danger" wire:click="voidOrder">Ya, Void Pesanan</flux:button>
+                </div>
+            </div>
         @endif
     </x-modal>
 </div>

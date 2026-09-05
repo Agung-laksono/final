@@ -16,10 +16,17 @@
     {{-- Column Header --}}
     <div class="px-4 py-1.5 lg:py-4 flex justify-between items-center rounded-t-xl transition-all duration-300"
          :class="(collapsed ? 'flex-col gap-4 h-full pb-8' : '')">
-        <div class="flex items-center gap-2 min-w-0" :class="collapsed ? 'flex-col' : ''">
-            <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0"></div>
-            <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
-                :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
+        <div class="flex items-start gap-2 min-w-0" :class="collapsed ? 'flex-col items-center' : ''">
+            <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0 mt-1.5"></div>
+            <div class="flex flex-col">
+                <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
+                    :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
+                @if(isset($headerSubtitle))
+                    <div x-show="!collapsed" class="text-[10px] font-bold text-{{ $column['color'] }}-600 dark:text-{{ $column['color'] }}-400 mt-0.5">
+                        {{ $headerSubtitle }}
+                    </div>
+                @endif
+            </div>
         </div>
         <div class="flex items-center gap-2" :class="collapsed ? 'flex-col' : ''">
             @if(isset($headerActions))
