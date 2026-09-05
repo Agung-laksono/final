@@ -25,11 +25,14 @@ on(['open-role-permissions' => function (int $roleId) {
 }]);
 
 $save = function () {
-    if (!$this->role || $this->role->name === 'Super Admin') return;
+    if (!$this->roleId) return;
     
-    $this->role->syncPermissions($this->selectedPermissions);
+    $role = Role::find($this->roleId);
+    if (!$role || $role->name === 'Super Admin') return;
     
-    \Flux::toast("Wewenang untuk jabatan {$this->role->name} berhasil diperbarui!");
+    $role->syncPermissions($this->selectedPermissions);
+    
+    \Flux::toast("Wewenang untuk jabatan {$role->name} berhasil diperbarui!");
     \Flux::modal('role-permissions-modal')->close();
     
     // Memberitahu parent untuk refresh table
