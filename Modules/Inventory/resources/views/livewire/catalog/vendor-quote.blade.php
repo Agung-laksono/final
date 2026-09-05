@@ -57,11 +57,21 @@
                         
                         <div class="mt-auto space-y-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                             <div>
-                                <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Harga Borongan / Unit (Rp)</label>
-                                <input type="number" 
-                                       x-model="quotes[{{ $item->id }}].price"
-                                       placeholder="Contoh: 150000" 
-                                       class="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                                <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Harga Borongan / {{ $item->unit?->name ?? 'Unit' }} (Rp)</label>
+                                <div x-data="{ 
+                                    displayValue: '', 
+                                    updateValue() { 
+                                        let raw = this.displayValue.replace(/\D/g, ''); 
+                                        quotes[{{ $item->id }}].price = raw; 
+                                        this.displayValue = raw ? new Intl.NumberFormat('id-ID').format(raw) : ''; 
+                                    } 
+                                }">
+                                    <input type="text" 
+                                           x-model="displayValue" 
+                                           @input="updateValue()" 
+                                           placeholder="Contoh: 150.000" 
+                                           class="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">Catatan / Estimasi Waktu</label>

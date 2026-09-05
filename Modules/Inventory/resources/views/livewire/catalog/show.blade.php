@@ -42,7 +42,7 @@ mount(function ($hash = null) {
 
         // Fetch items and their latest prices
         $this->items = Item::whereIn('id', $decoded['items'])
-            ->with(['category', 'type', 'customVariants']) // preload necessary relations (removed non-existent 'images')
+            ->with(['category', 'type', 'customVariants', 'unit']) // preload necessary relations (removed non-existent 'images')
             ->get();
             
     } catch (\Exception $e) {
