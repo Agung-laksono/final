@@ -143,7 +143,8 @@ on(['role-updated' => function () {
         </div>
     </div>
 
-    <x-table.wrapper class="mb-6">
+    <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6 shadow-sm px-4 pb-2">
+        <x-table.wrapper>
         <flux:table class="table-mobile-cards">
             <flux:table.columns>
                 <flux:table.column>Nama & Email / Username</flux:table.column>
@@ -203,7 +204,8 @@ on(['role-updated' => function () {
                 @endforelse
             </flux:table.rows>
         </flux:table>
-    </x-table.wrapper>
+        </x-table.wrapper>
+    </div>
 
     @if($this->getUsers()->hasMorePages())
         <div class="flex justify-center mt-4">
