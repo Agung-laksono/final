@@ -123,6 +123,7 @@ class UpdateService
     {
         // Clear caches
         Artisan::call('optimize:clear');
+        Artisan::call('permission:cache-reset');
         
         // Migrate database (force untuk production)
         Artisan::call('migrate', ['--force' => true]);
