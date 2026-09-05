@@ -40,13 +40,15 @@ on(['open-assign-role' => function (int $userId) {
 $save = function () {
     abort_if(auth()->user()->cannot('users.update'), 403);
 
-    if (!$this->user) return;
+    if (!$this->userId) return;
+    $user = User::find($this->userId);
+    if (!$user) return;
     
     // Mencegah menghapus akses Super Admin jika itu akun terakhir, dll
     // Tapi untuk kesederhanaan, kita langsung sync:
-    $this->user->syncRoles($this->selectedRoles);
-    $this->user->warehouses()->sync($this->selectedWarehouses);
-    $this->user->update(['brand_id' => $this->selectedBrand ?: null]);
+    $user->syncRoles($this->selectedRoles);
+    $user->warehouses()->sync($this->selectedWarehouses);
+    $user->update(['brand_id' => $this->selectedBrand ?: null]);
     
     \Flux::toast('Hak akses & penugasan berhasil diperbarui!');
     
