@@ -55,12 +55,19 @@
                             </div>
                             
                             {{-- Quantity Input (Auth) / Text (Guest) --}}
-                            <div class="mt-3 flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800">
+                            <div class="mt-3 flex items-center gap-3 bg-zinc-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-zinc-100 dark:border-zinc-800"
+                                 x-data="{ saved: false }"
+                                 @quantity-saved.window="if ($event.detail.id == {{ $item->id }}) { saved = true; setTimeout(() => saved = false, 2000); }">
                                 <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Jumlah:</span>
                                 @auth
-                                    <input type="number" min="1" 
-                                           wire:model.live="quantities.{{ $item->id }}"
-                                           class="w-20 bg-white dark:bg-zinc-900 border border-emerald-300 dark:border-emerald-700 rounded-md px-2 py-1 text-sm font-bold text-emerald-700 dark:text-emerald-400 focus:ring-1 focus:ring-emerald-500 outline-none text-center">
+                                    <div class="relative">
+                                        <input type="number" min="1" 
+                                               wire:model.blur="quantities.{{ $item->id }}"
+                                               class="w-20 bg-white dark:bg-zinc-900 border border-emerald-300 dark:border-emerald-700 rounded-md px-2 py-1 text-sm font-bold text-emerald-700 dark:text-emerald-400 focus:ring-1 focus:ring-emerald-500 outline-none text-center">
+                                        <div x-show="saved" x-transition.opacity style="display: none;" class="absolute -top-6 right-0 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded shadow">
+                                            Tersimpan!
+                                        </div>
+                                    </div>
                                     <span class="text-xs text-zinc-500 font-medium">{{ $item->unit?->name ?? 'Unit' }}</span>
                                     <span class="text-[10px] text-zinc-400 ml-auto">(Otomatis tersimpan)</span>
                                 @else
