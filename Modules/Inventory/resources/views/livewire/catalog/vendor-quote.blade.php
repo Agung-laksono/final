@@ -59,7 +59,7 @@
                                 <span class="text-xs font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">Jumlah:</span>
                                 @auth
                                     <input type="number" min="1" 
-                                           wire:change="$updateQuantity({{ $item->id }}, $event.target.value)"
+                                           wire:change="updateQuantity({{ $item->id }}, $event.target.value)"
                                            value="{{ $quantities[$item->id] ?? 1 }}"
                                            class="w-20 bg-white dark:bg-zinc-900 border border-emerald-300 dark:border-emerald-700 rounded-md px-2 py-1 text-sm font-bold text-emerald-700 dark:text-emerald-400 focus:ring-1 focus:ring-emerald-500 outline-none text-center">
                                     <span class="text-xs text-zinc-500 font-medium">{{ $item->unit?->name ?? 'Unit' }}</span>
