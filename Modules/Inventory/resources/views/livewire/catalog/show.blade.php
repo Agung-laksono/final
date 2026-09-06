@@ -18,19 +18,18 @@ state([
     'quantities' => [],
 ]);
 
-updated(['quantities.*' => function ($value, $key) {
+$updateQty = function ($itemId, $qty) {
     if (!auth()->check()) return;
     
     $payload = \Illuminate\Support\Facades\Cache::get('catalog_' . $this->hash);
     if ($payload) {
-        // Ensure quantity is at least 1
-        $this->quantities[$key] = max(1, (int)$value);
+        $this->quantities[$itemId] = max(1, (int)$qty);
         $payload['quantities'] = $this->quantities;
         \Illuminate\Support\Facades\Cache::put('catalog_' . $this->hash, $payload, \Carbon\Carbon::parse($payload['exp']));
         
-        $this->dispatch('quantity-saved', id: $key);
+        $this->dispatch('quantity-saved', id: $itemId);
     }
-}]);
+};
 
 mount(function ($hash = null) {
     if (!$hash) {

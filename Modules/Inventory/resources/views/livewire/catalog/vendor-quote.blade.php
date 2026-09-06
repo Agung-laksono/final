@@ -62,7 +62,8 @@
                                 @auth
                                     <div class="relative">
                                         <input type="number" min="1" 
-                                               wire:model.blur="quantities.{{ $item->id }}"
+                                               x-on:change="$wire.updateQty({{ $item->id }}, $event.target.value)"
+                                               value="{{ $quantities[$item->id] ?? 1 }}"
                                                class="w-20 bg-white dark:bg-zinc-900 border border-emerald-300 dark:border-emerald-700 rounded-md px-2 py-1 text-sm font-bold text-emerald-700 dark:text-emerald-400 focus:ring-1 focus:ring-emerald-500 outline-none text-center">
                                         <div x-show="saved" x-transition.opacity style="display: none;" class="absolute -top-6 right-0 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded shadow">
                                             Tersimpan!
