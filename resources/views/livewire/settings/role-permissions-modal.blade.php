@@ -18,127 +18,112 @@ $getAvailablePermissions = function () {
 
 $getPermissionDescriptions = function () {
     return [
-        // Inventory
-        'inventory.dashboard.view' => 'Membuka Halaman Dashboard & Ringkasan Statistik Gudang',
-        'inventory.view' => 'Melihat Seluruh Modul Inventaris Gudang & Menu Terkait',
-        'inventory.item.view' => 'Melihat Halaman Katalog, Galeri Barang, & Detail Spesifikasi',
-        'inventory.item.create' => 'Menampilkan Tombol \'+ Tambah Barang Baru\' di Galeri Item & Form Input Barang',
-        'inventory.item.update' => 'Menampilkan Tombol \'Edit Barang\' & Pengubahan Stok Minimal / Harga',
-        'inventory.item.delete' => 'Menampilkan Tombol \'Hapus Barang\' di Katalog & Tabel Master',
-
-        'inventory.warehouse.view' => 'Melihat Daftar Lokasi & Ruang Gudang',
-        'inventory.warehouse.create' => 'Menampilkan Tombol \'+ Tambah Gudang Baru\'',
-        'inventory.warehouse.update' => 'Menampilkan Tombol \'Edit Gudang / Kapasitas\'',
-        'inventory.warehouse.delete' => 'Menampilkan Tombol \'Hapus Gudang\'',
-
-        'inventory.transfer.view' => 'Melihat Daftar Transfer Stok Antar Gudang',
-        'inventory.transfer.create' => 'Menampilkan Tombol \'+ Buat Transfer Barang\'',
-        'inventory.transfer.update' => 'Menampilkan Tombol \'Proses / Kirim Transfer Barang\'',
-        'inventory.transfer.delete' => 'Menampilkan Tombol \'Batalkan / Hapus Transfer\'',
-
-        'inventory.movement.view' => 'Melihat Tabel Kartu Stok & Riwayat Mutasi Barang',
-
-        'inventory.opname.view' => 'Melihat Sesi Stok Opname Gudang',
-        'inventory.opname.create' => 'Menampilkan Tombol \'+ Sesi Opname Baru\'',
-        'inventory.opname.update' => 'Menampilkan Tombol \'Input Hasil Perhitungan / Penyesuaian Stok\'',
-        'inventory.opname.delete' => 'Menampilkan Tombol \'Hapus Sesi Opname\'',
-
-        'inventory.request.view' => 'Melihat Daftar Permintaan Barang (Request Material)',
-        'inventory.request.create' => 'Menampilkan Tombol \'+ Buat Permintaan Barang\'',
-        'inventory.request.update' => 'Menampilkan Tombol \'Proses / Setujui Permintaan Barang\'',
-        'inventory.request.delete' => 'Menampilkan Tombol \'Tolak / Hapus Permintaan Barang\'',
-
-        'inventory.sales.delivery' => '★ Akses Khusus: Sub-menu & Tombol \'Pengiriman Penjualan\' (Gudang Outbound)',
-        'inventory.production.fulfillment' => '★ Akses Khusus: Sub-menu & Tombol \'Pemenuhan Bahan Baku Produksi\'',
-
-        'inventory.kategori.create' => 'Tombol \'+ Kategori Baru\' di Form Barang',
-        'inventory.kategori.update' => 'Tombol \'Edit Kategori\' di Master Barang',
-        'inventory.kategori.delete' => 'Tombol \'Hapus Kategori\' di Master Barang',
-
-        // Sales
-        'sales.dashboard.view' => 'Membuka Dashboard Penjualan & Analytics Omzet',
-        'sales.customer.view' => 'Melihat Daftar Klien & Database Pelanggan',
+        // SALES MODULE
+        'sales.dashboard.view' => 'Membuka Halaman Dashboard Penjualan & Analytics Omzet',
+        'sales.order.view' => 'Melihat Kartu Kanban SO, Tabel SO, serta Tombol \'Preview Print Faktur / Cetak SO\'',
+        'sales.order.create' => 'Menampilkan Tombol \'+ Buat Sales Order Baru\' di Kanban & Navbar',
+        'sales.order.update' => 'Menampilkan Tombol \'Edit Pesanan / Ubah Item Sales Order\'',
+        'sales.order.delete' => 'Menampilkan Tombol \'Batalkan / Hapus Sales Order\'',
+        'sales.approve.update' => '★ Tombol Ikon Persetujuan (ACC): Menampilkan tombol icon centang di kartu Kanban SO (kolom Pending Approval) untuk ACC pesanan ke gudang',
+        'sales.payment.create' => '★ Tombol Ikon Pembayaran: Menampilkan tombol icon uang (Banknotes) di footer kartu Kanban SO untuk upload bukti bayar/DP',
+        'sales.payment.validate' => '★ Tombol Validasi Uang Masuk: Menampilkan tombol verifikasi pembayaran di modal pembayaran (Wewenang Finance)',
+        'sales.customer.view' => 'Melihat Tabel Data Pelanggan & Detail Profil Klien',
         'sales.customer.create' => 'Menampilkan Tombol \'+ Tambah Pelanggan Baru\'',
         'sales.customer.update' => 'Menampilkan Tombol \'Edit Data Pelanggan\'',
         'sales.customer.delete' => 'Menampilkan Tombol \'Hapus Pelanggan\'',
 
-        'sales.order.view' => 'Melihat Daftar Pesanan Penjualan (Sales Order)',
-        'sales.order.create' => 'Menampilkan Tombol \'+ Buat Sales Order Baru\' di Modul Sales',
-        'sales.order.update' => 'Menampilkan Tombol \'Edit Pesanan / Ubah Item Sales Order\'',
-        'sales.order.delete' => 'Menampilkan Tombol \'Batalkan / Hapus Sales Order\'',
-        'sales.approve.update' => '★ Akses Khusus: Tombol \'ACC / Setujui Pesanan\' (Wewenang Kepala Sales)',
-        'sales.payment.create' => '★ Akses Khusus: Tombol \'Upload Bukti Bayar / Pelunasan\' dari Klien',
-        'sales.payment.validate' => '★ Akses Khusus: Tombol \'Validasi & Verifikasi Uang Masuk\' (Finance)',
+        // INVENTORY MODULE
+        'inventory.dashboard.view' => 'Membuka Halaman Dashboard & Ringkasan Statistik Stok Gudang',
+        'inventory.view' => 'Memunculkan Akses Menu Utama Inventory di Navigasi',
+        'inventory.item.view' => 'Melihat Galeri Barang, Tabel Katalog, serta Tombol \'Preview Print Label Barcode / Cetak Kartu Stok\'',
+        'inventory.item.create' => 'Menampilkan Tombol \'+ Tambah Barang Baru\' di Galeri Item & Form Master',
+        'inventory.item.update' => 'Menampilkan Tombol \'Edit Barang\' & Pengubahan Stok Minimal / Harga Jual',
+        'inventory.item.delete' => 'Menampilkan Tombol \'Hapus Barang\' di Galeri & Katalog Master',
+        'inventory.sales.delivery' => '★ Tombol Pengiriman Gudang: Membuka menu & tombol \'Pengeluaran Barang / Packing Pengiriman SO\' di Gudang',
+        'inventory.production.fulfillment' => '★ Tombol Pemenuhan Bahan: Membuka menu & tombol \'Alokasi / Pemenuhan Bahan Baku Produksi\' di Gudang',
+        'inventory.dispatch.view' => 'Melihat Sub-menu & Tombol \'Alokasi Kedatangan / Penerimaan Barang Masuk\'',
+        'inventory.receipt.view' => 'Melihat Sub-menu & Tombol \'Penerimaan Barang Supplier\'',
+        'inventory.warehouse.view' => 'Melihat Daftar Lokasi & Ruang Gudang',
+        'inventory.warehouse.create' => 'Menampilkan Tombol \'+ Tambah Gudang Baru\'',
+        'inventory.warehouse.update' => 'Menampilkan Tombol \'Edit Gudang / Kapasitas\'',
+        'inventory.warehouse.delete' => 'Menampilkan Tombol \'Hapus Gudang\'',
+        'inventory.transfer.view' => 'Melihat Daftar Transfer Stok Antar Gudang',
+        'inventory.transfer.create' => 'Menampilkan Tombol \'+ Buat Transfer Barang\'',
+        'inventory.transfer.update' => 'Menampilkan Tombol \'Proses / Kirim Transfer Barang\'',
+        'inventory.transfer.delete' => 'Menampilkan Tombol \'Batalkan / Hapus Transfer\'',
+        'inventory.movement.view' => 'Melihat Tabel Kartu Stok & Riwayat Mutasi Barang',
+        'inventory.opname.view' => 'Melihat Sesi Stok Opname Gudang',
+        'inventory.opname.create' => 'Menampilkan Tombol \'+ Sesi Opname Baru\'',
+        'inventory.opname.update' => 'Menampilkan Tombol \'Input Hasil Perhitungan / Penyesuaian Stok\'',
+        'inventory.opname.delete' => 'Menampilkan Tombol \'Hapus Sesi Opname\'',
+        'inventory.request.view' => 'Melihat Daftar Permintaan Barang (Request Material)',
+        'inventory.request.create' => 'Menampilkan Tombol \'+ Buat Permintaan Barang\'',
+        'inventory.request.update' => 'Menampilkan Tombol \'Proses / Setujui Permintaan Barang\'',
+        'inventory.request.delete' => 'Menampilkan Tombol \'Tolak / Hapus Permintaan Barang\'',
+        'inventory.kategori.create' => 'Tombol \'+ Quick Add Kategori Baru\' di Form Modal Barang',
+        'inventory.kategori.update' => 'Tombol \'Edit Kategori\' di Form Modal Barang',
+        'inventory.kategori.delete' => 'Tombol \'Hapus Kategori\' di Form Modal Barang',
 
-        // Purchase
-        'purchase.dashboard.view' => 'Membuka Dashboard & Analytics Pembelian',
+        // PURCHASE MODULE
+        'purchase.dashboard.view' => 'Membuka Dashboard & Analytics Pembelian (Purchasing)',
         'purchase.queue.view' => 'Melihat Antrian Permintaan PO (Purchase Queue)',
         'purchase.queue.create' => 'Menampilkan Tombol \'+ Buat Request Pembelian Baru\'',
         'purchase.queue.update' => 'Menampilkan Tombol \'Edit Request Pembelian\'',
         'purchase.queue.delete' => 'Menampilkan Tombol \'Hapus Request Pembelian\'',
-
         'purchase.approve.view' => 'Melihat Daftar Pembelian yang Membutuhkan ACC',
-        'purchase.approve.update' => '★ Akses Khusus: Tombol \'ACC / Disetujui\' (Wewenang Kepala Purchasing)',
-        'purchase.approve.delete' => '★ Akses Khusus: Tombol \'Tolak Request PO\'',
-
-        'purchase.order.view' => 'Melihat Daftar Purchase Order (PO)',
+        'purchase.approve.update' => '★ Tombol ACC Purchase: Menampilkan tombol centang \'ACC / Disetujui\' di kartu Purchase Queue (Wewenang Kepala Purchasing)',
+        'purchase.approve.delete' => '★ Tombol Tolak Purchase: Menampilkan tombol silang \'Tolak Request PO\'',
+        'purchase.order.view' => 'Melihat Kartu Kanban PO, Tabel PO, serta Tombol \'Preview Print Surat PO / Cetak Pembelian\'',
         'purchase.order.create' => 'Menampilkan Tombol \'+ Buat PO Baru\'',
         'purchase.order.update' => 'Menampilkan Tombol \'Edit Purchase Order\'',
         'purchase.order.delete' => 'Menampilkan Tombol \'Batalkan / Hapus PO\'',
-
         'purchase.vendor.view' => 'Melihat Daftar Supplier / Vendor',
         'purchase.vendor.create' => 'Menampilkan Tombol \'+ Tambah Vendor Baru\'',
         'purchase.vendor.update' => 'Menampilkan Tombol \'Edit Vendor\'',
         'purchase.vendor.delete' => 'Menampilkan Tombol \'Hapus Vendor\'',
 
-        // Finance
+        // FINANCE MODULE
         'finance.dashboard.view' => 'Membuka Dashboard Keuangan & Laporan Arus Kas',
         'finance.inbox.view' => 'Melihat Inbox Pengajuan Transaksi Keuangan',
         'finance.inbox.create' => 'Menampilkan Tombol \'+ Input Pengeluaran / Kasbon Baru\'',
-        'finance.inbox.update' => 'Menampilkan Tombol \'Validasi / Setujui Pengajuan Inbox\'',
+        'finance.inbox.update' => '★ Tombol Validasi Inbox: Menampilkan tombol \'Setujui / Cairkan Duit\' pada Inbox Keuangan',
         'finance.inbox.delete' => 'Menampilkan Tombol \'Tolak / Hapus Pengajuan Inbox\'',
-
         'finance.accounts.view' => 'Melihat Daftar Akun Bank & Kas',
         'finance.accounts.create' => 'Menampilkan Tombol \'+ Tambah Rekening / Akun Kas\'',
         'finance.accounts.update' => 'Menampilkan Tombol \'Edit Rekening / Akun Kas\'',
         'finance.accounts.delete' => 'Menampilkan Tombol \'Hapus Akun Kas\'',
-
         'finance.categories.view' => 'Melihat Kategori Akuntansi Pemasukan & Pengeluaran',
         'finance.categories.create' => 'Menampilkan Tombol \'+ Tambah Kategori Baru\'',
         'finance.categories.update' => 'Menampilkan Tombol \'Edit Kategori\'',
         'finance.categories.delete' => 'Menampilkan Tombol \'Hapus Kategori\'',
-
-        'finance.ledger.view' => 'Melihat Buku Besar (General Ledger)',
+        'finance.ledger.view' => 'Melihat Buku Besar (General Ledger) & Tombol \'Print Laporan Jurnal\'',
         'finance.ledger.create' => 'Menampilkan Tombol \'+ Tambah Jurnal Manual\'',
         'finance.ledger.update' => 'Menampilkan Tombol \'Edit Jurnal / Transaksi\'',
         'finance.ledger.delete' => 'Menampilkan Tombol \'Hapus Jurnal\'',
-
         'finance.transfers.view' => 'Melihat Daftar Transfer Antar Kas / Bank Internal',
         'finance.transfers.create' => 'Menampilkan Tombol \'+ Transfer Kas Internal\'',
         'finance.transfers.update' => 'Menampilkan Tombol \'Edit Transfer Kas\'',
         'finance.transfers.delete' => 'Menampilkan Tombol \'Batalkan Transfer Kas\'',
-
         'finance.payables.view' => 'Melihat Daftar Hutang Pembelian (Payables)',
         'finance.payables.create' => 'Menampilkan Tombol \'+ Catat Hutang Baru\'',
         'finance.payables.update' => 'Menampilkan Tombol \'Bayar / Pelunasan Hutang\'',
         'finance.payables.delete' => 'Menampilkan Tombol \'Hapus Catatan Hutang\'',
 
-        // Production
+        // PRODUCTION MODULE
         'production.dashboard.view' => 'Membuka Dashboard Operasional Produksi',
-        'production.order.view' => 'Melihat Perintah Produksi (Production Order)',
+        'production.order.view' => 'Melihat Perintah Produksi (Work Order), Kartu Kanban Produksi, & Tombol \'Print SPK Produksi\'',
         'production.order.create' => 'Menampilkan Tombol \'+ Buat Perintah Produksi Baru\'',
-        'production.order.update' => 'Menampilkan Tombol \'Update Status WIP / Selesaikan Produksi\'',
+        'production.order.update' => 'Menampilkan Tombol \'Update Status WIP / Selesaikan Fase Produksi\'',
         'production.order.delete' => 'Menampilkan Tombol \'Batalkan Produksi\'',
-
         'production.recipe.view' => 'Melihat Resep Produksi & Bill of Materials (BOM)',
         'production.recipe.create' => 'Menampilkan Tombol \'+ Buat Resep Produksi Baru\'',
         'production.recipe.update' => 'Menampilkan Tombol \'Edit Resep & Komposisi Bahan\'',
         'production.recipe.delete' => 'Menampilkan Tombol \'Hapus Resep Produksi\'',
 
-        // Settings & Users
+        // SYSTEM & SETTINGS
         'users.view' => 'Melihat Daftar Pengguna & Jabatan Sistem',
         'users.create' => 'Menampilkan Tombol \'+ Tambah User Baru\'',
-        'users.update' => 'Menampilkan Tombol \'Edit User & Penugasan Role/Gudang\'',
+        'users.update' => 'Menampilkan Tombol \'Edit User & Penugasan Role/Gudang/Brand\'',
         'users.delete' => 'Menampilkan Tombol \'Nonaktifkan / Hapus User\'',
         'settings.view' => 'Membuka Menu Pengaturan Aplikasi Utama',
         'dashboard.main.view' => 'Membuka Halaman Dashboard Utama Sistem',
