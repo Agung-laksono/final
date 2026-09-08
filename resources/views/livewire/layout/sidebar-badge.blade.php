@@ -55,6 +55,11 @@ $fetchCount = function () {
             $this->colorClass = 'bg-amber-500';
             break;
             
+        case 'finance_receivables':
+            $this->count = \Modules\Sales\Models\SalesOrder::where('status', 'pending_approval')->count();
+            $this->colorClass = 'bg-rose-500';
+            break;
+            
         case 'finance_payables':
             $this->count = \Modules\Purchase\Models\PurchaseOrder::where('status', 'pending_approval')->count();
             $this->colorClass = 'bg-rose-500';

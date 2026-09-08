@@ -11,4 +11,5 @@ Route::middleware(['auth', 'verified'])->prefix('finance')->name('finance.')->gr
     Volt::route('transactions', 'finance.transactions')->name('transactions');
     Volt::route('transfers', 'finance.transfers')->name('transfers');
     Volt::route('payables', 'finance.payables')->name('payables');
+    Volt::route('receivables', 'finance.receivables')->name('receivables');
 });

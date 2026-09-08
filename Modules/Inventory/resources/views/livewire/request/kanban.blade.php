@@ -330,7 +330,7 @@ on([
 ?>
 
 <div>
-<x-kanban.board componentId="inventory_request" :viewMode="$viewMode" title="Pivot Permintaan Barang" subtitle="Hub pusat penentuan alur defisit barang (Beli vs Produksi).">
+<x-kanban.board class="bg-pattern-inventory" componentId="inventory_request" :viewMode="$viewMode" title="Pivot Permintaan Barang" subtitle="Hub pusat penentuan alur defisit barang (Beli vs Produksi).">
     
     <x-slot:header_actions>
         @can('inventory.request.create')

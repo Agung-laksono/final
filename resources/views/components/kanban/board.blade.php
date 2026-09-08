@@ -115,14 +115,25 @@
     {{-- Floating Controls (Full Width) --}}
     <div x-data="{ searchFocused: false }" class="absolute top-0 left-0 right-0 sm:top-2 sm:left-2 sm:right-2 z-[60] flex items-center justify-between gap-1 sm:gap-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md px-1.5 py-1 sm:px-3 sm:py-2.5 rounded-none sm:rounded-2xl shadow-sm border-b sm:border border-zinc-200/50 dark:border-zinc-800/50" x-show="showHeader" x-transition>
         
-        <div class="flex-1 min-w-0 transition-all duration-500 ease-out" :class="searchFocused ? 'max-w-full' : 'max-w-md'">
-            <flux:input 
-                x-on:focus="searchFocused = window.innerWidth < 1098" 
-                x-on:blur="searchFocused = false"
-                wire:model.live.debounce.300ms="{{ $searchModel }}" 
-                icon="magnifying-glass" 
-                placeholder="{{ $searchPlaceholder }}"
-                class="[&_input]:h-8 [&_input]:text-xs sm:[&_input]:h-9.5 sm:[&_input]:text-sm" />
+        <div class="flex flex-1 items-center gap-3 lg:gap-4 min-w-0">
+            @if($title)
+            <div class="hidden lg:flex flex-col shrink-0 pl-1">
+                <div class="text-sm font-bold text-zinc-800 dark:text-zinc-100 leading-none">{{ $title }}</div>
+                @if($subtitle)
+                <div class="text-[10px] font-medium text-zinc-500 mt-1 leading-none">{{ $subtitle }}</div>
+                @endif
+            </div>
+            @endif
+
+            <div class="flex-1 min-w-0 transition-all duration-500 ease-out" :class="searchFocused ? 'max-w-full' : 'max-w-md'">
+                <flux:input 
+                    x-on:focus="searchFocused = window.innerWidth < 1098" 
+                    x-on:blur="searchFocused = false"
+                    wire:model.live.debounce.300ms="{{ $searchModel }}" 
+                    icon="magnifying-glass" 
+                    placeholder="{{ $searchPlaceholder }}"
+                    class="[&_input]:h-8 [&_input]:text-xs sm:[&_input]:h-9.5 sm:[&_input]:text-sm" />
+            </div>
         </div>
 
         <div class="flex items-center shrink-0 transition-all duration-500 ease-out origin-right overflow-hidden max-sm:[&_.flex.border]:h-8 max-sm:[&_.flex.border]:items-center max-sm:[&_button]:h-8 max-sm:[&_button]:!py-0 max-sm:[&_button]:!px-2 max-sm:[&_button]:!text-[9px] max-sm:[&_button_svg]:!w-3.5 max-sm:[&_button_svg]:!h-3.5 max-sm:[&_a]:!h-8 max-sm:[&_a]:!py-0 max-sm:[&_a]:!px-2 max-sm:[&_a]:!text-[9px] max-sm:[&_a_svg]:!w-3.5 max-sm:[&_a_svg]:!h-3.5 gap-1 sm:gap-2"

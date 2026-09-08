@@ -141,7 +141,7 @@ $kanbanQuotations = computed(function () {
 <div class="w-full bg-transparent relative">
     
       <div wire:key="view-kanban-wrapper" class="w-full pb-4 overflow-x-auto hide-scroll flex gap-4 {{ $this->viewMode === 'kanban' ? 'flex' : 'hidden' }}">
-                <x-kanban.board componentId="quotations" searchModel="search" searchPlaceholder="Cari SQ atau Pelanggan...">
+                <x-kanban.board class="bg-pattern-sales" title="Penawaran Penjualan (SQ)" componentId="quotations" searchModel="search" searchPlaceholder="Cari SQ atau Pelanggan...">
             <x-slot:actions>
                 <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0 bg-white dark:bg-zinc-900">
                     <button type="button" wire:key="kanban-sw-kanban" @click="$wire.setViewMode('kanban')" class="p-1.5 px-3 transition-colors {{ $this->viewMode === 'kanban' ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white' : 'text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}" title="Tampilan Kanban">

@@ -183,7 +183,7 @@ on([
 <div class="w-full bg-transparent relative">
 
     <div wire:key="view-kanban-wrapper" class="w-full h-full relative {{ $this->viewMode === 'kanban' ? 'flex flex-col' : 'hidden' }}">
-        <x-kanban.board 
+        <x-kanban.board class="bg-pattern-inventory" title="Pemenuhan Barang" 
             componentId="fulfillment"
             searchModel="search"
             searchPlaceholder="Cari WO atau Barang...">

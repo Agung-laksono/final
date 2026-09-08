@@ -185,7 +185,7 @@ on(['echo:kanban,KanbanUpdated' => '$refresh']);
 }">
 
     <div wire:key="view-kanban-wrapper" class="w-full h-full relative {{ $this->viewMode === 'kanban' ? 'flex flex-col' : 'hidden' }}">
-        <x-kanban.board 
+        <x-kanban.board class="bg-pattern-purchase" title="Antrean Pembelian (Queue)" 
             componentId="purchase-queue"
             searchModel="search"
             searchPlaceholder="Cari nama atau kode barang...">

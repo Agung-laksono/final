@@ -23,7 +23,7 @@
                     :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
                 @if(isset($headerSubtitle))
                     <div x-show="!collapsed" class="text-[10px] font-bold text-{{ $column['color'] }}-600 dark:text-{{ $column['color'] }}-400 mt-0.5">
-                        {{ $headerSubtitle }}
+                        {!! $headerSubtitle !!}
                     </div>
                 @endif
             </div>

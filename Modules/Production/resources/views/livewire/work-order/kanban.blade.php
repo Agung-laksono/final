@@ -182,7 +182,7 @@ on(['maklon-po-created' => function () {
 
 <div class="w-full bg-transparent relative">
     <div wire:key="view-kanban-wrapper" class="w-full h-full relative {{ $this->viewMode === 'kanban' ? 'flex flex-col' : 'hidden' }}">
-        <x-kanban.board 
+        <x-kanban.board class="bg-pattern-production" title="Perintah Kerja (SPK)" 
             componentId="production-order"
             searchModel="search"
             searchPlaceholder="Cari SPK atau produk...">

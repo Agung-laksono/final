@@ -1,12 +1,11 @@
 <?php
 
-use function Livewire\Volt\{state, layout, title, computed, rules, updated, usesFileUploads};
+use function Livewire\Volt\{state, layout, title, computed, rules, updated};
 use Modules\Finance\Models\FinanceAccount;
 use Modules\Finance\Models\FinanceCategory;
 use Modules\Finance\Models\FinanceTransaction;
 use Illuminate\Support\Facades\DB;
-
-usesFileUploads();
+use Illuminate\Support\Facades\Storage;
 
 state([
     'accountId' => '',
@@ -20,7 +19,7 @@ state([
     // Enterprise fields
     'contact_name' => '',
     'transaction_number' => '',
-    'proof_file' => null,
+    'proof_image' => null, // base64 dari x-image-cropper
 ]);
 
 rules([
@@ -31,7 +30,6 @@ rules([
     'description' => 'required|string|max:255',
     'contact_name' => 'nullable|string|max:255',
     'transaction_number' => 'nullable|string|max:255',
-    'proof_file' => 'nullable|image|max:5120', // max 5MB
 ]);
 
 $accounts = computed(function () {
@@ -71,10 +69,14 @@ $saveTransaction = function () {
             createdBy: auth()->id()
         );
 
-        // Upload proof if exists
+        // Simpan bukti dari base64 (x-image-cropper)
         $proofPath = null;
-        if ($this->proof_file) {
-            $proofPath = $this->proof_file->store('finance_proofs', 'public');
+        if ($this->proof_image && str_starts_with($this->proof_image, 'data:image')) {
+            $base64 = preg_replace('/^data:image\/\w+;base64,/', '', $this->proof_image);
+            $decoded = base64_decode($base64);
+            $filename = 'finance_proofs/' . uniqid('proof_') . '.webp';
+            Storage::disk('public')->put($filename, $decoded);
+            $proofPath = $filename;
         }
 
         // Generate auto number if empty
@@ -91,7 +93,8 @@ $saveTransaction = function () {
         ]);
 
         \Flux::toast('Transaksi berhasil dicatat.', variant: 'success');
-        $this->reset(['amount', 'description', 'categoryId', 'contact_name', 'transaction_number', 'proof_file']);
+        $this->reset(['amount', 'description', 'categoryId', 'contact_name', 'transaction_number', 'proof_image']);
+        $this->dispatch('reset-cropper'); // Reset komponen image-cropper
         $this->transactionDate = date('Y-m-d');
         $this->dispatch('transaction-saved');
     });
@@ -163,14 +166,14 @@ $saveTransaction = function () {
                     <flux:textarea wire:model="description" label="Deskripsi Transaksi" placeholder="Misal: Pembayaran listrik bulan ini" required rows="3" />
 
                     <div class="space-y-2">
-                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Lampiran Bukti (Struk/Transfer)</label>
-                        <div class="flex items-center gap-4">
-                            <flux:input type="file" wire:model="proof_file" accept="image/*" class="w-full" />
-                            <div wire:loading wire:target="proof_file" class="text-sm text-zinc-500">Uploading...</div>
-                        </div>
-                        @if ($proof_file)
-                            <div class="mt-2 text-sm text-emerald-600 dark:text-emerald-400 font-medium">File siap diupload.</div>
-                        @endif
+                        <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Lampiran Bukti (Struk/Transfer)</label>
+                        <x-image-cropper
+                            id="finance-proof-cropper"
+                            wire:model="proof_image"
+                            label="Upload Bukti Transaksi"
+                            accept="image/*"
+                            mode="box"
+                        />
                     </div>
                 </div>
             </div>

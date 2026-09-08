@@ -48,7 +48,7 @@ $activeAccountsCount = computed(function () {
 // Total Piutang Penjualan (Accounts Receivable - AR)
 $totalAR = computed(function () {
     return SalesOrder::with(['payments' => fn($q) => $q->where('status', 'verified')])
-        ->whereNotIn('status', ['draft', 'cancelled', 'rejected'])
+        ->whereNotIn('status', ['draft', 'cancelled', 'rejected', 'void'])
         ->get()
         ->sum(function($so) {
             $paid = $so->payments->sum('amount');
@@ -59,7 +59,7 @@ $totalAR = computed(function () {
 // Total Hutang Pembelian (Accounts Payable - AP)
 $totalAP = computed(function () {
     return PurchaseOrder::with(['payments' => fn($q) => $q->where('status', 'verified')])
-        ->whereNotIn('status', ['draft', 'cancelled', 'rejected'])
+        ->whereNotIn('status', ['draft', 'cancelled', 'rejected', 'void'])
         ->get()
         ->sum(function($po) {
             $paid = $po->payments->sum('amount');

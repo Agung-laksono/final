@@ -236,7 +236,7 @@ on([
 ?>
 
 <div>
-<x-kanban.board componentId="sales_delivery" :viewMode="$viewMode" title="Pengiriman Penjualan" subtitle="Pantau pemenuhan, pengemasan, dan pengiriman (Kanban).">
+<x-kanban.board class="bg-pattern-inventory" componentId="sales_delivery" :viewMode="$viewMode" title="Pengiriman Penjualan" subtitle="Pantau pemenuhan, pengemasan, dan pengiriman (Kanban).">
     <x-slot:actions>
         <div class="flex items-center gap-1.5 sm:gap-2">
             <div class="flex border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden shrink-0">

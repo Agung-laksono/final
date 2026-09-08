@@ -186,7 +186,7 @@ on([
 
 <div class="w-full bg-transparent relative">
     <div wire:key="view-kanban-wrapper" class="w-full h-full relative {{ $this->viewMode === 'kanban' ? 'flex flex-col' : 'hidden' }}">
-        <x-kanban.board 
+        <x-kanban.board class="bg-pattern-purchase" title="Pesanan Pembelian (PO)" 
             componentId="purchase-order"
             searchModel="search"
             searchPlaceholder="Cari PO / Vendor...">

@@ -4,8 +4,8 @@ use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Modules\Purchase\Models\PurchaseOrder;
-use Modules\Purchase\Models\PurchasePayment;
+use Modules\Sales\Models\SalesOrder;
+use Modules\Sales\Models\SalesPayment;
 use Modules\Finance\Models\FinanceAccount;
 use Modules\Finance\Models\FinanceTransaction;
 
@@ -24,8 +24,8 @@ new class extends Component {
     public $rejectReason = '';
     public $isRejecting = false;
     
-    public $selectedPoId = null;
-    public $selectedPo = null;
+    public $selectedSoId = null;
+    public $selectedSo = null;
     public $paymentAmount = '';
     public $paymentDate = '';
     public $financeAccountId = '';
@@ -63,12 +63,12 @@ new class extends Component {
     public function with()
     {
         // Jangan eager load 'items' dulu untuk seluruh data, agar hemat memori
-        $query = PurchaseOrder::with(['vendor', 'payments'])
+        $query = SalesOrder::with(['customer', 'payments'])
             ->whereNotIn('status', ['draft']); // Hanya yang sudah rilis
             
         if ($this->search) {
-            $query->where('po_number', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('vendor', function($q) {
+            $query->where('so_number', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('customer', function($q) {
                       $q->where('name', 'like', '%' . $this->search . '%');
                   });
         }
@@ -105,25 +105,25 @@ new class extends Component {
             'void'             => collect(),
         ];
 
-        foreach ($allOrders as $po) {
+        foreach ($allOrders as $so) {
             // Hitung SEKALI, simpan ke atribut sementara agar tidak di-loop ulang
-            $paidAmount = $po->payments->where('status', 'verified')->sum('amount');
-            $po->setAttribute('_paid_amount', $paidAmount);
-            $isPaid = $paidAmount >= $po->total_amount && $po->total_amount > 0;
+            $paidAmount = $so->payments->where('status', 'verified')->sum('amount');
+            $so->setAttribute('_paid_amount', $paidAmount);
+            $isPaid = $paidAmount >= $so->total_amount && $so->total_amount > 0;
 
-            if (in_array($po->status, ['cancelled', 'void'])) {
-                $grouped['void']->push($po);
-            } elseif ($po->status === 'pending_approval') {
-                $grouped['pending_approval']->push($po);
-            } elseif ($po->status === 'hold') {
-                $grouped['hold']->push($po);
+            if (in_array($so->status, ['cancelled', 'void'])) {
+                $grouped['void']->push($so);
+            } elseif ($so->status === 'pending_approval') {
+                $grouped['pending_approval']->push($so);
+            } elseif ($so->status === 'hold') {
+                $grouped['hold']->push($so);
             } else {
                 if ($isPaid) {
-                    $grouped['paid']->push($po);
+                    $grouped['paid']->push($so);
                 } elseif ($paidAmount > 0) {
-                    $grouped['partial']->push($po);
+                    $grouped['partial']->push($so);
                 } else {
-                    $grouped['unpaid']->push($po);
+                    $grouped['unpaid']->push($so);
                 }
             }
         }
@@ -136,7 +136,7 @@ new class extends Component {
         foreach ($grouped as $key => $collection) {
             $counts[$key] = $collection->count();
 
-            // Reuse nilai _paid_amount yang sudah dihitung — tidak ada loop payments lagi
+            // Reuse nilai _paid_amount yang sudah dihitung â€” tidak ada loop payments lagi
             $sumTotal = $collection->sum('total_amount');
             $sumPaid  = $collection->sum('_paid_amount');
 
@@ -156,11 +156,11 @@ new class extends Component {
         }
 
         if (!empty($neededIds)) {
-            $itemsEager = PurchaseOrder::with('items.item')->whereIn('id', $neededIds)->get()->keyBy('id');
+            $itemsEager = SalesOrder::with('items.item')->whereIn('id', $neededIds)->get()->keyBy('id');
             foreach ($finalOrders as $key => $collection) {
-                $finalOrders[$key] = $collection->map(function ($po) use ($itemsEager) {
-                    $po->setRelation('items', $itemsEager[$po->id]->items ?? collect());
-                    return $po;
+                $finalOrders[$key] = $collection->map(function ($so) use ($itemsEager) {
+                    $so->setRelation('items', $itemsEager[$so->id]->items ?? collect());
+                    return $so;
                 });
             }
         }
@@ -173,32 +173,32 @@ new class extends Component {
         ];
     }
 
-    public function openApprovalModal($poId)
+    public function openApprovalModal($soId)
     {
         $this->resetValidation();
-        $po = PurchaseOrder::with(['vendor', 'items.item', 'creator'])->find($poId);
+        $so = SalesOrder::with(['customer', 'items.item', 'creator'])->find($soId);
         
-        if ($po) {
-            $this->selectedPoId = $po->id;
-            $this->selectedPo = $po;
+        if ($so) {
+            $this->selectedSoId = $so->id;
+            $this->selectedSo = $so;
             $this->rejectReason = '';
             $this->isRejecting = false;
             $this->showApprovalModal = true;
         }
     }
 
-    public function openPaymentModal($poId)
+    public function openPaymentModal($soId)
     {
         $this->resetValidation();
-        $po = PurchaseOrder::with('payments')->find($poId);
+        $so = SalesOrder::with('payments')->find($soId);
         
-        if ($po) {
-            $this->selectedPoId = $po->id;
-            $this->selectedPo = $po;
+        if ($so) {
+            $this->selectedSoId = $so->id;
+            $this->selectedSo = $so;
             
             // Hitung sisa tagihan
-            $paid = $po->payments->where('status', 'verified')->sum('amount');
-            $sisa = $po->total_amount - $paid;
+            $paid = $so->payments->where('status', 'verified')->sum('amount');
+            $sisa = $so->total_amount - $paid;
             
             $this->paymentAmount = ''; // Kosongkan agar user isi sendiri sesuai SO
             $this->paymentDate = date('Y-m-d');
@@ -212,10 +212,10 @@ new class extends Component {
     
     public function updatedPaymentAmount($value)
     {
-        if (!$this->selectedPo) return;
+        if (!$this->selectedSo) return;
         
-        $paid = $this->selectedPo->payments->where('status', 'verified')->sum('amount');
-        $sisa = $this->selectedPo->total_amount - $paid;
+        $paid = $this->selectedSo->payments->where('status', 'verified')->sum('amount');
+        $sisa = $this->selectedSo->total_amount - $paid;
         
         $this->validate([
             'paymentAmount' => 'numeric|max:' . max(0, $sisa)
@@ -226,21 +226,15 @@ new class extends Component {
 
     public function processPayment()
     {
-        $paid = $this->selectedPo->payments->where('status', 'verified')->sum('amount');
-        $sisa = $this->selectedPo->total_amount - $paid;
+        $paid = $this->selectedSo->payments->where('status', 'verified')->sum('amount');
+        $sisa = $this->selectedSo->total_amount - $paid;
 
         $this->validate([
             'paymentAmount' => 'required|numeric|min:1|max:' . max(0, $sisa),
             'paymentDate' => 'required|date',
             'financeAccountId' => [
                 'required',
-                'exists:finance_accounts,id',
-                function ($attribute, $value, $fail) {
-                    $account = FinanceAccount::find($value);
-                    if ($account && $account->current_balance < $this->paymentAmount) {
-                        $fail('Saldo rekening (' . $account->name . ') tidak mencukupi.');
-                    }
-                }
+                'exists:finance_accounts,id'
             ],
             'paymentNotes' => 'nullable|string',
         ], [
@@ -260,16 +254,16 @@ new class extends Component {
                     list(, $data)      = explode(',', $data);
                     $data = base64_decode($data);
                     
-                    $filename = 'purchase_payments/' . uniqid() . '.webp';
+                    $filename = 'sales_payments/' . uniqid() . '.webp';
                     Storage::disk('public')->put($filename, $data);
                     $proofPath = $filename;
                 } else {
-                    $proofPath = $this->proof->store('purchase_payments', 'public');
+                    $proofPath = $this->proof->store('sales_payments', 'public');
                 }
             }
 
-            $payment = PurchasePayment::create([
-                'purchase_order_id' => $this->selectedPoId,
+            $payment = SalesPayment::create([
+                'sales_order_id' => $this->selectedSoId,
                 'amount' => $this->paymentAmount,
                 'payment_date' => $this->paymentDate,
                 'notes' => $this->paymentNotes,
@@ -284,10 +278,10 @@ new class extends Component {
             $financeService = app(\Modules\Finance\Services\FinanceService::class);
             $financeService->recordTransaction(
                 accountId: $this->financeAccountId,
-                type: 'expense',
+                type: 'income',
                 amount: $this->paymentAmount,
                 date: $this->paymentDate,
-                description: 'Pembayaran PO: ' . $this->selectedPo->po_number . ' - ' . $this->paymentNotes,
+                description: 'Penerimaan Pembayaran SO: ' . $this->selectedSo->so_number . ' - ' . $this->paymentNotes,
                 reference: $payment,
                 categoryId: null,
                 createdBy: auth()->id()
@@ -295,7 +289,7 @@ new class extends Component {
 
             DB::commit();
             
-            $this->selectedPo = PurchaseOrder::with('payments')->find($this->selectedPoId); // reload PO
+            $this->selectedSo = SalesOrder::with('payments')->find($this->selectedSoId); // reload SO
             $this->paymentAmount = '';
             $this->paymentDate = date('Y-m-d');
             $this->paymentNotes = '';
@@ -314,32 +308,32 @@ new class extends Component {
         }
     }
     
-    public function toggleHold($poId)
+    public function toggleHold($soId)
     {
-        $po = PurchaseOrder::find($poId);
-        if ($po) {
-            if ($po->status === 'hold') {
-                $po->status = 'processing'; // Or back to whatever, but processing is safe
+        $so = SalesOrder::find($soId);
+        if ($so) {
+            if ($so->status === 'hold') {
+                $so->status = 'processing'; // Or back to whatever, but processing is safe
                 \Flux::toast('Status tahan (Hold) dicabut.', variant: 'success');
             } else {
-                $po->status = 'hold';
+                $so->status = 'hold';
                 \Flux::toast('Purchase Order ditandai Bermasalah (Hold).', variant: 'warning');
             }
-            $po->save();
+            $so->save();
         }
     }
 
     public function approveSpk()
     {
-        $po = PurchaseOrder::find($this->selectedPoId);
-        if ($po && $po->status === 'pending_approval') {
+        $so = SalesOrder::find($this->selectedSoId);
+        if ($so && $so->status === 'pending_approval') {
             DB::beginTransaction();
             try {
-                $po->status = 'processing';
-                $po->save();
+                $so->status = 'processing';
+                $so->save();
                 
                 // Update related ProductionOrders
-                \Modules\Production\Models\ProductionOrder::where('purchase_order_id', $po->id)
+                \Modules\Production\Models\ProductionOrder::where('purchase_order_id', $so->id)
                     ->update(['status' => 'in_production']);
                     
                 DB::commit();
@@ -347,8 +341,8 @@ new class extends Component {
                 \App\Events\KanbanUpdated::safeDispatch('production_order');
                 \App\Events\KanbanUpdated::safeDispatch('finance_payables');
                 
-                $notification = app(\App\Notifications\PurchaseOrderStatusChangedNotification::class, ['order' => $po, 'action' => 'disetujui', 'actorName' => auth()->user()->name]);
-                \Illuminate\Support\Facades\Notification::send($po->creator, $notification);
+                $notification = app(\App\Notifications\SalesOrderStatusChangedNotification::class, ['order' => $so, 'action' => 'disetujui', 'actorName' => auth()->user()->name]);
+                \Illuminate\Support\Facades\Notification::send($so->creator, $notification);
                 
                 $this->showApprovalModal = false;
                 \Flux::toast('SPK Maklon berhasil disetujui (ACC).', variant: 'success');
@@ -368,19 +362,19 @@ new class extends Component {
             'rejectReason.min' => 'Alasan penolakan minimal 5 karakter.'
         ]);
         
-        $po = PurchaseOrder::find($this->selectedPoId);
-        if ($po && $po->status === 'pending_approval') {
+        $so = SalesOrder::find($this->selectedSoId);
+        if ($so && $so->status === 'pending_approval') {
             DB::beginTransaction();
             try {
-                $po->status = 'rejected';
-                $po->notes = $po->notes ? $po->notes . "\n[DITOLAK]: " . $this->rejectReason : "[DITOLAK]: " . $this->rejectReason;
-                $po->save();
+                $so->status = 'rejected';
+                $so->notes = $so->notes ? $so->notes . "\n[DITOLAK]: " . $this->rejectReason : "[DITOLAK]: " . $this->rejectReason;
+                $so->save();
                 
-                \Modules\Production\Models\ProductionOrder::where('purchase_order_id', $po->id)
+                \Modules\Production\Models\ProductionOrder::where('purchase_order_id', $so->id)
                     ->update([
-                        'status' => 'waiting_vendor',
+                        'status' => 'waiting_customer',
                         'purchase_order_id' => null,
-                        'vendor_cost' => 0,
+                        'customer_cost' => 0,
                         'phase_type' => null
                     ]);
                     
@@ -389,8 +383,8 @@ new class extends Component {
                 \App\Events\KanbanUpdated::safeDispatch('production_order');
                 \App\Events\KanbanUpdated::safeDispatch('finance_payables');
                 
-                $notification = app(\App\Notifications\PurchaseOrderStatusChangedNotification::class, ['order' => $po, 'action' => 'ditolak', 'actorName' => auth()->user()->name]);
-                \Illuminate\Support\Facades\Notification::send($po->creator, $notification);
+                $notification = app(\App\Notifications\SalesOrderStatusChangedNotification::class, ['order' => $so, 'action' => 'ditolak', 'actorName' => auth()->user()->name]);
+                \Illuminate\Support\Facades\Notification::send($so->creator, $notification);
                 
                 $this->showApprovalModal = false;
                 \Flux::toast('Pengajuan SPK Maklon ditolak.', variant: 'warning');
@@ -404,7 +398,7 @@ new class extends Component {
 ?>
 
 <div>
-<x-kanban.board componentId="finance-payables" title="Hutang Usaha" searchModel="search" searchPlaceholder="Cari No PO atau Vendor..." class="bg-pattern-finance">
+<x-kanban.board class="bg-pattern-finance" title="Piutang Usaha" componentId="finance-receivables" searchModel="search" searchPlaceholder="Cari No PO atau customer...">
     @foreach($columns as $colKey => $column)
         @php
             $defaultCollapsed = false;
@@ -412,7 +406,7 @@ new class extends Component {
         <x-kanban.column 
             :statusKey="$colKey" 
             :column="$column" 
-            :componentId="'payables'" 
+            :componentId="'receivables'" 
             :count="$counts[$colKey] ?? 0"
             :defaultCollapsed="$defaultCollapsed"
         >
@@ -421,20 +415,20 @@ new class extends Component {
                     {!! $totals[$colKey] ?? '' !!}
                 @endif
             </x-slot>
-                        @forelse($orders[$colKey] as $po)
+                        @forelse($orders[$colKey] as $so)
                             @php
-                                $paidAmount = $po->payments->where('status', 'verified')->sum('amount');
-                                $balance = $po->total_amount - $paidAmount;
-                                $progress = $po->total_amount > 0 ? min(100, round(($paidAmount / $po->total_amount) * 100)) : 0;
+                                $paidAmount = $so->payments->where('status', 'verified')->sum('amount');
+                                $balance = $so->total_amount - $paidAmount;
+                                $progress = $so->total_amount > 0 ? min(100, round(($paidAmount / $so->total_amount) * 100)) : 0;
                                 
-                                $totalQty = $po->items->sum('quantity');
-                                $receivedQty = $po->items->sum('received_quantity');
+                                $totalQty = $so->items->sum('quantity');
+                                $receivedQty = $so->items->sum('received_quantity');
                                 $receivePercent = $totalQty > 0 ? min(100, round(($receivedQty / $totalQty) * 100)) : 0;
                                 
                                 $deadlineStr = '';
                                 $deadlineColor = 'text-zinc-500';
-                                if ($po->expected_delivery_date) {
-                                    $expected = \Carbon\Carbon::parse($po->expected_delivery_date)->startOfDay();
+                                if ($so->expected_delivery_date) {
+                                    $expected = \Carbon\Carbon::parse($so->expected_delivery_date)->startOfDay();
                                     $today = \Carbon\Carbon::now()->startOfDay();
                                     $diff = $today->diffInDays($expected, false);
                                     
@@ -458,24 +452,24 @@ new class extends Component {
                             <div x-data="{ showFooter: false }"
                                  @click="
                                      if (window.matchMedia('(hover: hover)').matches) {
-                                         {{ $colKey === 'pending_approval' ? '$wire.openApprovalModal('.$po->id.')' : '$wire.openPaymentModal('.$po->id.')' }}
+                                         {{ $colKey === 'pending_approval' ? '$wire.openApprovalModal('.$so->id.')' : '$wire.openPaymentModal('.$so->id.')' }}
                                      } else {
                                          if (!showFooter) showFooter = true;
-                                         else {{ $colKey === 'pending_approval' ? '$wire.openApprovalModal('.$po->id.')' : '$wire.openPaymentModal('.$po->id.')' }}
+                                         else {{ $colKey === 'pending_approval' ? '$wire.openApprovalModal('.$so->id.')' : '$wire.openPaymentModal('.$so->id.')' }}
                                      }
                                  "
                                  @click.outside="showFooter = false"
-                                 class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border-l-4 border-l-emerald-500 border-y border-r border-zinc-200 dark:border-zinc-700 hover:shadow-lg hover:-translate-y-1 hover:border-r-emerald-300 dark:hover:border-r-emerald-500/50 active:scale-[0.98] transition-all duration-200 cursor-pointer group relative flex flex-col gap-1" wire:key="po-{{ $po->id }}">
+                                 class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border-l-4 border-l-emerald-500 border-y border-r border-zinc-200 dark:border-zinc-700 hover:shadow-lg hover:-translate-y-1 hover:border-r-emerald-300 dark:hover:border-r-emerald-500/50 active:scale-[0.98] transition-all duration-200 cursor-pointer group relative flex flex-col gap-1" wire:key="po-{{ $so->id }}">
                                 
-                                {{-- Row 1: PO, Vendor & Dates --}}
+                                {{-- Row 1: PO, customer & Dates --}}
                                 <div class="flex justify-between items-center">
                                     <div class="flex items-center gap-1.5">
-                                        <span class="text-[10px] sm:text-[11px] font-bold font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded shrink-0">{{ $po->po_number }}</span>
-                                        <span class="text-[10px] font-bold text-zinc-800 dark:text-zinc-200 truncate max-w-[80px] sm:max-w-[100px]" title="{{ $po->vendor?->name }}">{{ $po->vendor?->name ?? 'Vendor Terhapus' }}</span>
+                                        <span class="text-[10px] sm:text-[11px] font-bold font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded shrink-0">{{ $so->so_number }}</span>
+                                        <span class="text-[10px] font-bold text-zinc-800 dark:text-zinc-200 truncate max-w-[80px] sm:max-w-[100px]" title="{{ $so->customer?->name }}">{{ $so->customer?->name ?? 'customer Terhapus' }}</span>
                                     </div>
                                     <div class="flex items-center gap-1.5 shrink-0">
                                         <div class="flex items-center gap-1.5 text-[9px] font-medium text-zinc-500">
-                                            <span title="Dibuat: {{ $po->created_at->format('d M Y') }}">{{ $po->created_at->format('d M') }}</span>
+                                            <span title="Dibuat: {{ $so->created_at->format('d M Y') }}">{{ $so->created_at->format('d M') }}</span>
                                             @if($deadlineStr)
                                                 <span class="{{ $deadlineColor }} flex items-center gap-0.5"><flux:icon.clock class="w-2.5 h-2.5" /> {{ $deadlineStr }}</span>
                                             @endif
@@ -483,26 +477,26 @@ new class extends Component {
                                         <flux:dropdown>
                                             <button @click.stop class="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 ml-1"><flux:icon.ellipsis-vertical class="w-3.5 h-3.5" /></button>
                                             <flux:menu>
-                                                <flux:menu.item icon="exclamation-triangle" wire:click="toggleHold({{ $po->id }})">
-                                                    {{ $po->status === 'hold' ? 'Cabut Status Hold' : 'Tandai Bermasalah' }}
+                                                <flux:menu.item icon="exclamation-triangle" wire:click="toggleHold({{ $so->id }})">
+                                                    {{ $so->status === 'hold' ? 'Cabut Status Hold' : 'Tandai Bermasalah' }}
                                                 </flux:menu.item>
                                             </flux:menu>
                                         </flux:dropdown>
                                     </div>
                                 </div>
                                 
-                                @if($colKey === 'pending_approval' && $po->items->isNotEmpty())
+                                @if($colKey === 'pending_approval' && $so->items->isNotEmpty())
                                     <div class="mt-1 mb-1 p-1.5 bg-zinc-50 dark:bg-zinc-800/50 border border-dashed border-zinc-200 dark:border-zinc-700 rounded text-[10px] sm:text-xs">
                                         <div class="text-zinc-500 font-semibold mb-1 border-b border-zinc-200 dark:border-zinc-700 pb-0.5">Detail Produksi:</div>
                                         <ul class="space-y-0.5">
-                                            @foreach($po->items->take(3) as $poItem)
+                                            @foreach($so->items->take(3) as $soItem)
                                                 <li class="flex justify-between items-center text-zinc-700 dark:text-zinc-300">
-                                                    <span class="truncate pr-2">- {{ $poItem->item->name ?? $poItem->item_name ?? 'Item Terhapus' }}</span>
-                                                    <span class="font-mono bg-zinc-200 dark:bg-zinc-700 px-1 rounded text-zinc-800 dark:text-zinc-200">{{ $poItem->quantity }}</span>
+                                                    <span class="truncate pr-2">- {{ $soItem->item->name ?? $soItem->item_name ?? 'Item Terhapus' }}</span>
+                                                    <span class="font-mono bg-zinc-200 dark:bg-zinc-700 px-1 rounded text-zinc-800 dark:text-zinc-200">{{ $soItem->quantity }}</span>
                                                 </li>
                                             @endforeach
-                                            @if($po->items->count() > 3)
-                                                <li class="text-zinc-400 italic text-[9px] pt-0.5">+ {{ $po->items->count() - 3 }} item lainnya</li>
+                                            @if($so->items->count() > 3)
+                                                <li class="text-zinc-400 italic text-[9px] pt-0.5">+ {{ $so->items->count() - 3 }} item lainnya</li>
                                             @endif
                                         </ul>
                                     </div>
@@ -520,11 +514,11 @@ new class extends Component {
                                     </div>
                                     <div class="flex flex-row items-center gap-2 shrink-0">
                                         @if($paidAmount > 0)
-                                            <span class="font-black text-[10px] sm:text-[11px] text-emerald-700 dark:text-emerald-400" title="Total Tagihan">Rp {{ number_format($po->total_amount, 0, ',', '.') }}</span>
+                                            <span class="font-black text-[10px] sm:text-[11px] text-emerald-700 dark:text-emerald-400" title="Total Tagihan">Rp {{ number_format($so->total_amount, 0, ',', '.') }}</span>
                                         @endif
                                         
                                         @if($balance > 0)
-                                            <span class="font-bold text-rose-600 dark:text-rose-400 {{ $paidAmount > 0 ? 'text-[9px]' : 'text-[11px] sm:text-xs' }}" title="Sisa Hutang">-Rp {{ number_format($balance, 0, ',', '.') }}</span>
+                                            <span class="font-bold text-rose-600 dark:text-rose-400 {{ $paidAmount > 0 ? 'text-[9px]' : 'text-[11px] sm:text-xs' }}" title="Sisa Piutang">-Rp {{ number_format($balance, 0, ',', '.') }}</span>
                                         @else
                                             <span class="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] sm:text-xs">LUNAS</span>
                                         @endif
@@ -538,12 +532,12 @@ new class extends Component {
                                     @elseif($colKey === 'hold')
                                         <span class="text-[8px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-sm">DITAHAN</span>
                                     @elseif($colKey === 'pending_approval')
-                                        <button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.openApprovalModal({{ $po->id }})">
+                                        <button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.openApprovalModal({{ $so->id }})">
                                             <flux:icon.eye class="w-3 h-3" />
                                             <span>Review SPK</span>
                                         </button>
                                     @elseif($progress < 100)
-                                        <button class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.openPaymentModal({{ $po->id }})">
+                                        <button class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.openPaymentModal({{ $so->id }})">
                                             <span>Bayar</span>
                                             <flux:icon.chevron-right class="w-2.5 h-2.5 stroke-[3]" />
                                         </button>
@@ -568,10 +562,10 @@ new class extends Component {
 
 {{-- Payment Modal --}}
 <flux:modal wire:model="showPaymentModal" class="w-full sm:w-[95%] md:w-[32rem] md:max-w-xl !p-0">
-    @if($selectedPo)
+    @if($selectedSo)
     @php
-        $terbayar = $selectedPo->payments()->whereIn('status', ['verified', 'pending'])->sum('amount');
-        $sisa = $selectedPo->total_amount - $terbayar;
+        $terbayar = $selectedSo->payments()->whereIn('status', ['verified', 'pending'])->sum('amount');
+        $sisa = $selectedSo->total_amount - $terbayar;
     @endphp
     <div class="p-4 sm:p-6" x-data="{ showPreviewModal: false, previewImage: '', tab: 'history' }" x-effect="if ($wire.showPaymentModal) { tab = 'history' }" @payment-saved.window="tab = 'history'">
         <div class="flex items-start gap-3 sm:gap-4">
@@ -579,27 +573,27 @@ new class extends Component {
                 <flux:icon.banknotes class="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div class="flex-1">
-                <flux:heading size="lg" class="text-base sm:text-lg leading-tight sm:leading-normal">Pembayaran PO <strong>{{ $selectedPo->po_number }}</strong></flux:heading>
+                <flux:heading size="lg" class="text-base sm:text-lg leading-tight sm:leading-normal">Pembayaran PO <strong>{{ $selectedSo->so_number }}</strong></flux:heading>
                 <div class="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-3 sm:gap-4">
                     <flux:subheading class="!mt-0 text-xs sm:text-sm">
-                        Tagihan: <strong>Rp {{ number_format($selectedPo->total_amount, 0, ',', '.') }}</strong>
+                        Tagihan: <strong>Rp {{ number_format($selectedSo->total_amount, 0, ',', '.') }}</strong>
                     </flux:subheading>
                     
-                    @if($selectedPo->vendor)
+                    @if($selectedSo->customer)
                     <div class="flex items-center gap-2 sm:gap-2.5">
-                        @if($selectedPo->vendor->image)
-                            <button type="button" @click="$dispatch('open-lightbox', { url: '{{ Storage::url($selectedPo->vendor->image) }}' })" class="shrink-0 hover:opacity-80 transition-opacity focus:outline-none" title="Lihat Foto Profil">
-                                <img src="{{ Storage::url($selectedPo->vendor->image) }}" alt="{{ $selectedPo->vendor->name }}" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm" />
+                        @if($selectedSo->customer->image)
+                            <button type="button" @click="$dispatch('open-lightbox', { url: '{{ Storage::url($selectedSo->customer->image) }}' })" class="shrink-0 hover:opacity-80 transition-opacity focus:outline-none" title="Lihat Foto Profil">
+                                <img src="{{ Storage::url($selectedSo->customer->image) }}" alt="{{ $selectedSo->customer->name }}" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-zinc-200 dark:border-zinc-700 shadow-sm" />
                             </button>
                         @else
                             <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 shrink-0 uppercase shadow-sm border border-emerald-200 dark:border-emerald-800/50">
-                                {{ substr($selectedPo->vendor->name, 0, 2) }}
+                                {{ substr($selectedSo->customer->name, 0, 2) }}
                             </div>
                         @endif
                         <div class="flex flex-col leading-tight">
-                            <span class="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300">{{ $selectedPo->vendor->name }}</span>
-                            @if($selectedPo->vendor->phone)
-                                <span class="text-[10px] sm:text-xs text-zinc-500">{{ $selectedPo->vendor->phone }}</span>
+                            <span class="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300">{{ $selectedSo->customer->name }}</span>
+                            @if($selectedSo->customer->phone)
+                                <span class="text-[10px] sm:text-xs text-zinc-500">{{ $selectedSo->customer->phone }}</span>
                             @endif
                         </div>
                     </div>
@@ -645,7 +639,7 @@ new class extends Component {
                                         $isDisabled = $acc->current_balance < $amountToPay;
                                     @endphp
                                     <option value="{{ $acc->id }}" {{ $isDisabled ? 'disabled' : '' }} class="{{ $isDisabled ? 'text-zinc-400' : '' }}">
-                                        {{ $acc->name }} • Rp {{ number_format($acc->current_balance, 0, ',', '.') }}{{ $isDisabled ? ' (Tidak Cukup)' : '' }}
+                                        {{ $acc->name }} â€¢ Rp {{ number_format($acc->current_balance, 0, ',', '.') }}{{ $isDisabled ? ' (Tidak Cukup)' : '' }}
                                     </option>
                                 @endforeach
                             </flux:select>
@@ -660,9 +654,9 @@ new class extends Component {
                             <div>
                                 <flux:textarea wire:model="paymentNotes" label="Catatan Jurnal / Referensi" placeholder="Keterangan tambahan..." />
                                 <div class="mt-2 flex flex-wrap gap-1.5">
-                                    <button type="button" wire:click="$set('paymentNotes', 'Pelunasan tagihan {{ $selectedPo->po_number }}')" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 text-[10px] rounded transition-colors border border-emerald-200 dark:border-emerald-800/50">Pelunasan tagihan {{ $selectedPo->po_number }}</button>
-                                    <button type="button" wire:click="$set('paymentNotes', 'DP tagihan {{ $selectedPo->po_number }}')" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 text-[10px] rounded transition-colors border border-emerald-200 dark:border-emerald-800/50">DP tagihan {{ $selectedPo->po_number }}</button>
-                                    <button type="button" wire:click="$set('paymentNotes', 'DP tambahan {{ $selectedPo->po_number }}')" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 text-[10px] rounded transition-colors border border-emerald-200 dark:border-emerald-800/50">DP tambahan {{ $selectedPo->po_number }}</button>
+                                    <button type="button" wire:click="$set('paymentNotes', 'Pelunasan tagihan {{ $selectedSo->so_number }}')" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 text-[10px] rounded transition-colors border border-emerald-200 dark:border-emerald-800/50">Pelunasan tagihan {{ $selectedSo->so_number }}</button>
+                                    <button type="button" wire:click="$set('paymentNotes', 'DP tagihan {{ $selectedSo->so_number }}')" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 text-[10px] rounded transition-colors border border-emerald-200 dark:border-emerald-800/50">DP tagihan {{ $selectedSo->so_number }}</button>
+                                    <button type="button" wire:click="$set('paymentNotes', 'DP tambahan {{ $selectedSo->so_number }}')" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 text-[10px] rounded transition-colors border border-emerald-200 dark:border-emerald-800/50">DP tambahan {{ $selectedSo->so_number }}</button>
                                 </div>
                             </div>
                         </div>
@@ -679,7 +673,7 @@ new class extends Component {
             {{-- TAB: RIWAYAT PEMBAYARAN --}}
             <div x-show="tab === 'history'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
                 <div class="space-y-2 sm:space-y-3 max-h-[60vh] sm:max-h-[400px] overflow-y-auto custom-scrollbar pr-1 sm:pr-2">
-                    @forelse($selectedPo->payments()->latest()->get() as $payment)
+                    @forelse($selectedSo->payments()->latest()->get() as $payment)
                         <div class="bg-white dark:bg-zinc-900 p-2.5 sm:p-3 rounded-lg border border-zinc-100 dark:border-zinc-800 text-xs sm:text-sm flex gap-2 sm:gap-3 relative overflow-hidden">
                             <div class="absolute top-0 right-0 bg-emerald-500 text-white text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-0.5 rounded-bl-lg font-bold tracking-wide">TERCATAT</div>
 
@@ -690,7 +684,7 @@ new class extends Component {
                                 </div>
                                 <div class="flex flex-wrap gap-1 sm:gap-2 text-[10px] sm:text-xs text-zinc-500">
                                     <span class="uppercase font-medium text-emerald-600 dark:text-emerald-400">VIA {{ $payment->financeAccount->name ?? 'KAS' }}</span>
-                                    <span class="hidden sm:inline">•</span>
+                                    <span class="hidden sm:inline">â€¢</span>
                                     <span class="truncate w-full sm:w-auto">{{ $payment->notes ?: 'Tanpa catatan' }}</span>
                                 </div>
                             </div>
@@ -706,8 +700,8 @@ new class extends Component {
                 </div>
                 
                 @php
-                    $terbayarHistory = $selectedPo->payments()->where('status', 'verified')->sum('amount');
-                    $sisaHistory = $selectedPo->total_amount - $terbayarHistory;
+                    $terbayarHistory = $selectedSo->payments()->where('status', 'verified')->sum('amount');
+                    $sisaHistory = $selectedSo->total_amount - $terbayarHistory;
                 @endphp
                 <div class="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-zinc-200 dark:border-zinc-700 text-xs sm:text-sm">
                     <div class="flex justify-between text-zinc-600 dark:text-zinc-400">
@@ -715,7 +709,7 @@ new class extends Component {
                         <span class="font-medium text-emerald-600 dark:text-emerald-400">Rp {{ number_format($terbayarHistory, 0, ',', '.') }}</span>
                     </div>
                     <div class="flex justify-between mt-0.5 sm:mt-1 font-bold">
-                        <span class="text-zinc-800 dark:text-zinc-200">Sisa Hutang:</span>
+                        <span class="text-zinc-800 dark:text-zinc-200">Sisa Piutang:</span>
                         <span class="{{ $sisaHistory <= 0 ? 'text-zinc-400' : 'text-red-600 dark:text-red-400' }}">Rp {{ number_format(max(0, $sisaHistory), 0, ',', '.') }}</span>
                     </div>
                 </div>
@@ -728,7 +722,7 @@ new class extends Component {
 
 {{-- Approval Modal --}}
 <flux:modal wire:model="showApprovalModal" class="w-full sm:w-[95%] md:w-[32rem] md:max-w-xl">
-    @if($selectedPo)
+    @if($selectedSo)
     <div class="space-y-4">
         <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-700 pb-3">
             <flux:heading size="lg">Review SPK Maklon</flux:heading>
@@ -738,45 +732,45 @@ new class extends Component {
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <span class="text-zinc-500 text-xs">No PO/SPK:</span>
-                    <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ $selectedPo->po_number }}</div>
+                    <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ $selectedSo->so_number }}</div>
                 </div>
                 <div class="col-span-2 sm:col-span-1">
-                    <span class="text-zinc-500 text-xs">Vendor Maklon:</span>
+                    <span class="text-zinc-500 text-xs">customer Maklon:</span>
                     <div class="flex items-center gap-2 mt-1">
-                        @if($selectedPo->vendor && $selectedPo->vendor->image)
-                            <button type="button" @click="$dispatch('open-lightbox', { url: '{{ Storage::url($selectedPo->vendor->image) }}' })" class="shrink-0 hover:opacity-80 transition-opacity">
-                                <img src="{{ Storage::url($selectedPo->vendor->image) }}" class="w-8 h-8 rounded-full object-cover border border-zinc-200">
+                        @if($selectedSo->customer && $selectedSo->customer->image)
+                            <button type="button" @click="$dispatch('open-lightbox', { url: '{{ Storage::url($selectedSo->customer->image) }}' })" class="shrink-0 hover:opacity-80 transition-opacity">
+                                <img src="{{ Storage::url($selectedSo->customer->image) }}" class="w-8 h-8 rounded-full object-cover border border-zinc-200">
                             </button>
-                        @elseif($selectedPo->vendor)
+                        @elseif($selectedSo->customer)
                             <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-[10px] font-bold text-emerald-700 shrink-0 uppercase">
-                                {{ substr($selectedPo->vendor->name, 0, 2) }}
+                                {{ substr($selectedSo->customer->name, 0, 2) }}
                             </div>
                         @endif
                         <div class="flex flex-col">
-                            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm leading-tight">{{ $selectedPo->vendor->name ?? '-' }}</div>
-                            @if($selectedPo->vendor && $selectedPo->vendor->phone)
-                                <div class="text-[10px] text-zinc-500">{{ $selectedPo->vendor->phone }}</div>
+                            <div class="font-bold text-zinc-900 dark:text-zinc-100 text-sm leading-tight">{{ $selectedSo->customer->name ?? '-' }}</div>
+                            @if($selectedSo->customer && $selectedSo->customer->phone)
+                                <div class="text-[10px] text-zinc-500">{{ $selectedSo->customer->phone }}</div>
                             @endif
-                            @if($selectedPo->vendor && ($selectedPo->vendor->district || $selectedPo->vendor->city))
-                                <div class="text-[10px] text-zinc-500 line-clamp-1" title="{{ $selectedPo->vendor->district }}, {{ $selectedPo->vendor->city }}">{{ $selectedPo->vendor->district }}, {{ $selectedPo->vendor->city }}</div>
+                            @if($selectedSo->customer && ($selectedSo->customer->district || $selectedSo->customer->city))
+                                <div class="text-[10px] text-zinc-500 line-clamp-1" title="{{ $selectedSo->customer->district }}, {{ $selectedSo->customer->city }}">{{ $selectedSo->customer->district }}, {{ $selectedSo->customer->city }}</div>
                             @endif
                         </div>
                     </div>
                 </div>
                 <div>
                     <span class="text-zinc-500 text-xs">Total Biaya Jasa:</span>
-                    <div class="font-bold text-emerald-600 dark:text-emerald-400 text-lg">Rp {{ number_format($selectedPo->total_amount, 0, ',', '.') }}</div>
+                    <div class="font-bold text-emerald-600 dark:text-emerald-400 text-lg">Rp {{ number_format($selectedSo->total_amount, 0, ',', '.') }}</div>
                 </div>
                 <div>
                     <span class="text-zinc-500 text-xs">Diajukan Oleh:</span>
-                    <div class="font-semibold text-zinc-800 dark:text-zinc-200">{{ $selectedPo->creator->name ?? 'Sistem' }}</div>
+                    <div class="font-semibold text-zinc-800 dark:text-zinc-200">{{ $selectedSo->creator->name ?? 'Sistem' }}</div>
                 </div>
             </div>
             
             <div class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                 <span class="text-zinc-500 text-xs font-bold mb-2 block uppercase tracking-wider">Detail Item Produksi:</span>
                 <ul class="space-y-2">
-                    @foreach($selectedPo->items as $item)
+                    @foreach($selectedSo->items as $item)
                         <li class="flex justify-between items-center text-sm p-2 bg-white dark:bg-zinc-800 rounded border border-zinc-100 dark:border-zinc-700 gap-3">
                             <div class="flex items-center gap-3">
                                 @if($item->item && $item->item->image)
@@ -799,10 +793,10 @@ new class extends Component {
                 </ul>
             </div>
             
-            @if($selectedPo->notes)
+            @if($selectedSo->notes)
             <div class="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                 <span class="text-zinc-500 text-xs font-bold mb-1 block uppercase tracking-wider">Catatan Pengajuan:</span>
-                <div class="text-zinc-700 dark:text-zinc-300 italic">{{ $selectedPo->notes }}</div>
+                <div class="text-zinc-700 dark:text-zinc-300 italic">{{ $selectedSo->notes }}</div>
             </div>
             @endif
         </div>
