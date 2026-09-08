@@ -99,14 +99,14 @@ $tableDeliveries = computed(function () {
     $showShipping = Cache::remember('setting_gudang_handles_shipping', 3600, function () {
         return Setting::where('key', 'gudang_handles_shipping')->value('value');
     }) == '1';
-    $statuses = ['processing', 'packing'];
+    $statuses = ['processing', 'packing', 'pending_outbound'];
     
     $query = SalesOrder::with(['customer', 'creator', 'items.item', 'fulfillments'])
         ->whereIn('status', $statuses);
         
     if (!$showShipping) {
         $query->where(function($q) {
-            $q->where('status', '!=', 'packing')->orWhere('is_packed', false);
+            $q->whereNotIn('status', ['packing', 'pending_outbound'])->orWhere('is_packed', false);
         });
     }
     $query->latest();
@@ -133,13 +133,13 @@ $orders = computed(function () {
     $showShipping = Cache::remember('setting_gudang_handles_shipping', 3600, function () {
         return Setting::where('key', 'gudang_handles_shipping')->value('value');
     }) == '1';
-    $statuses = ['processing', 'packing'];
+    $statuses = ['processing', 'packing', 'pending_outbound'];
     
     $baseQuery = SalesOrder::whereIn('status', $statuses);
         
     if (!$showShipping) {
         $baseQuery->where(function($q) {
-            $q->where('status', '!=', 'packing')->orWhere('is_packed', false);
+            $q->whereNotIn('status', ['packing', 'pending_outbound'])->orWhere('is_packed', false);
         });
     }
     $baseQuery->latest();
@@ -159,9 +159,9 @@ $orders = computed(function () {
         $q = clone $baseQuery;
         
         if ($colKey === 'ready_to_ship') {
-            $q->where('status', 'packing')->where('is_packed', true);
+            $q->whereIn('status', ['packing', 'pending_outbound'])->where('is_packed', true);
         } elseif ($colKey === 'packing') {
-            $q->where('status', 'packing')->where('is_packed', false);
+            $q->whereIn('status', ['packing', 'pending_outbound'])->where('is_packed', false);
         } else {
             $q->where('status', $colKey);
         }
@@ -183,9 +183,9 @@ $orders = computed(function () {
     
     foreach (array_keys($this->activeColumns) as $colKey) {
         if ($colKey === 'ready_to_ship') {
-            $columnOrders = $result->where('status', 'packing')->where('is_packed', true);
+            $columnOrders = $result->whereIn('status', ['packing', 'pending_outbound'])->where('is_packed', true);
         } elseif ($colKey === 'packing') {
-            $columnOrders = $result->where('status', 'packing')->where('is_packed', false);
+            $columnOrders = $result->whereIn('status', ['packing', 'pending_outbound'])->where('is_packed', false);
         } else {
             $columnOrders = $result->where('status', $colKey);
         }

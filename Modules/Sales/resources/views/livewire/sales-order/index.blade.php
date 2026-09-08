@@ -67,7 +67,7 @@ $loadMoreColumn = function ($status) {
 
 $markAsShipped = function ($orderId) {
     $order = SalesOrder::find($orderId);
-    if (!$order || $order->status !== 'packing') return;
+    if (!$order || !in_array($order->status, ['packing', 'pending_outbound'])) return;
     
     $order->status = 'shipping';
     $order->save();
@@ -165,11 +165,18 @@ $kanbanOrders = computed(function () {
         $limit = $this->columnLimits[$status] ?? 24;
         
         $query = clone $this->getBaseQuery();
-        $statusIds = $query->where('sales_orders.status', $status)
-                           ->limit($limit)
-                           ->pluck('sales_orders.id')
-                           ->toArray();
-                           
+        if ($status === 'packing') {
+            $statusIds = $query->whereIn('sales_orders.status', ['packing', 'pending_outbound'])
+                               ->limit($limit)
+                               ->pluck('sales_orders.id')
+                               ->toArray();
+        } else {
+            $statusIds = $query->where('sales_orders.status', $status)
+                               ->limit($limit)
+                               ->pluck('sales_orders.id')
+                               ->toArray();
+        }
+                            
         $ids = array_merge($ids, $statusIds);
     }
     
@@ -184,7 +191,8 @@ $kanbanOrders = computed(function () {
         });
         
     return $orders->groupBy(function($so) {
-        return $so->status ?? 'pending_approval';
+        $st = $so->status ?? 'pending_approval';
+        return $st === 'pending_outbound' ? 'packing' : $st;
     });
 });
 
