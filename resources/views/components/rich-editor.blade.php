@@ -261,7 +261,7 @@
                             plugins: 'lists link table code image autoresize',
                             autoresize_bottom_margin: 20,
                             toolbar_mode: 'floating',
-                            toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright | bullist numlist | table | link image medialibrary template | code',
+                            toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright | bullist numlist | table | link image medialibrary aiwriter template | code',
                             table_toolbar: 'tableprops tabledelete | tableinsertrowbefore tableinsertrowafter tabledeleterow | tableinsertcolbefore tableinsertcolafter tabledeletecol',
                             automatic_uploads: true,
                             images_upload_handler: (blobInfo) => new Promise((resolve, reject) => {
@@ -285,6 +285,21 @@
                                     }
                                 });
                                 
+                                // Tombol AI Writer
+                                editor.ui.registry.addButton('aiwriter', {
+                                    icon: 'edit-block',
+                                    text: 'Tulis dgn AI',
+                                    tooltip: 'Tulis teks menggunakan AI',
+                                    onAction: () => {
+                                        self._activeEditorInstance = editor;
+                                        if (window.Livewire) {
+                                            window.Livewire.dispatch('open-ai-writer-modal');
+                                        } else {
+                                            window.dispatchEvent(new CustomEvent('open-ai-writer-modal'));
+                                        }
+                                    }
+                                });
+
                                 // Tombol Template
                                 editor.ui.registry.addButton('template', {
                                     icon: 'duplicate',

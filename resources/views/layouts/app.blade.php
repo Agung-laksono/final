@@ -34,6 +34,12 @@
 {{-- Global Contextual Help Button --}}
 <livewire:contextual-help />
 
+{{-- Global Note Template Modal --}}
+<livewire:global.template-modal />
+
+{{-- Global AI Writer Modal --}}
+<livewire:global.ai-writer-modal />
+
 {{-- Global Internal Chat Widget (Pusher Channels + Beams) --}}
 @auth
     @persist('chat-widget')
