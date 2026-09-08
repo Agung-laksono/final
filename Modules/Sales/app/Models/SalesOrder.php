@@ -46,6 +46,35 @@ class SalesOrder extends Model
         return $this->belongsTo(\Modules\Purchase\Models\Vendor::class, 'courier_vendor_id');
     }
 
+    public function getShippingRecipientNameAttribute()
+    {
+        return !empty($this->recipient_name) ? $this->recipient_name : ($this->customer?->name ?? 'Pelanggan');
+    }
+
+    public function getShippingRecipientPhoneAttribute()
+    {
+        return !empty($this->recipient_phone) ? $this->recipient_phone : ($this->customer?->phone ?? '-');
+    }
+
+    public function getFullShippingAddressAttribute()
+    {
+        if (!empty($this->shipping_address)) {
+            return $this->shipping_address;
+        }
+
+        if (!$this->customer) return '-';
+
+        $parts = array_filter([
+            $this->customer->address,
+            $this->customer->village,
+            $this->customer->district,
+            $this->customer->city,
+            $this->customer->province
+        ]);
+
+        return !empty($parts) ? implode(', ', $parts) : '-';
+    }
+
     /**
      * Memeriksa ketersediaan stok (ATP) untuk semua item di SO ini.
      * Jika terjadi defisit, sistem akan otomatis membuat InventoryRequest.

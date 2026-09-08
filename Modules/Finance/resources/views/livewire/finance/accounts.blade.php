@@ -98,13 +98,14 @@ $saveAccount = function () {
         DB::transaction(function () {
             if ($this->modalMode === 'create') {
                 $account = FinanceAccount::create([
-                    'name' => $this->name,
-                    'type' => $this->type,
-                    'account_number' => $this->account_number,
+                    'name'             => $this->name,
+                    'type'             => $this->type,
+                    'account_number'   => $this->account_number,
                     'account_holder_name' => $this->account_holder_name,
-                    'current_balance' => $this->initial_balance, // Set initial balance
-                    'user_id' => $this->user_id,
-                    'is_active' => $this->is_active,
+                    'initial_balance'  => $this->initial_balance, // Simpan saldo awal permanen
+                    'current_balance'  => $this->initial_balance,
+                    'user_id'          => $this->user_id,
+                    'is_active'        => $this->is_active,
                 ]);
 
                 // Create initial balance transaction if > 0

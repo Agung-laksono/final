@@ -57,19 +57,45 @@ $generateLink = function () {
         return;
     }
 
+    // Auto-prune expired catalogs older than 7 days to keep DB clean
+    \Modules\Inventory\Models\Catalog::pruneExpired();
+
+    $hash = \Illuminate\Support\Str::random(6);
+    $validUntil = \Carbon\Carbon::parse($this->valid_until);
+
+    // Save to Database
+    $catalog = \Modules\Inventory\Models\Catalog::create([
+        'hash' => $hash,
+        'title' => $this->title,
+        'type' => $this->type,
+        'phone' => $this->phone,
+        'user_id' => auth()->id(),
+        'valid_until' => $validUntil,
+    ]);
+
+    $quantities = [];
+    foreach ($this->items as $index => $itemId) {
+        \Modules\Inventory\Models\CatalogItem::create([
+            'catalog_id' => $catalog->id,
+            'item_id' => $itemId,
+            'quantity' => 1,
+            'sort_order' => $index,
+        ]);
+        $quantities[$itemId] = 1;
+    }
+
+    // Also update Cache as secondary layer
     $payload = [
         'title' => $this->title,
         'exp' => $this->valid_until,
         'items' => $this->items,
         'type' => $this->type,
         'phone' => $this->phone,
+        'quantities' => $quantities,
     ];
-
-    $hash = \Illuminate\Support\Str::random(6);
-    \Illuminate\Support\Facades\Cache::put('catalog_' . $hash, $payload, \Carbon\Carbon::parse($this->valid_until));
+    \Illuminate\Support\Facades\Cache::put('catalog_' . $hash, $payload, $validUntil);
     
-    // Asumsikan rute /c/{hash}
-    $this->generatedUrl = url('/c/' . $hash);
+    $this->generatedUrl = $this->type === 'vendor' ? url('/c/' . $hash . '/vendor') : url('/c/' . $hash);
 };
 
 $closeModal = function () {

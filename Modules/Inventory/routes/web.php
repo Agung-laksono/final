@@ -26,3 +26,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // Public Route for Sales Catalog
 Volt::route('/c/{hash}', 'catalog.show')->name('catalog.show');
+Volt::route('/c/{hash}/vendor', 'catalog.vendor-quote')->name('catalog.vendor-quote');

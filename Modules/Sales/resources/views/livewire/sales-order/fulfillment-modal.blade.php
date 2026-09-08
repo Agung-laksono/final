@@ -270,7 +270,7 @@ $save = function () {
             }
         }
         
-        $this->order->status = requires_outbound_approval() ? 'pending_outbound' : 'packing';
+        $this->order->status = 'packing';
         if ($this->notes) {
             $this->order->notes = $this->order->notes . "\n[Fulfillment Note]: " . $this->notes;
         }

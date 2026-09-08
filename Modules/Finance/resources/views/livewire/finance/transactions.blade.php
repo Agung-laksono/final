@@ -30,10 +30,7 @@ $accounts = computed(function () {
 });
 
 $categories = computed(function () {
-    return FinanceCategory::where('is_active', true)
-        ->where('type', $this->transactionType)
-        ->orderBy('name')
-        ->get();
+    return FinanceCategory::orderBy('name')->get();
 });
 
 updated(['transactionType' => function () {

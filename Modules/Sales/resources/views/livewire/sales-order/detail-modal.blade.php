@@ -9,7 +9,29 @@ state([
     'showVoidModal' => false,
     'voidRefundType' => 'store_credit',
     'voidSpkAction' => 'continue',
+    'showCustomAddressModal' => false,
+    'recipient_name' => '',
+    'recipient_phone' => '',
+    'shipping_address' => '',
 ]);
+
+$openCustomAddressModal = function () {
+    if (!$this->order) return;
+    $this->recipient_name = $this->order->recipient_name ?? '';
+    $this->recipient_phone = $this->order->recipient_phone ?? '';
+    $this->shipping_address = $this->order->shipping_address ?? '';
+    $this->showCustomAddressModal = true;
+};
+
+$saveCustomAddress = function () {
+    if (!$this->order) return;
+    $this->order->recipient_name = $this->recipient_name ?: null;
+    $this->order->recipient_phone = $this->recipient_phone ?: null;
+    $this->order->shipping_address = $this->shipping_address ?: null;
+    $this->order->save();
+    $this->showCustomAddressModal = false;
+    \Flux::toast('Alamat pengiriman custom berhasil diperbarui.', variant: 'success');
+};
 
 on(['open-detail-modal' => function ($orderId) {
     $order = SalesOrder::find($orderId);
@@ -26,6 +48,7 @@ on(['open-detail-modal' => function ($orderId) {
     $this->order = SalesOrder::with(['customer', 'items.item', 'creator', 'payments', 'fulfillments'])->find($orderId);
     $this->show = true;
     $this->showVoidModal = false;
+    $this->showCustomAddressModal = false;
     $this->voidRefundType = 'store_credit';
     $this->voidSpkAction = 'continue';
 }]);
@@ -148,26 +171,53 @@ $getStatusBadge = function ($status) {
                                 <span x-show="!printing">Cetak Nota</span>
                                 <span x-show="printing" style="display: none;">Mencetak...</span>
                             </flux:button>
+                            <flux:button size="sm" variant="subtle" class="!px-2 !py-1 h-auto text-[10px]" icon="tag" x-on:click="printInvoice('{{ route('sales.orders.shipping-label', $order->id) }}', 'Label-{{ $order->so_number }}')" x-bind:disabled="printing">
+                                <span x-show="!printing">Cetak Label Alamat</span>
+                                <span x-show="printing" style="display: none;">Mencetak...</span>
+                            </flux:button>
                         </div>
                     @endif
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
-                {{-- Customer Info --}}
-                <div class="flex items-start gap-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-lg p-2.5 border border-zinc-200 dark:border-zinc-700">
-                    <flux:avatar src="{{ $order->customer?->image ? Storage::url($order->customer->image) : '' }}" fallback="{{ substr($order->customer?->name ?? '?', 0, 2) }}" size="sm" class="shrink-0" />
-                    <div class="min-w-0 flex-1">
-                        <div class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{{ $order->customer?->name ?? 'Pelanggan Terhapus' }}</div>
-                        <div class="flex flex-col gap-0.5 text-[10px] text-zinc-500 mt-0.5">
-                            @if($order->customer?->phone)
-                                <span>📞 {{ $order->customer->phone }}</span>
-                            @endif
-                            @if($order->customer?->address)
-                                <span class="truncate" title="{{ $order->customer->address }}">📍 {{ $order->customer->address }}</span>
-                            @endif
+                {{-- Customer & Shipping Address Info --}}
+                <div class="flex flex-col gap-2 bg-zinc-50 dark:bg-zinc-800/40 rounded-lg p-2.5 border border-zinc-200 dark:border-zinc-700">
+                    <div class="flex items-start gap-3">
+                        <flux:avatar src="{{ $order->customer?->image ? Storage::url($order->customer->image) : '' }}" fallback="{{ substr($order->customer?->name ?? '?', 0, 2) }}" size="sm" class="shrink-0" />
+                        <div class="min-w-0 flex-1">
+                            <div class="flex justify-between items-start">
+                                <div class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{{ $order->customer?->name ?? 'Pelanggan Terhapus' }}</div>
+                                <button type="button" wire:click="openCustomAddressModal" class="text-[10px] text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 font-bold underline shrink-0">
+                                    Edit Alamat Tujuan
+                                </button>
+                            </div>
+                            <div class="flex flex-col gap-0.5 text-[10px] text-zinc-500 mt-0.5">
+                                @if($order->customer?->phone)
+                                    <span>📞 {{ $order->customer->phone }}</span>
+                                @endif
+                                @if($order->customer?->address)
+                                    <span class="truncate" title="{{ $order->customer->address }}">📍 Pemesan: {{ $order->customer->address }}</span>
+                                @endif
+                            </div>
                         </div>
                     </div>
+
+                    @if(!empty($order->shipping_address) || !empty($order->recipient_name))
+                        <div class="mt-1 pt-1.5 border-t border-zinc-200 dark:border-zinc-700/60 text-[10px]">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-amber-700 dark:text-amber-400 uppercase text-[9px] flex items-center gap-1">
+                                    <flux:icon.map-pin class="w-3 h-3" /> Alamat Tujuan Khusus:
+                                </span>
+                            </div>
+                            <div class="font-bold text-zinc-800 dark:text-zinc-200 mt-0.5">
+                                {{ $order->shipping_recipient_name }} ({{ $order->shipping_recipient_phone }})
+                            </div>
+                            <div class="text-zinc-600 dark:text-zinc-400 truncate" title="{{ $order->full_shipping_address }}">
+                                {{ $order->full_shipping_address }}
+                            </div>
+                        </div>
+                    @endif
                 </div>
                 
                 {{-- Payment Status --}}
@@ -402,5 +452,51 @@ $getStatusBadge = function ($status) {
                 </div>
             </div>
         @endif
+    </x-modal>
+
+    <!-- Modal Edit Alamat Pengiriman Custom (Flux UI) -->
+    <x-modal wire:model="showCustomAddressModal" maxWidth="lg">
+        <div class="p-6 space-y-6">
+            <div class="flex items-center gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-700">
+                <div class="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                    <flux:icon.map-pin class="w-6 h-6" />
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">Edit Alamat Tujuan Pengiriman</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Ubah penerima atau alamat tujuan khusus untuk Sales Order ini</p>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <flux:input 
+                    wire:model="recipient_name" 
+                    label="Nama Penerima (Opsional)" 
+                    placeholder="Kosongkan jika sama dengan Pemesan" 
+                    description="Default Pemesan: {{ $order?->customer?->name ?? '-' }}" 
+                    icon="user"
+                />
+
+                <flux:input 
+                    wire:model="recipient_phone" 
+                    label="No. HP / WA Penerima (Opsional)" 
+                    placeholder="Kosongkan jika sama dengan HP Pemesan" 
+                    description="Default HP Pemesan: {{ $order?->customer?->phone ?? '-' }}" 
+                    icon="phone"
+                />
+
+                <flux:textarea 
+                    wire:model="shipping_address" 
+                    label="Alamat Tujuan Lengkap (Opsional)" 
+                    rows="4" 
+                    placeholder="Isi jika lokasi/alamat pengiriman berbeda dari alamat utama Pemesan..." 
+                    description="Biarkan kosong jika memakai alamat utama pemesan." 
+                />
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-700">
+                <flux:button variant="ghost" wire:click="$set('showCustomAddressModal', false)">Batal</flux:button>
+                <flux:button variant="primary" icon="check" wire:click="saveCustomAddress">Simpan Alamat</flux:button>
+            </div>
+        </div>
     </x-modal>
 </div>

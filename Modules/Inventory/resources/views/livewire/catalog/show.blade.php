@@ -2,6 +2,7 @@
 
 use function Livewire\Volt\{state, mount, layout, updated};
 use Modules\Inventory\Models\Item;
+use Modules\Inventory\Models\Catalog;
 use Carbon\Carbon;
 
 layout('layouts.empty'); // Use an empty layout since this is public
@@ -18,17 +19,27 @@ state([
     'quantities' => [],
 ]);
 
-$updateQty = function ($itemId, $qty) {
+$saveQuantity = function ($itemId) {
     if (!auth()->check()) return;
+    
+    $qty = $this->quantities[$itemId] ?? 1;
+    $qty = max(1, (int)$qty);
+    $this->quantities[$itemId] = $qty;
+    
+    $catalog = Catalog::where('hash', $this->hash)->first();
+    if ($catalog) {
+        \Modules\Inventory\Models\CatalogItem::where('catalog_id', $catalog->id)
+            ->where('item_id', $itemId)
+            ->update(['quantity' => $qty]);
+    }
     
     $payload = \Illuminate\Support\Facades\Cache::get('catalog_' . $this->hash);
     if ($payload) {
-        $this->quantities[$itemId] = max(1, (int)$qty);
         $payload['quantities'] = $this->quantities;
         \Illuminate\Support\Facades\Cache::put('catalog_' . $this->hash, $payload, \Carbon\Carbon::parse($payload['exp']));
-        
-        $this->dispatch('quantity-saved', id: $itemId);
     }
+    
+    $this->dispatch('quantity-saved', id: (int)$itemId);
 };
 
 mount(function ($hash = null) {
@@ -38,30 +49,60 @@ mount(function ($hash = null) {
     }
 
     try {
-        $decoded = \Illuminate\Support\Facades\Cache::get('catalog_' . $hash);
-        
-        if (!is_array($decoded) || !isset($decoded['items']) || !isset($decoded['exp'])) {
-            $this->error = 'Katalog tidak ditemukan atau sudah kadaluarsa.';
-            return;
-        }
+        $catalog = Catalog::where('hash', $hash)->with(['catalogItems', 'items'])->first();
 
-        $this->title = $decoded['title'] ?? 'Katalog Promo';
-        $this->validUntil = Carbon::parse($decoded['exp']);
-        $this->type = $decoded['type'] ?? 'promo';
-        $this->phone = $decoded['phone'] ?? '';
-        $this->hash = $hash;
-        $this->quantities = $decoded['quantities'] ?? [];
-        
-        if (now()->isAfter($this->validUntil)) {
-            $this->isExpired = true;
-            return;
-        }
+        if ($catalog) {
+            $this->title = $catalog->title;
+            $this->validUntil = $catalog->valid_until;
+            $this->type = $catalog->type;
+            $this->phone = $catalog->phone ?? '';
+            $this->hash = $hash;
+            $this->quantities = $catalog->catalogItems->pluck('quantity', 'item_id')->toArray();
 
-        // Fetch items and their latest prices
-        $this->items = Item::whereIn('id', $decoded['items'])
-            ->with(['category', 'type', 'customVariants', 'unit']) // preload necessary relations (removed non-existent 'images')
-            ->get();
+            if ($this->type === 'vendor') {
+                $this->redirect(route('catalog.vendor-quote', ['hash' => $hash]));
+                return;
+            }
+
+            if ($this->validUntil && now()->isAfter($this->validUntil)) {
+                $this->isExpired = true;
+                return;
+            }
+
+            $itemIds = $catalog->catalogItems->pluck('item_id')->toArray();
+            $this->items = Item::whereIn('id', $itemIds)
+                ->with(['category', 'type', 'customVariants', 'unit'])
+                ->get();
+        } else {
+            // Fallback to Cache
+            $decoded = \Illuminate\Support\Facades\Cache::get('catalog_' . $hash);
             
+            if (!is_array($decoded) || !isset($decoded['items']) || !isset($decoded['exp'])) {
+                $this->error = 'Katalog tidak ditemukan atau sudah kadaluarsa.';
+                return;
+            }
+
+            $this->title = $decoded['title'] ?? 'Katalog Promo';
+            $this->validUntil = Carbon::parse($decoded['exp']);
+            $this->type = $decoded['type'] ?? 'promo';
+            $this->phone = $decoded['phone'] ?? '';
+            $this->hash = $hash;
+            $this->quantities = $decoded['quantities'] ?? [];
+            
+            if ($this->type === 'vendor') {
+                $this->redirect(route('catalog.vendor-quote', ['hash' => $hash]));
+                return;
+            }
+            
+            if (now()->isAfter($this->validUntil)) {
+                $this->isExpired = true;
+                return;
+            }
+
+            $this->items = Item::whereIn('id', $decoded['items'])
+                ->with(['category', 'type', 'customVariants', 'unit'])
+                ->get();
+        }
     } catch (\Exception $e) {
         $this->error = 'Error sistem: ' . $e->getMessage();
     }
@@ -84,7 +125,7 @@ mount(function ($hash = null) {
     @endif
 </x-slot>
 
-<div class="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20 relative flex flex-col">
+<div class="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20 relative flex flex-col" id="catalog-component">
     {{-- Decorative Background --}}
     <div class="absolute inset-0 z-0 opacity-40 mix-blend-multiply dark:mix-blend-overlay pointer-events-none" style="background-image: radial-gradient(rgb(161 161 170 / 0.3) 1px, transparent 1px); background-size: 24px 24px;"></div>
 
@@ -122,10 +163,7 @@ mount(function ($hash = null) {
             </div>
         </div>
     @else
-        @if($type === 'vendor')
-            @include('inventory::livewire.catalog.vendor-quote', ['items' => $items, 'title' => $title, 'validUntil' => $validUntil, 'phone' => $phone, 'quantities' => $quantities])
-        @else
-            {{-- Header Promo --}}
+        {{-- Header Promo --}}
             <div class="bg-indigo-600 dark:bg-indigo-900 shadow-sm sticky top-0 z-50">
             <div class="max-w-3xl mx-auto px-4 py-3 sm:py-4 flex flex-row items-center justify-between gap-3">
                 <div class="text-left flex-1 min-w-0">
@@ -185,7 +223,7 @@ mount(function ($hash = null) {
                         <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pt-16 pb-4 px-5 z-20 flex flex-col justify-end">
                             <div class="text-xs sm:text-sm text-zinc-300 mb-1.5 flex justify-between items-center drop-shadow-md">
                                 <span class="truncate pr-2">{{ $item->category?->name ?? 'Kategori' }}</span>
-                                <span class="font-mono text-[10px] sm:text-xs opacity-70">{{ $item->sku }}</span>
+                                <span class="font-mono text-[10px] sm:text-xs opacity-70">{{ $item->code ?? $item->sku }}</span>
                             </div>
                             
                             <div class="flex flex-row justify-between items-end gap-2">
@@ -218,6 +256,5 @@ mount(function ($hash = null) {
                 Hubungi staf Sales kami untuk pemesanan.
             </div>
         </div>
-        @endif
     @endif
 </div>

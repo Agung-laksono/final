@@ -44,7 +44,9 @@ state([
     'editingNoteIndex' => null,
     'showEditor' => false,
     
-    
+    'recipient_name' => '',
+    'recipient_phone' => '',
+    'shipping_address' => '',
 ]);
 
 mount(function ($id = null) {
@@ -79,6 +81,9 @@ mount(function ($id = null) {
         $this->status = $po->status;
         $this->deadline = $po->deadline;
         $this->notes = $po->notes ?? '';
+        $this->recipient_name = $po->recipient_name ?? '';
+        $this->recipient_phone = $po->recipient_phone ?? '';
+        $this->shipping_address = $po->shipping_address ?? '';
         
         if ($po->customer) {
             $this->selected_customer = $po->customer->toArray();

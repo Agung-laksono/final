@@ -32,6 +32,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware(['permission:sales.order.view'])->group(function () {
             Route::get('orders/{id}/invoice', [\Modules\Sales\Http\Controllers\InvoiceController::class, 'show'])->name('orders.invoice');
             Route::get('orders/{id}/print', [\Modules\Sales\Http\Controllers\SalesOrderPrintController::class, 'show'])->name('orders.print');
+            Route::get('orders/{id}/shipping-label', [\Modules\Sales\Http\Controllers\ShippingLabelPrintController::class, 'show'])->name('orders.shipping-label');
         });
         
         // Return Routes

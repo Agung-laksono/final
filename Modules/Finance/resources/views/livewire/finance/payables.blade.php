@@ -97,18 +97,20 @@ new class extends Component {
 
         $grouped = [
             'pending_approval' => collect(),
-            'unpaid' => collect(),
-            'partial' => collect(),
-            'paid' => collect(),
-            'hold' => collect(),
-            'refund' => collect(),
-            'void' => collect(),
+            'unpaid'           => collect(),
+            'partial'          => collect(),
+            'paid'             => collect(),
+            'hold'             => collect(),
+            'refund'           => collect(),
+            'void'             => collect(),
         ];
-        
+
         foreach ($allOrders as $po) {
+            // Hitung SEKALI, simpan ke atribut sementara agar tidak di-loop ulang
             $paidAmount = $po->payments->where('status', 'verified')->sum('amount');
+            $po->setAttribute('_paid_amount', $paidAmount);
             $isPaid = $paidAmount >= $po->total_amount && $po->total_amount > 0;
-            
+
             if (in_array($po->status, ['cancelled', 'void'])) {
                 $grouped['void']->push($po);
             } elseif ($po->status === 'pending_approval') {
@@ -125,39 +127,37 @@ new class extends Component {
                 }
             }
         }
-        
+
         $finalOrders = [];
-        $neededIds = [];
-        $counts = [];
-        $totals = [];
-        
+        $neededIds   = [];
+        $counts      = [];
+        $totals      = [];
+
         foreach ($grouped as $key => $collection) {
             $counts[$key] = $collection->count();
-            
-            // Calculate total balance needed/used
+
+            // Reuse nilai _paid_amount yang sudah dihitung — tidak ada loop payments lagi
             $sumTotal = $collection->sum('total_amount');
-            $sumPaid = $collection->sum(function($po) {
-                return $po->payments->where('status', 'verified')->sum('amount');
-            });
-            
+            $sumPaid  = $collection->sum('_paid_amount');
+
             if ($key === 'partial') {
                 $totals[$key] = 'Rp ' . number_format($sumPaid, 0, ',', '.') . ' / Rp ' . number_format($sumTotal, 0, ',', '.');
             } elseif (in_array($key, ['paid', 'void'])) {
                 $totals[$key] = 'Rp ' . number_format($sumTotal, 0, ',', '.');
             } else {
-                $sisa = $sumTotal - $sumPaid;
+                $sisa         = $sumTotal - $sumPaid;
                 $totals[$key] = 'Rp ' . number_format(max(0, $sisa), 0, ',', '.');
             }
-            
-            $limited = $collection->take($this->columnLimits[$key] ?? 10);
+
+            $limited      = $collection->take($this->columnLimits[$key] ?? 10);
             $finalOrders[$key] = $limited;
-            $neededIds = array_merge($neededIds, $limited->pluck('id')->toArray());
+            $neededIds    = array_merge($neededIds, $limited->pluck('id')->toArray());
         }
-        
+
         if (!empty($neededIds)) {
             $itemsEager = PurchaseOrder::with('items.item')->whereIn('id', $neededIds)->get()->keyBy('id');
             foreach ($finalOrders as $key => $collection) {
-                $finalOrders[$key] = $collection->map(function($po) use ($itemsEager) {
+                $finalOrders[$key] = $collection->map(function ($po) use ($itemsEager) {
                     $po->setRelation('items', $itemsEager[$po->id]->items ?? collect());
                     return $po;
                 });

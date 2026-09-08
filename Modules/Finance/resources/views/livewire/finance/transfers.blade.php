@@ -1,6 +1,6 @@
 <?php
 
-use function Livewire\Volt\{state, layout, computed, title, rules};
+use function Livewire\Volt\{state, layout, computed, title, rules, on};
 use Modules\Finance\Models\FinanceAccount;
 use Modules\Finance\Models\FinanceTransfer;
 
@@ -75,13 +75,13 @@ $recentTransfers = computed(function () {
 
 $submitTransfer = function () {
     $this->validate();
-    
+
     $fromAccount = FinanceAccount::findOrFail($this->from_account_id);
     if (!auth()->user()->hasRole('Super Admin') && $fromAccount->user_id !== auth()->id()) {
         \Flux::toast('Anda tidak berhak menggunakan akun sumber ini.', variant: 'danger');
         return;
     }
-    
+
     try {
         $proofPath = null;
         if ($this->proof) {
@@ -98,6 +98,7 @@ $submitTransfer = function () {
             createdBy: auth()->id()
         );
 
+        \App\Events\KanbanUpdated::safeDispatch('finance_transfers');
         \Flux::toast('Instruksi transfer berhasil dibuat dan menunggu konfirmasi penerima.', variant: 'success');
         $this->reset(['showTransferModal', 'from_account_id', 'to_account_id', 'amount', 'notes', 'proof']);
     } catch (\Exception $e) {
@@ -108,7 +109,7 @@ $submitTransfer = function () {
 $confirmTransfer = function ($transferId) {
     try {
         $transfer = FinanceTransfer::findOrFail($transferId);
-        
+
         // Verifikasi kepemilikan akun penerima
         if (!auth()->user()->hasRole('Super Admin') && $transfer->toAccount->user_id !== auth()->id()) {
             \Flux::toast("Anda tidak memiliki hak untuk mengonfirmasi transfer ke akun ini.", variant: 'danger');
@@ -116,6 +117,7 @@ $confirmTransfer = function ($transferId) {
         }
 
         app(\Modules\Finance\Services\FinanceService::class)->confirmInternalTransfer($transfer, auth()->id());
+        \App\Events\KanbanUpdated::safeDispatch('finance_transfers');
         \Flux::toast('Transfer berhasil dikonfirmasi. Saldo telah diperbarui.', variant: 'success');
     } catch (\Exception $e) {
         \Flux::toast('Gagal: ' . $e->getMessage(), variant: 'danger');
@@ -125,22 +127,25 @@ $confirmTransfer = function ($transferId) {
 $rejectTransfer = function ($transferId) {
     try {
         $transfer = FinanceTransfer::findOrFail($transferId);
-        
+
         if (!auth()->user()->hasRole('Super Admin') && $transfer->toAccount->user_id !== auth()->id()) {
             \Flux::toast("Anda tidak memiliki hak untuk menolak transfer ke akun ini.", variant: 'danger');
             return;
         }
 
         app(\Modules\Finance\Services\FinanceService::class)->rejectInternalTransfer($transfer, "Ditolak oleh penerima", auth()->id());
+        \App\Events\KanbanUpdated::safeDispatch('finance_transfers');
         \Flux::toast('Transfer ditolak.', variant: 'warning');
     } catch (\Exception $e) {
         \Flux::toast('Gagal: ' . $e->getMessage(), variant: 'danger');
     }
 };
 
+on(['echo:kanban,KanbanUpdated' => '$refresh']);
+
 ?>
 
-<div class="space-y-6" wire:poll.3s>
+<div class="space-y-6">
     <div class="flex justify-between items-center">
         <div>
             <flux:heading size="xl">Mutasi & Transfer Internal</flux:heading>
