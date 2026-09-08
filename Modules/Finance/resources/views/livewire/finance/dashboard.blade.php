@@ -45,18 +45,18 @@ $activeAccountsCount = computed(function () {
     })->where('is_active', true)->count();
 });
 
-// Total Piutang Penjualan (Accounts Receivable - AR) — dihitung di SQL, bukan PHP
+// Total Piutang Penjualan (Accounts Receivable - AR)
 $totalAR = computed(function () {
     return SalesOrder::whereNotIn('status', ['draft', 'cancelled', 'rejected'])
-        ->selectRaw('SUM(GREATEST(0, COALESCE(grand_total, 0) - COALESCE(paid_amount, 0))) as total')
-        ->value('total') ?? 0;
+        ->get()
+        ->sum(fn($so) => max(0, floatval($so->grand_total ?? 0) - floatval($so->paid_amount ?? 0)));
 });
 
-// Total Hutang Pembelian (Accounts Payable - AP) — dihitung di SQL, bukan PHP
+// Total Hutang Pembelian (Accounts Payable - AP)
 $totalAP = computed(function () {
     return PurchaseOrder::whereNotIn('status', ['draft', 'cancelled', 'rejected'])
-        ->selectRaw('SUM(GREATEST(0, COALESCE(grand_total, 0) - COALESCE(paid_amount, 0))) as total')
-        ->value('total') ?? 0;
+        ->get()
+        ->sum(fn($po) => max(0, floatval($po->grand_total ?? 0) - floatval($po->paid_amount ?? 0)));
 });
 
 // Inbox Verifikasi Pembayaran Pending
@@ -78,29 +78,32 @@ $thisMonthExpense = computed(function () {
         ->sum('amount');
 });
 
-// Chart data: Monthly Cash Flow — 1 query GROUP BY, tidak perlu tarik semua baris ke PHP
+// Chart data: Monthly Cash Flow
 $monthlyCashFlow = computed(function () {
-    $rows = FinanceTransaction::whereYear('transaction_date', $this->filterYear)
-        ->selectRaw('MONTH(transaction_date) as month, type, SUM(amount) as total')
-        ->groupBy('month', 'type')
-        ->get()
-        ->groupBy('month');
-
+    $transactions = FinanceTransaction::whereYear('transaction_date', $this->filterYear)
+        ->select('transaction_date', 'type', 'amount')
+        ->get();
+        
     $labels = [];
     $incomeData = [];
     $expenseData = [];
-
+    
     for ($i = 1; $i <= 12; $i++) {
         $labels[] = date('M', mktime(0, 0, 0, $i, 1));
-        $monthRows = $rows->get($i, collect());
-        $incomeData[]  = (float) ($monthRows->firstWhere('type', 'income')->total  ?? 0);
-        $expenseData[] = (float) ($monthRows->firstWhere('type', 'expense')->total ?? 0);
+        
+        $incomeData[] = $transactions->filter(function($t) use ($i) {
+            return $t->type === 'income' && (int)date('m', strtotime($t->transaction_date)) === $i;
+        })->sum('amount');
+        
+        $expenseData[] = $transactions->filter(function($t) use ($i) {
+            return $t->type === 'expense' && (int)date('m', strtotime($t->transaction_date)) === $i;
+        })->sum('amount');
     }
-
+    
     return [
-        'labels'  => $labels,
-        'income'  => $incomeData,
-        'expense' => $expenseData,
+        'labels' => $labels,
+        'income' => $incomeData,
+        'expense' => $expenseData
     ];
 });
 
