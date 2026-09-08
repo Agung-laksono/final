@@ -201,7 +201,7 @@ $handleItemSelected = function ($itemData) {
                             @if(count($this->searchResults) > 0)
                                 <ul class="divide-y divide-zinc-100 dark:divide-zinc-700 max-h-64 overflow-y-auto custom-scrollbar">
                                     @foreach($this->searchResults as $res)
-                                        <li wire:click="addMaterialToRecipe({{ $res->id }}, '{{ $res->code ?? '-' }}', '{{ addslashes($res->name) }}', '{{ $res->unit->name ?? 'pcs' }}', '{{ $res->image }}')"
+                                        <li wire:click="addMaterialToRecipe({{ $res->id }}, '{{ $res->code ?? '-' }}', {{ json_encode($res->name) }}, '{{ $res->unit->name ?? 'pcs' }}', '{{ $res->image }}')"
                                             class="px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-3 transition-colors">
                                             @if($res->image)
                                                 <img src="{{ Storage::url($res->image) }}" class="w-8 h-8 rounded bg-zinc-100 object-cover">

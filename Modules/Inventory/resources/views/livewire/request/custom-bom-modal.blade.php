@@ -365,7 +365,7 @@ new class extends Component {
                                         <span class="text-xs text-zinc-500 font-medium w-8">{{ $item['unit'] }}</span>
                                     </div>
                                     <div class="flex items-center gap-1 shrink-0">
-                                        <flux:button variant="subtle" size="sm" icon="pencil-square" class="!bg-amber-500 hover:!bg-amber-600 !text-white w-8 h-8 p-0 shrink-0" @click="Livewire.dispatch('open-customizer', { index: {{ $index }}, itemData: { item_id: {{ $item['item_id'] }}, name: '{{ addslashes($item['name']) }}', note: '{{ addslashes($item['note'] ?? '') }}', custom_attributes: {{ json_encode($item['custom_attributes'] ?? []) }}, custom_attachments: {{ json_encode($item['custom_attachments'] ?? []) }} } })" title="Spesifikasi Kustom" />
+                                        <flux:button variant="subtle" size="sm" icon="pencil-square" class="!bg-amber-500 hover:!bg-amber-600 !text-white w-8 h-8 p-0 shrink-0" @click="Livewire.dispatch('open-customizer', { index: {{ $index }}, itemData: { item_id: {{ $item['item_id'] }}, name: {{ json_encode($item['name']) }}, note: {{ json_encode($item['note'] ?? '') }}, custom_attributes: {{ json_encode($item['custom_attributes'] ?? []) }}, custom_attachments: {{ json_encode($item['custom_attachments'] ?? []) }} } })" title="Spesifikasi Kustom" />
                                         <flux:button variant="subtle" size="sm" icon="trash" wire:click="removeItem({{ $index }})" class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 w-8 h-8 p-0 shrink-0" />
                                     </div>
                                 </div>

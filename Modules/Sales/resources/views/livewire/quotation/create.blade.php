@@ -464,7 +464,7 @@ $saveCart = function ($cartData) {
                                 @if(count($this->searchResults) > 0)
                                     <ul class="max-h-64 overflow-y-auto custom-scrollbar">
                                         @foreach($this->searchResults as $res)
-                                            <li @click="addItem({ item_id: {{ $res->id }}, name: '{{ addslashes($res->name) }}', code: '{{ $res->code ?? '0001' }}', unit_price: {{ $res->selling_price ?? 0 }}, image: '{{ $res->image }}' }); $wire.search_query = ''; $wire.show_suggestions = false; window.playSelectSound?.('ting');"
+                                            <li @click="addItem({ item_id: {{ $res->id }}, name: {{ json_encode($res->name) }}, code: {{ json_encode($res->code ?? '0001') }}, unit_price: {{ $res->selling_price ?? 0 }}, image: {{ json_encode($res->image) }} }); $wire.set('search_query', ''); $wire.show_suggestions = false; window.playSelectSound?.('ting');"
                                                 class="px-4 py-3 border-b border-zinc-100 dark:border-zinc-700 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-700 cursor-pointer flex items-center gap-3 transition-colors">
                                                 @if($res->image)
                                                     <img src="{{ Storage::url($res->image) }}" class="w-9 h-9 rounded-lg bg-zinc-100 object-cover shrink-0 shadow-sm">
