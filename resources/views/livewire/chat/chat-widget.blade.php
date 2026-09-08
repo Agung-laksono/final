@@ -1,7 +1,7 @@
 <div
     x-data="chatWidget"
     class="fixed bottom-5 right-5 z-[9999] flex flex-col items-end gap-3"
-    style="font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;"
+    style="position: fixed !important; bottom: 20px !important; right: 20px !important; z-index: 9999 !important; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;"
 >
 
 
