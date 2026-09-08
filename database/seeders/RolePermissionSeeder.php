@@ -15,13 +15,8 @@ class RolePermissionSeeder extends Seeder
      */
     public function run(): void
     {
-        // Reset cached roles and permissions
+        // Bersihkan cache permission saja (Jangan delete Role/Permission agar role user tidak terhapus)
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
-
-        // Bersihkan data lama (Karena kita transisi ke sistem BREAD)
-        \DB::table('role_has_permissions')->delete();
-        Permission::query()->delete();
-        Role::query()->delete();
 
         // Buat Permissions Dasar (Hierarki 3-Bagian untuk Inventory)
         $permissions = [

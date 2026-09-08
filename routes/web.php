@@ -1,9 +1,14 @@
 <?php
 
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
 Route::view('/', 'welcome')->middleware('guest')->name('home');
+
+// Register auth endpoint untuk Pusher private channels (wajib untuk Echo.private())
+Broadcast::routes(['middleware' => ['web', 'auth']]);
+
 
 // Fonnte Webhook Routes
 Route::any('/fonnte/webhook', [\Modules\Communication\Http\Controllers\FonnteWebhookController::class, 'handle']);

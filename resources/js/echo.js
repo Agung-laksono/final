@@ -11,6 +11,8 @@ if (window.PUSHER_CONFIG && window.PUSHER_CONFIG.key) {
         cluster: window.PUSHER_CONFIG.cluster,
         forceTLS: true,
         enabledTransports: ['ws', 'wss'],
+        // Wajib untuk private channel (chat widget, dll)
+        authEndpoint: '/broadcasting/auth',
     });
 
     // Putar notifikasi suara secara global untuk setiap update inventaris

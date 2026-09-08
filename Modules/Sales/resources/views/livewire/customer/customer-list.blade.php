@@ -5,17 +5,28 @@ use Modules\Sales\Models\Customer;
 layout('layouts.app');
 
 usesPagination();
-state(['search' => '']);
+state(['search' => '', 'type' => '', 'perPage' => 12]);
+
+$loadMore = function () {
+    $this->perPage += 12;
+};
 
 $customers = computed(function () {
     $query = Customer::with(['salesOrders'])->latest();
     
     if ($this->search) {
-        $query->where('name', 'like', '%' . $this->search . '%')
+        $query->where(function($q) {
+            $q->where('name', 'like', '%' . $this->search . '%')
               ->orWhere('company', 'like', '%' . $this->search . '%')
               ->orWhere('email', 'like', '%' . $this->search . '%');
+        });
     }
-    return $query->paginate(10);
+
+    if ($this->type) {
+        $query->where('type', $this->type);
+    }
+    
+    return $query->paginate($this->perPage);
 });
 
 $analytics = computed(function () {
@@ -64,14 +75,25 @@ $delete = function ($id) {
             <flux:subheading>{{ __('Kelola daftar pelanggan dan riwayat transaksi penjualan mereka.') }}</flux:subheading>
         </div>
         
-        <div class="flex items-center gap-3 w-full sm:w-auto">
+        <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             {{-- Search Bar --}}
-            <div class="flex-1 sm:flex-none sm:w-72 relative">
-                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari nama, perusahaan, atau email..." />
+            <div class="flex-1 sm:flex-none sm:w-64 relative">
+                <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="Cari nama, perusahaan..." />
+            </div>
+            
+            {{-- Type Filter --}}
+            <div class="w-full sm:w-40">
+                <flux:select wire:model.live="type" placeholder="Semua Tipe">
+                    <flux:select.option value="">Semua Tipe</flux:select.option>
+                    <flux:select.option value="Reguler">Reguler</flux:select.option>
+                    <flux:select.option value="VIP">VIP</flux:select.option>
+                    <flux:select.option value="Grosir">Grosir</flux:select.option>
+                    <flux:select.option value="Distributor">Distributor</flux:select.option>
+                </flux:select>
             </div>
 
             @can('sales.customer.create')
-                <flux:button variant="primary" icon="users" wire:click="$dispatch('open-customer-modal')" class="px-3 sm:px-4 shrink-0">
+                <flux:button variant="primary" icon="users" wire:click="$dispatch('open-customer-modal')" class="px-3 sm:px-4 shrink-0 w-full sm:w-auto">
                     <span class="hidden sm:inline">Tambah Pelanggan</span>
                 </flux:button>
             @endcan
@@ -114,7 +136,7 @@ $delete = function ($id) {
     {{-- Unified Grid View --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
         @forelse ($this->customers as $customer)
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 hover:border-cyan-500 hover:ring-1 hover:ring-cyan-500 transition-all flex flex-col h-full group relative overflow-hidden">
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 hover:border-cyan-500 hover:ring-1 hover:ring-cyan-500 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full group relative overflow-hidden">
                 
                 {{-- Badge Status/Type --}}
                 <div class="absolute top-4 right-4">
@@ -201,7 +223,7 @@ $delete = function ($id) {
     </div>
 
     <div class="mt-6">
-        {{ $this->customers->links() }}
+        <x-load-more :paginator="$this->customers" itemName="pelanggan" />
     </div>
 
     {{-- Modal Tambah/Edit Customer --}}

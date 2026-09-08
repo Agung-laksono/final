@@ -34,8 +34,16 @@
 {{-- Global Contextual Help Button --}}
 <livewire:contextual-help />
 
+{{-- Global Internal Chat Widget (Pusher Channels + Beams) --}}
+@auth
+    @persist('chat-widget')
+        <livewire:chat.chat-widget />
+    @endpersist
+@endauth
+
 {{-- Global Barcode Scanner --}}
 <div x-data @barcode-scanned.window="if (window.Livewire) { window.Livewire.dispatch('barcode-scanned', { code: $event.detail.code }); }"></div>
 <x-camera-scanner />
 
 </script>
+
