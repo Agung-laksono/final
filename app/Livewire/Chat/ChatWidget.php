@@ -195,7 +195,7 @@ class ChatWidget extends Component
                     $senderName,
                     $body,
                     ['conversation_id' => $conv->id],
-                    '/communication/chat'
+                    '/'
                 );
             });
         } catch (\Exception $e) {
