@@ -47,16 +47,24 @@ $activeAccountsCount = computed(function () {
 
 // Total Piutang Penjualan (Accounts Receivable - AR)
 $totalAR = computed(function () {
-    return SalesOrder::whereNotIn('status', ['draft', 'cancelled', 'rejected'])
+    return SalesOrder::with(['payments' => fn($q) => $q->where('status', 'verified')])
+        ->whereNotIn('status', ['draft', 'cancelled', 'rejected'])
         ->get()
-        ->sum(fn($so) => max(0, floatval($so->grand_total ?? 0) - floatval($so->paid_amount ?? 0)));
+        ->sum(function($so) {
+            $paid = $so->payments->sum('amount');
+            return max(0, floatval($so->total_amount ?? 0) - floatval($paid));
+        });
 });
 
 // Total Hutang Pembelian (Accounts Payable - AP)
 $totalAP = computed(function () {
-    return PurchaseOrder::whereNotIn('status', ['draft', 'cancelled', 'rejected'])
+    return PurchaseOrder::with(['payments' => fn($q) => $q->where('status', 'verified')])
+        ->whereNotIn('status', ['draft', 'cancelled', 'rejected'])
         ->get()
-        ->sum(fn($po) => max(0, floatval($po->grand_total ?? 0) - floatval($po->paid_amount ?? 0)));
+        ->sum(function($po) {
+            $paid = $po->payments->sum('amount');
+            return max(0, floatval($po->total_amount ?? 0) - floatval($paid));
+        });
 });
 
 // Inbox Verifikasi Pembayaran Pending
@@ -135,6 +143,13 @@ $topExpensesChart = computed(function () {
         'colors' => array_slice($colors, 0, count($data))
     ];
 });
+
+$updatedFilterYear = function () {
+    $this->dispatch('update-charts', 
+        cashFlow: $this->monthlyCashFlow,
+        expenses: $this->topExpensesChart
+    );
+};
 
 rules([
     'selectedAccountId' => 'required|exists:finance_accounts,id',
@@ -337,7 +352,7 @@ mount(function () {
                     <p class="text-xs text-zinc-400">Perbandingan Pemasukan vs Pengeluaran Tahun {{ $this->filterYear }}</p>
                 </div>
                 <div class="w-32">
-                    <flux:select wire:model.live="filterYear" size="sm">
+                    <flux:select wire:model.live="filterYear" wire:change="$refresh" size="sm">
                         @foreach(range(date('Y') - 2, date('Y') + 1) as $y)
                             <flux:select.option value="{{ $y }}">{{ $y }}</flux:select.option>
                         @endforeach
@@ -347,8 +362,9 @@ mount(function () {
 
             <div class="h-[280px] w-full" 
                  x-data="cashFlowChart(@js($this->monthlyCashFlow))" 
-                 x-init="initChart()">
-                <canvas id="cashFlowChartCanvas"></canvas>
+                 x-init="initChart()"
+                 @update-charts.window="updateData($event.detail.cashFlow)">
+                <canvas id="cashFlowChartCanvas" wire:ignore></canvas>
             </div>
         </div>
 
@@ -360,8 +376,9 @@ mount(function () {
             @if(count($this->topExpensesChart['data']) > 0)
                 <div class="flex-1 min-h-[180px]" 
                      x-data="expenseChart(@js($this->topExpensesChart))" 
-                     x-init="initChart()">
-                    <canvas id="expenseChartCanvas"></canvas>
+                     x-init="initChart()"
+                     @update-charts.window="updateData($event.detail.expenses)">
+                    <canvas id="expenseChartCanvas" wire:ignore></canvas>
                 </div>
                 <div class="mt-4 space-y-2">
                     @foreach($this->topExpenses as $index => $expense)
@@ -417,7 +434,7 @@ mount(function () {
             </div>
             
             <div>
-                <flux:select wire:model.live="filterYear" label="Tahun">
+                <flux:select wire:model.live="filterYear" wire:change="$refresh" label="Tahun">
                     @foreach(range(date('Y') - 2, date('Y') + 1) as $y)
                         <flux:select.option value="{{ $y }}">{{ $y }}</flux:select.option>
                     @endforeach
@@ -577,13 +594,24 @@ mount(function () {
             if (typeof Chart === 'undefined') {
                 const script = document.createElement('script');
                 script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-                script.onload = () => this.renderChart();
+                script.onload = () => this.renderChart(chartData);
                 document.head.appendChild(script);
             } else {
-                this.renderChart();
+                this.renderChart(chartData);
             }
         },
-        renderChart() {
+        updateData(newData) {
+            if (!newData) return;
+            if (this.chart) {
+                this.chart.data.labels = newData.labels;
+                this.chart.data.datasets[0].data = newData.income;
+                this.chart.data.datasets[1].data = newData.expense;
+                this.chart.update();
+            } else {
+                this.renderChart(newData);
+            }
+        },
+        renderChart(data) {
             const ctx = document.getElementById('cashFlowChartCanvas');
             if (!ctx) return;
             
@@ -592,17 +620,17 @@ mount(function () {
             this.chart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: chartData.labels,
+                    labels: data.labels,
                     datasets: [
                         {
                             label: 'Pemasukan',
-                            data: chartData.income,
+                            data: data.income,
                             backgroundColor: '#10b981',
                             borderRadius: 4,
                         },
                         {
                             label: 'Pengeluaran',
-                            data: chartData.expense,
+                            data: data.expense,
                             backgroundColor: '#f43f5e',
                             borderRadius: 4,
                         }
@@ -634,10 +662,30 @@ mount(function () {
     Alpine.data('expenseChart', (chartData) => ({
         chart: null,
         initChart() {
-            if (typeof Chart === 'undefined') return;
-            this.renderChart();
+            if (typeof Chart === 'undefined') {
+                // Wait for cashFlowChart to finish loading the script
+                const checkExist = setInterval(() => {
+                    if (typeof Chart !== 'undefined') {
+                        clearInterval(checkExist);
+                        this.renderChart(chartData);
+                    }
+                }, 100);
+            } else {
+                this.renderChart(chartData);
+            }
         },
-        renderChart() {
+        updateData(newData) {
+            if (!newData) return;
+            if (this.chart) {
+                this.chart.data.labels = newData.labels;
+                this.chart.data.datasets[0].data = newData.data;
+                this.chart.data.datasets[0].backgroundColor = newData.colors;
+                this.chart.update();
+            } else {
+                this.renderChart(newData);
+            }
+        },
+        renderChart(data) {
             const ctx = document.getElementById('expenseChartCanvas');
             if (!ctx) return;
             
@@ -646,10 +694,10 @@ mount(function () {
             this.chart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: chartData.labels,
+                    labels: data.labels,
                     datasets: [{
-                        data: chartData.data,
-                        backgroundColor: chartData.colors,
+                        data: data.data,
+                        backgroundColor: data.colors,
                         borderWidth: 0,
                     }]
                 },

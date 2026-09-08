@@ -21,6 +21,9 @@ class FinanceService
                 'verified_at' => now(),
             ]);
 
+            // Cari kategori default untuk penjualan
+            $category = \Modules\Finance\Models\FinanceCategory::where('name', 'Pendapatan Penjualan')->first();
+
             $transaction = $this->recordTransaction(
                 accountId: $financeAccountId,
                 type: 'income',
@@ -28,6 +31,7 @@ class FinanceService
                 date: $payment->payment_date,
                 description: 'Penerimaan Penjualan SO: ' . $payment->salesOrder->so_number,
                 reference: $payment,
+                categoryId: $category ? $category->id : null,
                 createdBy: $approvedBy
             );
 
@@ -66,17 +70,21 @@ class FinanceService
                 'verified_at' => now(),
             ]);
 
+            // Cari kategori default untuk pembelian
+            $category = \Modules\Finance\Models\FinanceCategory::where('name', 'Bahan Baku & Material')->first();
+
             $transaction = $this->recordTransaction(
                 accountId: $financeAccountId,
                 type: 'expense',
                 amount: $payment->amount,
                 date: $payment->payment_date,
-                description: 'Pembayaran Pembelian/SPK: ' . $payment->purchaseOrder->po_number,
+                description: 'Pembayaran Pembelian/SPK: ' . ($payment->purchaseOrder ? $payment->purchaseOrder->po_number : '-'),
                 reference: $payment,
+                categoryId: $category ? $category->id : null,
                 createdBy: $approvedBy
             );
             
-            // Perbarui payment_status pada PurchaseOrder (jika ada field-nya)
+            // Perbarui payment_status pada PurchaseOrder
             $order = $payment->purchaseOrder;
             if ($order) {
                 $totalVerified = $order->payments()->where('status', 'verified')->sum('amount');
