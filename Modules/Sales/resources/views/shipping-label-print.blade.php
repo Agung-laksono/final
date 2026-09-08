@@ -174,7 +174,7 @@
                     <!-- PENGIRIM -->
                     <div class="flex items-center gap-3">
                         @if($salesOrder->creator?->brand && $salesOrder->creator->brand->logo)
-                            <img src="{{ Storage::url($salesOrder->creator->brand->logo) }}" alt="Logo" class="h-11 w-auto object-contain">
+                            <img src="{{ Storage::url($salesOrder->creator->brand->logo) }}" alt="Logo" class="h-11 w-auto object-contain" style="max-height: 44px; height: 44px; width: auto; object-fit: contain;">
                         @endif
                         <div>
                             <span class="text-[8.5px] font-black text-slate-500 tracking-wider uppercase block">PENGIRIM:</span>

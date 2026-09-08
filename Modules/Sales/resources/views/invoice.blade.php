@@ -113,7 +113,7 @@
     <div class="flex justify-between items-start mb-8">
         <div class="flex items-center gap-4">
             @if($order->brand && $order->brand->logo)
-                <img src="{{ Storage::url($order->brand->logo) }}" alt="Logo" class="h-20 w-auto object-contain">
+                <img src="{{ Storage::url($order->brand->logo) }}" alt="Logo" class="h-20 w-auto object-contain" style="max-height: 80px; height: 80px; width: auto; object-fit: contain;">
             @else
                 <h1 class="text-4xl font-bold text-amber-700 font-serif tracking-tighter">
                     {{ $order->brand ? substr($order->brand->name, 0, 2) : 'SO' }}
@@ -350,7 +350,7 @@
     <div class="flex justify-between items-start mb-8">
         <div>
             @if($order->brand && $order->brand->logo)
-                <img src="{{ Storage::url($order->brand->logo) }}" alt="Logo" class="h-16 w-auto object-contain">
+                <img src="{{ Storage::url($order->brand->logo) }}" alt="Logo" class="h-16 w-auto object-contain" style="max-height: 64px; height: 64px; width: auto; object-fit: contain;">
             @else
                 <h1 class="text-3xl font-bold text-amber-700 font-serif tracking-tighter">
                     {{ $order->brand ? substr($order->brand->name, 0, 2) : 'SO' }}

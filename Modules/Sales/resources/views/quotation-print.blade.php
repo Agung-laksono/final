@@ -113,7 +113,7 @@
     <div class="flex justify-between items-start mb-8">
         <div>
             @if($quotation->creator->brand && $quotation->creator->brand->logo)
-                <img src="{{ Storage::url($quotation->creator->brand->logo) }}" alt="Logo" class="h-20 w-auto object-contain">
+                <img src="{{ Storage::url($quotation->creator->brand->logo) }}" alt="Logo" class="h-20 w-auto object-contain" style="max-height: 80px; height: 80px; width: auto; object-fit: contain;">
             @else
                 <h1 class="text-3xl font-bold text-amber-700 font-serif tracking-tighter">
                     {{ $quotation->creator->brand ? substr($quotation->creator->brand->name, 0, 2) : 'SO' }}
@@ -291,7 +291,7 @@
     <div class="flex justify-between items-start mb-8">
         <div>
             @if($quotation->creator->brand && $quotation->creator->brand->logo)
-                <img src="{{ Storage::url($quotation->creator->brand->logo) }}" alt="Logo" class="h-16 w-auto object-contain">
+                <img src="{{ Storage::url($quotation->creator->brand->logo) }}" alt="Logo" class="h-16 w-auto object-contain" style="max-height: 64px; height: 64px; width: auto; object-fit: contain;">
             @else
                 <h1 class="text-3xl font-bold text-amber-700 font-serif tracking-tighter">
                     {{ $quotation->creator->brand ? substr($quotation->creator->brand->name, 0, 2) : 'SO' }}
