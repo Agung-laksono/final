@@ -16,5 +16,14 @@ Broadcast::channel('chat.{conversationId}', function ($user, $conversationId) {
 
 // Presence channel untuk melacak user online
 Broadcast::channel('chat-presence', function ($user) {
-    return ['id' => $user->id, 'name' => $user->name];
+    $userAgent = request()->userAgent() ?? '';
+    
+    // Deteksi sederhana apakah pengguna menggunakan Mobile/HP
+    $isMobile = preg_match('/(android|webos|iphone|ipad|ipod|blackberry|windows phone)/i', $userAgent);
+    
+    return [
+        'id' => $user->id, 
+        'name' => $user->name,
+        'device' => $isMobile ? 'mobile' : 'desktop'
+    ];
 });

@@ -97,8 +97,10 @@
                                 
                                 {{-- Online Indicator --}}
                                 @if($actConv->type === 'direct')
-                                    <span x-show="onlineUsers.includes({{ $actConv->other_user_id }})" x-cloak
-                                          class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-[1.5px] border-indigo-600 rounded-full"></span>
+                                    <span x-show="isOnline({{ $actConv->other_user_id }})" x-cloak
+                                          class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-[1.5px] border-indigo-600 rounded-full flex items-center justify-center shadow-sm">
+                                          <span x-text="getDevice({{ $actConv->other_user_id }})" class="text-[6px] leading-none"></span>
+                                    </span>
                                 @endif
                             </div>
                             <div>
@@ -170,8 +172,10 @@
                                         </div>
                                     @endif
                                     {{-- Online Indicator --}}
-                                    <span x-show="onlineUsers.includes({{ $user->id }})" x-cloak
-                                          class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-[1.5px] border-white dark:border-zinc-800 rounded-full"></span>
+                                    <span x-show="isOnline({{ $user->id }})" x-cloak
+                                          class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-[1.5px] border-white dark:border-zinc-800 rounded-full flex items-center justify-center shadow-sm">
+                                          <span x-text="getDevice({{ $user->id }})" class="text-[6px] leading-none"></span>
+                                    </span>
                                 </div>
                                 <div class="min-w-0">
                                     <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ $user->name }}</p>
@@ -218,8 +222,10 @@
 
                             {{-- Online Indicator --}}
                             @if($conv->type === 'direct')
-                                <span x-show="onlineUsers.includes({{ $conv->other_user_id }})" x-cloak
-                                      class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-zinc-900 rounded-full"></span>
+                                <span x-show="isOnline({{ $conv->other_user_id }})" x-cloak
+                                      class="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-zinc-900 rounded-full flex items-center justify-center shadow-sm">
+                                      <span x-text="getDevice({{ $conv->other_user_id }})" class="text-[8px] leading-none"></span>
+                                </span>
                             @endif
                         </div>
 
@@ -279,8 +285,13 @@
             {{-- Messages area --}}
             <div
                 id="chat-widget-messages"
-                class="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 bg-zinc-50 dark:bg-zinc-900/50"
+                class="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 bg-zinc-50 dark:bg-zinc-900/50 relative"
                 style="scrollbar-width: thin; scrollbar-color: #d4d4d8 transparent;"
+                @scroll.debounce.150ms="
+                    if ($el.scrollTop < 50) {
+                        $wire.loadMore();
+                    }
+                "
                 x-init="
                     $wire.on('chat-scroll-bottom', () => {
                         setTimeout(() => { $el.scrollTop = $el.scrollHeight; }, 80);
@@ -288,8 +299,41 @@
                     setTimeout(() => { $el.scrollTop = $el.scrollHeight; }, 150);
                 "
             >
+                {{-- Loading Indicator for Older Messages --}}
+                <div wire:loading wire:target="loadMore" class="w-full flex justify-center py-2 absolute top-0 left-0 z-10">
+                    <div class="bg-white dark:bg-zinc-800 shadow-sm rounded-full p-1.5 flex items-center justify-center">
+                        <svg class="animate-spin h-4 w-4 text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                @php $lastDate = null; @endphp
                 @forelse($this->messages as $msg)
-                    @php $isMe = $msg->sender_id === auth()->id(); @endphp
+                    @php 
+                        $isMe = $msg->sender_id === auth()->id(); 
+                        $currentDate = $msg->created_at->format('Y-m-d');
+                    @endphp
+                    
+                    {{-- Date Separator --}}
+                    @if($lastDate !== $currentDate)
+                        <div class="flex justify-center my-4">
+                            <span class="bg-zinc-200/50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[11px] font-medium px-3 py-1 rounded-full shadow-sm backdrop-blur-sm">
+                                @if($msg->created_at->isToday())
+                                    Hari ini
+                                @elseif($msg->created_at->isYesterday())
+                                    Kemarin
+                                @elseif($msg->created_at->isCurrentYear())
+                                    {{ $msg->created_at->translatedFormat('d M') }}
+                                @else
+                                    {{ $msg->created_at->translatedFormat('d M Y') }}
+                                @endif
+                            </span>
+                        </div>
+                        @php $lastDate = $currentDate; @endphp
+                    @endif
+
                     <div class="flex {{ $isMe ? 'justify-end' : 'justify-start' }} items-end gap-1.5 group">
 
                         {{-- Other user avatar (foto profil jika ada, fallback initials) --}}
@@ -315,10 +359,40 @@
                                 {{ $isMe
                                     ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white rounded-br-sm'
                                     : 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-bl-sm border border-zinc-100 dark:border-zinc-700' }}">
-                                <p class="whitespace-pre-wrap break-words pr-10">{{ $msg->body }}</p>
-                                <span class="absolute bottom-1.5 right-2 text-[10px] {{ $isMe ? 'text-white/60' : 'text-zinc-400' }} whitespace-nowrap">
-                                    {{ $msg->created_at->format('H:i') }}
-                                </span>
+                                
+                                @if($msg->type === 'image' && $msg->attachment_url)
+                                    <div class="mb-2 -mx-1 -mt-1">
+                                        <img src="{{ asset($msg->attachment_url) }}" class="rounded-xl max-w-full h-auto" style="max-height: 200px; cursor: zoom-in;" 
+                                             @click.stop="$dispatch('open-lightbox', { url: '{{ asset($msg->attachment_url) }}' })">
+                                    </div>
+                                @endif
+
+                                @if($msg->body)
+                                    <p class="whitespace-pre-wrap break-words pr-10">{{ $msg->body }}</p>
+                                @else
+                                    <div class="pr-10"></div>
+                                @endif
+
+                                <div class="absolute bottom-1.5 right-2 flex items-center gap-0.5 text-[10px] {{ $isMe ? 'text-white/70' : 'text-zinc-400' }} whitespace-nowrap">
+                                    <span>{{ $msg->created_at->format('H:i') }}</span>
+                                    @if($isMe)
+                                        @php
+                                            $isRead = $this->otherLastReadAt && $msg->created_at <= $this->otherLastReadAt;
+                                        @endphp
+                                        @if($isRead)
+                                            {{-- Double tick (Read) --}}
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-cyan-300">
+                                              <path d="M18 6 7 17l-5-5"/>
+                                              <path d="m22 10-7.5 7.5L13 16"/>
+                                            </svg>
+                                        @else
+                                            {{-- Single tick (Sent/Unread) --}}
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3 opacity-70">
+                                              <path d="M20 6 9 17l-5-5"/>
+                                            </svg>
+                                        @endif
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -332,48 +406,149 @@
                 @endforelse
             </div>
 
+            {{-- Typing Indicator Bubble (Fixed position above input) --}}
+            <div x-show="remoteTypingUser" x-transition.opacity.duration.300ms style="display: none;" class="w-full bg-zinc-50 dark:bg-zinc-900 px-3 pb-2 pt-1">
+                <div class="flex justify-start items-end gap-1.5 group">
+                    {{-- Initials Placeholder --}}
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-br from-zinc-300 to-zinc-400 dark:from-zinc-600 dark:to-zinc-700 flex items-center justify-center text-white font-bold text-[10px] shrink-0 mb-0.5">
+                        <span x-text="(remoteTypingUser || 'U').substring(0, 2).toUpperCase()"></span>
+                    </div>
+                    
+                    <div class="max-w-[75%]">
+                        <div class="relative px-3 py-2 rounded-2xl shadow-sm text-sm leading-relaxed bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-bl-sm border border-zinc-100 dark:border-zinc-700 flex items-center gap-2">
+                            <span class="text-[11px] text-zinc-500 italic">sedang mengetik</span>
+                            <span class="flex gap-0.5 mt-1">
+                                <span class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce"></span>
+                                <span class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
+                                <span class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 300ms;"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {{-- Input Bar --}}
             <div class="px-3 py-2.5 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
+                
+                {{-- Preview Attachment(s) --}}
+                @if(count($attachments) > 0)
+                    <div class="mb-2 flex flex-wrap gap-2 px-1">
+                        @foreach($attachments as $index => $att)
+                            <div class="relative inline-block">
+                                <img src="{{ is_string($att) ? $att : '' }}" class="h-16 rounded-lg object-cover ring-2 ring-violet-500/50">
+                                <button type="button" wire:click="removeAttachment({{ $index }})" class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow hover:scale-110 transition-transform z-10">
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
                 <form wire:submit.prevent="sendMessage"
                       class="flex items-end gap-2"
                       x-data="{ hasText: false }"
                       @chat-message-sent.window="hasText = false"
                 >
-                    <div class="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl px-3 py-2 flex items-end gap-2">
+                    <div class="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-2xl px-2 py-1 flex items-end gap-1">
+                        
+                        {{-- Image Cropper Attachment --}}
+                        <div class="shrink-0 mb-0.5">
+                            <x-image-cropper wire:model="attachment" mode="icon" label="" id="chat-attach" accept="image/*" />
+                        </div>
+
                         <textarea
                             id="chat-widget-input"
                             wire:model="messageInput"
+                            wire:loading.attr="readonly"
+                            wire:target="sendMessage"
+                            wire:loading.class="opacity-50"
                             rows="1"
                             placeholder="Tulis pesan..."
-                            class="flex-1 bg-transparent border-none outline-none focus:ring-0 resize-none text-[13.5px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 leading-relaxed"
+                            class="flex-1 bg-transparent border-none outline-none focus:ring-0 resize-none text-[13.5px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 leading-relaxed py-2 transition-opacity"
                             style="max-height: 96px; scrollbar-width: none;"
                             x-init="
                                 $el.addEventListener('input', function() {
                                     hasText = this.value.length > 0;
                                     this.style.height = 'auto';
                                     this.style.height = Math.min(this.scrollHeight, 96) + 'px';
+
+                                    // Trigger whisper (typing) dengan teknik Debounce (Start/Stop)
+                                    if ($wire.activeConversationId && window.Echo) {
+                                        // Jika belum berstatus mengetik, kirim sinyal START
+                                        if (!isLocalTyping) {
+                                            isLocalTyping = true;
+                                            window.Echo.private('chat.' + $wire.activeConversationId)
+                                                .whisper('typing', { name: '{{ auth()->user()->name ?? 'User' }}' });
+                                        }
+                                        
+                                        // Reset timer setiap kali tombol ditekan
+                                        if (localTypingTimeout) clearTimeout(localTypingTimeout);
+                                        
+                                        // Jika diam 5 detik, kirim sinyal STOP
+                                        localTypingTimeout = setTimeout(() => {
+                                            if (isLocalTyping) {
+                                                isLocalTyping = false;
+                                                window.Echo.private('chat.' + $wire.activeConversationId)
+                                                    .whisper('stop-typing');
+                                            }
+                                        }, 5000);
+                                    }
                                 });
                             "
-                            @keydown.enter.prevent="
-                                if (!$event.shiftKey && $el.value.trim()) {
-                                    $wire.sendMessage();
-                                    $el.style.height = 'auto';
-                                    hasText = false;
-                                } else if ($event.shiftKey) {
-                                    // Shift+Enter = newline, biarkan default
+                            @blur="
+                                // Jika form tidak aktif (blur), matikan indikator
+                                if (isLocalTyping && $wire.activeConversationId && window.Echo) {
+                                    isLocalTyping = false;
+                                    if (localTypingTimeout) clearTimeout(localTypingTimeout);
+                                    window.Echo.private('chat.' + $wire.activeConversationId).whisper('stop-typing');
                                 }
+                            "
+                            @keydown.enter="
+                                // Deteksi perangkat mobile/sentuh
+                                let isMobile = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+                                
+                                // Di HP, tombol Enter/Return keyboard selalu membuat baris baru (default).
+                                // Abaikan logika pengiriman agar user bisa mengetik baris baru dengan mudah.
+                                if (isMobile) return;
+
+                                // Logika khusus Desktop
+                                if (!$event.shiftKey) {
+                                    $event.preventDefault(); // Mencegah Enter bawaan (newline) hanya jika bukan Shift+Enter
+                                    if ($el.value.trim() || $wire.attachments.length > 0) {
+                                        // Matikan typing indicator seketika saat pesan dikirim
+                                        if (isLocalTyping && $wire.activeConversationId && window.Echo) {
+                                            isLocalTyping = false;
+                                            if (localTypingTimeout) clearTimeout(localTypingTimeout);
+                                            window.Echo.private('chat.' + $wire.activeConversationId).whisper('stop-typing');
+                                        }
+                                        
+                                        $wire.sendMessage();
+                                        $el.style.height = 'auto';
+                                        hasText = false;
+                                    }
+                                }
+                                // Jika Shift+Enter di Desktop, biarkan perilaku bawaan berjalan (menambah baris baru di textarea)
                             "
                         ></textarea>
                     </div>
 
                     {{-- Send Button --}}
                     <button type="submit"
+                            wire:loading.attr="disabled"
+                            wire:target="sendMessage"
                             class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 active:scale-90
-                                   bg-gradient-to-br from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white shadow-md"
-                            :class="hasText ? 'opacity-100 scale-100' : 'opacity-60 scale-95 cursor-default'"
+                                   bg-gradient-to-br from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white shadow-md relative"
+                            :class="(hasText || $wire.attachments.length > 0) ? 'opacity-100 scale-100' : 'opacity-60 scale-95 cursor-default'"
                     >
-                        <svg viewBox="0 0 24 24" class="w-[18px] h-[18px] translate-x-0.5" fill="currentColor">
+                        {{-- Icon Send --}}
+                        <svg wire:loading.remove wire:target="sendMessage" viewBox="0 0 24 24" class="w-[18px] h-[18px] translate-x-0.5" fill="currentColor">
                             <path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"/>
+                        </svg>
+
+                        {{-- Icon Loading Spinner --}}
+                        <svg wire:loading wire:target="sendMessage" class="animate-spin w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </button>
                 </form>
@@ -437,9 +612,24 @@
                 currentChannel: null,
                 globalChannel: null,
                 authUserId: {{ auth()->id() ?? 'null' }},
-                onlineUsers: [],
+                onlineUsers: {},
                 animatingSender: null,
                 animationTimeout: null,
+                
+                // Typing Indicator State
+                isLocalTyping: false,
+                localTypingTimeout: null,
+                remoteTypingUser: null,
+                remoteTypingTimeout: null,
+
+                isOnline(userId) {
+                    return this.onlineUsers && this.onlineUsers[userId] !== undefined;
+                },
+
+                getDevice(userId) {
+                    if (!this.isOnline(userId)) return '';
+                    return this.onlineUsers[userId] === 'mobile' ? '📱' : '💻';
+                },
 
                 /**
                  * Putar suara chat masuk.
@@ -497,6 +687,24 @@
                                 this.playChatSound();
                                 this.triggerAnimation(event);
                             }
+                        })
+                        .listen('.ConversationRead', (event) => {
+                            if (event.userId != this.authUserId) {
+                                this.$wire.$refresh();
+                            }
+                        })
+                        .listenForWhisper('typing', (e) => {
+                            this.remoteTypingUser = e.name;
+                            
+                            // Safety timeout: jika tidak ada stop-typing setelah 15 detik, hilangkan otomatis
+                            if (this.remoteTypingTimeout) clearTimeout(this.remoteTypingTimeout);
+                            this.remoteTypingTimeout = setTimeout(() => {
+                                this.remoteTypingUser = null;
+                            }, 15000);
+                        })
+                        .listenForWhisper('stop-typing', (e) => {
+                            this.remoteTypingUser = null;
+                            if (this.remoteTypingTimeout) clearTimeout(this.remoteTypingTimeout);
                         });
                 },
 
@@ -548,15 +756,14 @@
 
                     window.Echo.join('chat-presence')
                         .here((users) => {
-                            this.onlineUsers = users.map(u => u.id);
+                            this.onlineUsers = {};
+                            users.forEach(u => this.onlineUsers[u.id] = u.device || 'desktop');
                         })
                         .joining((user) => {
-                            if (!this.onlineUsers.includes(user.id)) {
-                                this.onlineUsers.push(user.id);
-                            }
+                            this.onlineUsers[user.id] = user.device || 'desktop';
                         })
                         .leaving((user) => {
-                            this.onlineUsers = this.onlineUsers.filter(id => id !== user.id);
+                            delete this.onlineUsers[user.id];
                         });
                 }
         }));

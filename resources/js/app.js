@@ -35,8 +35,9 @@ window.toSafeDataUrl = function(canvas, quality) {
     return { dataUrl: jpeg, ext: 'jpg', mime: 'image/jpeg' };
 };
 
-window.imageCropperData = (wireModel = 'image', nameModel = null) => {
+window.imageCropperData = (wireModel = 'image', nameModel = null, cropperId = null) => {
     return {
+            cropperId: cropperId,
             isProcessing: false,
             isCropping: false,
             isDragging: false,
@@ -388,14 +389,22 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
                 this.newSize = Math.floor(base64Length * 0.75);
 
                 this.croppedImgSrc = dataUrl; // Simpan hasil crop untuk preview
-                this.$wire.set(wireModel, dataUrl);
-                if (nameModel && this.originalFile) {
-                    let finalName = this.customFileName.trim() ? this.customFileName.trim() : this.originalFile.name;
-                    // Bersihkan ekstensi lama, ganti dengan format aktual hasil ekspor
+                if (this.$wire) {
+                    this.$wire.set(wireModel, dataUrl);
+                    if (nameModel && this.originalFile) {
+                        let finalName = this.customFileName.trim() ? this.customFileName.trim() : this.originalFile.name;
+                        // Bersihkan ekstensi lama, ganti dengan format aktual hasil ekspor
+                        const dotIdx = finalName.lastIndexOf('.');
+                        if (dotIdx > 0) finalName = finalName.substring(0, dotIdx);
+                        finalName += '.' + ext;
+                        this.$wire.set(nameModel, finalName);
+                    }
+                } else {
+                    let finalName = this.customFileName.trim() ? this.customFileName.trim() : (this.originalFile ? this.originalFile.name : 'image');
                     const dotIdx = finalName.lastIndexOf('.');
                     if (dotIdx > 0) finalName = finalName.substring(0, dotIdx);
                     finalName += '.' + ext;
-                    this.$wire.set(nameModel, finalName);
+                    this.$dispatch('image-cropped', { dataUrl, finalName, ext, id: cropperId });
                 }
                 this.hasCropped = true;
                 this.isCropping = false;
@@ -448,13 +457,21 @@ window.imageCropperData = (wireModel = 'image', nameModel = null) => {
                     this.newSize = Math.floor(base64Length * 0.75);
 
                     this.croppedImgSrc = dataUrl;
-                    this.$wire.set(wireModel, dataUrl);
-                    if (nameModel && this.originalFile) {
-                        let finalName = this.customFileName.trim() ? this.customFileName.trim() : this.originalFile.name;
+                    if (this.$wire) {
+                        this.$wire.set(wireModel, dataUrl);
+                        if (nameModel && this.originalFile) {
+                            let finalName = this.customFileName.trim() ? this.customFileName.trim() : this.originalFile.name;
+                            const dotIdx = finalName.lastIndexOf('.');
+                            if (dotIdx > 0) finalName = finalName.substring(0, dotIdx);
+                            finalName += '.' + ext;
+                            this.$wire.set(nameModel, finalName);
+                        }
+                    } else {
+                        let finalName = this.customFileName.trim() ? this.customFileName.trim() : (this.originalFile ? this.originalFile.name : 'image');
                         const dotIdx = finalName.lastIndexOf('.');
                         if (dotIdx > 0) finalName = finalName.substring(0, dotIdx);
                         finalName += '.' + ext;
-                        this.$wire.set(nameModel, finalName);
+                        this.$dispatch('image-cropped', { dataUrl, finalName, ext, id: cropperId });
                     }
                     this.hasCropped = true;
                     this.isCropping = false;

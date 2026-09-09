@@ -377,6 +377,23 @@
                 this.mediaLoading = false;
             },
 
+            async uploadBase64Media(dataUrl, filename) {
+                if (!dataUrl) return;
+                
+                // Convert Base64 to Blob
+                const res = await fetch(dataUrl);
+                const blob = await res.blob();
+                
+                // Convert Blob to File
+                const file = new File([blob], filename, { type: blob.type });
+                
+                // Reset cropper immediately so preview disappears
+                this.$dispatch('reset-cropper');
+
+                // Upload
+                this.uploadMediaFiles([file]);
+            },
+
             async uploadMediaFiles(files) {
                 if (!files || files.length === 0) return;
                 this.mediaUploading = true;
@@ -390,6 +407,8 @@
                 }
                 this.mediaUploading = false;
                 this.loadMedia();
+                // Ensure cropper is reset
+                this.$dispatch('reset-cropper');
             },
 
             insertSelectedMedia() {

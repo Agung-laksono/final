@@ -16,15 +16,41 @@ class ChatWidget extends Component
     // State
     // -------------------------------------------------------
     public bool $isOpen = false;
-    public int $refreshKey = 0; // Trigger re-render on new messages
     public ?string $activeConversationId = null;
     public string $messageInput = '';
     public string $searchUser = '';
+    public int $refreshKey = 0;
+    
+    // Pagination state
+    public int $messageLimit = 30;
+
+    public $attachment = null; // Temp untuk image-cropper
+    public array $attachments = []; // Menyimpan multi-gambar
 
     // Group creation
     public bool $showGroupModal = false;
     public string $groupName = '';
     public array $selectedGroupMembers = [];
+
+    // -------------------------------------------------------
+    // Hooks
+    // -------------------------------------------------------
+
+    public function updatedAttachment($value)
+    {
+        if ($value) {
+            $this->attachments[] = $value;
+            $this->attachment = null; // Reset agar cropper bisa dipakai lagi
+        }
+    }
+
+    public function removeAttachment($index)
+    {
+        if (isset($this->attachments[$index])) {
+            unset($this->attachments[$index]);
+            $this->attachments = array_values($this->attachments); // Re-index
+        }
+    }
 
     // -------------------------------------------------------
     // Computed
@@ -60,7 +86,7 @@ class ChatWidget extends Component
         return ChatMessage::with('sender')
             ->where('chat_conversation_id', $this->activeConversationId)
             ->latest()
-            ->take(60)
+            ->take($this->messageLimit)
             ->get()
             ->reverse()
             ->values();
@@ -78,6 +104,18 @@ class ChatWidget extends Component
     public function totalUnread(): int
     {
         return $this->conversations->sum('unread');
+    }
+
+    #[Computed]
+    public function otherLastReadAt()
+    {
+        if (! $this->activeConversationId) return null;
+
+        $lastRead = $this->activeConversation?->members
+            ->where('id', '!=', auth()->id())
+            ->max('pivot.last_read_at');
+            
+        return $lastRead ? \Carbon\Carbon::parse($lastRead) : null;
     }
 
     #[Computed]
@@ -127,14 +165,21 @@ class ChatWidget extends Component
         $this->activeConversationId = $conv->id;
         $this->isOpen = true;
         $this->searchUser = '';
+        $this->messageLimit = 30; // Reset limit saat pindah chat
         $this->markAsRead();
 
         $this->dispatch('chat-scroll-bottom');
     }
 
+    public function loadMore(): void
+    {
+        $this->messageLimit += 30;
+    }
+
     public function selectConversation(string $conversationId): void
     {
         $this->activeConversationId = $conversationId;
+        $this->messageLimit = 30; // Reset limit saat pindah chat
         $this->markAsRead();
         $this->dispatch('chat-scroll-bottom');
     }
@@ -146,32 +191,74 @@ class ChatWidget extends Component
 
     public function sendMessage(): void
     {
-        if (trim($this->messageInput) === '' || ! $this->activeConversationId) {
+        $hasText = trim($this->messageInput) !== '';
+        $hasAttachments = count($this->attachments) > 0;
+
+        if ((!$hasText && !$hasAttachments) || ! $this->activeConversationId) {
             return;
         }
 
         $conv = ChatConversation::find($this->activeConversationId);
         if (! $conv) return;
 
-        $message = $conv->messages()->create([
-            'sender_id' => auth()->id(),
-            'body'      => trim($this->messageInput),
-            'type'      => 'text',
-        ]);
+        $messagesToSend = [];
+
+        // Kasus 1: Punya gambar (bisa satu atau banyak)
+        if ($hasAttachments) {
+            foreach ($this->attachments as $index => $base64Image) {
+                if (is_string($base64Image) && preg_match('/^data:image\/(\w+);base64,/', $base64Image, $matches)) {
+                    $data = substr($base64Image, strpos($base64Image, ',') + 1);
+                    $ext = strtolower($matches[1]);
+                    if ($ext === 'jpeg') $ext = 'jpg';
+                    
+                    $data = base64_decode($data);
+                    $fileName = 'chat_attachments/' . uniqid() . '.' . $ext;
+                    
+                    \Illuminate\Support\Facades\Storage::disk('public')->put($fileName, $data);
+                    $attachmentUrl = '/storage/' . $fileName;
+
+                    $messagesToSend[] = [
+                        'type' => 'image',
+                        'attachment_url' => $attachmentUrl,
+                        // Taruh caption teks hanya di gambar pertama
+                        'body' => ($index === 0 && $hasText) ? trim($this->messageInput) : null,
+                    ];
+                }
+            }
+        } 
+        // Kasus 2: Hanya teks tanpa gambar
+        else {
+            $messagesToSend[] = [
+                'type' => 'text',
+                'attachment_url' => null,
+                'body' => trim($this->messageInput),
+            ];
+        }
+
+        foreach ($messagesToSend as $msgData) {
+            $message = $conv->messages()->create([
+                'sender_id'      => auth()->id(),
+                'body'           => $msgData['body'],
+                'type'           => $msgData['type'],
+                'attachment_url' => $msgData['attachment_url'],
+            ]);
+
+            // Broadcast via Pusher Channels
+            broadcast(new InternalMessageSent($message));
+
+            // Kirim Pusher Beams push notification ke anggota lain
+            $this->sendBeamsNotification($conv, $message);
+        }
 
         $conv->update(['last_message_at' => now()]);
 
         // Reset input
         $this->messageInput = '';
+        $this->attachments = [];
+        $this->attachment = null;
 
         // Update pivot last_read_at untuk sender
         $conv->members()->updateExistingPivot(auth()->id(), ['last_read_at' => now()]);
-
-        // Broadcast via Pusher Channels
-        broadcast(new InternalMessageSent($message));
-
-        // Kirim Pusher Beams push notification ke anggota lain
-        $this->sendBeamsNotification($conv, $message);
 
         $this->dispatch('chat-scroll-bottom');
         $this->dispatch('chat-message-sent');
@@ -213,6 +300,8 @@ class ChatWidget extends Component
         $conv->members()->updateExistingPivot(auth()->id(), [
             'last_read_at' => now(),
         ]);
+
+        broadcast(new \App\Events\InternalConversationRead($this->activeConversationId, auth()->id()));
     }
 
     // Group creation

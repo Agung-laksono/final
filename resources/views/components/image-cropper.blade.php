@@ -29,7 +29,7 @@
         initCropBox(){}, onPointerDown(){}, onPointerMove(){}, generateCanvas(){ return Promise.resolve(null); },
         updatePreviewSize(){}, applyCrop(){}, cancelCrop(){}, applyOriginal(){},
         removeImage(){}, resetCropper(){}, resetCropperState(){}, formatSize(){ return '0 KB'; }
-    }, (typeof window.imageCropperData === 'function' ? window.imageCropperData('{{ $wireModel }}', {{ $nameModelValue }}) : {}))" 
+    }, (typeof window.imageCropperData === 'function' ? window.imageCropperData('{{ $wireModel }}', {{ $nameModelValue }}, '{{ $id }}') : {}))" 
      x-init="$watch('isCropping', val => val ? Flux.modal('{{ $modalName }}').show() : Flux.modal('{{ $modalName }}').close())"
      @item-saved.window="resetCropper()"
      @reset-cropper.window="resetCropper()"
@@ -176,6 +176,13 @@
                 {{ $label }}
                 <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="hidden" />
             </button>
+        @elseif ($mode === 'icon')
+            <button type="button" @click="pickFile('gallery')" class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-violet-500 hover:bg-violet-50 transition-colors" title="Lampirkan Gambar">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="hidden" />
+            </button>
         @else
             <div class="relative w-full aspect-square rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 flex flex-col items-center justify-center overflow-hidden bg-zinc-50 dark:bg-zinc-800/50 transition-colors"
                  :class="isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''"
@@ -210,6 +217,7 @@
     @endif
 
     {{-- Tampilan saat ADA FILE (Preview Hasil Crop) --}}
+    @if ($mode !== 'icon')
     <div x-show="originalFile && !isCropping" style="display: none;" class="w-full">
         <div class="relative w-full rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm flex flex-col items-center justify-center min-h-[100px]">
             {{-- Gambar --}}
@@ -243,9 +251,10 @@
             <span x-text="originalSize === 0 ? '0 KB' : (originalSize / 1024).toFixed(1) + ' KB'"></span> <flux:icon.arrow-right class="w-3 h-3 inline text-zinc-300 mx-1" /> <span x-text="newSize === 0 ? '0 KB' : (newSize / 1024).toFixed(1) + ' KB'" class="font-semibold text-green-600 dark:text-green-400"></span>
         </div>
     </div>
+    @endif
     
     {{-- Preview Gambar (dari Server/Database saat Mode Edit awal, ditimpa ketika originalFile ada) --}}
-    @if ($image)
+    @if ($image && $mode !== 'icon')
     <div x-show="!originalFile && !isCropping" style="display: none;" class="w-full">
         <div class="relative w-full rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm flex flex-col items-center justify-center min-h-[100px]">
             {{-- Gambar --}}
@@ -274,11 +283,6 @@
                     <flux:icon.trash class="w-4 h-4" />
                 </button>
                 <div @click="pickFile('camera')" class="relative cursor-pointer flex items-center justify-center hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1" title="Kamera">
-                    <flux:icon.camera class="w-5 h-5" />
-                    <input type="file" x-ref="fileInputServerCamera" @change="handleFile" accept="image/*" capture="environment" class="hidden">
-                </div>
-                <div @click="pickFile('gallery')" class="relative cursor-pointer flex items-center justify-center hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1" title="Galeri">
-                    <flux:icon.photo class="w-5 h-5" />
                     <input type="file" x-ref="fileInputServer" @change="handleFile" accept="{{ $accept }}" class="hidden">
                 </div>
             </div>
