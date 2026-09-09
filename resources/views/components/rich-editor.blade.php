@@ -9,7 +9,8 @@
     @template-selected.window="handleTemplateSelected($event.detail.content)"
     @ai-content-generated.window="handleTemplateSelected($event.detail.content)"
     wire:ignore 
-    class="relative w-full h-full max-w-full flex flex-col min-w-0 rich-editor-container"
+    class="relative w-full max-w-full flex flex-col min-w-0 rich-editor-container"
+    style="min-height: {{ $height }};"
 >
     <!-- Loading Overlay -->
     <div x-show="editorLoading" x-transition.opacity.duration.200ms class="absolute inset-0 z-[10] flex flex-col items-center justify-center bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm rounded-lg" style="display: none;">
@@ -21,7 +22,7 @@
     </div>
 
     <!-- Wrapper Editor -->
-    <div class="w-full max-w-full flex-1 bg-white dark:bg-zinc-900 relative z-0">
+    <div class="w-full max-w-full flex-1 flex flex-col bg-white dark:bg-zinc-900 relative z-0">
         <textarea :id="editorId" class="w-full flex-1 border-0"></textarea>
     </div>
 
@@ -119,11 +120,12 @@
 @once
 <style>
     /* Paksa toolbar TinyMCE untuk wrap ke bawah jika layar terlalu sempit */
-    /* Paksa toolbar TinyMCE untuk wrap ke bawah jika layar terlalu sempit */
     .tox-toolbar__primary { flex-wrap: wrap !important; }
     /* Pastikan popup/menu TinyMCE berada di atas elemen lain, dan tidak menutupi klik (pointer-events) */
     .tox-tinymce-aux { z-index: 999999 !important; pointer-events: none; }
     .tox-tinymce-aux > * { pointer-events: auto; }
+    /* Pastikan container editor merentang menutupi sisa ruang */
+    .tox-tinymce { flex: 1 1 0% !important; min-height: 150px !important; }
 </style>
 <script>
     const registerRichEditor = () => {

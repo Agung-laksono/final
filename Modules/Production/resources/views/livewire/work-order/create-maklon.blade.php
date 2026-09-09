@@ -310,10 +310,10 @@ $confirmSaveMaklon = function () {
                                 {{-- Popover Edit Catatan (Absolute Top Right) --}}
                                 <div class="absolute top-4 right-4 flex items-center justify-end" :class="open ? 'z-50' : ''">
                                     <div x-show="note" x-cloak>
-                                        <flux:button size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
+                                        <flux:button size="sm" icon="pencil-square" @click="if(!open) { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom'; } open = !open;" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
                                     </div>
                                     <div x-show="!note">
-                                        <flux:button variant="subtle" size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="text-slate-400 hover:text-slate-600" />
+                                        <flux:button variant="subtle" size="sm" icon="pencil-square" @click="if(!open) { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom'; } open = !open;" class="text-slate-400 hover:text-slate-600" />
                                     </div>
                                     
                                     {{-- Popover Content --}}
@@ -390,10 +390,10 @@ $confirmSaveMaklon = function () {
                                 {{-- Popover Edit Catatan (Absolute Top Right) --}}
                                 <div class="absolute top-4 right-4 flex items-center justify-end" :class="open ? 'z-50' : ''">
                                     <div x-show="note" x-cloak>
-                                        <flux:button size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
+                                        <flux:button size="sm" icon="pencil-square" @click="if(!open) { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom'; } open = !open;" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
                                     </div>
                                     <div x-show="!note">
-                                        <flux:button variant="subtle" size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="text-slate-400 hover:text-slate-600" />
+                                        <flux:button variant="subtle" size="sm" icon="pencil-square" @click="if(!open) { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom'; } open = !open;" class="text-slate-400 hover:text-slate-600" />
                                     </div>
                                     
                                     {{-- Popover Content --}}

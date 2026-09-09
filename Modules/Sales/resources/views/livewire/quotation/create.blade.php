@@ -595,10 +595,10 @@ $saveCart = function ($cartData) {
                                     <div :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom' }">
                                         {{-- Tombol Edit (Amber jika ada catatan, Primary jika kosong) --}}
                                         <div x-show="item.note" x-cloak>
-                                            <flux:button size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
+                                            <flux:button size="sm" icon="pencil-square" @click="if(!open) { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom'; } open = !open;" class="!bg-amber-500 hover:!bg-amber-600 !border-amber-600 !text-white" />
                                         </div>
                                         <div x-show="!item.note">
-                                            <flux:button variant="subtle" size="sm" icon="pencil-square" @click="open = !open; if(open) { $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" class="text-slate-400 hover:text-slate-600" />
+                                            <flux:button variant="subtle" size="sm" icon="pencil-square" @click="if(!open) { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom'; } open = !open;" class="text-slate-400 hover:text-slate-600" />
                                         </div>
                                         
                                         {{-- Popover Quick Note / Rich Editor --}}
@@ -676,7 +676,7 @@ $saveCart = function ($cartData) {
                                                 appearance="transparent" 
                                                 class="w-full pr-8" 
                                             />
-                                            <button type="button" @click="open = !open; if(open) { $wire.showPriceHistory(item.item_id, item.name); $nextTick(() => { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom' }) }" 
+                                            <button type="button" @click="if(!open) { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom'; $wire.showPriceHistory(item.item_id, item.name); } open = !open;" 
                                                     class="absolute right-2.5 transition-colors"
                                                     :class="item.has_history ? 'text-amber-500 hover:text-amber-600' : 'text-zinc-300 hover:text-zinc-500'">
                                                 <flux:icon.clock class="w-4 h-4" />
