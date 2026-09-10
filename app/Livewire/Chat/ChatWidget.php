@@ -18,8 +18,14 @@ class ChatWidget extends Component
     public bool $isOpen = false;
     public ?string $activeConversationId = null;
     public string $messageInput = '';
-    public string $searchUser = '';
+    public ?string $searchUser = '';
     public int $refreshKey = 0;
+    public bool $isActiveAi = false;
+    
+    // AI Settings
+    public bool $aiUseRag = true;
+    public string $aiSelectedProvider = '';
+    public array $aiProviders = [];
     
     // Pagination state
     public int $messageLimit = 30;
@@ -35,6 +41,22 @@ class ChatWidget extends Component
     // -------------------------------------------------------
     // Hooks
     // -------------------------------------------------------
+
+    public function mount()
+    {
+        $this->activeConversationId = null;
+        
+        // Load AI Providers
+        $providersJson = \App\Models\Setting::where('key', 'ai_providers')->value('value');
+        if ($providersJson) {
+            $this->aiProviders = json_decode($providersJson, true) ?? [];
+        }
+        
+        $this->aiSelectedProvider = \App\Models\Setting::where('key', 'ai_selected_provider')->value('value') ?? '';
+        if (!$this->aiSelectedProvider && count($this->aiProviders) > 0) {
+            $this->aiSelectedProvider = $this->aiProviders[0]['name'] ?? '';
+        }
+    }
 
     public function updatedAttachment($value)
     {
@@ -60,18 +82,48 @@ class ChatWidget extends Component
     public function conversations()
     {
         $userId = auth()->id();
+        $enableAi = \App\Models\Setting::where('key', 'enable_ai_chat')->value('value') == '1';
+        
+        if ($enableAi) {
+            // Pastikan ada conversation tipe 'ai' untuk user ini
+            $aiConv = ChatConversation::where('type', 'ai')
+                ->whereHas('members', fn ($q) => $q->where('user_id', $userId))
+                ->first();
+                
+            if (!$aiConv) {
+                $aiConv = ChatConversation::create([
+                    'type' => 'ai',
+                    'name' => '🤖 AI Assistant',
+                    'created_by' => $userId,
+                ]);
+                $aiConv->members()->attach($userId);
+            }
+        }
 
-        return ChatConversation::with(['members', 'latestMessage.sender'])
-            ->whereHas('members', fn ($q) => $q->where('user_id', $userId))
-            ->orderByDesc('last_message_at')
+        $query = ChatConversation::with(['members', 'latestMessage.sender'])
+            ->whereHas('members', fn ($q) => $q->where('user_id', $userId));
+
+        if (!$enableAi) {
+            $query->where('type', '!=', 'ai');
+        }
+
+        return $query->orderByDesc('last_message_at')
             ->get()
             ->map(function ($conv) use ($userId) {
                 $conv->unread  = $conv->unreadCount($userId);
-                $conv->display = $conv->displayName($userId);
-                // Avatar: direct → other user avatar, group → null (icon)
-                $otherUser = $conv->type === 'direct' ? $conv->otherUser($userId) : null;
-                $conv->avatar = $otherUser?->avatarUrl() ?? null;
-                $conv->other_user_id = $otherUser?->id ?? null;
+                
+                if ($conv->type === 'ai') {
+                    $conv->display = '🤖 ERP AI Assistant';
+                    $conv->avatar = null; 
+                    $conv->other_user_id = 'ai'; // Virtual ID untuk online dot
+                } else {
+                    $conv->display = $conv->displayName($userId);
+                    // Avatar: direct → other user avatar, group → null (icon)
+                    $otherUser = $conv->type === 'direct' ? $conv->otherUser($userId) : null;
+                    $conv->avatar = $otherUser?->avatarUrl() ?? null;
+                    $conv->other_user_id = $otherUser?->id ?? null;
+                }
+                
                 return $conv;
             });
     }
@@ -163,6 +215,7 @@ class ChatWidget extends Component
         }
 
         $this->activeConversationId = $conv->id;
+        $this->isActiveAi = $conv->type === 'ai';
         $this->isOpen = true;
         $this->searchUser = '';
         $this->messageLimit = 30; // Reset limit saat pindah chat
@@ -179,6 +232,8 @@ class ChatWidget extends Component
     public function selectConversation(string $conversationId): void
     {
         $this->activeConversationId = $conversationId;
+        $conv = ChatConversation::find($conversationId);
+        $this->isActiveAi = $conv && $conv->type === 'ai';
         $this->messageLimit = 30; // Reset limit saat pindah chat
         $this->markAsRead();
         $this->dispatch('chat-scroll-bottom');
@@ -187,6 +242,7 @@ class ChatWidget extends Component
     public function backToList(): void
     {
         $this->activeConversationId = null;
+        $this->isActiveAi = false;
     }
 
     public function sendMessage(): void
@@ -236,7 +292,7 @@ class ChatWidget extends Component
         }
 
         foreach ($messagesToSend as $msgData) {
-            $message = $conv->messages()->create([
+            $messageModel = $conv->messages()->create([
                 'sender_id'      => auth()->id(),
                 'body'           => $msgData['body'],
                 'type'           => $msgData['type'],
@@ -244,10 +300,15 @@ class ChatWidget extends Component
             ]);
 
             // Broadcast via Pusher Channels
-            broadcast(new InternalMessageSent($message));
+            broadcast(new InternalMessageSent($messageModel));
 
-            // Kirim Pusher Beams push notification ke anggota lain
-            $this->sendBeamsNotification($conv, $message);
+            if ($conv->type === 'ai') {
+                // Proses AI response secara langsung (sync) tanpa perlu php artisan queue:work
+                \App\Jobs\ProcessAiChatResponse::dispatchSync($messageModel, $this->aiUseRag, $this->aiSelectedProvider);
+            } else {
+                // Kirim Pusher Beams push notification ke anggota lain
+                $this->sendBeamsNotification($conv, $messageModel);
+            }
         }
 
         $conv->update(['last_message_at' => now()]);

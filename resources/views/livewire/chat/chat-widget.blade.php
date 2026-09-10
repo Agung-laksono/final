@@ -1,7 +1,7 @@
 <div
     x-data="chatWidget"
-    class="fixed bottom-5 right-[88px] z-[9999] flex flex-col items-end gap-3"
-    style="position: fixed !important; bottom: 20px !important; right: 88px !important; z-index: 9999 !important; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;"
+    class="fixed z-[9999] flex flex-col items-end gap-3 bottom-5 right-4 sm:right-[88px] max-w-[calc(100vw-32px)] sm:max-w-none"
+    style="font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;"
 >
 
 
@@ -16,7 +16,7 @@
         x-transition:enter="transition ease-out duration-300"
         x-transition:enter-start="opacity-0 scale-50"
         x-transition:enter-end="opacity-100 scale-100"
-        @click="$wire.toggleOpen()"
+        @click="open = true; if($wire.activeConversationId) $wire.markAsRead()"
         id="chat-widget-bubble"
         class="relative w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 active:scale-90 text-white"
         :class="{
@@ -64,7 +64,7 @@
         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
         x-transition:leave-end="opacity-0 translate-y-4 scale-95"
         x-cloak
-        class="w-[360px] max-w-[calc(100vw-24px)] rounded-2xl shadow-2xl overflow-hidden flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/80"
+        class="w-[360px] max-w-full rounded-2xl shadow-2xl overflow-hidden flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/80"
         style="height: 520px; max-height: calc(100vh - 100px);"
     >
 
@@ -87,6 +87,10 @@
                                     <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-[16px]">
                                         👥
                                     </div>
+                                @elseif($actConv->type === 'ai')
+                                    <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-[16px] shadow-sm">
+                                        🤖
+                                    </div>
                                 @elseif($actConv->avatar)
                                     <img src="{{ $actConv->avatar }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-white/50 shadow-sm" alt="">
                                 @else
@@ -97,14 +101,44 @@
                                 
                                 {{-- Online Indicator --}}
                                 @if($actConv->type === 'direct')
-                                    <span x-show="isOnline({{ $actConv->other_user_id }})" x-cloak
+                                    <span x-show="onlineUsers['{{ $actConv->other_user_id }}']" x-cloak
                                           class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-[1.5px] border-indigo-600 rounded-full flex items-center justify-center shadow-sm">
-                                          <span x-text="getDevice({{ $actConv->other_user_id }})" class="text-[6px] leading-none"></span>
+                                          <span x-text="onlineUsers['{{ $actConv->other_user_id }}'] === 'mobile' ? '📱' : '💻'" class="text-[6px] leading-none"></span>
+                                    </span>
+                                @elseif($actConv->type === 'ai')
+                                    <span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-[1.5px] border-indigo-600 rounded-full flex items-center justify-center shadow-sm">
+                                        <span class="text-[6px] leading-none">⚡</span>
                                     </span>
                                 @endif
                             </div>
                             <div>
-                                <p class="text-white font-semibold text-sm leading-tight">{{ $actConv->display }}</p>
+                                <div class="flex items-center gap-1.5">
+                                    <p class="text-white font-semibold text-sm leading-tight">{{ $actConv->display }}</p>
+                                    @if($actConv->type === 'ai')
+                                        <div x-data="{ aiMenu: false }" class="relative">
+                                            <button @click="aiMenu = !aiMenu" @click.outside="aiMenu = false" class="text-white/70 hover:text-white mt-0.5" title="Pengaturan AI">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                            </button>
+                                            
+                                            <div x-show="aiMenu" x-transition x-cloak style="display: none;" class="absolute left-0 top-full mt-2 w-64 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 p-3 z-50">
+                                                <p class="text-[11px] font-bold text-zinc-500 mb-2 uppercase tracking-wider">Model AI</p>
+                                                <div class="space-y-1 mb-3">
+                                                    @foreach($aiProviders as $p)
+                                                        <label class="flex items-center gap-2 text-[13px] text-zinc-700 dark:text-zinc-200 cursor-pointer p-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-lg">
+                                                            <input type="radio" wire:model.live="aiSelectedProvider" value="{{ $p['name'] }}" class="text-violet-500 focus:ring-violet-500 border-zinc-300 w-3.5 h-3.5">
+                                                            <span>{{ $p['name'] }}</span>
+                                                        </label>
+                                                    @endforeach
+                                                </div>
+                                                <div class="h-px bg-zinc-100 dark:bg-zinc-700 -mx-3 mb-3"></div>
+                                                <label class="flex items-center gap-2 text-[13px] text-zinc-700 dark:text-zinc-200 cursor-pointer p-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-lg">
+                                                    <input type="checkbox" wire:model.live="aiUseRag" class="text-violet-500 focus:ring-violet-500 rounded border-zinc-300 w-3.5 h-3.5">
+                                                    <span class="leading-relaxed">Gunakan Data Internal (RAG)</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    @endif
+                                </div>
                                 @if($actConv->type === 'group')
                                     <p class="text-white/70 text-[11px]">{{ $actConv->members->count() }} anggota</p>
                                 @endif
@@ -131,7 +165,7 @@
                 @endunless
 
                 {{-- Close Widget Button --}}
-                <button @click="$wire.toggleOpen()" title="Tutup Chat"
+                <button @click="open = false" title="Tutup Chat"
                         class="w-8 h-8 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/15 transition-all active:scale-90 ml-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -172,9 +206,9 @@
                                         </div>
                                     @endif
                                     {{-- Online Indicator --}}
-                                    <span x-show="isOnline({{ $user->id }})" x-cloak
+                                    <span x-show="onlineUsers['{{ $user->id }}']" x-cloak
                                           class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-[1.5px] border-white dark:border-zinc-800 rounded-full flex items-center justify-center shadow-sm">
-                                          <span x-text="getDevice({{ $user->id }})" class="text-[6px] leading-none"></span>
+                                          <span x-text="onlineUsers['{{ $user->id }}'] === 'mobile' ? '📱' : '💻'" class="text-[6px] leading-none"></span>
                                     </span>
                                 </div>
                                 <div class="min-w-0">
@@ -195,7 +229,9 @@
             {{-- Conversation List --}}
             <div class="flex-1 overflow-y-auto" style="scrollbar-width: thin; scrollbar-color: #d4d4d8 transparent;">
                 @forelse($this->conversations as $conv)
-                    <button wire:click="selectConversation('{{ $conv->id }}')"
+                    <button type="button"
+                            wire:key="conv-{{ $conv->id }}"
+                            wire:click="selectConversation('{{ $conv->id }}')"
                             class="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-all border-b border-zinc-50 dark:border-zinc-800/50 text-left active:bg-zinc-100 dark:active:bg-zinc-800">
 
                         {{-- Avatar --}}
@@ -204,6 +240,11 @@
                                 {{-- Group: icon khusus --}}
                                 <div class="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-[22px] shadow-sm">
                                     👥
+                                </div>
+                            @elseif($conv->type === 'ai')
+                                {{-- AI Assistant --}}
+                                <div class="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-[22px] shadow-sm ring-2 ring-white dark:ring-zinc-900">
+                                    🤖
                                 </div>
                             @elseif($conv->avatar)
                                 {{-- Direct dengan foto profil --}}
@@ -222,9 +263,13 @@
 
                             {{-- Online Indicator --}}
                             @if($conv->type === 'direct')
-                                <span x-show="isOnline({{ $conv->other_user_id }})" x-cloak
+                                <span x-show="onlineUsers['{{ $conv->other_user_id }}']" x-cloak
                                       class="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-zinc-900 rounded-full flex items-center justify-center shadow-sm">
-                                      <span x-text="getDevice({{ $conv->other_user_id }})" class="text-[8px] leading-none"></span>
+                                      <span x-text="onlineUsers['{{ $conv->other_user_id }}'] === 'mobile' ? '📱' : '💻'" class="text-[8px] leading-none"></span>
+                                </span>
+                            @elseif($conv->type === 'ai')
+                                <span class="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-zinc-900 rounded-full flex items-center justify-center shadow-sm">
+                                    <span class="text-[8px] leading-none">⚡</span>
                                 </span>
                             @endif
                         </div>
@@ -434,7 +479,7 @@
                 @if(count($attachments) > 0)
                     <div class="mb-2 flex flex-wrap gap-2 px-1">
                         @foreach($attachments as $index => $att)
-                            <div class="relative inline-block">
+                            <div class="relative inline-block" wire:key="att-{{ $index }}">
                                 <img src="{{ is_string($att) ? $att : '' }}" class="h-16 rounded-lg object-cover ring-2 ring-violet-500/50">
                                 <button type="button" wire:click="removeAttachment({{ $index }})" class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow hover:scale-110 transition-transform z-10">
                                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -468,12 +513,13 @@
                             style="max-height: 96px; scrollbar-width: none;"
                             x-init="
                                 $el.addEventListener('input', function() {
-                                    hasText = this.value.length > 0;
+                                    hasText = this.value.trim().length > 0;
+                                    
                                     this.style.height = 'auto';
                                     this.style.height = Math.min(this.scrollHeight, 96) + 'px';
 
                                     // Trigger whisper (typing) dengan teknik Debounce (Start/Stop)
-                                    if ($wire.activeConversationId && window.Echo) {
+                                    if ($wire.activeConversationId && window.Echo && !isActiveAi) {
                                         // Jika belum berstatus mengetik, kirim sinyal START
                                         if (!isLocalTyping) {
                                             isLocalTyping = true;
@@ -514,7 +560,7 @@
                                 // Logika khusus Desktop
                                 if (!$event.shiftKey) {
                                     $event.preventDefault(); // Mencegah Enter bawaan (newline) hanya jika bukan Shift+Enter
-                                    if ($el.value.trim() || $wire.attachments.length > 0) {
+                                    if ($el.value.trim() || attachments.length > 0) {
                                         // Matikan typing indicator seketika saat pesan dikirim
                                         if (isLocalTyping && $wire.activeConversationId && window.Echo) {
                                             isLocalTyping = false;
@@ -538,7 +584,7 @@
                             wire:target="sendMessage"
                             class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all duration-200 active:scale-90
                                    bg-gradient-to-br from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white shadow-md relative"
-                            :class="(hasText || $wire.attachments.length > 0) ? 'opacity-100 scale-100' : 'opacity-60 scale-95 cursor-default'"
+                            :class="(hasText || attachments.length > 0) ? 'opacity-100 scale-100' : 'opacity-60 scale-95 cursor-default'"
                     >
                         {{-- Icon Send --}}
                         <svg wire:loading.remove wire:target="sendMessage" viewBox="0 0 24 24" class="w-[18px] h-[18px] translate-x-0.5" fill="currentColor">
@@ -607,12 +653,15 @@
     @script
     <script>
         Alpine.data('chatWidget', () => ({
-                open: @entangle('isOpen').live,
+                open: @entangle('isOpen'),
                 activeId: @entangle('activeConversationId').live,
+                isActiveAi: @entangle('isActiveAi'),
                 currentChannel: null,
                 globalChannel: null,
                 authUserId: {{ auth()->id() ?? 'null' }},
                 onlineUsers: {},
+                hasText: false,
+                attachments: @entangle('attachments'),
                 animatingSender: null,
                 animationTimeout: null,
                 
@@ -621,15 +670,6 @@
                 localTypingTimeout: null,
                 remoteTypingUser: null,
                 remoteTypingTimeout: null,
-
-                isOnline(userId) {
-                    return this.onlineUsers && this.onlineUsers[userId] !== undefined;
-                },
-
-                getDevice(userId) {
-                    if (!this.isOnline(userId)) return '';
-                    return this.onlineUsers[userId] === 'mobile' ? '📱' : '💻';
-                },
 
                 /**
                  * Putar suara chat masuk.
