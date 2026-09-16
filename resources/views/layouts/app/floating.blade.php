@@ -4,7 +4,7 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-zinc-50 dark:bg-zinc-900">
+    <body class="min-h-screen bg-zinc-50 dark:bg-zinc-900 floating-layout">
     @include('layouts.app.global-loader')
         {{ $slot }}
         {{-- Multi-level Speed Dial Global Navigation --}}
@@ -869,7 +869,7 @@
                     </a>
                     
                     {{-- AI Chat Shortcut dipindah keluar speed dial --}}
-                    {{-- <livewire:ai-chat-widget /> --}}
+                    {{--  --}}
                     
                     {{-- Theme Toggle --}}
                     <button type="button" 
@@ -932,7 +932,7 @@
         {{-- AI Chat Widget (standalone, di luar speed dial) --}}
         @if(!request()->is('chat*') && \Illuminate\Support\Facades\Cache::get('setting_enable_ai_chat', \App\Models\Setting::where('key', 'enable_ai_chat')->value('value')) == '1')
         <div class="fixed bottom-3 lg:bottom-8 right-4 lg:right-8 z-[950] print:hidden">
-            <livewire:ai-chat-widget />
+            
         </div>
         @endif
     </body>

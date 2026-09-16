@@ -62,6 +62,10 @@
         updateThemeColor();
     })();
 </script>
+<style>
+    /* Sembunyikan tombol floating individual karena sudah digabung ke Speed Dial (kanan bawah) */
+    .hide-in-floating-mode { display: none !important; }
+</style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Inventory">

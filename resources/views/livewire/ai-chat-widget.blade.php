@@ -529,6 +529,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
             a.click();
         }
     }"
+    @open-ai-chat.window="open = true; minimized = false; setTimeout(() => scrollBottom(), 100);"
     style="position: fixed; inset: 0; pointer-events: none; z-index: 9999;"
 >
     <style>
@@ -579,7 +580,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
         x-transition:leave-start="opacity-100 scale-100"
         x-transition:leave-end="opacity-0 scale-50"
         @click="open = !open; minimized = false; if(open) { scrollBottom(); $dispatch('ai-chat-opened'); }"
-        class="absolute right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:right-6 md:bottom-6 w-10 h-10 lg:w-12 lg:h-12 bg-indigo-500/10 hover:bg-indigo-500/20 dark:bg-indigo-500/20 dark:hover:bg-indigo-500/30 backdrop-blur-md border border-indigo-500/30 rounded-full shadow-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors pointer-events-auto"
+        class="absolute right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:right-6 md:bottom-6 w-10 h-10 lg:w-12 lg:h-12 bg-indigo-500/10 hover:bg-indigo-500/20 dark:bg-indigo-500/20 dark:hover:bg-indigo-500/30 backdrop-blur-md border border-indigo-500/30 rounded-full shadow-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors pointer-events-auto hide-in-floating-mode"
         title="Tanya AI"
     >
         <flux:icon.sparkles class="w-4 h-4 lg:w-5 lg:h-5" />
