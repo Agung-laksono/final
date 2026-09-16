@@ -358,13 +358,16 @@ new class extends Component {
             \Flux::toast('Backup total (Database & Gambar) berhasil dibuat.', variant: 'success');
             
             // Upload to Google Drive if enabled
-            if ($this->googleDriveEnabled) {
+            if (false && $this->googleDriveEnabled) { // Temporarily disabled
                 try {
                     \Illuminate\Support\Facades\Config::set('filesystems.disks.google.folder', $this->googleDriveFolderId);
                     app('filesystem')->forgetDisk('google');
                     $driveFileName = basename($backupPath);
-                    $fileContent = file_get_contents($backupPath);
-                    Storage::disk('google')->put($driveFileName, $fileContent);
+                    $stream = fopen($backupPath, 'r+');
+                    Storage::disk('google')->put($driveFileName, $stream);
+                    if (is_resource($stream)) {
+                        fclose($stream);
+                    }
                     \Flux::toast('Berhasil mengunggah backup ke Google Drive!', variant: 'success');
                 } catch (\Exception $e) {
                     \Flux::toast('Gagal upload ke Google Drive: ' . $e->getMessage(), variant: 'danger');
