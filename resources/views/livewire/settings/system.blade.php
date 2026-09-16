@@ -45,6 +45,9 @@ new class extends Component {
     // Google Drive
     public $googleDriveEnabled = false;
     public $googleDriveFolderId = '';
+    public $googleDriveClientId = '';
+    public $googleDriveClientSecret = '';
+    public $googleDriveRefreshToken = '';
     public $uploadedJsonFile;
     public $testDriveResult = null; // Menyimpan pesan hasil test koneksi
 
@@ -73,6 +76,9 @@ new class extends Component {
 
         $this->googleDriveEnabled = \App\Models\Setting::where('key', 'google_drive_enabled')->value('value') === 'true';
         $this->googleDriveFolderId = \App\Models\Setting::where('key', 'google_drive_folder')->value('value') ?? '';
+        $this->googleDriveClientId = \App\Models\Setting::where('key', 'google_drive_client_id')->value('value') ?? '';
+        $this->googleDriveClientSecret = \App\Models\Setting::where('key', 'google_drive_client_secret')->value('value') ?? '';
+        $this->googleDriveRefreshToken = \App\Models\Setting::where('key', 'google_drive_refresh_token')->value('value') ?? '';
 
         $this->githubRepo = \App\Models\Setting::where('key', 'github_repo')->value('value') ?? 'Agung-laksono/final';
         $this->githubBranch = \App\Models\Setting::where('key', 'github_branch')->value('value') ?? 'main';
@@ -84,6 +90,9 @@ new class extends Component {
             'retention' => $this->autoBackupRetention,
             'gdrive_enabled' => $this->googleDriveEnabled,
             'gdrive_folder' => $this->googleDriveFolderId,
+            'gdrive_client_id' => $this->googleDriveClientId,
+            'gdrive_client_secret' => $this->googleDriveClientSecret,
+            'gdrive_refresh_token' => $this->googleDriveRefreshToken,
             'github_repo' => $this->githubRepo,
             'github_branch' => $this->githubBranch,
         ];
@@ -101,6 +110,8 @@ new class extends Component {
                $this->autoBackupRetention != $this->originalBackupSettings['retention'] ||
                $this->googleDriveEnabled !== $this->originalBackupSettings['gdrive_enabled'] ||
                $this->googleDriveFolderId !== $this->originalBackupSettings['gdrive_folder'] ||
+               $this->googleDriveClientId !== $this->originalBackupSettings['gdrive_client_id'] ||
+               $this->googleDriveClientSecret !== $this->originalBackupSettings['gdrive_client_secret'] ||
                $this->githubRepo !== $this->originalBackupSettings['github_repo'] ||
                $this->githubBranch !== $this->originalBackupSettings['github_branch'];
     }
@@ -119,6 +130,8 @@ new class extends Component {
         
         \App\Models\Setting::updateOrCreate(['key' => 'google_drive_enabled'], ['value' => $this->googleDriveEnabled ? 'true' : 'false']);
         \App\Models\Setting::updateOrCreate(['key' => 'google_drive_folder'], ['value' => $this->googleDriveFolderId]);
+        \App\Models\Setting::updateOrCreate(['key' => 'google_drive_client_id'], ['value' => $this->googleDriveClientId]);
+        \App\Models\Setting::updateOrCreate(['key' => 'google_drive_client_secret'], ['value' => $this->googleDriveClientSecret]);
         
         \App\Models\Setting::updateOrCreate(['key' => 'github_repo'], ['value' => $this->githubRepo]);
         \App\Models\Setting::updateOrCreate(['key' => 'github_branch'], ['value' => $this->githubBranch]);
@@ -133,6 +146,9 @@ new class extends Component {
             'retention' => $this->autoBackupRetention,
             'gdrive_enabled' => $this->googleDriveEnabled,
             'gdrive_folder' => $this->googleDriveFolderId,
+            'gdrive_client_id' => $this->googleDriveClientId,
+            'gdrive_client_secret' => $this->googleDriveClientSecret,
+            'gdrive_refresh_token' => $this->googleDriveRefreshToken,
             'github_repo' => $this->githubRepo,
             'github_branch' => $this->githubBranch,
         ];
@@ -249,21 +265,13 @@ new class extends Component {
         }
     }
 
-    public function updatedUploadedJsonFile() {
-        $this->validate([
-            'uploadedJsonFile' => 'required|file|max:1024',
-        ]);
-        
-        $this->uploadedJsonFile->storeAs('', 'google-drive-credentials.json', 'local');
-        $this->reset('uploadedJsonFile');
-        \Flux::toast('File JSON Kredensial berhasil diunggah.', variant: 'success');
-    }
+
 
     public function testGoogleDrive() {
         $this->testDriveResult = null;
         try {
-            if (!Storage::disk('local')->exists('google-drive-credentials.json')) {
-                $this->testDriveResult = ['status' => 'error', 'message' => 'File Kredensial JSON belum diunggah!'];
+            if (empty($this->googleDriveRefreshToken)) {
+                $this->testDriveResult = ['status' => 'error', 'message' => 'Belum terhubung ke Akun Google! Hubungkan melalui tombol di atas.'];
                 return;
             }
             if (empty($this->googleDriveFolderId)) {
@@ -358,7 +366,7 @@ new class extends Component {
             \Flux::toast('Backup total (Database & Gambar) berhasil dibuat.', variant: 'success');
             
             // Upload to Google Drive if enabled
-            if (false && $this->googleDriveEnabled) { // Temporarily disabled
+            if ($this->googleDriveEnabled && !empty($this->googleDriveRefreshToken)) {
                 try {
                     \Illuminate\Support\Facades\Config::set('filesystems.disks.google.folder', $this->googleDriveFolderId);
                     app('filesystem')->forgetDisk('google');
@@ -967,10 +975,10 @@ new class extends Component {
                     <div>
                         <div class="flex items-center gap-2">
                             <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Upload ke Google Drive</h3>
-                            @if(Storage::disk('local')->exists('google-drive-credentials.json'))
-                                <flux:badge size="sm" variant="success" icon="check-circle">Kredensial OK</flux:badge>
+                            @if($googleDriveRefreshToken)
+                                <flux:badge size="sm" variant="success" icon="check-circle">OAuth Terhubung</flux:badge>
                             @else
-                                <flux:badge size="sm" variant="danger" icon="exclamation-circle">Kredensial Kosong</flux:badge>
+                                <flux:badge size="sm" variant="danger" icon="exclamation-circle">Belum Terhubung</flux:badge>
                             @endif
                         </div>
                         <p class="text-sm text-zinc-500 mt-1">Otomatis kirim salinan file backup Anda ke Google Drive sebagai penyimpanan aman di luar server.</p>
@@ -981,38 +989,50 @@ new class extends Component {
                 <div class="grid grid-cols-1 gap-6 transition-opacity {{ $googleDriveEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none' }}">
                     
                     <div class="space-y-4 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                        <div class="flex flex-col sm:flex-row gap-4 items-end">
-                            <div class="w-full">
-                                <flux:input wire:model.live="googleDriveFolderId" label="Folder ID Google Drive" placeholder="Contoh: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs" />
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <flux:input wire:model.live="googleDriveClientId" label="OAuth Client ID" placeholder="Google Cloud Client ID" />
+                            <flux:input wire:model.live="googleDriveClientSecret" label="OAuth Client Secret" placeholder="Google Cloud Client Secret" />
+                        </div>
+                        
+                        <div class="grid grid-cols-1 gap-4">
+                            <flux:input wire:model.live="googleDriveFolderId" label="Folder ID Google Drive (Opsional)" placeholder="Contoh: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs" />
+                        </div>
+
+                        <div class="mt-4 p-4 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 rounded-lg flex items-center justify-between">
+                            <div>
+                                <h4 class="text-sm font-semibold text-zinc-900 dark:text-white mb-1">Status Koneksi Akun</h4>
+                                <p class="text-xs text-zinc-500">
+                                    @if($googleDriveRefreshToken)
+                                        Aplikasi sudah memiliki akses ke Google Drive Anda.
+                                    @else
+                                        Silakan isi Client ID & Secret di atas, klik Simpan, lalu hubungkan akun Anda.
+                                    @endif
+                                </p>
                             </div>
                             
-                            <div class="w-full sm:w-auto shrink-0 relative pb-1">
-                                <div class="text-sm font-medium mb-2 flex items-center justify-between">
-                                    File JSON Service Account
-                                </div>
-                                <label class="cursor-pointer bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-sm font-medium h-9 px-4 rounded-lg border border-zinc-200 dark:border-zinc-700 transition-colors flex items-center justify-center gap-2 shadow-sm">
-                                    <flux:icon.document-text class="w-4 h-4" />
-                                    <span>{{ Storage::disk('local')->exists('google-drive-credentials.json') ? 'Ganti File JSON' : 'Unggah File JSON' }}</span>
-                                    <input type="file" wire:model.live="uploadedJsonFile" class="hidden" accept=".json" />
-                                </label>
-                                @if(Storage::disk('local')->exists('google-drive-credentials.json'))
-                                    <div class="mt-2 flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 font-medium">
-                                        <flux:icon.check-circle class="w-3.5 h-3.5" />
-                                        <span>File JSON sudah terisi</span>
-                                    </div>
+                            <div>
+                                @if($googleDriveRefreshToken)
+                                    <form action="{{ url('/auth/google-drive/disconnect') }}" method="POST">
+                                        @csrf
+                                        <flux:button type="submit" variant="danger" icon="trash" size="sm">Putuskan Koneksi</flux:button>
+                                    </form>
                                 @else
-                                    <div class="mt-2 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
-                                        <flux:icon.exclamation-triangle class="w-3.5 h-3.5" />
-                                        <span>Belum ada file JSON</span>
-                                    </div>
+                                    <flux:button 
+                                        href="{{ url('/auth/google-drive/redirect') }}" 
+                                        variant="primary" 
+                                        icon="arrow-right-end-on-rectangle" 
+                                        size="sm"
+                                        :disabled="empty($googleDriveClientId) || empty($googleDriveClientSecret)"
+                                    >
+                                        Hubungkan Akun Google
+                                    </flux:button>
                                 @endif
-                                <div wire:loading wire:target="uploadedJsonFile" class="absolute -bottom-4 left-0 text-xs text-zinc-500">Mengunggah...</div>
-                                @error('uploadedJsonFile') <div class="absolute -bottom-4 left-0 text-xs text-red-500">{{ $message }}</div> @enderror
                             </div>
                         </div>
 
                         <p class="text-xs text-zinc-500 pt-2 border-t border-zinc-200 dark:border-zinc-700">
-                            <strong>Cara setup:</strong> 1. Buat Service Account di Google Cloud Console. 2. Buat folder di Google Drive Anda. 3. Bagikan folder tersebut ke email Service Account (akses Editor). 4. Salin ID folder dari URL dan tempel di atas.
+                            <strong>Cara setup:</strong> 1. Buat Project di Google Cloud Console. 2. Buat OAuth Client ID. 3. Masukkan Redirect URI: <code>{{ url('/auth/google-drive/callback') }}</code>. 4. Salin Client ID & Secret kemari lalu Hubungkan.
                         </p>
                     </div>
 
@@ -1030,7 +1050,7 @@ new class extends Component {
 
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div class="flex items-center gap-2">
-                                <flux:button wire:click="testGoogleDrive" variant="outline" icon="bolt" size="sm">Test Koneksi</flux:button>
+                                <flux:button wire:click="testGoogleDrive" variant="outline" icon="bolt" size="sm" :disabled="!$googleDriveRefreshToken">Test Koneksi</flux:button>
                                 <flux:button wire:click="createBackup" variant="primary" icon="document-duplicate" size="sm">Buat Backup & Unggah</flux:button>
                             </div>
                             <flux:button type="submit" :variant="$this->hasUnsavedChanges() ? 'primary' : 'outline'" icon="check" size="sm" :disabled="!$this->hasUnsavedChanges()">Simpan Konfigurasi</flux:button>

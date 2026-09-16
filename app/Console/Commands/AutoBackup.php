@@ -91,7 +91,11 @@ class AutoBackup extends Command
                         app('filesystem')->forgetDisk('google');
                         
                         $this->info('Mengunggah backup ke Google Drive...');
-                        Storage::disk('google')->put($backupName, file_get_contents($backupPath));
+                        $stream = fopen($backupPath, 'r');
+                        Storage::disk('google')->put($backupName, $stream);
+                        if (is_resource($stream)) {
+                            fclose($stream);
+                        }
                         $this->info('Upload ke Google Drive berhasil.');
                     } catch (\Exception $e) {
                         $this->error('Gagal upload ke Google Drive: ' . $e->getMessage());

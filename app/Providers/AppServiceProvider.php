@@ -30,12 +30,15 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\Storage::extend('google', function($app, $config) {
             $client = new \Google_Client();
             
-            $credentialsPath = storage_path('app/google-drive-credentials.json');
-            if (file_exists($credentialsPath)) {
-                // Gunakan file path langsung - paling kompatibel untuk shared hosting
-                $client->setAuthConfig($credentialsPath);
+            $clientId = \App\Models\Setting::where('key', 'google_drive_client_id')->value('value');
+            $clientSecret = \App\Models\Setting::where('key', 'google_drive_client_secret')->value('value');
+            $refreshToken = \App\Models\Setting::where('key', 'google_drive_refresh_token')->value('value');
+
+            if ($clientId && $clientSecret && $refreshToken) {
+                $client->setClientId($clientId);
+                $client->setClientSecret($clientSecret);
+                $client->refreshToken($refreshToken);
                 $client->setScopes([\Google_Service_Drive::DRIVE]);
-                $client->setSubject(null);
             }
             
             $service = new \Google_Service_Drive($client);

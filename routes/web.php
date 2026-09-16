@@ -89,6 +89,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         );
         return response()->json(['success' => $ok, 'target' => 'user-' . auth()->id()]);
     })->name('beams.test.me');
+
+    // Google Drive OAuth
+    Route::get('/auth/google-drive/redirect', [\App\Http\Controllers\GoogleDriveAuthController::class, 'redirect']);
+    Route::get('/auth/google-drive/callback', [\App\Http\Controllers\GoogleDriveAuthController::class, 'callback']);
+    Route::post('/auth/google-drive/disconnect', [\App\Http\Controllers\GoogleDriveAuthController::class, 'disconnect']);
 });
 require __DIR__.'/settings.php';
 
