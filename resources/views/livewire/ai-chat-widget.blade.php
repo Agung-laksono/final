@@ -530,6 +530,8 @@ Gaya Penulisan yang WAJIB dipatuhi:
         }
     }"
     @open-ai-chat.window="open = true; minimized = false; setTimeout(() => scrollBottom(), 100);"
+    @export-ai-chat.window="exportChatLog()"
+    @clear-ai-chat.window="if(confirm('Hapus seluruh percakapan AI?')) $wire.clearChat()"
     style="position: fixed; inset: 0; pointer-events: none; z-index: 9999;"
 >
     <style>

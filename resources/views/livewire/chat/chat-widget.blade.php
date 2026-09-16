@@ -41,37 +41,10 @@
         style="height: 520px; max-height: calc(100vh - 100px);"
     >
 
-        {{-- ============ HEADER PANEL DENGAN TAB SWITCHER ============ --}}
-        <div class="px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 shrink-0 flex items-center justify-between">
-            
-            {{-- Tab Switcher --}}
-            <div class="flex items-center bg-white/20 p-0.5 rounded-lg shadow-inner backdrop-blur-sm w-[200px]">
-                <button 
-                    @click="chatMode = 'internal'" 
-                    :class="chatMode === 'internal' ? 'bg-white text-indigo-700 shadow-sm' : 'text-white/90 hover:bg-white/10'"
-                    class="flex-1 py-1 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5"
-                >
-                    <flux:icon.users class="w-4 h-4" /> Tim
-                </button>
-                <button 
-                    @click="chatMode = 'ai'; $dispatch('open-ai-chat')" 
-                    :class="chatMode === 'ai' ? 'bg-white text-indigo-700 shadow-sm' : 'text-white/90 hover:bg-white/10'"
-                    class="flex-1 py-1 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5"
-                >
-                    <flux:icon.sparkles class="w-4 h-4" /> AI Romlah
-                </button>
-            </div>
 
-            <div class="flex items-center gap-1">
-                {{-- Tombol Tutup Window --}}
-                <button @click="open = false; $dispatch('chat-widget-closed')" class="p-1 hover:bg-white/10 rounded-lg text-white/90 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-            </div>
-        </div>
 
         {{-- ============ BODY INTERNAL CHAT ============ --}}
-        <div x-show="chatMode === 'internal'" class="flex-1 flex flex-col min-h-0 relative">
+        <div x-show="chatMode === 'internal'" class="flex-1 flex flex-col min-h-0 relative bg-white dark:bg-zinc-900">
 
             {{-- ============ HEADER PANEL ============ --}}
             <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 shrink-0">
@@ -151,10 +124,23 @@
                             @endif
                         </div>
                     @else
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"/>
-                        </svg>
-                        <span class="text-white font-semibold text-sm">Chat Internal</span>
+                        {{-- Tab Switcher Kecil --}}
+                        <div class="flex items-center bg-white/20 p-0.5 rounded-lg shadow-inner backdrop-blur-sm w-[160px]">
+                            <button 
+                                @click="chatMode = 'internal'" 
+                                :class="chatMode === 'internal' ? 'bg-white text-indigo-700 shadow-sm' : 'text-white/90 hover:bg-white/10'"
+                                class="flex-1 py-0.5 text-[11px] font-semibold rounded-md transition-all flex items-center justify-center gap-1"
+                            >
+                                <flux:icon.users class="w-3.5 h-3.5" /> Tim
+                            </button>
+                            <button 
+                                @click="chatMode = 'ai'; $dispatch('open-ai-chat')" 
+                                :class="chatMode === 'ai' ? 'bg-white text-indigo-700 shadow-sm' : 'text-white/90 hover:bg-white/10'"
+                                class="flex-1 py-0.5 text-[11px] font-semibold rounded-md transition-all flex items-center justify-center gap-1"
+                            >
+                                <flux:icon.sparkles class="w-3.5 h-3.5" /> AI
+                            </button>
+                        </div>
                     @endif
                 </div>
 
@@ -168,6 +154,10 @@
                             </svg>
                         </button>
                     @endunless
+                    {{-- Tombol Tutup Window Pindah Kesini --}}
+                    <button @click="open = false; $dispatch('chat-widget-closed')" class="p-1 hover:bg-white/10 rounded-lg text-white/90 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
                 </div>
             </div>
 
@@ -603,7 +593,55 @@
 
         {{-- ============ BODY AI CHAT ============ --}}
         <div x-show="chatMode === 'ai'" class="flex-1 flex flex-col min-h-0 relative h-full w-full bg-white dark:bg-zinc-900" x-cloak>
-            <livewire:ai-chat-widget />
+            
+            {{-- HEADER AI: Switcher + Tombol Aksi + Tutup --}}
+            <div class="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 shrink-0">
+                {{-- Tab Switcher Kecil --}}
+                <div class="flex items-center bg-white/20 p-0.5 rounded-lg shadow-inner backdrop-blur-sm w-[160px]">
+                    <button 
+                        @click="chatMode = 'internal'" 
+                        :class="chatMode === 'internal' ? 'bg-white text-indigo-700 shadow-sm' : 'text-white/90 hover:bg-white/10'"
+                        class="flex-1 py-1 text-[11px] font-semibold rounded-md transition-all flex items-center justify-center gap-1"
+                    >
+                        <flux:icon.users class="w-3.5 h-3.5" /> Tim
+                    </button>
+                    <button 
+                        @click="chatMode = 'ai'; $dispatch('open-ai-chat')" 
+                        :class="chatMode === 'ai' ? 'bg-white text-indigo-700 shadow-sm' : 'text-white/90 hover:bg-white/10'"
+                        class="flex-1 py-1 text-[11px] font-semibold rounded-md transition-all flex items-center justify-center gap-1"
+                    >
+                        <flux:icon.sparkles class="w-3.5 h-3.5" /> AI
+                    </button>
+                </div>
+
+                {{-- Tombol Aksi Kanan --}}
+                <div class="flex items-center gap-0.5">
+                    {{-- Download percakapan --}}
+                    <button 
+                        @click="$dispatch('export-ai-chat')"
+                        title="Unduh Percakapan"
+                        class="w-7 h-7 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/15 transition-all active:scale-90"
+                    >
+                        <flux:icon.arrow-down-tray class="w-3.5 h-3.5" />
+                    </button>
+                    {{-- Hapus percakapan --}}
+                    <button 
+                        @click="$dispatch('clear-ai-chat')"
+                        title="Hapus Percakapan"
+                        class="w-7 h-7 rounded-full flex items-center justify-center text-white/80 hover:text-red-300 hover:bg-white/15 transition-all active:scale-90"
+                    >
+                        <flux:icon.trash class="w-3.5 h-3.5" />
+                    </button>
+                    {{-- Tutup widget --}}
+                    <button @click="open = false; $dispatch('chat-widget-closed')" class="w-7 h-7 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/15 transition-all">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="ai-widget-wrapper flex-1 flex flex-col min-h-0 overflow-hidden">
+                <livewire:ai-chat-widget />
+            </div>
         </div>
 
     </div>
@@ -657,7 +695,7 @@
 
     <style>
         /* Override AI chat root wrapper which has position:fixed inset:0 */
-        [x-show="chatMode === 'ai'"] > div {
+        [x-show="chatMode === 'ai'"] > .ai-widget-wrapper > div {
             position: static !important;
             width: 100% !important;
             height: 100% !important;
@@ -666,7 +704,7 @@
         }
 
         /* Styling to override AI chat popup inner styles so it fills container */
-        [x-show="chatMode === 'ai'"] > div > div[x-show="open"] {
+        [x-show="chatMode === 'ai'"] > .ai-widget-wrapper > div > div[x-show="open"] {
             position: static !important;
             inset: auto !important;
             width: 100% !important;
@@ -679,13 +717,14 @@
             transform: none !important;
             opacity: 1 !important;
             display: flex !important;
+            flex-direction: column !important;
         }
         /* Hide the AI trigger button since we use tabs */
-        [x-show="chatMode === 'ai'"] > div > button {
+        [x-show="chatMode === 'ai'"] > .ai-widget-wrapper > div > button {
             display: none !important;
         }
-        /* Hide the header inside AI chat since we already have a global header */
-        [x-show="chatMode === 'ai'"] > div > div[x-show="open"] > div:first-child {
+        /* Hide the original AI widget header since we have our own header with switcher + action buttons */
+        [x-show="chatMode === 'ai'"] > .ai-widget-wrapper > div > div[x-show="open"] > div:first-child {
             display: none !important;
         }
     </style>

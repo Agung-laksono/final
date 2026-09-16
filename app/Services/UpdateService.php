@@ -70,13 +70,15 @@ class UpdateService
         
         $response = Http::withHeaders([
             'User-Agent' => 'ERP-Update-System',
-        ])->timeout(300)->get($zipUrl);
+        ])->sink($this->tempZipPath)->timeout(300)->get($zipUrl);
 
         if (!$response->successful()) {
+            if (File::exists($this->tempZipPath)) {
+                File::delete($this->tempZipPath);
+            }
             throw new Exception("Gagal mengunduh file update dari GitHub (HTTP " . $response->status() . ").");
         }
 
-        File::put($this->tempZipPath, $response->body());
         return true;
     }
 
@@ -177,12 +179,18 @@ class UpdateService
         $items = new \FilesystemIterator($source, \FilesystemIterator::SKIP_DOTS);
 
         foreach ($items as $item) {
-            $target = $destination . '/' . $item->getBasename();
+            $basename = $item->getBasename();
+            $target = $destination . '/' . $basename;
+            
+            // Khusus untuk direktori 'public' di root aplikasi, arahkan ke public_path()
+            if ($basename === 'public' && $destination === base_path()) {
+                $target = public_path();
+            }
 
             if ($item->isDir()) {
                 $this->copyDirectoryAndReplace($item->getPathname(), $target);
             } else {
-                if (in_array($item->getBasename(), ['.env', '.env.example'])) {
+                if (in_array($basename, ['.env', '.env.example'])) {
                     continue;
                 }
                 File::copy($item->getPathname(), $target);
