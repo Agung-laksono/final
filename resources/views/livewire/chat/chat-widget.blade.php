@@ -1,6 +1,10 @@
 <div
     x-data="chatWidget"
+    x-init="startIdleTimer()"
     class="fixed z-[9999] flex flex-col items-end gap-3 bottom-5 right-4 sm:right-[88px] max-w-[calc(100vw-32px)] sm:max-w-none"
+    @mouseenter="clearIdle()"
+    @mouseleave="startIdleTimer()"
+    @touchstart.passive="clearIdle(); setTimeout(() => startIdleTimer(), 3000)"
     style="font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;"
 >
 
@@ -12,10 +16,11 @@
         @click="open = true; if($wire.activeConversationId) $wire.markAsRead()"
         x-show="!open"
         x-transition
-        class="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 active:scale-90 text-white pointer-events-auto z-40 bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
+        class="shadow-2xl flex items-center justify-center transition-all duration-500 active:scale-90 text-white pointer-events-auto z-40 bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 hover:!opacity-100 overflow-hidden"
+        x-bind:class="isIdle && !open ? 'w-8 lg:w-14 h-14 rounded-l-2xl lg:rounded-full rounded-r-none lg:rounded-r-full opacity-50 translate-x-4 sm:translate-x-[88px] lg:translate-x-0' : 'w-14 h-14 rounded-full opacity-100 translate-x-0 sm:translate-x-0'"
         title="Buka Chat"
     >
-        <flux:icon.chat-bubble-left-ellipsis class="w-6 h-6" />
+        <flux:icon.chat-bubble-left-ellipsis class="w-6 h-6 transition-all duration-500" x-bind:class="isIdle && !open ? 'scale-75 -translate-x-1 lg:scale-100 lg:translate-x-0' : 'scale-100'" />
         
         {{-- Global Unread Badge --}}
         @if($this->totalUnread > 0)
@@ -744,8 +749,27 @@
                 onlineUsers: {},
                 hasText: false,
                 attachments: @entangle('attachments'),
-                animatingSender: null,
                 animationTimeout: null,
+                isIdle: false,
+                idleTimer: null,
+                startIdleTimer() {
+                    if (this.open) return;
+                    this.idleTimer = setTimeout(() => { this.isIdle = true; }, 4000);
+                },
+                clearIdle() {
+                    this.isIdle = false;
+                    if (this.idleTimer) clearTimeout(this.idleTimer);
+                },
+                init() {
+                    this.startIdleTimer();
+                    this.$watch('open', value => {
+                        if (value) {
+                            this.clearIdle();
+                        } else {
+                            this.startIdleTimer();
+                        }
+                    });
+                },
                 
                 // Typing Indicator State
                 isLocalTyping: false,
@@ -769,6 +793,10 @@
                 triggerAnimation(event) {
                     // Jangan animate jika widget sedang terbuka, atau jika pesan dari diri sendiri
                     if (this.open || event.sender_id == this.authUserId) return;
+
+                    // Wake up from idle if a new message comes in
+                    this.clearIdle();
+                    this.startIdleTimer();
 
                     this.animatingSender = {
                         name: event.sender_name || 'U',

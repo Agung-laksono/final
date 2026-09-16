@@ -11,9 +11,31 @@
         <div x-data="{
             open: false,
             isNotifOpen: false,
-            activeMenu: 'main', // 'main', 'inventory', 'purchase', 'production', 'sales', 'finance'
+            activeMenu: 'main',
             ignoreBackdrop: false,
             isTransitioning: false,
+            isIdle: false,
+            idleTimer: null,
+            startIdleTimer() {
+                if (this.open) return;
+                this.idleTimer = setTimeout(() => {
+                    this.isIdle = true;
+                }, 4000);
+            },
+            clearIdle() {
+                this.isIdle = false;
+                if (this.idleTimer) clearTimeout(this.idleTimer);
+            },
+            init() {
+                this.startIdleTimer();
+                this.$watch('open', value => {
+                    if (value) {
+                        this.clearIdle();
+                    } else {
+                        this.startIdleTimer();
+                    }
+                });
+            },
             setActiveMenu(menu) {
                 if (this.activeMenu === menu) return;
                 this.ignoreBackdrop = true;
@@ -30,6 +52,7 @@
         }" 
         @notifs-toggled.window="isNotifOpen = $event.detail; if(isNotifOpen) open = false;"
         @ai-chat-opened.window="open = false"
+        @notification-received.window="clearIdle(); startIdleTimer()"
         class="relative z-[900]" 
         x-cloak>
             {{-- Backdrop (to close on click outside) --}}
@@ -38,7 +61,11 @@
                  class="fixed inset-0 bg-gradient-to-t from-white/90 via-white/60 to-white/20 dark:from-zinc-950/90 dark:via-zinc-950/60 dark:to-zinc-950/20 backdrop-blur-xl z-[890]"
                  @click="close()"></div>
                  
-            <div class="fixed bottom-1 lg:bottom-6 left-3 lg:left-8 z-[900] pointer-events-none print:hidden">
+            <div class="fixed z-[900] pointer-events-none print:hidden transition-all duration-500 ease-in-out"
+                 :class="isIdle && !open ? 'bottom-0 left-0' : 'bottom-1 lg:bottom-6 left-3 lg:left-8'"
+                 @mouseenter="clearIdle()"
+                 @mouseleave="startIdleTimer()"
+                 @touchstart.passive="clearIdle(); setTimeout(() => startIdleTimer(), 3000)">
                 <div class="pointer-events-auto">
                     <style>
                         .speed-dial-menu span {
@@ -582,26 +609,49 @@
                     </button>
                 </div>
                 {{-- Notification Bell (Rides to Top) --}}
-                <div class="z-10 transition-all duration-300 transform" x-bind:class="[
-                    open ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100',
+                <div class="z-10 transition-all duration-500 transform" x-bind:class="[
+                    (open || isIdle) ? 'opacity-0 scale-50 pointer-events-none translate-y-4' : 'opacity-100 scale-100',
                     isNotifOpen ? 'translate-y-[58px] -translate-x-1' : 'translate-y-0 translate-x-0'
                 ]">
                     <livewire:layout.floating-notification-bell />
                 </div>
             </div>
             {{-- Main Toggle Button (Hamburger / Close) --}}
-            <div class="flex items-center gap-4 transition-all duration-300 transform origin-left" x-bind:class="isNotifOpen ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'">
-                <button @click="open = !open; if(!open) setTimeout(() => activeMenu = null, 300); else activeMenu = null;" 
-                        class="relative w-12 h-12 lg:w-16 lg:h-16 bg-indigo-600 text-white rounded-full shadow-xl hover:shadow-indigo-500/50 flex items-center justify-center transition-all duration-300 focus:outline-none hover:scale-105 z-20">
+            <div class="flex items-center gap-4 transition-all duration-500 transform origin-left" x-bind:class="isNotifOpen ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'">
+                @php
+                    $fabIconPath = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_icon', function () {
+                        return \App\Models\Setting::where('key', 'pwa_icon')->value('value');
+                    });
+                    $fabIconUrl = $fabIconPath ? \Illuminate\Support\Facades\Storage::url($fabIconPath) : null;
+                    $fabAppName = \App\Models\Setting::where('key', 'pwa_name')->value('value') ?? 'Menu';
+                @endphp
+                <button @click="open = !open; if(!open) setTimeout(() => activeMenu = null, 300); else activeMenu = null; clearIdle(); startIdleTimer();" 
+                        class="relative bg-indigo-600 text-white shadow-xl hover:shadow-indigo-500/50 flex items-center justify-center transition-all duration-500 focus:outline-none z-20 overflow-hidden group/fab hover:opacity-100"
+                        :class="isIdle && !open ? 'w-12 h-12 lg:w-14 lg:h-14 rounded-none rounded-tr-3xl shadow-md border-0 bg-white dark:bg-zinc-900 opacity-20' : 'w-12 h-12 lg:w-16 lg:h-16 rounded-full hover:scale-105 opacity-100 grayscale-0'"
+                        title="{{ $fabAppName }}">
                     
-                    <div x-show="!open" x-transition.opacity.duration.300ms class="absolute inset-0 pointer-events-none">
+                    {{-- PWA Icon sebagai background --}}
+                    @if($fabIconUrl)
+                        <img x-show="!open" src="{{ $fabIconUrl }}" alt="{{ $fabAppName }}" class="absolute inset-0 w-full h-full object-cover pointer-events-none select-none scale-110 blur-[1px] brightness-75 transition-all duration-500" :class="isIdle ? 'rounded-tr-3xl opacity-80' : 'rounded-full opacity-100'" />
+                        {{-- Overlay agar icon hamburger tetap terbaca --}}
+                        <div x-show="!open" class="absolute inset-0 pointer-events-none transition-all duration-500" :class="isIdle ? 'bg-indigo-900/20 rounded-tr-3xl' : 'bg-indigo-900/60 rounded-full'"></div>
+                    @endif
+
+                    <div x-show="!open && !isIdle" x-transition.opacity.duration.300ms class="absolute inset-0 pointer-events-none">
                         <livewire:layout.sidebar-badge type="total_all" />
                     </div>
 
-                    <flux:icon.bars-3 class="w-5 h-5 lg:w-6 lg:h-6 absolute transition-all duration-300" 
-                                      x-bind:class="open ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100'" />
-                    <flux:icon.x-mark class="w-5 h-5 lg:w-6 lg:h-6 absolute transition-all duration-300" 
-                                      x-bind:class="open ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'" />
+                    <flux:icon.bars-3 class="absolute transition-all duration-500 drop-shadow" 
+                                      x-bind:class="[
+                                          open ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100',
+                                          isIdle ? 'text-zinc-600 dark:text-zinc-300' : 'text-white',
+                                          'w-5 h-5 lg:w-6 lg:h-6'
+                                      ]" />
+                    <flux:icon.x-mark class="absolute transition-all duration-500 drop-shadow text-white" 
+                                      x-bind:class="[
+                                          open ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50',
+                                          'w-5 h-5 lg:w-6 lg:h-6'
+                                      ]" />
                 </button>
                 {{-- Global Utility Buttons (Grouped by function) --}}
                 <div class="flex items-center gap-2 lg:gap-3 transition-all duration-300 transform origin-left" 

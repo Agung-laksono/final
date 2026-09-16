@@ -63,6 +63,7 @@ on([
     'echo-private:App.Models.User.{authId},.Illuminate\\Notifications\\Events\\BroadcastNotificationCreated' => function ($event) {
         $this->unreadCount = auth()->user()->unreadNotifications()->count();
         $this->dispatch('$refresh');
+        $this->dispatch('notification-received');
         $this->js("window.playNotificationSound && window.playNotificationSound()");
         
         $title = $event['title'] ?? 'Notifikasi Baru';
