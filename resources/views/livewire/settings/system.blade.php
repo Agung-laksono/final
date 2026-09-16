@@ -305,10 +305,13 @@ new class extends Component {
     }
 
     public function createBackup() {
+        $appNameStr = \App\Models\Setting::where('key', 'pwa_name')->value('value') ?? 'Aplikasi';
+        $safeAppName = \Illuminate\Support\Str::slug($appNameStr);
+        
         if (!class_exists('ZipArchive')) {
             // Fallback to SQLite only if ZipArchive is missing
             $dbPath = database_path('database.sqlite');
-            $backupName = 'backups/backup-' . now()->format('Y-m-d_H-i-s') . '.sqlite';
+            $backupName = 'backups/' . $safeAppName . '-backup-' . now()->format('Y-m-d_H-i-s') . '.sqlite';
             
             if (file_exists($dbPath)) {
                 Storage::disk('local')->put($backupName, file_get_contents($dbPath));
@@ -320,7 +323,7 @@ new class extends Component {
             return;
         }
 
-        $backupName = 'backups/backup-' . now()->format('Y-m-d_H-i-s') . '.zip';
+        $backupName = 'backups/' . $safeAppName . '-backup-' . now()->format('Y-m-d_H-i-s') . '.zip';
         $backupPath = Storage::disk('local')->path($backupName);
         
         $zip = new \ZipArchive();
@@ -706,6 +709,13 @@ new class extends Component {
                     </tbody>
                 </table>
             </div>
+        </section>
+
+        <flux:separator />
+
+        {{-- SYSTEM CAPACITY SECTION --}}
+        <section>
+            <livewire:system-capacity-widget />
         </section>
 
         <flux:separator />

@@ -1,8 +1,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
+@php
+    $appName = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_name', function () {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return config('app.name', 'Laravel');
+        return \App\Models\Setting::where('key', 'pwa_name')->value('value') ?? config('app.name', 'Laravel');
+    });
+@endphp
+
 <title>
-    {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
+    {{ filled($title ?? null) ? $title.' - '.$appName : $appName }}
 </title>
 
 @php
