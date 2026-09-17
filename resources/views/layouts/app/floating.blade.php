@@ -618,19 +618,27 @@
                     $fabAppName = \App\Models\Setting::where('key', 'pwa_name')->value('value') ?? 'Menu';
                 @endphp
                 <button @click="open = !open; if(!open) setTimeout(() => activeMenu = null, 300); else activeMenu = null; clearIdle(); startIdleTimer();" 
-                        class="relative bg-indigo-600 text-white shadow-xl hover:shadow-indigo-500/50 flex items-center justify-center transition-all duration-500 focus:outline-none z-20 overflow-hidden group/fab hover:opacity-100"
+                        class="relative bg-indigo-600 text-white shadow-xl hover:shadow-indigo-500/50 flex items-center justify-center transition-all duration-500 focus:outline-none z-20 group/fab hover:opacity-100"
                         :class="isIdle && !open ? 'w-12 h-12 lg:w-14 lg:h-14 rounded-none rounded-tr-3xl shadow-md border-0 bg-white dark:bg-zinc-900 opacity-20' : 'w-12 h-12 lg:w-16 lg:h-16 rounded-full hover:scale-105 opacity-100 grayscale-0'"
                         title="{{ $fabAppName }}">
                     
                     {{-- PWA Icon sebagai background --}}
                     @if($fabIconUrl)
-                        <img x-show="!open" src="{{ $fabIconUrl }}" alt="{{ $fabAppName }}" class="absolute inset-0 w-full h-full object-cover pointer-events-none select-none scale-110 blur-[1px] brightness-75 transition-all duration-500" :class="isIdle ? 'rounded-tr-3xl opacity-80' : 'rounded-full opacity-100'" />
-                        {{-- Overlay agar icon hamburger tetap terbaca --}}
-                        <div x-show="!open" class="absolute inset-0 pointer-events-none transition-all duration-500" :class="isIdle ? 'bg-indigo-900/20 rounded-tr-3xl' : 'bg-indigo-900/60 rounded-full'"></div>
+                        <div class="absolute inset-0 pointer-events-none overflow-hidden transition-all duration-500" :class="isIdle && !open ? 'rounded-none rounded-tr-3xl' : 'rounded-full'">
+                            <img x-show="!open" src="{{ $fabIconUrl }}" alt="{{ $fabAppName }}" class="absolute inset-0 w-full h-full object-cover select-none scale-110 blur-[1px] brightness-75 transition-all duration-500" :class="isIdle ? 'opacity-80' : 'opacity-100'" />
+                            {{-- Overlay agar icon hamburger tetap terbaca --}}
+                            <div x-show="!open" class="absolute inset-0 transition-all duration-500" :class="isIdle ? 'bg-indigo-900/20' : 'bg-indigo-900/60'"></div>
+                        </div>
                     @endif
 
+                    {{-- Badge saat normal (Kiri atas) --}}
                     <div x-show="!open && !isIdle" x-transition.opacity.duration.300ms class="absolute inset-0 pointer-events-none">
-                        <livewire:layout.sidebar-badge type="total_all" />
+                        <livewire:layout.sidebar-badge type="total_all" positionClass="-left-2 -top-1.5" />
+                    </div>
+
+                    {{-- Badge saat idle (Kanan atas, agar tidak terpotong tepi layar) --}}
+                    <div x-show="!open && isIdle" x-transition.opacity.duration.300ms class="absolute inset-0 pointer-events-none">
+                        <livewire:layout.sidebar-badge type="total_all" positionClass="-right-1 -top-1" />
                     </div>
 
                     <flux:icon.bars-3 class="absolute transition-all duration-500 drop-shadow" 
