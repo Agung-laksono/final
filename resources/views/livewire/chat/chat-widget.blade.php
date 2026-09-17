@@ -16,15 +16,16 @@
         @click="open = true; if($wire.activeConversationId) $wire.markAsRead()"
         x-show="!open"
         x-transition
-        class="shadow-2xl flex items-center justify-center transition-all duration-500 active:scale-90 text-white pointer-events-auto z-40 bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 hover:!opacity-100 overflow-hidden"
-        x-bind:class="isIdle && !open ? 'w-8 lg:w-14 h-14 rounded-l-2xl lg:rounded-full rounded-r-none lg:rounded-r-full opacity-50 translate-x-4 sm:translate-x-[88px] lg:translate-x-0' : 'w-14 h-14 rounded-full opacity-100 translate-x-0 sm:translate-x-0'"
+        class="relative shadow-2xl flex items-center justify-center transition-all duration-500 active:scale-90 text-white pointer-events-auto z-40 bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 hover:!opacity-100"
+        x-bind:class="isIdle && !open ? 'w-8 xl:w-14 h-14 rounded-l-2xl xl:rounded-full rounded-r-none xl:rounded-r-full opacity-50 translate-x-4 sm:translate-x-[88px] xl:translate-x-0' : 'w-14 h-14 rounded-full opacity-100 translate-x-0 sm:translate-x-0'"
         title="Buka Chat"
     >
-        <flux:icon.chat-bubble-left-ellipsis class="w-6 h-6 transition-all duration-500" x-bind:class="isIdle && !open ? 'scale-75 -translate-x-1 lg:scale-100 lg:translate-x-0' : 'scale-100'" />
+        <flux:icon.chat-bubble-left-ellipsis class="w-6 h-6 transition-all duration-500" x-bind:class="isIdle && !open ? 'scale-75 -translate-x-1 xl:scale-100 xl:translate-x-0' : 'scale-100'" />
         
         {{-- Global Unread Badge --}}
         @if($this->totalUnread > 0)
-            <span class="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center px-1 ring-2 ring-white dark:ring-zinc-900 shadow-md">
+            <span class="absolute min-w-[20px] h-5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center px-1 ring-2 ring-white dark:ring-zinc-900 shadow-md transition-all duration-500"
+                  x-bind:class="isIdle && !open ? 'top-0 right-1 sm:right-1 xl:-top-1 xl:-right-1 scale-90 xl:scale-100' : '-top-1 -right-1 scale-100'">
                 {{ $this->totalUnread > 99 ? '99+' : $this->totalUnread }}
             </span>
         @endif
