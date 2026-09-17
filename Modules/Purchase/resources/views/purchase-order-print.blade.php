@@ -145,7 +145,7 @@
         <div class="flex items-baseline gap-2 mb-1.5">
             <div class="font-semibold text-zinc-500 text-sm">KEPADA :</div>
             <div class="font-bold text-lg uppercase text-black">
-                {{ $purchaseOrder->vendor->name ?? $purchaseOrder->vendor_name ?? 'Pelanggan Umum' }}
+                {{ $purchaseOrder->vendor?->name ?? $purchaseOrder->vendor_name ?? 'Pelanggan Umum' }}
             </div>
             @if($purchaseOrder->vendor && $purchaseOrder->vendor->phone) 
                 <div class="font-medium text-sm normal-case text-zinc-600">({{ $purchaseOrder->vendor->phone }})</div> 
@@ -272,7 +272,7 @@
     <div class="mt-auto flex justify-between text-center pb-4 pt-16">
         <div class="w-1/3">
             <div class="text-zinc-600 font-medium mb-24">Menyetujui (Pihak Vendor),</div>
-            <div class="font-bold text-black border-b border-black pb-1 px-4 inline-block min-w-[200px]">{{ $purchaseOrder->vendor->name ?? $purchaseOrder->vendor_name ?? '...................................' }}</div>
+            <div class="font-bold text-black border-b border-black pb-1 px-4 inline-block min-w-[200px]">{{ $purchaseOrder->vendor?->name ?? $purchaseOrder->vendor_name ?? '...................................' }}</div>
         </div>
         <div class="w-1/3">
             <div class="text-zinc-600 font-medium mb-24">Hormat Kami (Pemesan),</div>

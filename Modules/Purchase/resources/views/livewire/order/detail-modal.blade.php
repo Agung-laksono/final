@@ -25,7 +25,24 @@ $voidOrder = function (\App\Services\VoidService $voidService) {
     \Flux::toast('Pesanan Pembelian berhasil dibatalkan (Void).', variant: 'success');
 };
 
+$archiveDraft = function () {
+    abort_unless(auth()->user()->can('purchase.order.update'), 403);
+    if ($this->order->status === 'draft') {
+        $this->order->status = 'archived';
+        $this->order->save();
+        $this->show = false;
+        $this->dispatch('status-updated');
+        \App\Events\KanbanUpdated::safeDispatch('purchase_order');
+        \Flux::toast('Draft berhasil diarsipkan.', variant: 'success');
+    }
+};
+
+
 $getStatusBadge = function ($status) {
+    if ($status === 'archived' && str_starts_with($this->order->po_number ?? '', 'DRFT-')) {
+        return "<span class=\"inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 text-xs font-bold text-zinc-700 ring-1 ring-inset ring-zinc-500/20 shadow-sm border border-zinc-300\">Bekas Draft</span>";
+    }
+
     $map = [
         'draft' => ['label' => 'Draft', 'color' => 'zinc'],
         'pending_approval' => ['label' => 'Menunggu ACC', 'color' => 'amber'],
@@ -289,7 +306,13 @@ $getStatusBadge = function ($status) {
 
             {{-- Footer actions --}}
             <div class="flex justify-end gap-2 pt-1">
-                @if(in_array($order->status, ['draft', 'pending_approval', 'processing']))
+                @if($order->status === 'draft')
+                    @can('purchase.order.update')
+                        <flux:button size="sm" variant="ghost" icon="archive-box" class="text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800" wire:click="archiveDraft" wire:confirm="Anda yakin ingin mengarsipkan draft ini?">Arsipkan Draft</flux:button>
+                        <flux:button size="sm" variant="primary" icon="arrows-right-left" href="{{ route('purchase.orders.edit', ['id' => $order->id]) }}" wire:navigate>Konversi ke PO</flux:button>
+                    @endcan
+                @endif
+                @if(in_array($order->status, ['pending_approval', 'processing']))
                     @can('purchase.order.update')
                         <flux:button size="sm" variant="danger" icon="x-mark" wire:click="$set('showVoidModal', true)">Batalkan (Void)</flux:button>
                     @endcan

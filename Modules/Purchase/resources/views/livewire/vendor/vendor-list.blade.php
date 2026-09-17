@@ -11,7 +11,7 @@ $loadMore = function () {
 
 $vendors = computed(function () {
     $query = Vendor::with(['purchaseOrders' => function($q) {
-        $q->whereNotIn('status', ['rejected', 'cancelled']);
+        $q->whereNotIn('status', ['rejected', 'cancelled', 'draft', 'archived', 'void']);
     }, 'purchaseOrders.receipts'])->latest();
     
     if ($this->search) {
@@ -31,11 +31,12 @@ $vendors = computed(function () {
 $analytics = computed(function () {
     $totalVendors = Vendor::count();
     
-    // Total Belanja (mengabaikan PO yang dibatalkan/ditolak)
-    $totalSpending = \Modules\Purchase\Models\PurchaseOrder::whereNotIn('status', ['rejected', 'cancelled'])->sum('total_amount');
+    // Total Belanja (mengabaikan PO yang dibatalkan/ditolak/draft/void/archived)
+    $totalSpending = \Modules\Purchase\Models\PurchaseOrder::whereNotIn('status', ['rejected', 'cancelled', 'draft', 'archived', 'void'])->sum('total_amount');
     
     // Vendor Teratas berdasarkan jumlah PO
     $topVendorResult = \Modules\Purchase\Models\PurchaseOrder::select('vendor_id', \Illuminate\Support\Facades\DB::raw('count(*) as total_orders'))
+        ->whereNotIn('status', ['rejected', 'cancelled', 'draft', 'archived', 'void'])
         ->groupBy('vendor_id')
         ->orderByDesc('total_orders')
         ->first();

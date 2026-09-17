@@ -46,6 +46,7 @@ state([
 ]);
 
 mount(function ($id = null) {
+    \Illuminate\Support\Facades\Log::info("PurchaseForm mounted with ID: " . ($id ?? 'null') . " URL: " . request()->url());
     if ($id) {
         $po = PurchaseOrder::with(['items.item', 'vendor'])->findOrFail($id);
         $this->order_id = $po->id;
@@ -220,7 +221,7 @@ $viewPoDetail = function ($poId) {
     }
 };
 
-$saveCart = function ($cartData) {
+$saveCart = function ($cartData, $isDraft = false) {
     $this->items = $cartData['items'] ?? [];
     $this->ongkir = $cartData['ongkir'] ?? 0;
     $this->diskon_global = $cartData['diskon_global'] ?? 0;
@@ -228,12 +229,15 @@ $saveCart = function ($cartData) {
     $this->pajak_nominal = $cartData['pajak_nominal'] ?? 0;
 
     if (!$this->order_id) {
+        $prefix = $isDraft ? 'DRFT-' : 'PEM-';
+        $this->po_number = \App\Services\CodeGenerator::generateNextCode(PurchaseOrder::class, 'po_number', $prefix);
+    } elseif ($this->order_id && str_starts_with($this->po_number, 'DRFT-') && !$isDraft) {
         $this->po_number = \App\Services\CodeGenerator::generateNextCode(PurchaseOrder::class, 'po_number', 'PEM-');
     }
 
     $this->validate([
         'po_number' => 'required|string|max:100|unique:purchase_orders,po_number,' . $this->order_id,
-        'vendor_id' => 'required|exists:vendors,id',
+        'vendor_id' => $isDraft ? 'nullable|exists:vendors,id' : 'required|exists:vendors,id',
         'order_date' => 'required|date',
         'expected_delivery_date' => 'nullable|date',
         'items' => 'required|array|min:1',
@@ -287,13 +291,15 @@ $saveCart = function ($cartData) {
 
     // Set initial status for new PO based on Workflow settings
     $finalStatus = $this->status;
-    if (!$this->order_id) {
+    if ($isDraft) {
+        $finalStatus = 'draft';
+    } elseif (!$this->order_id || $this->status === 'draft') {
         $finalStatus = requires_purchase_approval() ? 'pending_approval' : 'processing';
     }
 
     $data = [
         'po_number' => $this->po_number,
-        'vendor_id' => $this->vendor_id,
+        'vendor_id' => empty($this->vendor_id) ? null : $this->vendor_id,
         'order_date' => $this->order_date,
         'expected_delivery_date' => $this->expected_delivery_date,
         'status' => $finalStatus,
@@ -1133,9 +1139,12 @@ $saveCart = function ($cartData) {
                 
                 <div class="bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
                     <div class="flex gap-2 w-full">
-                        <flux:button variant="ghost" class="w-1/3" href="{{ route('purchase.orders.kanban') }}" wire:navigate wire:loading.attr="disabled"> Batal </flux:button>
-                        <flux:button variant="primary" class="w-2/3 !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600" @click="submitCart()" x-bind:disabled="isSubmitting || grand_total <= 0 || !vendor || items.length === 0">
-                            <span x-show="!isSubmitting" class="flex items-center gap-2"><flux:icon.check class="w-4 h-4" /> Simpan Purchase Order</span>
+                        <flux:button variant="ghost" class="w-1/4" href="{{ route('purchase.orders.kanban') }}" wire:navigate wire:loading.attr="disabled"> Batal </flux:button>
+                        <flux:button variant="subtle" class="w-1/4" @click="submitCart(true)" x-bind:disabled="isSubmitting || items.length === 0">
+                            Simpan Draft
+                        </flux:button>
+                        <flux:button variant="primary" class="w-2/4 !bg-emerald-600 hover:!bg-emerald-700 !border-emerald-600" @click="submitCart(false)" x-bind:disabled="isSubmitting || grand_total <= 0 || !vendor || items.length === 0">
+                            <span x-show="!isSubmitting" class="flex items-center gap-2"><flux:icon.check class="w-4 h-4" /> Ajukan PO</span>
                             <span x-show="isSubmitting" class="flex items-center gap-2">
                                 <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                 Menyimpan...
@@ -1332,7 +1341,7 @@ $saveCart = function ($cartData) {
 
             isSubmitting: false,
 
-            async submitCart() {
+            async submitCart(isDraft = false) {
                 if (this.isSubmitting) return;
                 this.isSubmitting = true;
                 
@@ -1346,7 +1355,7 @@ $saveCart = function ($cartData) {
                     pajak_persen: this.pajak_persen,
                     pajak_nominal: this.pajak_nominal,
                     grand_total: this.grand_total
-                });
+                }, isDraft);
 
                 if (!success) {
                     this.isSubmitting = false;
@@ -1403,6 +1412,15 @@ $saveCart = function ($cartData) {
                 }
             });
         };
+
+        if (!window.hasRegisteredPurchaseCart) {
+            window.hasRegisteredPurchaseCart = true;
+            if (window.Alpine) {
+                initPurchaseCart();
+            } else {
+                document.addEventListener('alpine:init', initPurchaseCart);
+            }
+        }
 
         if (window.Livewire) {
             setupPurchaseListeners();

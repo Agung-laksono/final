@@ -236,7 +236,7 @@ on(['echo:kanban,KanbanUpdated' => '$refresh']);
                                 $poItem = $queue->fulfillments->first()->purchaseOrderItem ?? null;
                                 $po = $poItem->purchaseOrder ?? null;
                                 if($po) {
-                                    $vendorName = $po->vendor->name ?? null;
+                                    $vendorName = $po->vendor?->name ?? null;
                                     $poNumber = $po->po_number ?? null;
                                 }
                             }
@@ -427,7 +427,7 @@ on(['echo:kanban,KanbanUpdated' => '$refresh']);
                                             
                                             @if(in_array($queue->status, ['ordered', 'completed', 'archived']) && $queue->fulfillments->count() > 0)
                                                 @php
-                                                    $vendorName = $queue->fulfillments->first()->purchaseOrderItem->purchaseOrder->vendor->name ?? null;
+                                                    $vendorName = $queue->fulfillments->first()->purchaseOrderItem->purchaseOrder->vendor?->name ?? null;
                                                 @endphp
                                                 @if($vendorName)
                                                     <div class="flex items-center gap-1 text-[11px] text-zinc-500">

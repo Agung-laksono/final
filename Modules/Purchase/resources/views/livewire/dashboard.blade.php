@@ -11,8 +11,8 @@ title('Dashboard Pembelian');
 $kpis = computed(function () {
     $now = Carbon::now();
     
-    // Total PO bulan ini (excluding cancelled/rejected)
-    $totalPO = PurchaseOrder::whereNotIn('status', ['rejected', 'cancelled'])
+    // Total PO bulan ini (excluding draft/void/archived/cancelled/rejected)
+    $totalPO = PurchaseOrder::whereNotIn('status', ['rejected', 'cancelled', 'draft', 'archived', 'void'])
         ->whereMonth('order_date', $now->month)
         ->whereYear('order_date', $now->year)
         ->count();
@@ -156,9 +156,9 @@ on(['echo:purchase,OrderUpdated' => function () {}, 'echo:purchase,QueueUpdated'
                                         {{ \Carbon\Carbon::parse($order->order_date)->translatedFormat('d M Y') }}
                                     </td>
                                     <td class="px-5 py-3 text-zinc-900 dark:text-white">
-                                        <div class="flex items-center gap-2">
-                                            <flux:avatar src="{{ $order->vendor->image ? Storage::url($order->vendor->image) : '' }}" fallback="{{ substr($order->vendor->name, 0, 2) }}" size="xs" />
-                                            {{ $order->vendor->name }}
+                                        <div class="flex items-center gap-3">
+                                            <flux:avatar src="{{ $order->vendor?->image ? Storage::url($order->vendor->image) : '' }}" fallback="{{ substr($order->vendor?->name ?? '?', 0, 2) }}" size="xs" />
+                                            {{ $order->vendor?->name ?? '-' }}
                                         </div>
                                     </td>
                                     <td class="px-5 py-3 font-semibold text-zinc-900 dark:text-white">

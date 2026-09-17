@@ -167,6 +167,8 @@ mount(function ($id = null) {
                 'unit_price' => $item->unit_price,
                 'subtotal' => $item->subtotal,
                 'note' => $item->notes ?? '',
+                'custom_attributes' => $item->custom_attributes ?? [],
+                'custom_attachments' => $item->custom_attachments ?? [],
                 'has_history' => $hasHistory,
             ];
         })->toArray();

@@ -94,7 +94,7 @@ class Item extends Model
             
         $poQty = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $this->id)
             ->whereHas('purchaseOrder', function($q) {
-                $q->whereNotIn('status', ['draft', 'completed', 'cancelled']);
+                $q->whereNotIn('status', ['draft', 'archived', 'void', 'completed', 'cancelled']);
             })
             ->selectRaw('SUM(quantity - received_quantity) as remaining')
             ->value('remaining') ?? 0;
@@ -137,7 +137,7 @@ class Item extends Model
 
         $purchaseOrder = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $this->id)
             ->whereHas('purchaseOrder', function($q) {
-                $q->whereNotIn('status', ['draft', 'completed', 'cancelled']);
+                $q->whereNotIn('status', ['draft', 'archived', 'void', 'completed', 'cancelled']);
             })
             ->selectRaw('SUM(quantity - received_quantity) as remaining')
             ->value('remaining') ?? 0;

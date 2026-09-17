@@ -64,7 +64,7 @@ new class extends Component {
     {
         // Jangan eager load 'items' dulu untuk seluruh data, agar hemat memori
         $query = PurchaseOrder::with(['vendor', 'payments'])
-            ->whereNotIn('status', ['draft']); // Hanya yang sudah rilis
+            ->whereNotIn('status', ['draft', 'archived']); // Hanya yang sudah rilis
             
         if ($this->search) {
             $query->where('po_number', 'like', '%' . $this->search . '%')

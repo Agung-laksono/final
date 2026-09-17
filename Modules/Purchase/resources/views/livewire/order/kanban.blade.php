@@ -10,6 +10,8 @@ title('Kanban Purchase Order (PO)');
 // Definisi Kolom Kanban untuk PO
 state([
     'columns' => [
+        'draft' => ['title' => 'Draft / Konsep', 'color' => 'zinc'],
+        'pending_approval' => ['title' => 'Menunggu ACC Finance', 'color' => 'orange'],
         'processing' => ['title' => 'Diproses Vendor', 'color' => 'blue'],
         'partially_received' => ['title' => 'Diterima Sebagian', 'color' => 'indigo'],
         'completed' => ['title' => 'Selesai', 'color' => 'emerald'],
@@ -135,6 +137,16 @@ $updateStatus = function ($orderId, $newStatus) {
     
     $po = PurchaseOrder::find($orderId);
     if ($po) {
+        if ($po->status === 'draft' && $newStatus !== 'draft') {
+            if (empty($po->vendor_id)) {
+                \Flux::toast('PO tidak bisa diajukan karena Vendor belum dipilih. Edit PO untuk mengisi vendor.', variant: 'danger');
+                $this->dispatch('status-updated'); // Re-render to revert drag
+                return;
+            }
+            if (str_starts_with($po->po_number, 'DRFT-')) {
+                $po->po_number = \App\Services\CodeGenerator::generateNextCode(PurchaseOrder::class, 'po_number', 'PEM-');
+            }
+        }
         $po->status = $newStatus;
         $po->save();
         $this->dispatch('status-updated');
@@ -282,6 +294,11 @@ on([
                                         @if($isCustom)
                                             <span class="text-[8px] font-black text-amber-600 bg-amber-100 border border-amber-200 px-1 py-px rounded shadow-sm flex items-center gap-0.5 w-max">
                                                 <flux:icon.sparkles class="w-2 h-2" /> CUSTOM
+                                            </span>
+                                        @endif
+                                        @if($po->status === 'archived' && str_starts_with($po->po_number, 'DRFT-'))
+                                            <span class="text-[8px] font-black text-zinc-600 dark:text-zinc-300 bg-zinc-200 dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 px-1 py-px rounded shadow-sm w-max">
+                                                Bekas Draft
                                             </span>
                                         @endif
                                     </div>
