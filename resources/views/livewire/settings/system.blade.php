@@ -658,9 +658,19 @@ new class extends Component {
     heading="Sistem & Zona Bahaya"
     subheading="Kelola cadangan database (Backup) dan pembersihan data transaksi untuk keperluan reset pabrik.">
 
-    <div class="space-y-10">
+        <div x-data="{ tab: 'general' }" class="space-y-6">
+        <!-- Tab Navigation -->
+        <div class="flex border-b border-zinc-200 dark:border-zinc-700 overflow-x-auto hide-scrollbar">
+            <button @click="tab = 'general'" :class="tab === 'general' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'" class="whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors">Umum</button>
+            <button @click="tab = 'backup'" :class="tab === 'backup' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'" class="whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors">Backup & Cloud</button>
+            <button @click="tab = 'update'" :class="tab === 'update' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'" class="whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors">Pembaruan Sistem</button>
+            <button @click="tab = 'danger'" :class="tab === 'danger' ? 'border-red-500 text-red-600' : 'border-transparent text-zinc-500 hover:text-zinc-700'" class="whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors">Zona Bahaya</button>
+        </div>
+        
+        <div class="space-y-10 relative">
         
         {{-- BACKUP SECTION --}}
+        <div x-show="tab === 'backup'" x-transition.opacity.duration.300ms style="display: none;">
         <section>
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                 <div>
@@ -742,17 +752,17 @@ new class extends Component {
                 </table>
             </div>
         </section>
-
-        <flux:separator />
+        </div>
 
         {{-- SYSTEM CAPACITY SECTION --}}
+        <div x-show="tab === 'general'" x-transition.opacity.duration.300ms>
         <section>
             <livewire:system-capacity-widget />
         </section>
+        </div>
 
-        <flux:separator />
-        
         {{-- DOCUMENT FORMAT SECTION --}}
+        <div x-show="tab === 'general'" x-transition.opacity.duration.300ms>
         <section>
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                 <div>
@@ -768,10 +778,10 @@ new class extends Component {
                 </div>
             </div>
         </section>
-
-        <flux:separator />
+        </div>
 
         {{-- SYSTEM UPDATE SECTION --}}
+        <div x-show="tab === 'update'" x-transition.opacity.duration.300ms style="display: none;">
         <section>
             <div class="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-900/50 rounded-xl p-6">
                 <div class="flex flex-col md:flex-row gap-6">
@@ -934,10 +944,10 @@ new class extends Component {
                 </div>
             </div>
         </section>
-
-        <flux:separator />
+        </div>
 
         {{-- AUTO BACKUP SETTINGS SECTION --}}
+        <div x-show="tab === 'backup'" x-transition.opacity.duration.300ms style="display: none;">
         <section>
             <form wire:submit="saveAutoBackupSettings" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-6">
                 <div class="flex items-center justify-between mb-6">
@@ -1005,10 +1015,10 @@ new class extends Component {
                 @endif
             </form>
         </section>
-
-        <flux:separator />
+        </div>
 
         {{-- GOOGLE DRIVE SECTION --}}
+        <div x-show="tab === 'backup'" x-transition.opacity.duration.300ms style="display: none;">
         <section>
             <form wire:submit="saveAutoBackupSettings" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-6">
                 <div class="flex items-center justify-between mb-6">
@@ -1087,10 +1097,10 @@ new class extends Component {
                 </div>
             </form>
         </section>
-
-        <flux:separator />
+        </div>
 
         {{-- DANGER ZONE SECTION --}}
+        <div x-show="tab === 'danger'" x-transition.opacity.duration.300ms style="display: none;">
         <section class="border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10 rounded-xl p-6">
             <div class="flex gap-4 items-start mb-6">
                 <div class="bg-red-100 dark:bg-red-900/30 p-2 rounded-full shrink-0">
@@ -1241,4 +1251,8 @@ new class extends Component {
         </section>
 
     </div>
+        </div>
+
+            </div>
+</div>
 </x-pages::settings.layout>

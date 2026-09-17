@@ -753,17 +753,7 @@ new class extends Component {
             </div>
         </div>
 
-        <flux:separator />
 
-        <!-- Bagian Operasional -->
-        <div class="space-y-4">
-            <flux:heading size="lg">Operasional Gudang</flux:heading>
-            <flux:subheading>
-                Atur kewenangan dan alur kerja untuk tim gudang dan pemenuhan pesanan.
-            </flux:subheading>
-
-            <flux:switch wire:model="gudangHandlesShipping" label="Gudang Menangani Ekspedisi" description="Jika diaktifkan, tim Gudang bisa menginput resi dan menyerahkan pesanan ke kurir. Jika dinonaktifkan, urusan ekspedisi akan ditangani sepenuhnya oleh tim Sales/Admin." />
-        </div>
 
         <div class="flex items-center gap-4 pt-4">
             <flux:button icon="check" variant="primary" type="submit"> Simpan Pengaturan </flux:button>
