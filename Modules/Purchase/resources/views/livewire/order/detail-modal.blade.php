@@ -63,96 +63,90 @@ $getStatusBadge = function ($status) {
         @if($order)
             {{-- Header: PO Number + Status + Date --}}
             <div class="pb-2 border-b border-zinc-200 dark:border-zinc-700 pr-6 relative">
+                {{-- Baris 1: Nomor PO + Status + Creator --}}
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-mono text-base font-black text-zinc-800 dark:text-zinc-100">{{ $order->po_number }}</span>
                     {!! $this->getStatusBadge($order->status) !!}
                     @if($order->pajak)
                         <span class="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">PPN</span>
                     @endif
-                    
                     <div class="ml-auto flex items-center gap-1.5 text-[11px] text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700" title="Petugas Checkout">
                         <flux:icon.user class="w-3 h-3" />
                         <span class="font-medium">{{ explode(' ', $order->creator?->name ?? 'Sistem')[0] }}</span>
                     </div>
                 </div>
-                <div class="flex items-center justify-between mt-1">
-                    <div class="flex items-center gap-4 text-[11px] text-zinc-400 flex-wrap">
-                        <span class="flex items-center gap-1">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                            Order: {{ \Carbon\Carbon::parse($order->order_date)->translatedFormat('d F Y') }}
-                        </span>
-                        @if($order->expected_delivery_date)
-                            @php
-                                $deadline = \Carbon\Carbon::parse($order->expected_delivery_date);
-                                $now = \Carbon\Carbon::now();
-                                $isCompleted = in_array($order->status, ['completed', 'cancelled']);
-                                if ($isCompleted) {
-                                    $dlColor = 'text-emerald-600'; $dlIcon = '✅';
-                                } elseif ($deadline->isPast()) {
-                                    $dlColor = 'text-red-600 font-semibold'; $dlIcon = '🔴';
-                                } elseif ($deadline->diffInDays($now) <= 3) {
-                                    $dlColor = 'text-amber-600 font-semibold'; $dlIcon = '⚠️';
-                                } else {
-                                    $dlColor = 'text-zinc-500'; $dlIcon = '📅';
-                                }
-                            @endphp
-                            <span class="flex items-center gap-1 {{ $dlColor }}">
-                                {{ $dlIcon }} Deadline: {{ $deadline->translatedFormat('d F Y') }}
-                                @if(!$isCompleted && $deadline->isPast())
-                                    <span class="text-[10px]">({{ $deadline->locale('id')->diffForHumans() }})</span>
-                                @elseif(!$isCompleted && $deadline->isFuture())
-                                    <span class="text-[10px] text-zinc-400">({{ $deadline->locale('id')->diffForHumans() }})</span>
-                                @endif
-                            </span>
-                        @else
-                            <span class="flex items-center gap-1 text-zinc-400 italic">
-                                📅 Deadline: Tidak ditentukan
-                            </span>
-                        @endif
-                    </div>
-                    
-                    {{-- Tombol Print PO --}}
-                    @if(!in_array($order->status, ['pending_approval', 'rejected']))
-                        <div x-data="{
-                            printing: false,
-                            printPO(url, filename) {
-                                if (this.printing) return;
-                                
-                                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                                
-                                if (isMobile) {
-                                    window.open(url, '_blank');
-                                    return;
-                                }
-                                
-                                this.printing = true;
-                                
-                                const originalTitle = document.title;
-                                document.title = filename;
 
-                                const iframe = document.createElement('iframe');
-                                iframe.style.display = 'none';
-                                iframe.src = url;
-                                document.body.appendChild(iframe);
-                                iframe.onload = () => {
-                                    iframe.contentWindow.focus();
-                                    iframe.contentWindow.print();
-                                    this.printing = false;
-                                    
-                                    setTimeout(() => {
-                                        document.title = originalTitle;
-                                        document.body.removeChild(iframe);
-                                    }, 5000);
-                                };
+                {{-- Baris 2: Tanggal & Deadline --}}
+                <div class="flex items-center gap-3 mt-1 text-[11px] text-zinc-400 flex-wrap">
+                    <span class="flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        Order: {{ \Carbon\Carbon::parse($order->order_date)->translatedFormat('d F Y') }}
+                    </span>
+                    @if($order->expected_delivery_date)
+                        @php
+                            $deadline = \Carbon\Carbon::parse($order->expected_delivery_date);
+                            $now = \Carbon\Carbon::now();
+                            $isCompleted = in_array($order->status, ['completed', 'cancelled']);
+                            if ($isCompleted) {
+                                $dlColor = 'text-emerald-600'; $dlIcon = '✅';
+                            } elseif ($deadline->isPast()) {
+                                $dlColor = 'text-red-600 font-semibold'; $dlIcon = '🔴';
+                            } elseif ($deadline->diffInDays($now) <= 3) {
+                                $dlColor = 'text-amber-600 font-semibold'; $dlIcon = '⚠️';
+                            } else {
+                                $dlColor = 'text-zinc-500'; $dlIcon = '📅';
                             }
-                        }">
-                            <flux:button size="sm" variant="subtle" class="!px-2 !py-1 h-auto text-[10px]" icon="printer" x-on:click="printPO('{{ route('purchase.orders.print', $order->id) }}', '{{ $order->po_number }} {{ addslashes($order->vendor?->name ?? '') }}')" x-bind:disabled="printing">
-                                <span x-show="!printing">Cetak PO</span>
-                                <span x-show="printing" style="display: none;">Mencetak...</span>
-                            </flux:button>
-                        </div>
+                        @endphp
+                        <span class="flex items-center gap-1 {{ $dlColor }}">
+                            {{ $dlIcon }} Deadline: {{ $deadline->translatedFormat('d F Y') }}
+                            @if(!$isCompleted && $deadline->isPast())
+                                <span class="text-[10px]">({{ $deadline->locale('id')->diffForHumans() }})</span>
+                            @elseif(!$isCompleted && $deadline->isFuture())
+                                <span class="text-[10px] text-zinc-400">({{ $deadline->locale('id')->diffForHumans() }})</span>
+                            @endif
+                        </span>
+                    @else
+                        <span class="flex items-center gap-1 text-zinc-400 italic">
+                            📅 Deadline: Tidak ditentukan
+                        </span>
                     @endif
                 </div>
+
+                {{-- Baris 3: Tombol Print PO --}}
+                @if(!in_array($order->status, ['pending_approval', 'rejected']))
+                    <div x-data="{
+                        printing: false,
+                        printPO(url, filename) {
+                            if (this.printing) return;
+                            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                            if (isMobile) {
+                                window.open(url, '_blank');
+                                return;
+                            }
+                            this.printing = true;
+                            const originalTitle = document.title;
+                            document.title = filename;
+                            const iframe = document.createElement('iframe');
+                            iframe.style.display = 'none';
+                            iframe.src = url;
+                            document.body.appendChild(iframe);
+                            iframe.onload = () => {
+                                iframe.contentWindow.focus();
+                                iframe.contentWindow.print();
+                                this.printing = false;
+                                setTimeout(() => {
+                                    document.title = originalTitle;
+                                    document.body.removeChild(iframe);
+                                }, 5000);
+                            };
+                        }
+                    }" class="mt-2">
+                        <flux:button size="sm" variant="subtle" class="!px-2 !py-1 h-auto text-[10px] w-full sm:w-auto justify-center" icon="printer" x-on:click="printPO('{{ route('purchase.orders.print', $order->id) }}', '{{ $order->po_number }} {{ addslashes($order->vendor?->name ?? '') }}')" x-bind:disabled="printing">
+                            <span x-show="!printing">Cetak PO</span>
+                            <span x-show="printing" style="display: none;">Mencetak...</span>
+                        </flux:button>
+                    </div>
+                @endif
             </div>
 
             {{-- Vendor + Notes in one compact row --}}
@@ -305,7 +299,7 @@ $getStatusBadge = function ($status) {
             </div>
 
             {{-- Footer actions --}}
-            <div class="flex justify-end gap-2 pt-1">
+            <div class="flex items-center justify-between gap-2 pt-1">
                 @if($order->status === 'draft')
                     @can('purchase.order.update')
                         <flux:button size="sm" variant="ghost" icon="archive-box" class="text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800" wire:click="archiveDraft" wire:confirm="Anda yakin ingin mengarsipkan draft ini?">Arsipkan Draft</flux:button>
@@ -313,14 +307,15 @@ $getStatusBadge = function ($status) {
                     @endcan
                 @endif
                 @if(in_array($order->status, ['pending_approval', 'processing']))
-                    @can('purchase.order.update')
-                        <flux:button size="sm" variant="danger" icon="x-mark" wire:click="$set('showVoidModal', true)">Batalkan (Void)</flux:button>
-                    @endcan
+                    @if(auth()->user()->hasAnyRole(['Super Admin', 'Manager']))
+                        <flux:button size="sm" variant="danger" icon="x-mark" wire:click="$set('showVoidModal', true)">Batalkan!</flux:button>
+                    @endif
                 @endif
-                <flux:button size="sm" variant="ghost" wire:click="$set('show', false)">Tutup</flux:button>
+
+                <div class="flex-1"></div>
                 @if(in_array($order->status, ['processing', 'partially_received']))
                     @can('purchase.order.update')
-                        <flux:button size="sm" variant="primary" icon="cube" wire:click="$dispatch('open-receipt-modal', { orderId: {{ $order->id }} }); $set('show', false)">
+                        <flux:button size="sm" variant="primary" icon="cube" class="flex-1 sm:flex-none justify-center" wire:click="$dispatch('open-receipt-modal', { orderId: {{ $order->id }} }); $set('show', false)">
                             Terima Barang
                         </flux:button>
                     @endcan

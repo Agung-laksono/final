@@ -136,29 +136,20 @@
 @endphp
 
 <!-- Action Bar (Screen Only) -->
-<div class="flex justify-between items-center mb-4 no-print p-4 bg-slate-900 text-white shadow-lg">
-    <div class="flex items-center gap-3">
-        <span class="font-black text-sm tracking-wide">LABEL PENGIRIMAN</span>
-        @if($isMultiPage)
-            <span class="bg-indigo-600 text-white text-[11px] font-mono px-2.5 py-0.5 rounded font-bold">
-                MODE FULL PAGE ({{ $itemsCount }} ITEM - 1 LEMBAR FULL)
-            </span>
-        @else
-            <span class="bg-emerald-600 text-white text-[11px] font-mono px-2.5 py-0.5 rounded font-bold">
-                MODE ½ A4 ({{ $itemsCount }} ITEM - 2 LABEL / LEMBAR)
-            </span>
-        @endif
-    </div>
-    <div class="flex items-center gap-2">
-        <button onclick="window.close()" class="px-3.5 py-1.5 bg-slate-800 text-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-700 transition-all border border-slate-700">
-            Tutup Tab
-        </button>
-        <button onclick="window.print()" class="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-500 transition-all flex items-center gap-1.5 shadow-md">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            Cetak Label Alamat (A4)
-        </button>
+<div class="no-print mb-4" style="background:#0f172a;color:#fff;box-shadow:0 4px 6px -1px rgb(0 0 0/0.3);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;min-width:max-content;white-space:nowrap;gap:16px;">
+        <span style="font-weight:700;font-size:0.875rem;letter-spacing:0.025em;color:#f1f5f9;">Label Pengiriman</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <button onclick="window.print()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-500 transition-all shadow-md">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Cetak
+            </button>
+            <button onclick="window.close()" class="px-3.5 py-1.5 bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-600 transition-all border border-slate-600">
+                Tutup
+            </button>
+        </div>
     </div>
 </div>
 
