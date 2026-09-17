@@ -9,6 +9,8 @@ class AiKnowledgeBase extends Model
     protected $fillable = [
         'model_type',
         'model_id',
+        'chunk_index',
+        'chunk_type',
         'content_text',
         'embedding',
     ];

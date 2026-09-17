@@ -139,14 +139,16 @@ class WhatsAppAiBotService
                 $securityGuardrail .= "  Jika ditanyakan saldo/keuangan, JAWAB SOPAN: 'Mohon maaf {$userName}, informasi data keuangan perusahaan hanya dapat diakses oleh Divisi Finance.'\n";
             }
 
-            $systemInstruction = "Kamu adalah {$assistantName}, AI Pintar Resmi ERP yang sedang membalas obrolan pelanggan/staf via WHATSAPP.
-Pengguna WhatsApp yang sedang mengobrol denganmu saat ini:
+            $systemInstruction = "Kamu adalah {$assistantName}, asisten AI resmi sistem ERP perusahaan yang membalas via WHATSAPP.
+Pengguna WhatsApp saat ini:
 - Nama Lengkap: {$userName}
 - Peran/Jabatan: {$userRole}
 {$personaPrompt}{$securityGuardrail}{$chatHistoryText}
-Tugas utamamu adalah membantu {$userName} menjawab pertanyaan seputar operasional bisnis, stok barang, penjualan, pembelian, produksi, keuangan, atau informasi produk berdasarkan DATA INTERNAL ERP di atas dan RIWAYAT OBROLAN SEBELUMNYA.
+Tugas utamamu adalah membantu {$userName} menjawab pertanyaan berdasarkan DATA INTERNAL ERP dan RIWAYAT OBROLAN.
 
-Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
+## Panduan Menjawab:
+- Jika data ditemukan -> Jawab berdasarkan data tersebut secara spesifik (sebutkan nomor SO/PO, nama, jumlah)
+- Jika data TIDAK ditemukan -> Jangan mengarang data. Sampaikan dengan jelas bahwa data tidak tersedia di sistem
 - Format jawaban dengan cetak tebal (*kata*) untuk penekanan khas WhatsApp.
 - Berikan jawaban yang ringkas, jelas, padat, dan ramah.
 - Gunakan DOUBLE ENTER untuk memisahkan poin/paragraf.";
@@ -219,12 +221,14 @@ Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
     {
         $nameLower = strtolower($providerName);
 
+        $systemInstruction .= $contextText;
+
         if (str_contains($nameLower, 'openai')) {
             $res = Http::withoutVerifying()->withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
                 'model' => 'gpt-4o-mini',
                 'messages' => [
                     ['role' => 'system', 'content' => $systemInstruction],
-                    ['role' => 'user', 'content' => $promptText . $contextText]
+                    ['role' => 'user', 'content' => $promptText]
                 ],
             ]);
             return $res->json('choices.0.message.content') ?? 'Gagal memproses OpenAI.';
@@ -240,7 +244,7 @@ Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
                     'model' => $modelName,
                     'max_tokens' => 1000,
                     'system' => $systemInstruction,
-                    'messages' => [['role' => 'user', 'content' => $promptText . $contextText]]
+                    'messages' => [['role' => 'user', 'content' => $promptText]]
                 ]);
 
                 if ($res && $res->successful() && !empty($res->json('content.0.text'))) {
@@ -257,7 +261,7 @@ Gaya Penulisan WhatsApp yang WAJIB dipatuhi:
             $payload = [
                 'system_instruction' => ['parts' => [['text' => $systemInstruction]]],
                 'contents' => [
-                    ['role' => 'user', 'parts' => [['text' => $promptText . $contextText]]]
+                    ['role' => 'user', 'parts' => [['text' => $promptText]]]
                 ]
             ];
 

@@ -168,7 +168,7 @@ new class extends Component
         if ($this->useRag) {
             try {
                 $vectorService = app(VectorSearchService::class);
-                $relevantData = $vectorService->search($promptText, 10);
+                $relevantData = $vectorService->search($promptText, 25);
                 
                 // Filter out documents user is not authorized to see
                 $filteredData = array_filter($relevantData, function($data) use ($hasFinanceAccess, $hasProductionAccess) {
@@ -274,7 +274,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
                     $messagesPayload[$lastIdx]['content'] .= $contextText . "\n\nJawab berdasarkan DATA INTERNAL di atas jika relevan.";
                 }
 
-                $res = Http::withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
+                $res = Http::withoutVerifying()->timeout(90)->withToken($apiKey)->post('https://api.openai.com/v1/chat/completions', [
                     'model' => 'gpt-4o-mini',
                     'messages' => $messagesPayload,
                 ]);
@@ -301,7 +301,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
                 $candidateClaudeModels = ['claude-haiku-4-5-20251001', 'claude-sonnet-4-5-20250929', 'claude-sonnet-4-6', 'claude-sonnet-5', 'claude-3-5-haiku-20241022'];
                 $res = null;
                 foreach ($candidateClaudeModels as $modelName) {
-                    $res = Http::withoutVerifying()->withHeaders([
+                    $res = Http::withoutVerifying()->timeout(90)->withHeaders([
                         'x-api-key' => $apiKey,
                         'anthropic-version' => '2023-06-01',
                         'content-type' => 'application/json'
@@ -334,7 +334,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
                     $messagesPayload[$lastIdx]['content'] .= $contextText . "\n\nJawab berdasarkan DATA INTERNAL di atas jika relevan.";
                 }
 
-                $res = Http::withoutVerifying()->withToken($apiKey)->post('https://api.groq.com/openai/v1/chat/completions', [
+                $res = Http::withoutVerifying()->timeout(90)->withToken($apiKey)->post('https://api.groq.com/openai/v1/chat/completions', [
                     'model' => 'llama-3.3-70b-versatile',
                     'messages' => $messagesPayload,
                 ]);
@@ -369,7 +369,9 @@ Gaya Penulisan yang WAJIB dipatuhi:
                 $candidateModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-3.6-flash'];
                 $res = null;
                 foreach ($candidateModels as $modelName) {
-                    $res = Http::withHeaders(['Content-Type' => 'application/json'])
+                    $res = Http::withoutVerifying()
+                        ->timeout(90)
+                        ->withHeaders(['Content-Type' => 'application/json'])
                         ->post("https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key={$apiKey}", $payload);
                     if ($res->successful()) break;
                 }
@@ -674,13 +676,17 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         <!-- Quick Suggestion Chips (Role-Aware) -->
                         @php
                             $u = auth()->user();
-                            $canSeeFinance = $u && (
-                                (method_exists($u, 'hasRole') && $u->hasRole('Super Admin')) || 
-                                $u->can('finance.dashboard.view') || 
-                                $u->can('finance.inbox.view') ||
-                                str_contains(strtolower(implode(',', method_exists($u, 'getRoleNames') ? $u->getRoleNames()->toArray() : [])), 'finance') ||
-                                str_contains(strtolower(implode(',', method_exists($u, 'getRoleNames') ? $u->getRoleNames()->toArray() : [])), 'admin')
-                            );
+                            $rNames = method_exists($u, 'getRoleNames') ? implode(',', $u->getRoleNames()->toArray()) : '';
+                            $rNamesLower = strtolower($rNames);
+                            $isAdmin = $u && ((method_exists($u, 'hasRole') && $u->hasRole('Super Admin')) || str_contains($rNamesLower, 'admin'));
+
+                            $canSeeFinance = $u && ($isAdmin || $u->can('finance.dashboard.view') || $u->can('finance.inbox.view') || str_contains($rNamesLower, 'finance'));
+                            
+                            $canSeeSupplyChain = $u && ($isAdmin || $u->can('inventory.dashboard.view') || $u->can('production.order.view') || str_contains($rNamesLower, 'gudang') || str_contains($rNamesLower, 'purchas') || str_contains($rNamesLower, 'produks'));
+                            
+                            $canSeeSales = $u && ($isAdmin || $u->can('sales.order.view') || str_contains($rNamesLower, 'sales') || str_contains($rNamesLower, 'penjualan'));
+                            
+                            $canSeeProduction = $u && ($isAdmin || $u->can('production.order.view') || str_contains($rNamesLower, 'produks'));
                         @endphp
                         <div class="mt-3 w-full space-y-1.5 text-left">
                             <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider px-1">Pertanyaan Cepat:</p>
@@ -689,6 +695,10 @@ Gaya Penulisan yang WAJIB dipatuhi:
                                     <button wire:click="sendQuickPrompt('Berapa total saldo kas & bank hari ini?')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
                                         <span class="text-indigo-500">💳</span>
                                         <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Total Saldo Kas Hari Ini</span>
+                                    </button>
+                                    <button wire:click="sendQuickPrompt('Tampilkan daftar hutang (AP) ke vendor yang belum dibayar')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
+                                        <span class="text-rose-500">📤</span>
+                                        <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Daftar Hutang Vendor Belum Lunas</span>
                                     </button>
                                 @endif
                                 <button wire:click="sendQuickPrompt('Cek stok barang yang paling sedikit')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
@@ -701,8 +711,49 @@ Gaya Penulisan yang WAJIB dipatuhi:
                                 </button>
                                 <button wire:click="sendQuickPrompt('Tampilkan ringkasan Sales Order bulan ini')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
                                     <span class="text-emerald-500">📑</span>
-                                    <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Ringkasan Sales Order</span>
+                                    <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">Ringkasan Sales Order Bulan Ini</span>
                                 </button>
+                                <button wire:click="sendQuickPrompt('Tampilkan Purchase Order terbaru minggu ini')" class="w-full text-left px-2.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-indigo-50 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700/80 transition-all flex items-center gap-1.5 group">
+                                    <span class="text-purple-500">🛒</span>
+                                    <span class="truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">PO Terbaru Minggu Ini</span>
+                            </div>
+                            
+                            <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider px-1 mt-3">Profil Analis AI (Eksekutif):</p>
+                            <div class="grid grid-cols-1 gap-1">
+                                @if($canSeeFinance)
+                                    <button wire:click="sendQuickPrompt('Tolong analisa mendalam performa Keuangan (Finance) berdasarkan data Transaksi, Arus Kas (Cashflow), Hutang Piutang, dan Laba Rugi terbaru. Berikan identifikasi risiko keuangan dan saran efisiensi cost/pengeluaran.')" class="w-full text-left px-2.5 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-[11px] font-semibold shadow-sm transition-all flex items-center gap-1.5 group">
+                                        <span>💰</span>
+                                        <span class="truncate">Analisis Keuangan & Profitabilitas</span>
+                                    </button>
+                                @endif
+                                
+                                @if($canSeeSales)
+                                    <button wire:click="sendQuickPrompt('Tolong analisa performa Penjualan (Sales) dan Marketing berdasarkan data Sales Order, tren pesanan Customer, dan piutang. Identifikasi produk paling laku (best seller), performa pelanggan, dan berikan strategi promosi/penjualan.')" class="w-full text-left px-2.5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-[11px] font-semibold shadow-sm transition-all flex items-center gap-1.5 group">
+                                        <span>📈</span>
+                                        <span class="truncate">Analisis Penjualan & Pelanggan</span>
+                                    </button>
+                                @endif
+                                
+                                @if($canSeeProduction)
+                                    <button wire:click="sendQuickPrompt('Tolong analisa performa Operasional Produksi berdasarkan data Production Order, Resep BOM, dan realisasi barang jadi. Evaluasi efisiensi penggunaan bahan baku, waktu penyelesaian, dan berikan rekomendasi peningkatan produktivitas.')" class="w-full text-left px-2.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[11px] font-semibold shadow-sm transition-all flex items-center gap-1.5 group">
+                                        <span>⚙️</span>
+                                        <span class="truncate">Analisis Produksi & Efisiensi</span>
+                                    </button>
+                                @endif
+                                
+                                @if($canSeeSupplyChain)
+                                    <button wire:click="sendQuickPrompt('Tolong analisa mendalam performa Supply Chain (Rantai Pasok) berdasarkan data Pembelian (PO), Produksi, dan Stok Inventory terbaru. Analisa kualitas & kecepatan pengiriman dari vendor, efisiensi waktu ekspedisi, serta stabilitas stok bahan. Berikan kesimpulan dan rekomendasi perbaikan.')" class="w-full text-left px-2.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-[11px] font-semibold shadow-sm transition-all flex items-center gap-1.5 group">
+                                        <span>🚚</span>
+                                        <span class="truncate">Analisis Supply Chain & Vendor</span>
+                                    </button>
+                                @endif
+
+                                @if($canSeeFinance)
+                                    <button wire:click="sendQuickPrompt('Tolong buatkan analisa SWOT (Strengths, Weaknesses, Opportunities, Threats) perusahaan secara komprehensif berdasarkan performa Penjualan, Pembelian, Stok Gudang, dan Arus Kas/Keuangan terbaru. Berikan rekomendasi strategi bisnis selanjutnya.')" class="w-full text-left px-2.5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-[11px] font-semibold shadow-sm transition-all flex items-center gap-1.5 group">
+                                        <span>🚀</span>
+                                        <span class="truncate">Analisis SWOT & Strategi Bisnis</span>
+                                    </button>
+                                @endif
                             </div>
                         </div>
                     </div>

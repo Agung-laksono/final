@@ -29,28 +29,31 @@ trait SearchableAiKnowledge
     public static function syncToAiKnowledgeBase($model): void
     {
         try {
-            // Generate rich relation-aware Indonesian knowledge text
-            $contentText = KnowledgeFormatter::format($model);
+            $chunks = \App\Services\KnowledgeChunker::chunk($model);
+            $vectorService = app(VectorSearchService::class);
 
-            // Get embedding vector from VectorSearchService (if available)
-            $embeddingVector = [];
-            try {
-                $vectorService = app(VectorSearchService::class);
-                $embeddingVector = $vectorService->getEmbedding($contentText) ?? [];
-            } catch (\Exception $ex) {
-                // If embedding fails, keep content_text so SQL keyword search still works 100%!
+            foreach ($chunks as $chunk) {
+                $contentText = $chunk['content_text'];
+                $embeddingVector = [];
+                try {
+                    $embeddingVector = $vectorService->getEmbedding($contentText) ?? [];
+                } catch (\Exception $ex) {
+                    // If embedding fails, keep content_text so SQL keyword search still works 100%!
+                }
+
+                AiKnowledgeBase::updateOrCreate(
+                    [
+                        'model_type' => get_class($model),
+                        'model_id' => $model->id,
+                        'chunk_index' => $chunk['chunk_index'],
+                    ],
+                    [
+                        'chunk_type' => $chunk['chunk_type'],
+                        'content_text' => $contentText,
+                        'embedding' => json_encode($embeddingVector),
+                    ]
+                );
             }
-
-            AiKnowledgeBase::updateOrCreate(
-                [
-                    'model_type' => get_class($model),
-                    'model_id' => $model->id,
-                ],
-                [
-                    'content_text' => $contentText,
-                    'embedding' => json_encode($embeddingVector),
-                ]
-            );
         } catch (\Exception $e) {
             Log::warning("Gagal auto-index RAG untuk " . get_class($model) . " ID {$model->id}: " . $e->getMessage());
         }

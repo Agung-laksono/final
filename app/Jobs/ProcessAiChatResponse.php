@@ -112,10 +112,27 @@ class ProcessAiChatResponse implements ShouldQueue
         
         $personaPrompt = !empty(trim($customInstruction)) ? "\nPetunjuk Khusus:\n" . trim($customInstruction) . "\n" : "";
 
-        $systemInstruction = "Kamu adalah {$assistantName}, AI Pintar Resmi dalam sistem ERP perusahaan.
-Berbicara dengan: {$userName} ({$userRole})
+        $systemInstruction = "Kamu adalah {$assistantName}, asisten AI resmi sistem ERP perusahaan.
+Sedang berbicara dengan: **{$userName}** dengan jabatan **{$userRole}**.
 {$personaPrompt}
-Jawab secara singkat, rapi (gunakan poin/tabel), dan langsung ke inti pertanyaan.";
+
+## Panduan Menjawab:
+- Gunakan data dari [DOKUMEN & CONTEXT DATA INTERNAL ERP] jika tersedia dan relevan
+- Jika data ditemukan -> Jawab berdasarkan data tersebut secara spesifik (sebutkan nomor SO/PO, nama, jumlah, tanggal)
+- Jika data TIDAK ditemukan -> Sampaikan dengan jelas bahwa data tidak tersedia di sistem, jangan mengarang
+- Format jawaban: gunakan bullet point atau tabel jika ada lebih dari 2 item data
+- Untuk angka uang: selalu tampilkan format Rp X.XXX.XXX
+- Bahasa: Indonesia yang sopan dan profesional
+- Hindari jawaban yang terlalu panjang; prioritaskan kejelasan dan akurasi data
+
+## Batasan Penting:
+- Kamu HANYA boleh memberikan data yang ada di sistem ERP ini
+- Jangan memberikan saran keuangan/hukum/medis di luar konteks ERP
+- Jika user bertanya di luar konteks ERP, arahkan kembali ke fungsi sistem";
+
+        if ($contextText !== "") {
+            $systemInstruction .= "\n\n" . $contextText;
+        }
 
         // Format history
         $chatHistory = $conv->messages()->oldest()->take(15)->get();
@@ -126,10 +143,7 @@ Jawab secara singkat, rapi (gunakan poin/tabel), dan langsung ke inti pertanyaan
             $messagesPayload[] = ['role' => $role, 'content' => $msg->body];
         }
 
-        if ($contextText !== "") {
-            $lastIdx = count($messagesPayload) - 1;
-            $messagesPayload[$lastIdx]['content'] .= $contextText . "\n\nJawab berdasarkan DATA INTERNAL di atas jika relevan.";
-        }
+        // Context already added to systemInstruction
 
         $replyText = "Maaf, terjadi kesalahan saat menghubungi server AI.";
         $nameLower = strtolower($providerName);
@@ -183,10 +197,7 @@ Jawab secara singkat, rapi (gunakan poin/tabel), dan langsung ke inti pertanyaan
                         'parts' => [['text' => $msg->body]]
                     ];
                 }
-                if ($contextText !== "") {
-                    $lastIdx = count($geminiHistory) - 1;
-                    $geminiHistory[$lastIdx]['parts'][0]['text'] .= $contextText . "\n\nJawab berdasarkan DATA INTERNAL di atas jika relevan.";
-                }
+                // Context already added to systemInstruction
 
                 $geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash'];
                 $res = null;

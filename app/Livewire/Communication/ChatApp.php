@@ -196,7 +196,10 @@ class ChatApp extends Component
         
         $systemPrompt .= "Gunakan konteks data berikut dari sistem ERP internal untuk menjawab klien secara akurat (jika relevan):\n";
         $systemPrompt .= $knowledgeContext . "\n";
-        $systemPrompt .= "Berikan jawaban singkat, padat, ramah, jangan terlalu panjang, dan gunakan bahasa Indonesia yang baik.\n";
+        $systemPrompt .= "## Panduan Menjawab:\n";
+        $systemPrompt .= "- Jika data ditemukan -> Jawab berdasarkan data tersebut secara spesifik (sebutkan detail seperti nomor, nama, jumlah)\n";
+        $systemPrompt .= "- Jika data TIDAK ditemukan -> Jangan mengarang data. Sampaikan dengan jelas bahwa Anda tidak menemukan datanya\n";
+        $systemPrompt .= "- Berikan jawaban singkat, padat, ramah, jangan terlalu panjang, dan gunakan bahasa Indonesia yang baik.\n";
 
         if (!empty(trim($this->aiInstruction))) {
             $systemPrompt .= "\nINSTRUKSI KHUSUS UNTUK PESAN INI (WAJIB DIPATUHI):\n" . $this->aiInstruction . "\n";

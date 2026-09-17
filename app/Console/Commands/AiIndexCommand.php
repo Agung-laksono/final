@@ -37,12 +37,20 @@ class AiIndexCommand extends Command
         \Modules\Sales\Models\SalesOrder::class,
         \Modules\Sales\Models\Customer::class,
         \Modules\Sales\Models\SalesPayment::class,
+        \Modules\Sales\Models\Quotation::class,
+        \Modules\Sales\Models\SalesReturn::class,
         \Modules\Purchase\Models\Vendor::class,
         \Modules\Purchase\Models\PurchaseOrder::class,
         \Modules\Purchase\Models\PurchasePayment::class,
+        \Modules\Purchase\Models\PurchaseReceipt::class,
+        \Modules\Purchase\Models\PurchaseReturn::class,
         \Modules\Finance\Models\FinanceTransaction::class,
         \Modules\Finance\Models\FinanceAccount::class,
         \Modules\Production\Models\ProductionOrder::class,
+        \Modules\Production\Models\ProductionRecipe::class,
+        \Modules\Inventory\Models\StockAdjustment::class,
+        \Modules\Inventory\Models\StockTransfer::class,
+        \App\Models\User::class,
     ];
 
     /**
@@ -87,12 +95,19 @@ class AiIndexCommand extends Command
 
         foreach ($chunks as $chunk) {
             $texts = [];
-            $recordsInChunk = [];
+            $chunkDataList = [];
             
-            // Format setiap record menjadi teks naratif kaya relasi
+            // Format setiap record menjadi chunks
             foreach ($chunk as $record) {
-                $texts[] = KnowledgeFormatter::format($record);
-                $recordsInChunk[] = $record;
+                $recordChunks = \App\Services\KnowledgeChunker::chunk($record);
+                foreach ($recordChunks as $rc) {
+                    $texts[] = $rc['content_text'];
+                    $chunkDataList[] = [
+                        'record' => $record,
+                        'chunk_index' => $rc['chunk_index'],
+                        'chunk_type' => $rc['chunk_type'],
+                    ];
+                }
             }
 
             // Coba dapatkan batch embedding jika API tersedia
@@ -100,28 +115,30 @@ class AiIndexCommand extends Command
             try {
                 $embeddings = $vectorService->getBatchEmbeddings($texts);
             } catch (\Exception $e) {
-                // Jika API embedding error / rate limit / permission denied,
-                // tetap lanjutkan simpan content_text agar Pencarian Kata Kunci SQL tetap 100% bekerja!
+                // Ignore embedding errors
             }
 
-            // Simpan/update setiap record ke tabel ai_knowledge_bases
-            foreach ($recordsInChunk as $idx => $record) {
+            // Simpan/update setiap chunk ke tabel ai_knowledge_bases
+            foreach ($chunkDataList as $idx => $chunkInfo) {
                 $formattedText = $texts[$idx];
                 $embeddingData = $embeddings[$idx] ?? [];
+                $record = $chunkInfo['record'];
 
                 AiKnowledgeBase::updateOrCreate(
                     [
                         'model_type' => $modelClass,
                         'model_id' => $record->id,
+                        'chunk_index' => $chunkInfo['chunk_index'],
                     ],
                     [
+                        'chunk_type' => $chunkInfo['chunk_type'],
                         'content_text' => $formattedText,
                         'embedding' => json_encode($embeddingData),
                     ]
                 );
-
-                $bar->advance();
             }
+            
+            $bar->advance($chunk->count());
         }
 
         $bar->finish();

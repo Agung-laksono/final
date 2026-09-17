@@ -133,6 +133,44 @@ class VectorSearchService
     }
 
     /**
+     * Guess relevant model_type classes based on query keywords.
+     * Reduces vector search scope dari ribuan row menjadi ratusan.
+     */
+    protected function guessRelevantModelTypes(string $query): array
+    {
+        $query = strtolower($query);
+        $types = [];
+
+        $map = [
+            ['keywords' => ['so', 'sales order', 'penjualan', 'jual', 'customer', 'pelanggan', 'piutang', 'quotation', 'retur'],
+             'types' => ['Modules\Sales\Models\SalesOrder', 'Modules\Sales\Models\Customer', 'Modules\Sales\Models\SalesPayment', 'Modules\Sales\Models\Quotation', 'Modules\Sales\Models\SalesReturn']],
+            
+            ['keywords' => ['po', 'purchase', 'pembelian', 'beli', 'vendor', 'supplier', 'hutang', 'receipt'],
+             'types' => ['Modules\Purchase\Models\PurchaseOrder', 'Modules\Purchase\Models\Vendor', 'Modules\Purchase\Models\PurchasePayment', 'Modules\Purchase\Models\PurchaseReceipt', 'Modules\Purchase\Models\PurchaseReturn']],
+            
+            ['keywords' => ['stok', 'stock', 'barang', 'produk', 'item', 'gudang', 'warehouse', 'inventory', 'transfer', 'opname'],
+             'types' => ['Modules\Inventory\Models\Item', 'Modules\Inventory\Models\Warehouse', 'Modules\Inventory\Models\StockAdjustment', 'Modules\Inventory\Models\StockTransfer']],
+            
+            ['keywords' => ['kas', 'keuangan', 'finance', 'uang', 'bayar', 'rekening', 'saldo', 'transaksi'],
+             'types' => ['Modules\Finance\Models\FinanceTransaction', 'Modules\Finance\Models\FinanceAccount']],
+            
+            ['keywords' => ['produksi', 'production', 'manufacturing', 'resep', 'bom'],
+             'types' => ['Modules\Production\Models\ProductionOrder', 'Modules\Production\Models\ProductionRecipe']],
+        ];
+
+        foreach ($map as $entry) {
+            foreach ($entry['keywords'] as $kw) {
+                if (str_contains($query, $kw)) {
+                    $types = array_merge($types, $entry['types']);
+                    break;
+                }
+            }
+        }
+        
+        return array_unique($types);
+    }
+
+    /**
      * Search the most relevant rows across ALL indexed models in ai_knowledge_bases using HYBRID search.
      * Combines Cosine Similarity Vector Search with Exact Keyword SQL Matching.
      */
@@ -141,8 +179,12 @@ class VectorSearchService
         $resultsMap = [];
 
         // 1. Keyword SQL Search (Pencarian Kata Kunci Presisi untuk Kode SO/Produk/Nama Customer)
-        $cleanQuery = preg_replace('/[^\w\s-]/u', ' ', $query);
-        $tokens = array_filter(explode(' ', $cleanQuery), fn($t) => strlen(trim($t)) >= 3);
+        $stopwords = ['tolong', 'analisa', 'performa', 'berdasarkan', 'data', 'dan', 'atau', 'yang', 'dari', 'ke', 'di', 'pada', 'untuk', 'dengan', 'ini', 'itu', 'buatkan', 'jelaskan', 'berikan', 'identifikasi', 'secara', 'komprehensif', 'terbaru', 'selanjutnya'];
+        $cleanQuery = preg_replace('/[^\w\s-]/u', ' ', strtolower($query));
+        $tokens = array_filter(explode(' ', $cleanQuery), function($t) use ($stopwords) {
+            $t = trim($t);
+            return strlen($t) >= 4 && !in_array($t, $stopwords);
+        });
 
         if (!empty($tokens)) {
             $kwQuery = DB::table('ai_knowledge_bases');
@@ -166,22 +208,32 @@ class VectorSearchService
         try {
             $queryVector = $this->getEmbedding($query);
             if ($queryVector) {
-                $rows = DB::table('ai_knowledge_bases')->whereNotNull('embedding')->get(['id', 'model_type', 'model_id', 'content_text', 'embedding']);
+                $relevantTypes = $this->guessRelevantModelTypes($query);
+                $vectorQuery = DB::table('ai_knowledge_bases')->whereNotNull('embedding');
+                if (!empty($relevantTypes)) {
+                    $vectorQuery->whereIn('model_type', $relevantTypes);
+                }
+                $rows = $vectorQuery->get(['id', 'model_type', 'model_id', 'content_text', 'embedding']);
                 foreach ($rows as $row) {
                     $rowVector = json_decode($row->embedding, true);
                     if (is_array($rowVector)) {
                         $similarity = $this->cosineSimilarity($queryVector, $rowVector);
                         
-                        if (!isset($resultsMap[$row->id])) {
-                            $rowArray = (array) $row;
-                            unset($rowArray['embedding']);
-                            $rowArray['_score'] = $similarity;
-                            $rowArray['_match_type'] = 'vector';
-                            $resultsMap[$row->id] = $rowArray;
-                        } else {
-                            // Boost score if matched by both keyword AND vector similarity!
-                            $resultsMap[$row->id]['_score'] = max($resultsMap[$row->id]['_score'], $similarity) + 0.35;
-                            $resultsMap[$row->id]['_match_type'] = 'hybrid';
+                        $isKeywordMatched = isset($resultsMap[$row->id]);
+                        $threshold = $isKeywordMatched ? 0.35 : 0.45;
+                        
+                        if ($similarity >= $threshold) {
+                            if (!$isKeywordMatched) {
+                                $rowArray = (array) $row;
+                                unset($rowArray['embedding']);
+                                $rowArray['_score'] = $similarity;
+                                $rowArray['_match_type'] = 'vector';
+                                $resultsMap[$row->id] = $rowArray;
+                            } else {
+                                // Boost score if matched by both keyword AND vector similarity!
+                                $resultsMap[$row->id]['_score'] = max($resultsMap[$row->id]['_score'], $similarity) + 0.35;
+                                $resultsMap[$row->id]['_match_type'] = 'hybrid';
+                            }
                         }
                     }
                 }
