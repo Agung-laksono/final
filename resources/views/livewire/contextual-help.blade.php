@@ -69,7 +69,7 @@ $toggleHelp = function () {
             <!-- Main Button with Context Menu Trigger -->
             <div @contextmenu.prevent="showMenu = true" class="relative">
                 @if($post)
-                    <flux:button wire:click="toggleHelp" variant="primary" class="!rounded-br-xl !rounded-tr-none !rounded-tl-none !rounded-bl-none !w-8 !h-8 !p-0 shadow-sm hover:shadow transition-all" tooltip="Bantuan Halaman Ini">
+                    <flux:button wire:click="toggleHelp" variant="primary" class="!rounded-br-xl !rounded-tr-none !rounded-tl-none !rounded-bl-none !w-8 !h-8 !p-0 shadow-sm hover:shadow transition-all opacity-60 hover:opacity-100" tooltip="Bantuan Halaman Ini">
                         <flux:icon.question-mark-circle class="w-4 h-4" />
                     </flux:button>
                 @else

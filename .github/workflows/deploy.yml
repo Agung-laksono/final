@@ -37,6 +37,11 @@ jobs:
       run: |
         npm install
         npm run build
+
+    - name: 📦 Zip build assets for in-app update
+      run: |
+        cd public/build
+        zip -r asset.zip . --exclude "asset.zip"
         
     - name: 📂 Sync files to cPanel
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5

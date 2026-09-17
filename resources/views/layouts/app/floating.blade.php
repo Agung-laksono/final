@@ -897,21 +897,17 @@
             {{-- Main Toggle Button (Hamburger / Close) --}}
             <div class="flex items-center gap-4 transition-all duration-300 transform origin-left" x-bind:class="isNotifOpen ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'">
                 <button @click="open = !open; if(!open) setTimeout(() => activeMenu = null, 300); else activeMenu = null;" 
-                        :class="isIdle && !open ? 'w-[30px] h-[30px] lg:w-16 lg:h-16 opacity-90' : 'w-12 h-12 lg:w-16 lg:h-16 opacity-100'"
+                        :class="isIdle && !open ? 'w-[30px] h-[30px] lg:w-16 lg:h-16 opacity-60' : 'w-12 h-12 lg:w-16 lg:h-16 opacity-100'"
                         class="relative bg-indigo-600 text-white rounded-full shadow-xl hover:shadow-indigo-500/50 flex items-center justify-center transition-all duration-300 focus:outline-none hover:scale-105 z-20">
                     
-                    <div x-show="!open" x-transition.opacity.duration.300ms class="absolute inset-0 pointer-events-none">
-                        <livewire:layout.sidebar-badge type="total_all" />
-                    </div>
-
                     <flux:icon.bars-3 class="absolute transition-all duration-300" 
                                       x-bind:class="(open ? 'opacity-0 rotate-90 scale-50 ' : 'opacity-100 rotate-0 scale-100 ') + (isIdle && !open ? 'w-3.5 h-3.5 lg:w-6 lg:h-6' : 'w-5 h-5 lg:w-6 lg:h-6')" />
                     <flux:icon.x-mark class="absolute transition-all duration-300" 
                                       x-bind:class="(open ? 'opacity-100 rotate-0 scale-100 ' : 'opacity-0 -rotate-90 scale-50 ') + (isIdle && !open ? 'w-3.5 h-3.5 lg:w-6 lg:h-6' : 'w-5 h-5 lg:w-6 lg:h-6')" />
                 </button>
                 {{-- Global Utility Buttons (Theme & Fullscreen) --}}
-                <div class="flex items-center gap-3 transition-all duration-300 transform origin-left" 
-                     x-bind:class="open ? 'opacity-100 translate-x-0 scale-100' : 'opacity-0 -translate-x-8 scale-75 pointer-events-none'">
+                <div class="flex items-center gap-3 transition-all duration-300 transform origin-left opacity-60 hover:opacity-100" 
+                     x-bind:class="open ? 'opacity-60 translate-x-0 scale-100' : 'opacity-0 -translate-x-8 scale-75 pointer-events-none'">
                     {{-- Chat Shortcut --}}
                     <a href="{{ route('chat.index') }}" wire:navigate
                             class="w-10 h-10 lg:w-12 lg:h-12 bg-[#00a884]/10 hover:bg-[#00a884]/20 dark:bg-[#00a884]/20 dark:hover:bg-[#00a884]/30 backdrop-blur-md border border-[#00a884]/30 rounded-full shadow-lg flex items-center justify-center text-[#00a884] transition-colors"

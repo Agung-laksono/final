@@ -137,6 +137,17 @@ class UpdateService
             // Log/abaikan jika terjadi kendala minor seeder
         }
 
+        // Ekstrak asset build jika ada asset.zip di public/build
+        $assetZip = public_path('build/asset.zip');
+        if (File::exists($assetZip)) {
+            $zip = new ZipArchive();
+            if ($zip->open($assetZip) === true) {
+                $zip->extractTo(public_path('build'));
+                $zip->close();
+                File::delete($assetZip); // hapus zip setelah diekstrak
+            }
+        }
+
         // Simpan SHA commit terpasang ke tabel Settings
         if ($commitSha) {
             \App\Models\Setting::updateOrCreate(
