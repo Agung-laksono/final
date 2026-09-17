@@ -17,7 +17,8 @@ new class extends Component {
         $this->request = InventoryRequest::with(['item', 'item.type', 'item.unit', 'createdBy'])->find($requestId);
         
         $this->customOrderItem = null;
-        if ($this->request && $this->request->reference_number && str_starts_with($this->request->reference_number, 'ODM-')) {
+        $soPrefix = \App\Models\Setting::where('key', 'sales_order_prefix')->value('value') ?: 'ODM-';
+        if ($this->request && $this->request->reference_number && (str_starts_with($this->request->reference_number, 'ODM-') || str_starts_with($this->request->reference_number, $soPrefix))) {
             $so = \Modules\Sales\Models\SalesOrder::where('so_number', $this->request->reference_number)->first();
             if ($so) {
                 $this->customOrderItem = \Modules\Sales\Models\SalesOrderItem::where('sales_order_id', $so->id)

@@ -58,6 +58,8 @@ new class extends Component {
     public $githubRepo = '';
     public $githubBranch = 'main';
     public $availableBranches = [];
+    
+    public $salesOrderPrefix = 'ODM-';
     public $updateCheckResult = null;
     public $isUpdating = false;
     public $updatePhase = 0;
@@ -82,6 +84,8 @@ new class extends Component {
 
         $this->githubRepo = \App\Models\Setting::where('key', 'github_repo')->value('value') ?? 'Agung-laksono/final';
         $this->githubBranch = \App\Models\Setting::where('key', 'github_branch')->value('value') ?? 'main';
+        
+        $this->salesOrderPrefix = \App\Models\Setting::where('key', 'sales_order_prefix')->value('value') ?? 'ODM-';
 
         $this->originalBackupSettings = [
             'enabled' => $this->autoBackupEnabled,
@@ -181,6 +185,15 @@ new class extends Component {
         } catch (\Exception $e) {
             $this->availableBranches = [];
         }
+    }
+
+    public function saveFormatSettings() {
+        $this->validate([
+            'salesOrderPrefix' => 'required|string|max:10'
+        ]);
+        
+        \App\Models\Setting::updateOrCreate(['key' => 'sales_order_prefix'], ['value' => $this->salesOrderPrefix]);
+        \Flux::toast('Format dokumen berhasil disimpan.', variant: 'success');
     }
 
     public function checkSystemUpdate(bool $quiet = false)
@@ -735,6 +748,25 @@ new class extends Component {
         {{-- SYSTEM CAPACITY SECTION --}}
         <section>
             <livewire:system-capacity-widget />
+        </section>
+
+        <flux:separator />
+        
+        {{-- DOCUMENT FORMAT SECTION --}}
+        <section>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-base font-semibold text-zinc-900 dark:text-white">Format Dokumen</h3>
+                    <p class="text-sm text-zinc-500">Sesuaikan awalan (prefix) nomor untuk transaksi penjualan.</p>
+                </div>
+            </div>
+            
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5">
+                <div class="max-w-md space-y-4">
+                    <flux:input wire:model.defer="salesOrderPrefix" label="Prefix Sales Order" placeholder="Contoh: ODM-" description="Format nomor nota otomatis untuk penjualan baru." />
+                    <flux:button wire:click="saveFormatSettings" variant="primary" size="sm">Simpan Format</flux:button>
+                </div>
+            </div>
         </section>
 
         <flux:separator />

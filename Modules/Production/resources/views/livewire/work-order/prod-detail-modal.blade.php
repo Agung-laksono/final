@@ -26,7 +26,8 @@ on(['open-prod-detail-modal' => function ($orderId) {
             ->get();
             
         // Check if there are custom attributes from Sales Order
-        if ($this->order->reference_number && str_starts_with($this->order->reference_number, 'ODM-')) {
+        $soPrefix = \App\Models\Setting::where('key', 'sales_order_prefix')->value('value') ?: 'ODM-';
+        if ($this->order->reference_number && (str_starts_with($this->order->reference_number, 'ODM-') || str_starts_with($this->order->reference_number, $soPrefix))) {
             $so = \Modules\Sales\Models\SalesOrder::where('so_number', $this->order->reference_number)->first();
             if ($so) {
                 $this->customOrderItem = \Modules\Sales\Models\SalesOrderItem::where('sales_order_id', $so->id)

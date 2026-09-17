@@ -196,22 +196,41 @@ $loadMoreHistory = function () {
 
 $loadHistory = function () {
     $baseQuery = \Modules\Purchase\Models\PurchaseOrderItem::where('item_id', $this->history_item_id)
+        ->where('unit_price', '>', 0)
         ->whereHas('purchaseOrder', function($q) {
-            $q->where('status', '!=', 'draft');
+            $q->where('status', '!=', 'draft')
+              ->whereNotNull('po_number')
+              ->where('po_number', '!=', '')
+              ->whereNotNull('vendor_id')
+              ->whereHas('vendor');
         });
 
     $this->has_more_history = $baseQuery->count() > $this->history_limit;
 
-    $this->price_history = \Modules\Purchase\Models\PurchaseOrderItem::with(['purchaseOrder.vendor', 'item.unit'])
+    $raw = \Modules\Purchase\Models\PurchaseOrderItem::with(['purchaseOrder.vendor', 'item.unit'])
         ->join('purchase_orders', 'purchase_order_items.purchase_order_id', '=', 'purchase_orders.id')
+        ->join('vendors', 'purchase_orders.vendor_id', '=', 'vendors.id')
         ->where('purchase_order_items.item_id', $this->history_item_id)
+        ->where('purchase_order_items.unit_price', '>', 0)
         ->where('purchase_orders.status', '!=', 'draft')
+        ->whereNotNull('purchase_orders.po_number')
+        ->where('purchase_orders.po_number', '!=', '')
+        ->whereNotNull('purchase_orders.vendor_id')
+        ->whereNotNull('vendors.name')
+        ->where('vendors.name', '!=', '')
         ->orderBy('purchase_orders.order_date', 'desc')
         ->orderBy('purchase_order_items.id', 'desc')
         ->select('purchase_order_items.*')
         ->take($this->history_limit)
         ->get()
         ->toArray();
+
+    // Filter PHP-level sebagai jaring pengaman terakhir
+    $this->price_history = array_values(array_filter($raw, function($item) {
+        return ($item['unit_price'] ?? 0) > 0
+            && !empty($item['purchase_order']['po_number'] ?? '')
+            && !empty($item['purchase_order']['vendor']['name'] ?? '');
+    }));
 };
 
 $viewPoDetail = function ($poId) {
@@ -651,54 +670,127 @@ $saveCart = function ($cartData, $isDraft = false) {
                                 <div class="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 pr-8 sm:pr-12">
                                     <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                                         {{-- Editable Price Input (Image 1 style) --}}
-                                        <div class="relative flex items-center flex-1 sm:w-40 min-w-0 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg" :class="open ? 'z-50' : ''" x-data="{ open: false, placement: 'bottom', expanded: false }" x-init="$watch('item.unit_price', () => updateItemSubtotal(index))">
+                                        <div class="relative flex items-center flex-1 sm:w-40 min-w-0 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg" 
+                                             :class="open ? 'z-50' : ''" 
+                                             x-data="{ 
+                                                open: false, 
+                                                expanded: false,
+                                                searchQuery: '',
+                                                popupTop: 0,
+                                                popupBottom: 0,
+                                                popupRight: 0,
+                                                popupDirection: 'down',
+                                                get popupStyle() {
+                                                    const popupW = this.expanded ? 500 : 380;
+                                                    let left = Math.min(this.popupRight - popupW, window.innerWidth - popupW - 8);
+                                                    left = Math.max(8, left);
+                                                    const width = Math.min(popupW, window.innerWidth - 16);
+                                                    
+                                                    if (this.popupDirection === 'up') {
+                                                        return `position: fixed; bottom: ${this.popupBottom}px; left: ${left}px; width: ${width}px; z-index: 9999;`;
+                                                    } else {
+                                                        return `position: fixed; top: ${this.popupTop}px; left: ${left}px; width: ${width}px; z-index: 9999;`;
+                                                    }
+                                                },
+                                                get validHistory() {
+                                                    let history = ($wire.price_history || []).filter(function(h) {
+                                                        return h.unit_price > 0 
+                                                            && h.purchase_order 
+                                                            && h.purchase_order.po_number 
+                                                            && h.purchase_order.vendor 
+                                                            && h.purchase_order.vendor.name;
+                                                    });
+                                                    
+                                                    if (this.searchQuery.trim() !== '') {
+                                                        const q = this.searchQuery.toLowerCase();
+                                                        history = history.filter(function(h) {
+                                                            const poNumber = (h.purchase_order.po_number || '').toLowerCase();
+                                                            const vendorName = (h.purchase_order.vendor.name || '').toLowerCase();
+                                                            const price = h.unit_price.toString();
+                                                            return poNumber.includes(q) || vendorName.includes(q) || price.includes(q);
+                                                        });
+                                                    }
+                                                    
+                                                    return history;
+                                                },
+                                                togglePopup(btn) {
+                                                    if (this.open) {
+                                                        this.open = false;
+                                                        $wire.price_history = [];
+                                                        return;
+                                                    }
+                                                    const rect = btn.getBoundingClientRect();
+                                                    this.popupRight = rect.right;
+                                                    const spaceBelow = window.innerHeight - rect.bottom;
+                                                    
+                                                    if (spaceBelow < 350 && rect.top > 320) {
+                                                        this.popupDirection = 'up';
+                                                        this.popupBottom = window.innerHeight - rect.top + 8;
+                                                    } else {
+                                                        this.popupDirection = 'down';
+                                                        this.popupTop = rect.bottom + 8;
+                                                    }
+                                                    
+                                                    this.open = true;
+                                                    $wire.price_history = []; 
+                                                    $wire.showPriceHistory(item.item_id, item.name);
+                                                }
+                                             }" 
+                                             @scroll.window="open = false"
+                                             x-init="$watch('item.unit_price', () => updateItemSubtotal(index))">
                                             <x-rupiah-input 
                                                 x-model="item.unit_price" 
                                                 align="center" 
                                                 appearance="transparent" 
                                                 class="w-full pr-8" 
                                             />
-                                            <button type="button" @click="if(!open) { placement = ($el.getBoundingClientRect().bottom > window.innerHeight - 300) ? 'top' : 'bottom'; $wire.price_history = []; $wire.showPriceHistory(item.item_id, item.name); } else { $wire.price_history = []; } open = !open;" 
+                                            <button type="button" @click="togglePopup($el)" 
                                                     class="absolute right-2.5 transition-colors"
                                                     :class="item.has_history ? 'text-blue-500 hover:text-blue-600' : 'text-zinc-300 hover:text-zinc-500'">
-                                                <flux:icon.clock class="w-4 h-4" />
+                                                <flux:icon.clock class="w-4 h-4" x-show="item.has_history" />
                                             </button>
                                             
                                             {{-- Popover Price History (Livewire) --}}
-                                            <div x-show="open" x-cloak class="fixed inset-0 bg-zinc-900/50 z-[50] sm:hidden" x-transition.opacity></div>
+                                            <div x-show="open" x-cloak class="fixed inset-0 bg-zinc-900/50 z-[9998] sm:hidden" x-transition.opacity @click="open = false"></div>
                                             <div x-show="open" @click.away="open = false" x-transition 
-                                                 class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] sm:absolute sm:translate-x-0 sm:translate-y-0 sm:right-auto sm:left-0 sm:w-[380px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-0 cursor-auto overflow-hidden z-[60] transition-all duration-300" 
-                                                 :class="[
-                                                    placement === 'top' ? 'sm:bottom-full sm:mb-3 sm:origin-bottom-left' : 'sm:top-full sm:mt-3 sm:origin-top-left',
-                                                    expanded ? 'sm:w-[500px] sm:-left-20' : ''
-                                                 ]"
+                                                 class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-0 cursor-auto overflow-hidden z-[9999] transition-all duration-300" 
+                                                 :style="window.innerWidth < 640 ? 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:calc(100vw - 2rem);' : popupStyle"
                                                  style="display: none;">
-                                                <div class="flex justify-between items-center p-4 border-b border-zinc-100 dark:border-zinc-800">
-                                                    <div class="flex items-center gap-3">
-                                                        <button type="button" @click="expanded = !expanded" class="text-zinc-400 hover:text-cyan-600 transition-colors" title="Perbesar/Perkecil Tampilan">
+                                                <div class="flex justify-between items-center p-3 sm:p-4 border-b border-zinc-100 dark:border-zinc-800">
+                                                    <div class="flex items-center gap-3 flex-1">
+                                                        <button type="button" @click="expanded = !expanded" class="text-zinc-400 hover:text-cyan-600 transition-colors shrink-0" title="Perbesar/Perkecil Tampilan">
                                                             <flux:icon.arrows-pointing-out class="w-3.5 h-3.5" x-show="!expanded" />
                                                             <flux:icon.arrows-pointing-in class="w-3.5 h-3.5" x-show="expanded" x-cloak />
                                                         </button>
-                                                        <h3 class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">RIWAYAT <span class="text-zinc-500" x-text="'(' + $wire.price_history.length + ')'"></span></h3>
+                                                        <h3 x-show="!expanded" class="text-[11px] font-bold text-slate-400 tracking-wider uppercase">RIWAYAT <span class="text-zinc-500" x-text="'(' + validHistory.length + ')'"></span></h3>
+                                                        <div x-show="expanded" x-transition class="flex-1 px-2" x-cloak>
+                                                            <div class="relative w-full">
+                                                                <div class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
+                                                                    <flux:icon.magnifying-glass class="w-3.5 h-3.5 text-zinc-400" />
+                                                                </div>
+                                                                <input type="text" x-model="searchQuery" placeholder="Cari nota, vendor, harga..." 
+                                                                       class="w-full text-[11px] sm:text-xs pl-7 pr-2 py-1.5 bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/50 rounded-md focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all text-zinc-700 dark:text-zinc-300 placeholder-zinc-400" />
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <button type="button" @click="open = false" class="text-zinc-400 hover:text-zinc-600">
+                                                    <button type="button" @click="open = false" class="text-zinc-400 hover:text-zinc-600 ml-2 shrink-0">
                                                         <flux:icon.x-mark class="w-4 h-4" />
                                                     </button>
                                                 </div>
                                                 <div class="overflow-y-auto p-2 transition-all duration-300" :class="expanded ? 'max-h-[450px]' : 'max-h-64'">
-                                                    <template x-for="history in $wire.price_history">
-                                                        <div x-data="{ showDetail: false }" class="border-b border-zinc-50 dark:border-zinc-800/50 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors group">
+                                                    <template x-for="history in validHistory">
+                                                        <div x-data="{ showDetail: false }" x-show="history.unit_price > 0 && history.purchase_order?.po_number && history.purchase_order?.vendor?.name" class="border-b border-zinc-50 dark:border-zinc-800/50 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors group">
                                                             <div @click="item.unit_price = history.unit_price; updateItemSubtotal(index); open = false" 
                                                                  class="p-3 cursor-pointer">
                                                                 <div class="flex justify-between items-center">
                                                                     <div class="flex-1">
-                                                                        <div class="text-[11px] text-zinc-500 font-medium group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors" x-text="(new Date(history.purchase_order?.order_date || Date.now())).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) + ' &bull; ' + (history.purchase_order?.po_number || 'PO-0000')">
+                                                                        <div class="text-[11px] text-zinc-500 font-medium group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors" x-text="history.purchase_order?.order_date ? (new Date(history.purchase_order.order_date)).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}) + ' &bull; ' + (history.purchase_order?.po_number || '-') : '-'">
                                                                         </div>
                                                                         <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                                                                             <flux:icon.building-storefront class="w-3.5 h-3.5 text-zinc-400 group-hover:text-cyan-500 transition-colors" />
-                                                                            <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors truncate max-w-[120px]" x-text="history.purchase_order?.vendor?.name || 'Vendor Tidak Diketahui'"></span>
+                                                                            <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors truncate max-w-[120px]" x-text="history.purchase_order?.vendor?.name || ''" x-show="history.purchase_order?.vendor?.name"></span>
                                                                             <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
-                                                                            <span class="text-[10px] font-bold text-zinc-500 uppercase group-hover:text-cyan-600/70 dark:group-hover:text-cyan-400/70 transition-colors bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded" x-text="'Beli: ' + history.qty + ' ' + (history.item?.unit?.name || '')"></span>
+                                                                            <span class="text-[10px] font-bold text-zinc-500 uppercase group-hover:text-cyan-600/70 dark:group-hover:text-cyan-400/70 transition-colors bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded" x-show="history.qty" x-text="'Beli: ' + history.qty + ' ' + (history.item?.unit?.name || '')"></span>
                                                                         </div>
                                                                     </div>
                                                                     <div class="text-right flex items-center gap-3">

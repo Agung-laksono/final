@@ -30,7 +30,8 @@ new class extends Component {
         
         if ($this->request) {
             // Coba cari referensi Custom Specs
-            if (str_starts_with($this->request->reference_number, 'ODM-') || str_starts_with($this->request->reference_number, 'PEM-')) {
+            $soPrefix = \App\Models\Setting::where('key', 'sales_order_prefix')->value('value') ?: 'ODM-';
+            if (str_starts_with($this->request->reference_number, 'ODM-') || str_starts_with($this->request->reference_number, $soPrefix) || str_starts_with($this->request->reference_number, 'PEM-')) {
                 // Bisa dari SO atau PO, kita cek SO dulu
                 $so = SalesOrder::where('so_number', $this->request->reference_number)->first();
                 if ($so) {
