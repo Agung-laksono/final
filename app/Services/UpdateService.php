@@ -198,6 +198,11 @@ class UpdateService
                 $target = public_path();
             }
 
+            // Skip folder public/build agar CSS/JS hasil build tidak ditimpa versi lama dari repo
+            if ($target === public_path('build')) {
+                continue;
+            }
+
             if ($item->isDir()) {
                 $this->copyDirectoryAndReplace($item->getPathname(), $target);
             } else {
