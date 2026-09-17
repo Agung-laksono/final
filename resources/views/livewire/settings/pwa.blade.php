@@ -55,6 +55,14 @@ new class extends Component {
             $filename    = 'pwa/icon_' . uniqid() . '.webp';
             Storage::disk('public')->put($filename, $imageData);
 
+            // Timpa icon bawaan sistem agar notifikasi & favicon ikut terganti
+            if (file_exists(public_path('apple-touch-icon.png'))) {
+                file_put_contents(public_path('apple-touch-icon.png'), $imageData);
+            }
+            if (file_exists(public_path('favicon.ico'))) {
+                file_put_contents(public_path('favicon.ico'), $imageData);
+            }
+
             Setting::updateOrCreate(['key' => 'pwa_icon'], ['value' => $filename]);
             $this->currentIcon = $filename;
             $this->app_icon = null;
