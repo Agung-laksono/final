@@ -1,0 +1,12 @@
+{
+    "name": "Workspace",
+    "alias": "workspace",
+    "description": "",
+    "keywords": [],
+    "providers": [
+        "Modules\\Workspace\\Providers\\WorkspaceServiceProvider",
+        "Modules\\Workspace\\Providers\\EventServiceProvider",
+        "Modules\\Workspace\\Providers\\RouteServiceProvider"
+    ],
+    "files": []
+}

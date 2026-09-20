@@ -53,9 +53,15 @@
         </div>
 
         {{-- Footer --}}
-        <div class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex justify-end gap-2 shrink-0">
-            <flux:button variant="ghost" @click="{{ $onCancel }}"> Batal </flux:button>
-            <flux:button icon="check" variant="primary" @click="{{ $onSave }}"> Simpan Catatan </flux:button>
+        <div x-data="{ isSaving: false }" class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex justify-end gap-2 shrink-0">
+            <flux:button variant="ghost" @click="{{ $onCancel }}" x-bind:disabled="isSaving"> Batal </flux:button>
+            <flux:button variant="primary" @click="isSaving = true; try { {{ $onSave }} } finally { isSaving = false; }" x-bind:disabled="isSaving" class="min-w-[140px]">
+                <span x-show="!isSaving" class="flex items-center gap-2 justify-center"><flux:icon.check class="w-4 h-4" /> Simpan Catatan</span>
+                <span x-show="isSaving" x-cloak class="flex items-center gap-2 justify-center">
+                    <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Menyimpan...
+                </span>
+            </flux:button>
         </div>
     </div>
 </div>

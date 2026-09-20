@@ -97,4 +97,12 @@ class User extends Authenticatable implements PasskeyUser
     {
         $this->notify(new \App\Notifications\SalesOrderStatusChangedNotification($order, $actor));
     }
+
+    /**
+     * Workspaces dimana staf ini menjadi member
+     */
+    public function workspaces()
+    {
+        return $this->belongsToMany(\Modules\Workspace\Models\Workspace::class)->withPivot('role')->withTimestamps();
+    }
 }

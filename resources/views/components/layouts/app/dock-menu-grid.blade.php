@@ -117,6 +117,21 @@
         @endif
     @endforeach
 
+    <!-- WORKSPACES MOCKUP -->
+    @if(config('modules_statuses.Workspace', true))
+    <div>
+        <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">WORKSPACES</h3>
+        <div class="grid grid-cols-4 gap-4">
+            <a href="{{ route('workspaces.index') }}" data-drawer-url="{{ route('workspaces.index', [], false) }}" wire:navigate class="flex flex-col items-center gap-2 group">
+                <div class="w-12 h-12 bg-pink-100 dark:bg-pink-900/40 border border-pink-200 dark:border-pink-800 rounded-2xl flex items-center justify-center text-pink-600 dark:text-pink-400 group-hover:bg-pink-200 dark:group-hover:bg-pink-900/60 transition-colors shadow-sm group-hover:scale-105 duration-200">
+                    <flux:icon.rectangle-group class="w-6 h-6" />
+                </div>
+                <span class="text-xs font-medium text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100 text-center leading-tight">Boards</span>
+            </a>
+        </div>
+    </div>
+    @endif
+
     <!-- LAINNYA & Pengaturan -->
     @if(isset($navGroups['LAINNYA']))
     <div>

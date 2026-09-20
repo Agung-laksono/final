@@ -3,6 +3,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
     <head>
         @include('partials.head')
+        <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     </head>
     <body class="min-h-screen bg-zinc-50 dark:bg-zinc-900 floating-layout">
     @include('layouts.app.global-loader')
@@ -168,7 +169,14 @@
                     </div>
                     @endcan
 
-                    
+                    {{-- Workspaces --}}
+                    <a href="{{ route('workspaces.index') }}" wire:navigate @mouseenter="setActiveMenu('workspaces')" class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2" x-bind:class="activeMenu !== null && activeMenu !== 'workspaces' ? 'opacity-40 scale-95 grayscale' : 'opacity-100 scale-100'">
+                        <div class="flex items-center justify-center w-12 h-12 bg-pink-100 dark:bg-pink-900/40 border border-pink-200 dark:border-pink-800 rounded-full shadow-lg group-hover:bg-pink-200 dark:group-hover:bg-pink-900/60 transition-colors text-pink-600 dark:text-pink-400" x-bind:class="activeMenu === 'workspaces' ? 'bg-pink-200 dark:bg-pink-800' : ''">
+                            <flux:icon.rectangle-group class="w-6 h-6" />
+                        </div>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl shadow-lg text-sm font-semibold group-hover:scale-105 transition-transform origin-left" x-bind:class="activeMenu === 'workspaces' ? 'scale-105' : ''">Workspaces</span>
+                    </a>
+
                     {{-- Dashboard --}}
                     @can('dashboard.main.view')
                     <a href="{{ route('dashboard') }}" wire:navigate @mouseenter="setActiveMenu('dashboard')" class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2" x-bind:class="activeMenu !== null && activeMenu !== 'dashboard' ? 'opacity-40 scale-95 grayscale' : 'opacity-100 scale-100'">
@@ -178,7 +186,6 @@
                         <span class="bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 px-4 py-2 rounded-xl shadow-lg text-sm font-semibold group-hover:scale-105 transition-transform origin-left" x-bind:class="activeMenu === 'dashboard' ? 'scale-105' : ''">Dashboard Utama</span>
                     </a>
                     @endcan
-                    
 
                 </div>
                                 {{-- INVENTORY SUBMENU (MULTI-COLUMN) --}}

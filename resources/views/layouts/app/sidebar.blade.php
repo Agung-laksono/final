@@ -85,6 +85,23 @@
 
                 @endif {{-- end navGroups isset --}}
             @endforeach
+            {{-- WORKSPACES MOCKUP --}}
+            @if(config('modules_statuses.Workspace', true))
+            <flux:sidebar.nav class="mt-4">
+                <flux:navlist.group heading="WORKSPACES" class="mb-4">
+                    <flux:sidebar.item
+                        :href="route('workspaces.index')"
+                        :current="request()->routeIs('workspaces.*')"
+                        wire:navigate
+                        class="transition-transform duration-300 hover:translate-x-2"
+                    >
+                        <x-slot:icon>
+                            <flux:icon icon="rectangle-group" class="size-4 [[data-flux-sidebar-item]:hover_&]:text-current!" />
+                        </x-slot:icon>
+                        Boards
+                    </flux:sidebar.item>
+                </flux:navlist.group>
+            </flux:sidebar.nav>
 
             {{-- LAINNYA (Utama, Artikel, Pengaturan) --}}
             @if(isset($navGroups['LAINNYA']))

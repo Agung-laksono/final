@@ -88,6 +88,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         );
         return response()->json(['success' => $ok, 'target' => 'user-' . auth()->id()]);
     })->name('beams.test.me');
+
+    \Livewire\Volt\Volt::route('/marketing/kanban', 'marketing.project-kanban')->name('marketing.kanban');
 });
 require __DIR__.'/settings.php';
 
