@@ -111,7 +111,7 @@ new class extends Component {
             $po->setAttribute('_paid_amount', $paidAmount);
             $isPaid = $paidAmount >= $po->total_amount && $po->total_amount > 0;
 
-            if (in_array($po->status, ['cancelled', 'void'])) {
+            if (in_array($po->status, ['cancelled', 'void', 'rejected'])) {
                 $grouped['void']->push($po);
             } elseif ($po->status === 'pending_approval') {
                 $grouped['pending_approval']->push($po);
@@ -457,20 +457,29 @@ new class extends Component {
                             
                             <div x-data="{ showFooter: false }"
                                  @click="
-                                     if (window.matchMedia('(hover: hover)').matches) {
-                                         {{ $colKey === 'pending_approval' ? '$wire.openApprovalModal('.$po->id.')' : '$wire.openPaymentModal('.$po->id.')' }}
-                                     } else {
-                                         if (!showFooter) showFooter = true;
-                                         else {{ $colKey === 'pending_approval' ? '$wire.openApprovalModal('.$po->id.')' : '$wire.openPaymentModal('.$po->id.')' }}
-                                     }
+                                     @if(in_array($colKey, ['hold', 'refund', 'void']))
+                                         if (!window.matchMedia('(hover: hover)').matches) showFooter = !showFooter;
+                                     @else
+                                         if (window.matchMedia('(hover: hover)').matches) {
+                                             {{ $colKey === 'pending_approval' ? '$wire.openApprovalModal('.$po->id.')' : '$wire.openPaymentModal('.$po->id.')' }}
+                                         } else {
+                                             if (!showFooter) showFooter = true;
+                                             else {{ $colKey === 'pending_approval' ? '$wire.openApprovalModal('.$po->id.')' : '$wire.openPaymentModal('.$po->id.')' }}
+                                         }
+                                     @endif
                                  "
                                  @click.outside="showFooter = false"
-                                 class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border-l-4 border-l-emerald-500 border-y border-r border-zinc-200 dark:border-zinc-700 hover:shadow-lg hover:-translate-y-1 hover:border-r-emerald-300 dark:hover:border-r-emerald-500/50 active:scale-[0.98] transition-all duration-200 cursor-pointer group relative flex flex-col gap-1" wire:key="po-{{ $po->id }}">
+                                 class="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm border-l-4 border-l-emerald-500 border-y border-r border-zinc-200 dark:border-zinc-700 hover:shadow-lg hover:-translate-y-1 hover:border-r-emerald-300 dark:hover:border-r-emerald-500/50 active:scale-[0.98] transition-all duration-200 group relative flex flex-col gap-1 {{ in_array($colKey, ['hold', 'refund', 'void']) ? 'cursor-default' : 'cursor-pointer' }}" wire:key="po-{{ $po->id }}">
                                 
                                 {{-- Row 1: PO, Vendor & Dates --}}
                                 <div class="flex justify-between items-center">
-                                    <div class="flex items-center gap-1.5">
+                                    <div class="flex items-center gap-1.5 flex-wrap">
                                         <span class="text-[10px] sm:text-[11px] font-bold font-mono text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded shrink-0">{{ $po->po_number }}</span>
+                                        @if($po->status === 'rejected')
+                                            <span class="text-[8px] font-black text-rose-600 bg-rose-100 border border-rose-200 px-1 py-px rounded shadow-sm">DITOLAK</span>
+                                        @elseif($po->status === 'void' || $po->status === 'cancelled')
+                                            <span class="text-[8px] font-black text-red-600 bg-red-100 border border-red-200 px-1 py-px rounded shadow-sm">BATAL</span>
+                                        @endif
                                         <span class="text-[10px] font-bold text-zinc-800 dark:text-zinc-200 truncate max-w-[80px] sm:max-w-[100px]" title="{{ $po->vendor?->name }}">{{ $po->vendor?->name ?? 'Vendor Terhapus' }}</span>
                                     </div>
                                     <div class="flex items-center gap-1.5 shrink-0">
@@ -531,6 +540,14 @@ new class extends Component {
                                     </div>
                                 </div>
                                 
+                                
+                                @if(in_array($colKey, ['hold', 'refund', 'void']) && $po->notes)
+                                    <div class="mt-1 mb-1 p-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded text-[10px] text-red-700 dark:text-red-400">
+                                        <div class="font-bold mb-0.5"><flux:icon.document-text class="w-3 h-3 inline-block -mt-0.5" /> Catatan:</div>
+                                        <div class="whitespace-pre-line leading-tight">{{ $po->notes }}</div>
+                                    </div>
+                                @endif
+
                                 {{-- Row 3: Action --}}
                                 <div class="flex justify-end max-h-0 opacity-0 group-hover:max-h-12 group-hover:opacity-100 group-hover:pt-1 transition-all duration-300 ease-in-out overflow-hidden" :class="showFooter ? '!max-h-12 !opacity-100 !pt-1' : ''">
                                     @if($colKey === 'refund')

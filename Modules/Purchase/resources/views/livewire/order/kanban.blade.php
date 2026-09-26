@@ -16,6 +16,7 @@ state([
         'partially_received' => ['title' => 'Diterima Sebagian', 'color' => 'indigo'],
         'completed' => ['title' => 'Selesai', 'color' => 'emerald'],
         'void' => ['title' => 'Dibatalkan (Void)', 'color' => 'red'],
+        'rejected' => ['title' => 'Ditolak Finance', 'color' => 'rose'],
         'archived' => ['title' => 'Arsip', 'color' => 'slate'],
     ],
     'transparent_columns' => false,
@@ -89,8 +90,12 @@ $orders = computed(function () {
         $limit = $this->columnLimits[$status] ?? 24;
         
         $query = clone $this->getBaseQuery();
-        $statusIds = $query->where('status', $status)
-                           ->limit($limit)
+        if ($status === 'void') {
+            $query->whereIn('status', ['void', 'cancelled']);
+        } else {
+            $query->where('status', $status);
+        }
+        $statusIds = $query->limit($limit)
                            ->pluck('id')
                            ->toArray();
                            
@@ -107,6 +112,9 @@ $orders = computed(function () {
         });
         
     return $result->groupBy(function($po) {
+        if (in_array($po->status, ['void', 'cancelled'])) {
+            return 'void';
+        }
         return $po->status ?? 'draft';
     });
 });
@@ -296,6 +304,11 @@ on([
                                                 <flux:icon.sparkles class="w-2 h-2" /> CUSTOM
                                             </span>
                                         @endif
+                                        @if($po->status === 'rejected')
+                                            <span class="text-[8px] font-black text-rose-600 dark:text-rose-300 bg-rose-100 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 px-1 py-px rounded shadow-sm w-max">
+                                                Ditolak
+                                            </span>
+                                        @endif
                                         @if($po->status === 'archived' && str_starts_with($po->po_number, 'DRFT-'))
                                             <span class="text-[8px] font-black text-zinc-600 dark:text-zinc-300 bg-zinc-200 dark:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 px-1 py-px rounded shadow-sm w-max">
                                                 Bekas Draft
@@ -471,6 +484,8 @@ on([
                                         @if(array_key_exists($order->status, $columns))
                                             @php $col = $columns[$order->status]; @endphp
                                             <flux:badge size="sm" color="{{ $col['color'] }}">{{ $col['title'] }}</flux:badge>
+                                        @elseif(in_array($order->status, ['cancelled', 'rejected']))
+                                            <flux:badge size="sm" color="{{ $columns['void']['color'] }}">{{ $order->status === 'rejected' ? 'Ditolak' : 'Dibatalkan' }}</flux:badge>
                                         @else
                                             <flux:badge size="sm" color="zinc">{{ $order->status }}</flux:badge>
                                         @endif
