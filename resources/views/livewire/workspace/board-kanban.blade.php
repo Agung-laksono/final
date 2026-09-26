@@ -563,7 +563,13 @@ new #[Lazy] class extends Component {
 <div
     class="h-full flex flex-col flex-1 relative bg-slate-50 dark:bg-zinc-900 overflow-hidden"
     x-data="{ bgOpacity: localStorage.getItem('board_bgOpacity') !== null ? Number(localStorage.getItem('board_bgOpacity')) : 15, showWorkspaceEditor: false }"
-    @bg-opacity-changed.window="bgOpacity = Number($event.detail); localStorage.setItem('board_bgOpacity', bgOpacity)"
+    @bg-opacity-changed.window="
+        bgOpacity = Number($event.detail); 
+        localStorage.setItem('board_bgOpacity', bgOpacity);
+        if (document.getElementById('board-background-layer')) {
+            document.getElementById('board-background-layer').style.opacity = bgOpacity / 100;
+        }
+    "
     x-on:open-edit-column-modal.window="$nextTick(() => $flux.modal('edit-column').show())"
 >
     <style>
@@ -598,7 +604,7 @@ new #[Lazy] class extends Component {
     </style>
 
     {{-- Background Layer --}}
-    <div class="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300" :style="`opacity: ${bgOpacity / 100}`">
+    <div id="board-background-layer" class="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300" :style="`opacity: ${bgOpacity / 100}`">
         @if($workspace->cover_image)
             <img src="{{ \Illuminate\Support\Facades\Storage::url($workspace->cover_image) }}" class="w-full h-full object-cover" />
             <div class="absolute inset-0 bg-gradient-to-b from-transparent to-white/70 dark:to-zinc-900/70"></div>
