@@ -4,7 +4,12 @@ use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
-Route::view('/', 'welcome')->middleware('guest')->name('home');
+Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect()->route('workspace');
+    }
+    return view('welcome');
+})->name('home');
 
 // Register auth endpoint untuk Pusher private channels (wajib untuk Echo.private())
 Broadcast::routes(['middleware' => ['web', 'auth']]);
