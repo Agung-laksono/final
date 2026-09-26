@@ -351,10 +351,10 @@ new class extends Component {
                 \Illuminate\Support\Facades\Notification::send($po->creator, $notification);
                 
                 $this->showApprovalModal = false;
-                \Flux::toast('SPK Maklon berhasil disetujui (ACC).', variant: 'success');
+                \Flux::toast('Pengajuan berhasil disetujui (ACC).', variant: 'success');
             } catch (\Exception $e) {
                 DB::rollBack();
-                \Flux::toast('Gagal menyetujui SPK: ' . $e->getMessage(), variant: 'danger');
+                \Flux::toast('Gagal menyetujui pengajuan: ' . $e->getMessage(), variant: 'danger');
             }
         }
     }
@@ -393,10 +393,10 @@ new class extends Component {
                 \Illuminate\Support\Facades\Notification::send($po->creator, $notification);
                 
                 $this->showApprovalModal = false;
-                \Flux::toast('Pengajuan SPK Maklon ditolak.', variant: 'warning');
+                \Flux::toast('Pengajuan ditolak.', variant: 'warning');
             } catch (\Exception $e) {
                 DB::rollBack();
-                \Flux::toast('Gagal menolak SPK: ' . $e->getMessage(), variant: 'danger');
+                \Flux::toast('Gagal menolak pengajuan: ' . $e->getMessage(), variant: 'danger');
             }
         }
     }
@@ -557,7 +557,7 @@ new class extends Component {
                                     @elseif($colKey === 'pending_approval')
                                         <button class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.openApprovalModal({{ $po->id }})">
                                             <flux:icon.eye class="w-3 h-3" />
-                                            <span>Review SPK</span>
+                                            <span>Review Pengajuan</span>
                                         </button>
                                     @elseif($progress < 100)
                                         <button class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm flex items-center gap-1 transition-colors" @click.stop="$wire.openPaymentModal({{ $po->id }})">
@@ -748,7 +748,7 @@ new class extends Component {
     @if($selectedPo)
     <div class="space-y-4">
         <div class="flex justify-between items-center border-b border-zinc-200 dark:border-zinc-700 pb-3">
-            <flux:heading size="lg">Review SPK Maklon</flux:heading>
+            <flux:heading size="lg">Review Pengajuan</flux:heading>
         </div>
         
         <div class="bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 text-sm shadow-inner">
@@ -758,7 +758,7 @@ new class extends Component {
                     <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ $selectedPo->po_number }}</div>
                 </div>
                 <div class="col-span-2 sm:col-span-1">
-                    <span class="text-zinc-500 text-xs">Vendor Maklon:</span>
+                    <span class="text-zinc-500 text-xs">Vendor:</span>
                     <div class="flex items-center gap-2 mt-1">
                         @if($selectedPo->vendor && $selectedPo->vendor->image)
                             <button type="button" @click="$dispatch('open-lightbox', { url: '{{ Storage::url($selectedPo->vendor->image) }}' })" class="shrink-0 hover:opacity-80 transition-opacity">
