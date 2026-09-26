@@ -562,8 +562,7 @@ new #[Lazy] class extends Component {
 
 <div
     class="h-full flex flex-col flex-1 relative bg-slate-50 dark:bg-zinc-900 overflow-hidden"
-    x-data="{ bgOpacity: Number(localStorage.getItem('board_bgOpacity')) || 15, showWorkspaceEditor: false }"
-    x-init="$watch('bgOpacity', value => localStorage.setItem('board_bgOpacity', value))"
+    x-data="{ showWorkspaceEditor: false }"
     x-on:open-edit-column-modal.window="$nextTick(() => $flux.modal('edit-column').show())"
 >
     <style>
@@ -598,7 +597,7 @@ new #[Lazy] class extends Component {
     </style>
 
     {{-- Background Layer --}}
-    <div class="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300" :style="{ opacity: bgOpacity / 100 }">
+    <div class="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300" :style="`opacity: ${$store.boardBg.opacity / 100};`">
         @if($workspace->cover_image)
             <img src="{{ \Illuminate\Support\Facades\Storage::url($workspace->cover_image) }}" class="w-full h-full object-cover" />
             <div class="absolute inset-0 bg-gradient-to-b from-transparent to-white/70 dark:to-zinc-900/70"></div>
@@ -681,9 +680,9 @@ new #[Lazy] class extends Component {
                 <div x-show="showBgSettings" x-transition.opacity style="display: none;" class="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-4 z-[9999]">
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Opacity</span>
-                        <span class="text-xs font-bold text-zinc-500" x-text="bgOpacity + '%'"></span>
+                        <span class="text-xs font-bold text-zinc-500" x-text="$store.boardBg.opacity + '%'"></span>
                     </div>
-                    <input type="range" x-model.number="bgOpacity" min="0" max="100" class="w-full accent-indigo-600 cursor-pointer">
+                    <input type="range" :value="$store.boardBg.opacity" @input="$store.boardBg.setOpacity($event.target.value)" min="0" max="100" class="w-full accent-indigo-600 cursor-pointer">
                 </div>
             </div>
         </div>
@@ -699,9 +698,9 @@ new #[Lazy] class extends Component {
                 <div x-show="showBgSettings" x-transition.opacity style="display: none;" class="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-4 z-[9999]">
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Background Opacity</span>
-                        <span class="text-xs font-bold text-zinc-500" x-text="bgOpacity + '%'"></span>
+                        <span class="text-xs font-bold text-zinc-500" x-text="$store.boardBg.opacity + '%'"></span>
                     </div>
-                    <input type="range" x-model.number="bgOpacity" min="0" max="100" class="w-full accent-indigo-600 cursor-pointer">
+                    <input type="range" :value="$store.boardBg.opacity" @input="$store.boardBg.setOpacity($event.target.value)" min="0" max="100" class="w-full accent-indigo-600 cursor-pointer">
                 </div>
             </div>
         </div>
@@ -1356,6 +1355,18 @@ new #[Lazy] class extends Component {
     />
 </div>
 </div>
+
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.store('boardBg', {
+            opacity: localStorage.getItem('board_bgOpacity') !== null ? Number(localStorage.getItem('board_bgOpacity')) : 15,
+            setOpacity(val) {
+                this.opacity = val;
+                localStorage.setItem('board_bgOpacity', val);
+            }
+        });
+    });
+</script>
 
 
 
