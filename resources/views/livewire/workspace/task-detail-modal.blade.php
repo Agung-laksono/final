@@ -1,12 +1,15 @@
 <?php
 
 use App\Models\User;
+use App\Events\WorkspaceTaskUpdated;
 use Modules\Workspace\Models\Task;
 use Modules\Workspace\Models\TaskSubtask;
 use Modules\Workspace\Models\TaskComment;
 use Modules\Workspace\Models\TaskAttachment;
+use Modules\Workspace\Models\TaskUrl;
 use Modules\Workspace\Models\TaskActivity;
 use Modules\Workspace\Models\TaskLabel;
+use Modules\Workspace\Models\KeyResult;
 use Illuminate\Support\Carbon;
 use Livewire\WithFileUploads;
 use Livewire\Volt\Component;
@@ -22,8 +25,11 @@ new class extends Component {
     public string $newComment = '';
     public string $tempDescription = '';
     public $replyToCommentId = null;
+    public $referenceItem = null;
     public $attachmentFile = null;
     public $commentAttachmentFile = null;
+    public $newUrlLink = '';
+    public $newUrlTitle = '';
     public array $availableLabels = [];
     public array $columns = []; // for list name
     public array $workspaceUsers = [];
@@ -49,17 +55,24 @@ new class extends Component {
         $task = Task::with([
             'assignees', 
             'labels', 
+            'keyResults.objective',
             'subtasks' => function($q) {
                 $q->with('children.children')->whereNull('parent_id')->orderBy('created_at', 'asc');
             }, 
             'comments.user', 
             'comments.parent.user',
             'attachments', 
+            'urls',
             'timeLogs',
             'activities.user'
         ])->find($taskId);
 
         if ($task) {
+            // Catat waktu baca user (Read Receipt)
+            $task->userReads()->syncWithoutDetaching([
+                auth()->id() => ['last_read_at' => now()]
+            ]);
+
             $this->selectedProject = $task->toArray();
             
             // Sort activities newest first
@@ -67,6 +80,20 @@ new class extends Component {
                 usort($this->selectedProject['activities'], function($a, $b) {
                     return strtotime($b['created_at']) - strtotime($a['created_at']);
                 });
+            }
+
+            // Deduplicate URLs for display
+            if (isset($this->selectedProject['urls'])) {
+                $uniqueUrls = [];
+                $seenUrls = [];
+                foreach ($this->selectedProject['urls'] as $url) {
+                    $normalized = rtrim(strtolower(str_replace(['http://', 'https://', 'www.'], '', $url['url'])), '/');
+                    if (!in_array($normalized, $seenUrls)) {
+                        $seenUrls[] = $normalized;
+                        $uniqueUrls[] = $url;
+                    }
+                }
+                $this->selectedProject['urls'] = $uniqueUrls;
             }
         } else {
             $this->selectedProject = null;
@@ -99,33 +126,140 @@ new class extends Component {
             }
         }, $formatted);
 
+        // Find Markdown links [text](url)
+        $formatted = preg_replace('/\[([^\]]+)\]\((https?:\/\/[^\s\)<]+)\)/i', '<a href="$2" target="_blank" class="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">$1</a>', $formatted);
+
+        // Convert bare URLs to links, ignoring those already inside <a> tags or other HTML tags
+        $formatted = preg_replace_callback('/<a\b[^>]*>.*?<\/a>|<[^>]+>|\bhttps?:\/\/[^\s<]+/is', function($matches) {
+            if (str_starts_with($matches[0], '<')) {
+                return $matches[0];
+            }
+            return '<a href="'.$matches[0].'" target="_blank" class="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">'.$matches[0].'</a>';
+        }, $formatted);
+
         return nl2br($formatted);
     }
 
+    public function reorderSubtasks($itemId, $newParentId, $orderedIds) {
+        if (!$this->selectedProject) return;
+
+        $subtask = TaskSubtask::where('task_id', $this->selectedProject['id'])->find($itemId);
+        if (!$subtask) return;
+
+        $newParentId = empty($newParentId) ? null : $newParentId;
+        
+        // Basic safety: Prevent setting itself as parent
+        if ((string)$newParentId === (string)$itemId) return;
+
+        // Prevent moving into its own descendants (Basic circular dependency check) & Validate Max Depth
+        if ($newParentId) {
+            $allSubtasks = TaskSubtask::where('task_id', $this->selectedProject['id'])->get()->keyBy('id')->toArray();
+            $curr = $newParentId;
+            $visited = [];
+            $parentDepth = 1; // Kedalaman target parent (dimulai dari 1)
+            
+            for ($i = 0; $i < 100; $i++) {
+                if (!$curr) break;
+                if ((string)$curr === (string)$itemId || isset($visited[$curr])) {
+                    // Revert frontend changes if invalid move (circular)
+                    $this->selectedProject['subtasks'] = $this->loadSubtasksArray($this->selectedProject['id']);
+                    return;
+                }
+                $visited[$curr] = true;
+                $curr = $allSubtasks[$curr]['parent_id'] ?? null;
+                if ($curr) $parentDepth++;
+            }
+            
+            // Hitung kedalaman maksimal dari item yang sedang dipindah
+            $itemMaxDepth = $this->calculateSubtaskMaxDepth($itemId, $allSubtasks);
+            
+            // Jika kedalaman total melebihi 5, batalkan pergeseran!
+            if ($parentDepth + $itemMaxDepth > 5) {
+                // Revert state ke posisi semula
+                $this->selectedProject['subtasks'] = $this->loadSubtasksArray($this->selectedProject['id']);
+                // Kirim notifikasi error ke layar
+                $this->dispatch('toast', type: 'error', message: 'Maksimal 5 Level! Item yang digeser akan melebihi batas level terdalam.');
+                return;
+            }
+        }
+
+        $subtask->update(['parent_id' => $newParentId]);
+
+        foreach ($orderedIds as $index => $id) {
+            TaskSubtask::where('task_id', $this->selectedProject['id'])
+                ->where('id', $id)
+                ->update(['position' => $index]);
+        }
+
+        $this->normalizeSubtaskStates($this->selectedProject['id']);
+        $this->recordActivity($this->selectedProject['id'], 'Mengurutkan ulang sub-tugas');
+        
+        $this->selectedProject['subtasks'] = $this->loadSubtasksArray($this->selectedProject['id']);
+    }
+
+    private function calculateSubtaskMaxDepth($itemId, $allSubtasks) {
+        $maxDepth = 1;
+        foreach ($allSubtasks as $sub) {
+            if ($sub['parent_id'] == $itemId) {
+                $childDepth = 1 + $this->calculateSubtaskMaxDepth($sub['id'], $allSubtasks);
+                if ($childDepth > $maxDepth) {
+                    $maxDepth = $childDepth;
+                }
+            }
+        }
+        return $maxDepth;
+    }
+
     private function normalizeSubtaskStates($taskId) {
-        $roots = TaskSubtask::where('task_id', $taskId)->whereNull('parent_id')->get();
+        $allSubtasks = TaskSubtask::where('task_id', $taskId)->get()->keyBy('id')->toArray();
+        
+        $childMap = [];
+        foreach ($allSubtasks as $id => $s) {
+            $pid = $s['parent_id'];
+            if ($pid) {
+                $childMap[$pid][] = $id;
+            }
+        }
+        
+        $roots = array_filter($allSubtasks, fn($s) => is_null($s['parent_id']));
+        
+        $updates = [];
         foreach ($roots as $root) {
-            $this->normalizeSubtask($root);
+            $this->normalizeSubtaskMemory($root['id'], $allSubtasks, $childMap, $updates, []);
+        }
+        
+        foreach ($updates as $id => $isCompleted) {
+            TaskSubtask::where('id', $id)->update(['is_completed' => $isCompleted]);
         }
     }
 
-    private function normalizeSubtask($subtask) {
-        $children = TaskSubtask::where('parent_id', $subtask->id)->get();
-        if ($children->count() === 0) return; // leaf node
-
-        // Normalize children first (bottom-up)
-        foreach ($children as $child) {
-            $this->normalizeSubtask($child);
+    private function normalizeSubtaskMemory($id, &$allSubtasks, &$childMap, &$updates, $visited = []) {
+        if (in_array($id, $visited)) return;
+        $visited[] = $id;
+        
+        $children = $childMap[$id] ?? [];
+        if (empty($children)) return; // leaf node
+        
+        // Bottom-up recursion
+        foreach ($children as $cid) {
+            $this->normalizeSubtaskMemory($cid, $allSubtasks, $childMap, $updates, $visited);
         }
-
-        // Re-fetch to get updated states after children normalized
-        $children = TaskSubtask::where('parent_id', $subtask->id)->get();
-        $allCompleted = $children->every(fn($c) => $c->is_completed);
-
-        if ($subtask->is_completed !== $allCompleted) {
-            $subtask->update(['is_completed' => $allCompleted]);
+        
+        $allCompleted = true;
+        foreach ($children as $cid) {
+            $childCompleted = $updates[$cid] ?? $allSubtasks[$cid]['is_completed'];
+            if (!$childCompleted) {
+                $allCompleted = false;
+                break;
+            }
+        }
+        
+        if ($allSubtasks[$id]['is_completed'] != $allCompleted) {
+            $updates[$id] = $allCompleted;
         }
     }
+
+
 
     public function recordActivity($taskId, $description) {
         TaskActivity::create([
@@ -135,15 +269,149 @@ new class extends Component {
             'description' => $description
         ]);
     }
+    
+    public function copyChecklistFrom($sourceTaskId) {
+        if (!$this->selectedProject) return;
+        
+        $sourceSubtasks = TaskSubtask::where('task_id', $sourceTaskId)->whereNull('parent_id')->orderBy('created_at')->get();
+        if ($sourceSubtasks->isEmpty()) return;
+        
+        $this->duplicateSubtasksRecursively($sourceSubtasks, null, $this->selectedProject['id']);
+        
+        $this->recordActivity($this->selectedProject['id'], 'Menyalin checklist dari task lain.');
+        
+        $this->loadTask($this->selectedProject['id']);
+        $this->dispatch('kanban-reinit');
+    }
+    
+    public function renameSubtask($subtaskId, $newTitle) {
+        if (!$this->selectedProject) return;
+        
+        $newTitle = trim($newTitle);
+        if (empty($newTitle)) return;
+        
+        $subtask = TaskSubtask::where('task_id', $this->selectedProject['id'])->find($subtaskId);
+        if (!$subtask || $subtask->title === $newTitle) return;
+
+        $subtask->update(['title' => $newTitle]);
+        $this->recordActivity($this->selectedProject['id'], "Mengubah nama checklist menjadi '{$newTitle}'");
+        
+        // Lightweight reload: hanya perbarui array subtasks di selectedProject
+        // tanpa memanggil normalizeSubtaskStates yang berat/rekursif
+        $this->selectedProject['subtasks'] = $this->loadSubtasksArray($this->selectedProject['id']);
+    }
+    
+    private function loadSubtasksArray($taskId) {
+        $subtasks = TaskSubtask::where('task_id', $taskId)
+            ->whereNull('parent_id')
+            ->with('children.children.children.children')
+            ->orderBy('position', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->toArray();
+        return $subtasks;
+    }
+    
+    public function duplicateSubtask($subtaskId) {
+        if (!$this->selectedProject) return;
+        
+        $sourceSubtask = TaskSubtask::where('task_id', $this->selectedProject['id'])->find($subtaskId);
+        if (!$sourceSubtask) return;
+        
+        $newSubtask = TaskSubtask::create([
+            'task_id' => $this->selectedProject['id'],
+            'parent_id' => $sourceSubtask->parent_id,
+            'title' => $sourceSubtask->title . ' (Copy)',
+            'is_completed' => false,
+            'requires_input' => $sourceSubtask->requires_input,
+            'input_value' => null
+        ]);
+            
+        $children = TaskSubtask::where('parent_id', $sourceSubtask->id)->orderBy('created_at')->get();
+        if ($children->isNotEmpty()) {
+            $this->duplicateSubtasksRecursively($children, $newSubtask->id, $this->selectedProject['id']);
+        }
+        
+        $this->loadTask($this->selectedProject['id']);
+        $this->recordActivity($this->selectedProject['id'], 'Menduplikasi checklist: ' . $sourceSubtask->title);
+    }
+    
+    private function duplicateSubtasksRecursively($subtasks, $newParentId, $targetTaskId) {
+        foreach ($subtasks as $sub) {
+            $newSub = TaskSubtask::create([
+                'task_id' => $targetTaskId,
+                'parent_id' => $newParentId,
+                'title' => $sub->title,
+                'is_completed' => false, // reset status
+                'requires_input' => $sub->requires_input,
+                'input_value' => null // reset input
+            ]);
+            
+            $children = TaskSubtask::where('parent_id', $sub->id)->orderBy('created_at')->get();
+            if ($children->isNotEmpty()) {
+                $this->duplicateSubtasksRecursively($children, $newSub->id, $targetTaskId);
+            }
+        }
+    }
+
+    /**
+     * Dispatch Livewire event (untuk update komponen lokal)
+     * DAN broadcast ke Pusher dengan task_id (untuk sinkronisasi user lain di workspace yang sama).
+     * Menyertakan task_id agar client penerima bisa filter: hanya reload modal jika task yang sama sedang dibuka.
+     */
+    private function broadcastTaskUpdated(string $action = 'task_updated'): void
+    {
+        if ($this->selectedProject) {
+            $taskModel = Task::find($this->selectedProject['id']);
+            if ($taskModel) {
+                $taskModel->update(['last_significant_update_at' => now()]);
+                // Otomatis baca juga untuk pembuat perubahan
+                $taskModel->userReads()->syncWithoutDetaching([
+                    auth()->id() => ['last_read_at' => now()]
+                ]);
+            }
+        }
+
+        $this->dispatch('task-updated');
+        if ($this->workspace && $this->selectedProject) {
+            $taskId = $this->selectedProject['id'] ?? null;
+            $latestActivity = TaskActivity::where('task_id', $taskId)->latest()->first();
+            $message = $latestActivity ? $latestActivity->description : 'Memperbarui tugas';
+
+            $assigneeIds = [];
+            if (isset($this->selectedProject['assignees']) && is_array($this->selectedProject['assignees'])) {
+                $assigneeIds = collect($this->selectedProject['assignees'])->pluck('id')->toArray();
+            }
+
+            WorkspaceTaskUpdated::safeDispatch(
+                is_array($this->workspace) ? $this->workspace['id'] : $this->workspace->id,
+                $action,
+                [
+                    'task_id' => $taskId,
+                    'user'    => auth()->user()->name,
+                    'user_avatar' => auth()->user()->avatar ? \Illuminate\Support\Facades\Storage::url(auth()->user()->avatar) : null,
+                    'message' => $message,
+                    'assignee_ids' => $assigneeIds
+                ]  // rich payload: task_id untuk smart filter di client + info toast
+            );
+        }
+    }
 
     public function updateProjectField($field, $value) {
         if (!$this->selectedProject) return;
         $task = Task::find($this->selectedProject['id']);
         if ($task) {
             $task->update([$field => $value ?: null]);
-            $this->recordActivity($task->id, "Memperbarui {$field} tugas");
+            
+            if ($field === 'title') {
+                $this->recordActivity($task->id, 'Mengubah judul task menjadi: ' . $value);
+            } else {
+                $this->recordActivity($task->id, "Memperbarui {$field} tugas");
+            }
+            
             $this->loadTask($task->id);
-            $this->dispatch('task-updated');
+            $this->dispatch('kanban-reinit');
+            $this->broadcastTaskUpdated();
         }
     }
 
@@ -161,7 +429,7 @@ new class extends Component {
             // Copy assignees
             $newTask->assignees()->sync($task->assignees->pluck('id'));
 
-            $this->dispatch('task-updated');
+            $this->broadcastTaskUpdated();
             $this->showProjectModal = false; 
         }
     }
@@ -169,6 +437,11 @@ new class extends Component {
     public function saveRichDescription() {
         if ($this->selectedProject) {
             $this->updateProjectField('description', $this->tempDescription);
+            
+            // Extract URLs from description
+            $this->extractUrlsFromText($this->tempDescription, $this->selectedProject['id']);
+            $this->loadTask($this->selectedProject['id']);
+            
             $this->showRichEditorModal = false;
         }
     }
@@ -176,6 +449,52 @@ new class extends Component {
     public function openRichEditor($currentDescription) {
         $this->tempDescription = $currentDescription;
         $this->showRichEditorModal = true;
+    }
+
+    public function extractUrlsFromText($text, $taskId) {
+        $text = strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $text)); // Handle HTML if present
+        $lines = explode("\n", trim($text));
+        
+        // Pola URL yang lebih kuat (mendukung http://, https://, IP, localhost, dll)
+        $urlPattern = '/(?<!@)\b(?:https?:\/\/[\w\.\-\:]+(?:\/[^\s\]<\)*]*)?|(?:www\.)?(?:[a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}(?:\/[^\s\]<\)*]*)?)/i';
+        
+        foreach ($lines as $line) {
+            // Check for markdown links
+            if (preg_match_all('/\[([^\]]+)\]\(([^)]+)\)/i', $line, $mdMatches, PREG_SET_ORDER)) {
+                foreach ($mdMatches as $match) {
+                    $title = trim($match[1]);
+                    $foundUrl = rtrim($match[2], '.,!?)');
+                    $tempUrl = preg_match('/^https?:\/\//i', $foundUrl) ? $foundUrl : 'https://' . $foundUrl;
+                    if (!in_array(strtolower(pathinfo(parse_url($tempUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION)), ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'png', 'jpg', 'jpeg', 'gif', 'zip', 'rar', 'csv'])) {
+                        if (!TaskUrl::where('task_id', $taskId)->where('url', $tempUrl)->exists()) {
+                            TaskUrl::create(['task_id' => $taskId, 'user_id' => auth()->id(), 'title' => $title, 'url' => $tempUrl]);
+                        }
+                    }
+                    $line = str_replace($match[0], '', $line);
+                }
+            }
+            
+            // Check for bare URLs
+            if (preg_match_all($urlPattern, $line, $matches, PREG_OFFSET_CAPTURE)) {
+                $lastOffset = 0;
+                foreach ($matches[0] as $match) {
+                    $foundUrl = rtrim($match[0], '.,!?)');
+                    $offset = $match[1];
+                    
+                    // Text before URL since the last URL
+                    $textBefore = trim(substr($line, $lastOffset, $offset - $lastOffset));
+                    $title = trim(preg_replace('/[:\-\>]+$/', '', $textBefore)) ?: null;
+                    
+                    $tempUrl = preg_match('/^https?:\/\//i', $foundUrl) ? $foundUrl : 'https://' . $foundUrl;
+                    if (!in_array(strtolower(pathinfo(parse_url($tempUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION)), ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'png', 'jpg', 'jpeg', 'gif', 'zip', 'rar', 'csv'])) {
+                        if (!TaskUrl::where('task_id', $taskId)->where('url', $tempUrl)->exists()) {
+                            TaskUrl::create(['task_id' => $taskId, 'user_id' => auth()->id(), 'title' => $title, 'url' => $tempUrl]);
+                        }
+                    }
+                    $lastOffset = $offset + strlen($match[0]);
+                }
+            }
+        }
     }
 
     public function addComment() {
@@ -211,6 +530,9 @@ new class extends Component {
                 $isImage = str_starts_with($mime, 'image/') ? '1' : '0';
                 $parsedContent = "[attachment:{$path}|{$this->commentAttachmentFile->getClientOriginalName()}|{$isImage}]\n\n" . $parsedContent;
             }
+            if ($this->referenceItem) {
+                $parsedContent = $this->referenceItem['markdown'] . "\n\n" . $parsedContent;
+            }
 
             TaskComment::create([
                 'task_id' => $task->id,
@@ -219,18 +541,40 @@ new class extends Component {
                 'content' => trim($parsedContent)
             ]);
             
-            $this->recordActivity($task->id, 'Menambahkan komentar baru');
+            // Extract URLs from comment and add to TaskUrls
+            $this->extractUrlsFromText($parsedContent, $task->id);
             
+            $commentPreview = \Illuminate\Support\Str::limit(trim(strip_tags($this->newComment)), 60);
+            if (!empty($commentPreview)) {
+                $this->recordActivity($task->id, 'Menambahkan komentar: "' . $commentPreview . '"');
+            } else {
+                $this->recordActivity($task->id, 'Menambahkan lampiran pada komentar');
+            }
             $this->newComment = '';
             $this->replyToCommentId = null;
+            $this->referenceItem = null;
             $this->commentAttachmentFile = null;
             $this->loadTask($task->id);
-            $this->dispatch('task-updated');
+            $this->broadcastTaskUpdated();
         }
     }
 
     public function cancelReply() {
         $this->replyToCommentId = null;
+    }
+
+    public function setReference($type, $scrollId, $title) {
+        $this->referenceItem = [
+            'type' => $type,
+            'title' => $title,
+            'scrollId' => $scrollId,
+            'markdown' => "[REF:{$type}:{$scrollId}|" . str_replace('|', '', $title) . "]"
+        ];
+        $this->dispatch('focus-comment-textarea');
+    }
+
+    public function cancelReference() {
+        $this->referenceItem = null;
     }
 
     public function editComment($commentId, $newContent) {
@@ -244,6 +588,10 @@ new class extends Component {
 
         $comment->update(['content' => trim($newContent)]);
         $this->recordActivity($comment->task_id, 'Mengedit komentar');
+        
+        // Extract URLs from edited comment
+        $this->extractUrlsFromText($newContent, $comment->task_id);
+        
         $this->loadTask($comment->task_id);
     }
 
@@ -279,7 +627,55 @@ new class extends Component {
             $this->recordActivity($task->id, "Mengunggah lampiran: " . $this->attachmentFile->getClientOriginalName());
             $this->attachmentFile = null;
             $this->loadTask($task->id);
-            $this->dispatch('task-updated');
+            $this->broadcastTaskUpdated();
+        }
+    }
+    
+    public function addUrl() {
+        if (!$this->selectedProject || empty(trim($this->newUrlLink))) return;
+        
+        $task = Task::find($this->selectedProject['id']);
+        if ($task) {
+            $inputUrl = trim($this->newUrlLink);
+            $finalUrl = preg_match('/^https?:\/\//i', $inputUrl) ? $inputUrl : 'https://' . $inputUrl;
+            
+            TaskUrl::create([
+                'task_id' => $task->id,
+                'user_id' => auth()->id(),
+                'title' => trim($this->newUrlTitle) ?: null,
+                'url' => $finalUrl
+            ]);
+            
+            $this->recordActivity($task->id, "Menambahkan tautan eksternal: " . ($this->newUrlTitle ?: $finalUrl));
+            
+            $this->newUrlLink = '';
+            $this->newUrlTitle = '';
+            $this->loadTask($task->id);
+            $this->broadcastTaskUpdated();
+        }
+    }
+
+    public function editUrlTitle($urlId, $newTitle) {
+        if (!$this->selectedProject) return;
+        
+        $url = TaskUrl::where('task_id', $this->selectedProject['id'])->find($urlId);
+        if ($url) {
+            $url->update(['title' => trim($newTitle) ?: null]);
+            $this->recordActivity($this->selectedProject['id'], "Mengubah judul tautan eksternal menjadi: " . ($newTitle ?: $url->url));
+            $this->loadTask($this->selectedProject['id']);
+            $this->broadcastTaskUpdated();
+        }
+    }
+    
+    public function deleteUrl($urlId) {
+        if (!$this->selectedProject) return;
+        
+        $url = TaskUrl::where('task_id', $this->selectedProject['id'])->find($urlId);
+        if ($url) {
+            $url->delete();
+            $this->recordActivity($this->selectedProject['id'], "Menghapus tautan eksternal.");
+            $this->loadTask($this->selectedProject['id']);
+            $this->broadcastTaskUpdated();
         }
     }
 
@@ -287,12 +683,12 @@ new class extends Component {
         if (!$this->selectedProject) return;
         $task = Task::find($this->selectedProject['id']);
         if ($task) {
-            $task->assignees()->toggle($userId);
+            $changes = $task->assignees()->toggle($userId);
             $user = User::find($userId);
-            $action = $task->assignees()->where('user_id', $userId)->exists() ? 'Menugaskan' : 'Melepas penugasan';
+            $action = count($changes['attached']) > 0 ? 'Menugaskan' : 'Melepas penugasan';
             $this->recordActivity($task->id, "{$action} {$user->name}");
             $this->loadTask($task->id);
-            $this->dispatch('task-updated');
+            $this->broadcastTaskUpdated();
         }
     }
 
@@ -302,7 +698,7 @@ new class extends Component {
         if ($task) {
             $task->labels()->toggle($labelId);
             $this->loadTask($task->id);
-            $this->dispatch('task-updated');
+            $this->broadcastTaskUpdated();
         }
     }
 
@@ -323,7 +719,7 @@ new class extends Component {
             $status = $newState ? 'Menyelesaikan' : 'Membatalkan selesai';
             $this->recordActivity($subtask->task_id, "{$status} subtask: {$subtask->title}");
             $this->loadTask($subtask->task_id);
-            $this->dispatch('task-updated');
+            $this->broadcastTaskUpdated();
         }
     }
 
@@ -371,7 +767,7 @@ new class extends Component {
             $this->recordActivity($task->id, "Menambahkan subtask: " . trim($title));
             if (!$parentId) $this->newSubtaskTitle = '';
             $this->loadTask($task->id);
-            $this->dispatch('task-updated');
+            $this->broadcastTaskUpdated();
         }
     }
 
@@ -382,7 +778,7 @@ new class extends Component {
             $this->recordActivity($taskId, "Menghapus subtask: {$subtask->title}");
             $subtask->delete();
             $this->loadTask($taskId);
-            $this->dispatch('task-updated');
+            $this->broadcastTaskUpdated();
         }
     }
 
@@ -395,7 +791,7 @@ new class extends Component {
         
         $this->recordActivity($taskId, "Menghapus seluruh checklist");
         $this->loadTask($taskId);
-        $this->dispatch('task-updated');
+        $this->broadcastTaskUpdated('checklist_deleted');
     }
 
     public function getSubtaskProgress() {
@@ -432,7 +828,7 @@ new class extends Component {
             $subtask->update(['input_value' => $value]);
             $this->recordActivity($subtask->task_id, "Menyimpan nilai input untuk subtask: {$subtask->title}");
             $this->loadTask($subtask->task_id);
-            $this->dispatch('task-updated');
+            $this->broadcastTaskUpdated();
         }
     }
 
@@ -450,11 +846,67 @@ new class extends Component {
             if ($project) {
                 $project->labels()->attach($label->id);
                 $this->loadTask($project->id);
-                $this->dispatch('task-updated');
+                $this->broadcastTaskUpdated();
             }
         }
         
         $this->availableLabels = TaskLabel::all()->toArray();
+    }
+
+    public function deleteLabel($id) {
+        $label = TaskLabel::find($id);
+        if ($label) {
+            // Unlink from all tasks first just to be safe
+            $label->tasks()->detach();
+            $label->delete();
+            
+            $this->availableLabels = TaskLabel::all()->toArray();
+            
+            if ($this->selectedProject) {
+                $task = Task::with('labels')->find($this->selectedProject['id']);
+                if ($task) {
+                    $this->selectedProject['labels'] = $task->labels->toArray();
+                }
+            }
+        }
+    }
+
+    public function linkKeyResult($keyResultId) {
+        if (!$this->selectedProject) return;
+        $task = Task::find($this->selectedProject['id']);
+        if (!$task) return;
+        // Attach if not already linked
+        if (!$task->keyResults()->where('key_result_id', $keyResultId)->exists()) {
+            $task->keyResults()->attach($keyResultId, ['contribution' => 1]);
+            $this->recordActivity($task->id, 'Menghubungkan tugas ke Key Result OKR');
+            $this->loadTask($task->id);
+            $this->broadcastTaskUpdated('task_updated');
+        }
+    }
+
+    public function unlinkKeyResult($keyResultId) {
+        if (!$this->selectedProject) return;
+        $task = Task::find($this->selectedProject['id']);
+        if (!$task) return;
+        $task->keyResults()->detach($keyResultId);
+        $this->recordActivity($task->id, 'Melepas hubungan Task dari Key Result OKR');
+        $this->loadTask($task->id);
+        $this->broadcastTaskUpdated('task_updated');
+    }
+
+    /**
+     * Dipanggil oleh listener Alpine.js (Echo) saat ada event WorkspaceTaskUpdated.
+     * Hanya reload task jika modal sedang terbuka DAN task yang ditampilkan sesuai.
+     * Ini memastikan User B yang sedang membuka modal task yang sama langsung melihat update.
+     */
+    #[\Livewire\Attributes\On('workspace-task-changed')]
+    public function realtimeRefresh($taskId = null): void {
+        if (!$this->showProjectModal || !$this->selectedProject) return;
+
+        // Jika ada task_id spesifik di payload dan berbeda → skip (update task lain)
+        if ($taskId && $this->selectedProject['id'] != $taskId) return;
+
+        $this->loadTask($this->selectedProject['id']);
     }
 }; ?>
 
@@ -532,7 +984,24 @@ new class extends Component {
 </style>
 
                 @php
-                    $isOwner = isset($workspace['owner_id']) && auth()->id() === $workspace['owner_id'];
+                    $isOwner = false;
+                    $isAdminOrLeader = false;
+                    $isAssignee = false;
+
+                    if ($workspace) {
+                        $workspaceOwnerId = is_array($workspace) ? ($workspace['owner_id'] ?? null) : $workspace->owner_id;
+                        $isOwner = $workspaceOwnerId == auth()->id();
+                        
+                        $users = is_array($workspace) ? ($workspace['users'] ?? []) : (isset($workspace->users) ? $workspace->users : []);
+                        $userRole = collect($users)->firstWhere('id', auth()->id())['pivot']['role'] ?? 'member';
+                        $isAdminOrLeader = in_array($userRole, ['admin', 'leader']) || $isOwner;
+                    }
+
+                    if ($selectedProject) {
+                        $isAssignee = collect($selectedProject['assignees'] ?? [])->contains('id', auth()->id());
+                    }
+
+                    $canEditTask = $isAdminOrLeader || $isAssignee;
                 @endphp
 
                 {{-- Left Column: Main Content --}}
@@ -550,14 +1019,42 @@ new class extends Component {
                             <div class="mt-1 p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
                                 <flux:icon.computer-desktop class="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                             </div>
-                            <div class="flex-1" x-data="{ editingTitle: false, title: '{{ addslashes($selectedProject['title'] ?? '') }}' }">
-                                <div x-show="!editingTitle" @if($isOwner) @click="editingTitle = true; $nextTick(() => $refs.titleInput.focus())" class="cursor-pointer group/title rounded-lg -ml-2 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors" @else class="group/title rounded-lg -ml-2 p-2" @endif>
+                            <div class="flex-1" 
+                                wire:key="task-title-{{ $selectedProject['id'] ?? 'new' }}"
+                                data-title="{{ $selectedProject['title'] ?? '' }}"
+                                x-data="{ 
+                                    editingTitle: false, 
+                                    localTitle: '',
+                                    isSaving: false,
+                                    startEdit() {
+                                        this.localTitle = this.$root.dataset.title;
+                                        this.editingTitle = true;
+                                        this.$nextTick(() => this.$refs.titleInput.focus());
+                                    },
+                                    save() {
+                                        if (this.isSaving) return;
+                                        if (this.localTitle !== this.$root.dataset.title && this.localTitle.trim() !== '') {
+                                            this.isSaving = true;
+                                            this.$wire.updateProjectField('title', this.localTitle).then(() => {
+                                                this.isSaving = false;
+                                                this.editingTitle = false;
+                                            });
+                                        } else {
+                                            this.editingTitle = false;
+                                        }
+                                    }
+                                }">
+                                <div x-show="!editingTitle" @if($canEditTask) @click="startEdit()" class="cursor-pointer group/title rounded-lg -ml-2 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors flex items-center gap-3" @else class="group/title rounded-lg -ml-2 p-2 flex items-center gap-3" @endif>
                                     <h2 class="text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight leading-tight">
-                                        {{ $selectedProject['title'] }}
+                                        <span x-show="isSaving" x-text="localTitle" x-cloak></span>
+                                        <span x-show="!isSaving">{{ $selectedProject['title'] }}</span>
                                     </h2>
+                                    <div x-show="isSaving" class="text-zinc-400" x-cloak>
+                                        <flux:icon.arrow-path class="w-5 h-5 animate-spin" />
+                                    </div>
                                 </div>
-                                <div x-show="editingTitle" class="mb-1.5 -ml-2 px-2 pt-2" @click.away="if(title !== '{{ addslashes($selectedProject['title'] ?? '') }}') $wire.updateProjectField('title', title); editingTitle = false">
-                                    <input type="text" x-ref="titleInput" x-model="title" @keydown.enter="if(title !== '{{ addslashes($selectedProject['title'] ?? '') }}') $wire.updateProjectField('title', title); editingTitle = false" class="w-full text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight leading-tight bg-white dark:bg-zinc-900 border-2 border-indigo-500 rounded-lg px-2 py-1 focus:outline-none focus:ring-4 focus:ring-indigo-500/20" />
+                                <div x-show="editingTitle" class="-ml-2 p-1" @click.away="save()" x-cloak>
+                                    <input type="text" x-ref="titleInput" x-model="localTitle" @keydown.enter="save()" @keydown.escape="editingTitle = false" class="w-full text-2xl font-extrabold text-zinc-900 dark:text-white tracking-tight leading-tight bg-white dark:bg-zinc-800 border-2 border-indigo-400 dark:border-indigo-500 rounded-lg px-2 py-1 shadow-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all" />
                                 </div>
                                 <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5 mt-1">
                                     <span>in list</span>
@@ -622,9 +1119,14 @@ new class extends Component {
                                         <flux:menu.heading>Assign Labels</flux:menu.heading>
                                         @foreach($availableLabels as $label)
                                             <flux:menu.checkbox wire:click="toggleLabel({{ $label['id'] }})" :checked="collect($selectedProject['labels'] ?? [])->pluck('id')->contains($label['id'])">
-                                                <div class="flex items-center gap-2">
-                                                    <div class="w-3 h-3 rounded-full shadow-sm" style="background-color: {{ $label['color'] }}"></div>
-                                                    {{ $label['name'] }}
+                                                <div class="flex items-center justify-between w-full group/label">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="w-3 h-3 rounded-full shadow-sm" style="background-color: {{ $label['color'] }}"></div>
+                                                        <span>{{ $label['name'] }}</span>
+                                                    </div>
+                                                    <button wire:click.stop="deleteLabel({{ $label['id'] }})" wire:confirm="Hapus label ini secara permanen?" class="opacity-0 group-hover/label:opacity-100 text-red-400 hover:text-red-600 transition-all px-1" title="Hapus Label">
+                                                        <flux:icon.trash class="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
                                             </flux:menu.checkbox>
                                         @endforeach
@@ -638,6 +1140,51 @@ new class extends Component {
                                     </flux:menu>
                                 </flux:dropdown>
                                 @endif
+                            </div>
+                        </div>
+
+                        {{-- Priority --}}
+                        <div class="space-y-3">
+                            <h3 class="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Priority</h3>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                @php
+                                    $currentPriority = $selectedProject['priority'] ?? 'normal';
+                                    $pConfig = match($currentPriority) {
+                                        'critical' => ['label' => 'Critical', 'color' => '#ef4444'],
+                                        'high'     => ['label' => 'High', 'color' => '#f97316'],
+                                        'normal'   => ['label' => 'Normal', 'color' => '#64748b'],
+                                        'low'      => ['label' => 'Low', 'color' => '#94a3b8'],
+                                        default    => ['label' => 'Normal', 'color' => '#64748b'],
+                                    };
+                                @endphp
+                                
+                                <flux:dropdown>
+                                    <button class="flex items-center gap-2 bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 rounded-lg hover:bg-zinc-200/80 dark:hover:bg-zinc-700 hover:shadow-sm transition-all duration-300 @if($isOwner) cursor-pointer group @endif shadow-sm" @if(!$isOwner) disabled @endif>
+                                        <div class="w-3 h-3 rounded-full shadow-inner border border-white/20" style="background-color: {{ $pConfig['color'] }}"></div>
+                                        <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">{{ $pConfig['label'] }}</span>
+                                        @if($isOwner)
+                                        <flux:icon.chevron-down class="w-3 h-3 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors ml-1" />
+                                        @endif
+                                    </button>
+                                    
+                                    @if($isOwner)
+                                    <flux:menu>
+                                        <flux:menu.heading>Ubah Prioritas</flux:menu.heading>
+                                        <flux:menu.item wire:click="updateProjectField('priority', 'critical')">
+                                            <div class="flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-red-500"></div> Critical</div>
+                                        </flux:menu.item>
+                                        <flux:menu.item wire:click="updateProjectField('priority', 'high')">
+                                            <div class="flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-orange-500"></div> High</div>
+                                        </flux:menu.item>
+                                        <flux:menu.item wire:click="updateProjectField('priority', 'normal')">
+                                            <div class="flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-slate-500"></div> Normal</div>
+                                        </flux:menu.item>
+                                        <flux:menu.item wire:click="updateProjectField('priority', 'low')">
+                                            <div class="flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-slate-400"></div> Low</div>
+                                        </flux:menu.item>
+                                    </flux:menu>
+                                    @endif
+                                </flux:dropdown>
                             </div>
                         </div>
 
@@ -663,6 +1210,64 @@ new class extends Component {
                             </div>
                         </div>
                     </div>
+
+                    {{-- Key Results (OKR) --}}
+                    @php
+                        $linkedKrs = $selectedProject['key_results'] ?? [];
+                        $allKrs = KeyResult::whereHas('objective', fn($q) => $q->where('workspace_id', $workspace['id']))->with('objective')->get();
+                    @endphp
+                    @if($allKrs->isNotEmpty() || count($linkedKrs) > 0)
+                    <div class="ml-14">
+                        <h3 class="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest mb-3">🎯 Key Results (OKR)</h3>
+                        <div class="flex flex-wrap gap-2">
+                            {{-- Already linked --}}
+                            @foreach($linkedKrs as $kr)
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-lg text-xs font-medium text-indigo-700 dark:text-indigo-300 group">
+                                <flux:icon.flag class="w-3 h-3 shrink-0" />
+                                <span class="break-words font-medium" title="{{ $kr['title'] }}">{{ $kr['title'] }}</span>
+                                @if($isOwner)
+                                <button wire:click="unlinkKeyResult({{ $kr['id'] }})"
+                                        class="opacity-0 group-hover:opacity-100 ml-1 text-indigo-400 hover:text-red-500 transition-all"
+                                        title="Lepas hubungan">
+                                    <flux:icon.x-mark class="w-3 h-3" />
+                                </button>
+                                @endif
+                            </div>
+                            @endforeach
+
+                            {{-- Dropdown to add more --}}
+                            @if($isOwner && $allKrs->isNotEmpty())
+                            <flux:dropdown>
+                                <button class="h-8 px-2.5 rounded-lg bg-zinc-100/80 hover:bg-indigo-50 dark:bg-zinc-800/80 dark:hover:bg-indigo-900/20 border-2 border-dashed border-zinc-300 dark:border-zinc-600 hover:border-indigo-400 dark:hover:border-indigo-600 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all">
+                                    <flux:icon.plus class="w-3.5 h-3.5" />
+                                    Kaitkan KR
+                                </button>
+                                <flux:menu class="max-h-64 overflow-y-auto w-72">
+                                    <flux:menu.heading>Pilih Key Result</flux:menu.heading>
+                                    @foreach($allKrs as $kr)
+                                    @php
+                                        $alreadyLinked = collect($linkedKrs)->pluck('id')->contains($kr->id);
+                                    @endphp
+                                    <flux:menu.item wire:click="{{ $alreadyLinked ? '' : 'linkKeyResult(' . $kr->id . ')' }}"
+                                                   class="{{ $alreadyLinked ? 'opacity-50 cursor-default' : '' }}">
+                                        <div class="flex items-start gap-2 w-full">
+                                            <flux:icon.flag class="w-3.5 h-3.5 text-indigo-500 mt-0.5 shrink-0" />
+                                            <div>
+                                                <div class="text-sm font-medium leading-tight">{{ $kr->title }}</div>
+                                                <div class="text-[10px] text-zinc-400 mt-0.5">{{ $kr->objective->title ?? '' }}</div>
+                                            </div>
+                                            @if($alreadyLinked)
+                                            <flux:icon.check class="w-3.5 h-3.5 text-green-500 ml-auto shrink-0" />
+                                            @endif
+                                        </div>
+                                    </flux:menu.item>
+                                    @endforeach
+                                </flux:menu>
+                            </flux:dropdown>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
 
                     {{-- 3. Description --}}
                     <div class="flex items-start gap-4">
@@ -710,41 +1315,116 @@ new class extends Component {
 
                     {{-- 4. Checklist --}}
                     <div class="flex items-start gap-4">
-                        <div class="mt-1 p-2 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 shadow-sm">
+                        <div class="sticky top-2 z-20 mt-1 p-2 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 shadow-sm">
                             <flux:icon.check-circle class="w-5 h-5" />
                         </div>
                         <div class="flex-1 space-y-5" x-data="{ localHideCompleted: false }">
-                            <div class="flex items-center justify-between" id="checklist-section">
-                                <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Checklist</h3>
-                                <div class="flex gap-2">
-                                    <flux:button type="button" @click="localHideCompleted = !localHideCompleted" variant="subtle" size="sm" class="bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border-none rounded-lg transition-all shadow-sm w-32 justify-center">
-                                        <span x-text="localHideCompleted ? 'Show completed' : 'Hide completed'"></span>
-                                    </flux:button>
+                            <div class="sticky top-0 z-20 bg-white dark:bg-zinc-900 pt-1 pb-4 -mt-1 border-b border-transparent shadow-[0_10px_20px_-15px_rgba(0,0,0,0.1)] dark:shadow-none">
+                                <div class="flex items-center justify-between mb-4" id="checklist-section">
+                                    <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Checklist</h3>
+                                    <div class="flex gap-2">
+                                        @php
+                                            $tasksWithChecklists = collect();
+                                            if ($selectedProject) {
+                                                $tasksWithChecklists = \Modules\Workspace\Models\Task::where('workspace_id', $workspace['id'])
+                                                    ->where('id', '!=', $selectedProject['id'])
+                                                    ->whereHas('subtasks')
+                                                    ->orderBy('title')
+                                                    ->get();
+                                            }
+                                        @endphp
+                                        @if(($isOwner ?? false) && $tasksWithChecklists->isNotEmpty())
+                                        <flux:dropdown>
+                                            <flux:button variant="subtle" size="sm" class="bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border-none rounded-lg transition-all shadow-sm">
+                                                Copy dari...
+                                            </flux:button>
+                                            <flux:menu class="max-h-64 overflow-y-auto w-64">
+                                                <flux:menu.heading>Pilih task sumber</flux:menu.heading>
+                                                @foreach($tasksWithChecklists as $t)
+                                                    <flux:menu.item wire:click="copyChecklistFrom({{ $t->id }})" icon="document-duplicate">
+                                                        {{ Str::limit($t->title, 25) }}
+                                                    </flux:menu.item>
+                                                @endforeach
+                                            </flux:menu>
+                                        </flux:dropdown>
+                                        @endif
+                                        
+                                        <flux:button type="button" @click="localHideCompleted = !localHideCompleted" variant="subtle" size="sm" class="bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border-none rounded-lg transition-all shadow-sm w-32 justify-center">
+                                            <span x-text="localHideCompleted ? 'Show completed' : 'Hide completed'"></span>
+                                        </flux:button>
+                                    </div>
+                                </div>
+                                
+                                @php
+                                    $progress = $this->getSubtaskProgress();
+                                @endphp
+                                
+                                <div class="flex items-center gap-4 relative">
+                                    <div class="text-[13px] font-bold {{ $progress == 100 ? 'text-emerald-500 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400' }} w-10 text-right tabular-nums transition-colors duration-500">{{ $progress }}%</div>
+                                    <div class="flex-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-full h-2 shadow-inner overflow-hidden border border-zinc-200/50 dark:border-zinc-700/50 relative">
+                                        <div class="absolute inset-y-0 left-0 {{ $progress == 100 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-gradient-to-r from-indigo-500 to-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.3)]' }} rounded-full transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]" style="width: {{ $progress }}%"></div>
+                                    </div>
                                 </div>
                             </div>
                             
-                            @php
-                                $progress = $this->getSubtaskProgress();
-                            @endphp
-                            
-                            <div class="flex items-center gap-4 mb-6 relative">
-                                <div class="text-[13px] font-bold {{ $progress == 100 ? 'text-emerald-500 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400' }} w-10 text-right tabular-nums transition-colors duration-500">{{ $progress }}%</div>
-                                <div class="flex-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-full h-2 shadow-inner overflow-hidden border border-zinc-200/50 dark:border-zinc-700/50 relative">
-                                    <div class="absolute inset-y-0 left-0 {{ $progress == 100 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-gradient-to-r from-indigo-500 to-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.3)]' }} rounded-full transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]" style="width: {{ $progress }}%"></div>
-                                </div>
-                            </div>
-                            
-                            <div class="space-y-3">
+                            <div class="space-y-3"
+                                 id="subtask-root-container"
+                                 data-parent-id=""
+                                 x-data="{
+                                    init() {
+                                        if (window.Sortable && !this.$el._sortable_initialized) {
+                                            this.$el._sortable_initialized = true;
+                                            window.Sortable.create(this.$el, {
+                                                group: 'subtasks',
+                                                animation: 250,
+                                                fallbackOnBody: true,
+                                                swapThreshold: 0.65,
+                                                handle: '.subtask-drag-handle',
+                                                ghostClass: 'subtask-ghost',
+                                                dragClass: 'subtask-drag',
+                                                chosenClass: 'subtask-chosen',
+                                                onEnd: (e) => {
+                                                    const itemId = e.item.getAttribute('data-subtask-id');
+                                                    const newParentId = e.to.getAttribute('data-parent-id');
+                                                    const orderedIds = Array.from(e.to.children)
+                                                        .filter(c => c.hasAttribute('data-subtask-id'))
+                                                        .map(c => c.getAttribute('data-subtask-id'));
+                                                    
+                                                    // Deteksi apakah onEnd dipicu berkali-kali secara bersamaan (Request Flood)
+                                                    const now = Date.now();
+                                                    if (window._lastSubtaskDropTime && (now - window._lastSubtaskDropTime < 100)) {
+                                                        alert('⚠ ERROR TERDETEKSI: SortableJS memicu onEnd berkali-kali dalam waktu bersamaan! Ini yang membuat server macet.');
+                                                        return; // Hentikan agar tidak membombardir server
+                                                    }
+                                                    window._lastSubtaskDropTime = now;
+
+                                                    // Revert DOM block removed for smooth UI
+                                                    
+                                                    window.dispatchEvent(new CustomEvent('debug-log', {
+                                                        detail: {msg: 'Root Drop: Item ' + itemId + ' to Parent ' + (newParentId || 'null') + ' | New Order: [' + orderedIds.join(', ') + ']'}
+                                                    }));
+
+                                                    if (itemId) {
+                                                        $wire.reorderSubtasks(itemId, newParentId || null, orderedIds);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    }
+                                 }"
+                            >
                                 @include('livewire.workspace.partials.subtask-item', ['subtasks' => $selectedProject['subtasks'] ?? [], 'level' => 1, 'isOwner' => $isOwner])
                                 
-                                <div class="pt-2 pl-2" x-data="{ isAdding: false, title: '' }" @trigger-add-subtask.window="isAdding = true; $nextTick(() => { document.getElementById('checklist-section').scrollIntoView({behavior: 'smooth', block: 'center'}); $refs.rootSubtaskInput.focus(); })">
+                                <div class="pt-2 pl-2" x-data="{ isAdding: false, title: '', isSaving: false }" @trigger-add-subtask.window="isAdding = true; $nextTick(() => { document.getElementById('checklist-section').scrollIntoView({behavior: 'smooth', block: 'center'}); $refs.rootSubtaskInput.focus(); })">
                                     <div x-show="!isAdding">
                                         <flux:button variant="subtle" size="sm" class="bg-zinc-100/50 hover:bg-zinc-100 dark:bg-zinc-800/30 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 rounded-xl transition-all font-semibold shadow-sm px-4" @click="isAdding = true; $nextTick(() => $refs.rootSubtaskInput.focus())">Add a task</flux:button>
                                     </div>
                                     <div x-show="isAdding" class="flex gap-2 items-center" x-transition>
-                                        <input x-ref="rootSubtaskInput" x-model="title" placeholder="Task title..." class="w-full max-w-sm h-9 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 outline-none focus:ring-2 focus:ring-indigo-500/20 dark:text-white transition-all shadow-sm" @keydown.enter="$wire.addSubtask(null, title).then(() => { isAdding = false; title = ''; })" />
-                                        <flux:button size="sm" variant="primary" class="!h-9 !px-4 shadow-sm transition-transform active:scale-95 !rounded-xl" @click="$wire.addSubtask(null, title).then(() => { isAdding = false; title = ''; })" x-bind:disabled="!title">Add</flux:button>
-                                        <flux:button size="sm" variant="ghost" class="!h-9 !px-4 !rounded-xl" @click="isAdding = false">Cancel</flux:button>
+                                        <input x-ref="rootSubtaskInput" x-model="title" x-bind:disabled="isSaving" placeholder="Task title..." class="w-full max-w-sm h-9 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 outline-none focus:ring-2 focus:ring-indigo-500/20 dark:text-white transition-all shadow-sm disabled:opacity-50" @keydown.enter="if(!title || isSaving) return; isSaving = true; $wire.addSubtask(null, title).then(() => { isAdding = false; title = ''; isSaving = false; })" />
+                                        <flux:button size="sm" variant="primary" class="!h-9 !px-4 shadow-sm transition-transform active:scale-95 !rounded-xl" @click="isSaving = true; $wire.addSubtask(null, title).then(() => { isAdding = false; title = ''; isSaving = false; })" x-bind:disabled="!title || isSaving">
+                                            <span x-text="isSaving ? 'Saving...' : 'Add'"></span>
+                                        </flux:button>
+                                        <flux:button size="sm" variant="ghost" class="!h-9 !px-4 !rounded-xl" @click="isAdding = false" x-bind:disabled="isSaving">Cancel</flux:button>
                                     </div>
                                 </div>
                             </div>
@@ -752,18 +1432,21 @@ new class extends Component {
                     </div>
 
                     {{-- 5. Attachments --}}
-                    @if(!empty($selectedProject['attachments']))
                     <div class="flex items-start gap-4">
                         <div class="mt-1 p-2 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 shadow-sm">
                             <flux:icon.paper-clip class="w-5 h-5" />
                         </div>
                         <div class="flex-1 space-y-4">
                             <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Attachments</h3>
+                            @if(!empty($selectedProject['attachments']))
                             <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 @foreach($selectedProject['attachments'] as $attachment)
-                                    <div class="group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-indigo-300 dark:hover:border-indigo-500/50 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer">
-                                        <div class="h-24 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center relative overflow-hidden">
-                                            <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    <div id="attachment-{{ $loop->index }}" class="group flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-indigo-300 dark:hover:border-indigo-500/50 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer">
+                                        <div class="h-24 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center relative overflow-hidden group/img">
+                                            <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity z-10"></div>
+                                            <div class="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity z-20">
+                                                <flux:button variant="filled" size="xs" wire:click="setReference('lampiran', 'attachment-{{ $loop->index }}', '{{ addslashes($attachment['file_name']) }}')" class="bg-black/50 hover:bg-black/70 text-white !h-6 !px-2 text-[10px] !rounded-md backdrop-blur-sm border border-white/20">Quote</flux:button>
+                                            </div>
                                             @if(str_contains($attachment['file_type'], 'image'))
                                                 <img src="{{ asset('storage/' . $attachment['file_path']) }}" alt="{{ $attachment['file_name'] }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                             @elseif(str_contains($attachment['file_type'], 'pdf'))
@@ -781,22 +1464,79 @@ new class extends Component {
                                     </div>
                                 @endforeach
                             </div>
-                            <div class="pt-2 relative">
+                            @endif
+                            <div class="pt-2 relative flex items-center gap-2">
                                 <input type="file" wire:model="attachmentFile" id="attachmentFile-{{ $selectedProject['id'] }}" class="hidden" />
                                 <label for="attachmentFile-{{ $selectedProject['id'] }}" class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border-none rounded-lg transition-all font-medium shadow-sm h-8 px-3 cursor-pointer">
                                     <flux:icon.paper-clip class="w-4 h-4" />
                                     Add an attachment
                                 </label>
+                                
+                                <div x-data="{ addingLink: false }" class="relative">
+                                    <flux:button size="sm" variant="subtle" @click="addingLink = !addingLink" class="bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border-none shadow-sm font-medium h-8 px-3 rounded-lg flex items-center gap-2">
+                                        <flux:icon.link class="w-4 h-4" />
+                                        Add a link
+                                    </flux:button>
+                                    
+                                    <div x-show="addingLink" class="absolute left-0 z-50 mt-2 p-3 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 flex flex-col gap-2 w-72" @click.away="addingLink = false" x-cloak>
+                                        <input type="url" wire:model="newUrlLink" placeholder="https://..." class="w-full h-8 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 outline-none focus:ring-2 focus:ring-indigo-500/20 dark:text-white shadow-sm" />
+                                        <input type="text" wire:model="newUrlTitle" placeholder="Judul (Opsional)" class="w-full h-8 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 outline-none focus:ring-2 focus:ring-indigo-500/20 dark:text-white shadow-sm" @keydown.enter="$wire.addUrl().then(() => addingLink = false)" />
+                                        <flux:button size="sm" variant="primary" @click="$wire.addUrl().then(() => addingLink = false)" class="mt-1 shadow-sm transition-transform active:scale-95">Simpan Tautan</flux:button>
+                                    </div>
+                                </div>
+                                
                                 <div wire:loading wire:target="attachmentFile" class="ml-2 text-xs text-zinc-500">
                                     Uploading...
                                 </div>
                             </div>
                         </div>
                     </div>
-                    @endif
                     
                     {{-- Watch attachmentFile property --}}
                     <div x-init="$watch('$wire.attachmentFile', value => { if(value) $wire.uploadAttachment() })"></div>
+
+                    {{-- 6. URLs --}}
+                    @if(!empty($selectedProject['urls']))
+                    <div class="flex items-start gap-4">
+                        <div class="mt-1 p-2 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 shadow-sm">
+                            <flux:icon.link class="w-5 h-5" />
+                        </div>
+                        <div class="flex-1 min-w-0 space-y-4">
+                            <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Tautan Eksternal</h3>
+                            <div class="space-y-2">
+                                @foreach($selectedProject['urls'] as $url)
+                                    <div id="url-{{ $url['id'] }}" x-data="{ editingUrl: false, editTitle: '{{ addslashes($url['title'] ?: $url['url']) }}' }" class="group flex items-center justify-between p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-indigo-300 dark:hover:border-indigo-500/50 rounded-xl shadow-sm transition-all duration-300 gap-2">
+                                        <div class="flex-1 flex items-center gap-3 min-w-0 overflow-hidden">
+                                            <div class="p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 rounded-lg shrink-0">
+                                                <img src="https://www.google.com/s2/favicons?domain={{ parse_url($url['url'], PHP_URL_HOST) }}&sz=64" class="w-5 h-5 rounded-sm" alt="Favicon">
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div x-show="!editingUrl">
+                                                    <a href="{{ $url['url'] }}" target="_blank" class="text-sm font-semibold text-zinc-800 dark:text-zinc-200 hover:text-indigo-600 dark:hover:text-indigo-400 truncate block">
+                                                        {{ $url['title'] ?: $url['url'] }}
+                                                    </a>
+                                                    <span class="text-[11px] text-zinc-400 dark:text-zinc-500 truncate block">Ditambahkan pada {{ \Carbon\Carbon::parse($url['created_at'])->format('d M, H:i') }}</span>
+                                                </div>
+                                                <div x-show="editingUrl" style="display: none;" class="flex items-center gap-2">
+                                                    <input type="text" x-model="editTitle" @keydown.enter="$wire.editUrlTitle({{ $url['id'] }}, editTitle).then(() => editingUrl = false)" @keydown.escape="editingUrl = false" class="flex-1 text-sm rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-500 dark:text-white" autofocus>
+                                                    <button @click="$wire.editUrlTitle({{ $url['id'] }}, editTitle).then(() => editingUrl = false)" class="text-indigo-500 hover:text-indigo-600" title="Simpan"><flux:icon.check class="w-4 h-4" /></button>
+                                                    <button @click="editingUrl = false" class="text-zinc-400 hover:text-zinc-500" title="Batal"><flux:icon.x-mark class="w-4 h-4" /></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 shrink-0" x-show="!editingUrl">
+                                            <flux:button variant="ghost" size="xs" wire:click="setReference('tautan', 'url-{{ $url['id'] }}', '{{ addslashes($url['title'] ?: $url['url']) }}')" class="text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 h-7 px-2 rounded-lg">Quote</flux:button>
+                                            @if($isOwner ?? false || $url['user_id'] == auth()->id())
+                                                <flux:button variant="ghost" size="xs" @click="editingUrl = true" class="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 h-7 px-2 rounded-lg">Edit</flux:button>
+                                                <flux:button variant="ghost" size="xs" wire:click="deleteUrl({{ $url['id'] }})" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 h-7 px-2 rounded-lg">Hapus</flux:button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                    @endif
 
                     {{-- 6. Activity & Comments --}}
                     @include('livewire.workspace.partials.project-activity')
@@ -847,9 +1587,14 @@ new class extends Component {
                                     <flux:menu.heading>Assign Labels</flux:menu.heading>
                                     @foreach($availableLabels as $label)
                                         <flux:menu.checkbox wire:click="toggleLabel({{ $label['id'] }})" :checked="collect($selectedProject['labels'] ?? [])->pluck('id')->contains($label['id'])">
-                                            <div class="flex items-center gap-2">
-                                                <div class="w-3 h-3 rounded-full shadow-sm" style="background-color: {{ $label['color'] }}"></div>
-                                                {{ $label['name'] }}
+                                            <div class="flex items-center justify-between w-full group/label2">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-3 h-3 rounded-full shadow-sm" style="background-color: {{ $label['color'] }}"></div>
+                                                    <span>{{ $label['name'] }}</span>
+                                                </div>
+                                                <button wire:click.stop="deleteLabel({{ $label['id'] }})" wire:confirm="Hapus label ini secara permanen?" class="opacity-0 group-hover/label2:opacity-100 text-red-400 hover:text-red-600 transition-all px-1" title="Hapus Label">
+                                                    <flux:icon.trash class="w-3.5 h-3.5" />
+                                                </button>
                                             </div>
                                         </flux:menu.checkbox>
                                     @endforeach
@@ -898,6 +1643,16 @@ new class extends Component {
                                 <flux:button @click="$refs.sidebarFileInput.click()" variant="subtle" class="w-full justify-start text-zinc-600 dark:text-zinc-300 bg-zinc-100/80 dark:bg-zinc-800/50 hover:bg-white dark:hover:bg-zinc-700/80 hover:shadow-sm border border-transparent hover:border-zinc-200 dark:hover:border-zinc-600 font-semibold rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]" icon="paper-clip" x-bind:class="!sidebarOpen ? 'px-0 justify-center h-10 w-10' : ''">
                                     <span x-show="sidebarOpen">Attachment</span>
                                 </flux:button>
+                            </div>
+                            <div class="w-full relative" x-data="{ addingLink: false }">
+                                <flux:button @click="addingLink = !addingLink" variant="subtle" class="w-full justify-start text-zinc-600 dark:text-zinc-300 bg-zinc-100/80 dark:bg-zinc-800/50 hover:bg-white dark:hover:bg-zinc-700/80 hover:shadow-sm border border-transparent hover:border-zinc-200 dark:hover:border-zinc-600 font-semibold rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]" icon="link" x-bind:class="!sidebarOpen ? 'px-0 justify-center h-10 w-10' : ''">
+                                    <span x-show="sidebarOpen">Link</span>
+                                </flux:button>
+                                <div x-show="addingLink" class="absolute right-full mr-2 top-0 z-50 p-3 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 flex flex-col gap-2 w-72" @click.away="addingLink = false" x-cloak>
+                                    <input type="url" wire:model="newUrlLink" placeholder="https://..." class="w-full h-8 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 outline-none focus:ring-2 focus:ring-indigo-500/20 dark:text-white shadow-sm" />
+                                    <input type="text" wire:model="newUrlTitle" placeholder="Judul (Opsional)" class="w-full h-8 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 outline-none focus:ring-2 focus:ring-indigo-500/20 dark:text-white shadow-sm" @keydown.enter="$wire.addUrl().then(() => addingLink = false)" />
+                                    <flux:button size="sm" variant="primary" @click="$wire.addUrl().then(() => addingLink = false)" class="mt-1 shadow-sm transition-transform active:scale-95">Simpan Tautan</flux:button>
+                                </div>
                             </div>
                         </div>
                     {{-- Actions --}}
@@ -996,4 +1751,37 @@ new class extends Component {
     />
 
     @include('livewire.workspace.partials.project-log-modal')
+    
+    <style>
+    /* SortableJS UX Enhancements */
+    .subtask-ghost {
+        opacity: 0.5;
+        background-color: #f8fafc !important; /* zinc-50 */
+        border: 2px dashed #818cf8 !important; /* indigo-400 */
+        border-radius: 0.5rem;
+    }
+    .dark .subtask-ghost {
+        background-color: rgba(24, 24, 27, 0.5) !important; /* zinc-900 */
+        border-color: #6366f1 !important; /* indigo-500 */
+    }
+    .subtask-drag {
+        opacity: 1 !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        transform: rotate(2deg) scale(1.02);
+        border-radius: 0.5rem;
+        cursor: grabbing !important;
+        z-index: 9999 !important;
+    }
+    .dark .subtask-drag {
+        background-color: #27272a !important; /* zinc-800 */
+    }
+    .subtask-chosen {
+        background-color: #f1f5f9; /* slate-100 */
+        cursor: grabbing !important;
+    }
+    .dark .subtask-chosen {
+        background-color: rgba(63, 63, 70, 0.4); /* zinc-700 */
+    }
+    </style>
 </div>

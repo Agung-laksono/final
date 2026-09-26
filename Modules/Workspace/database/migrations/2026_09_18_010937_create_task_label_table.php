@@ -11,14 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('marketing_time_logs', function (Blueprint $table) {
+        Schema::create('task_label', function (Blueprint $table) {
             $table->id();
             $table->foreignId('task_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('start_time')->nullable();
-            $table->timestamp('end_time')->nullable();
-            $table->integer('duration_minutes')->nullable();
-            $table->text('description')->nullable();
+            $table->foreignId('task_label_id')->constrained()->cascadeOnDelete();
             
             $table->timestamps();
         });
@@ -29,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('marketing_time_logs');
+        Schema::dropIfExists('task_label');
     }
 };

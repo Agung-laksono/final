@@ -37,17 +37,7 @@ return new class extends Migration
             $table->integer('position')->default(0);
             $table->timestamps();
         });
-        
-        // Rename marketing_projects to tasks and restructure
-        Schema::rename('marketing_projects', 'tasks');
-        
-        Schema::table('tasks', function (Blueprint $table) {
-            $table->foreignId('workspace_id')->nullable()->constrained()->cascadeOnDelete();
-            $table->foreignId('workspace_column_id')->nullable()->constrained()->cascadeOnDelete();
-            
-            // Drop old status column
-            $table->dropColumn('status');
-        });
+        // The tasks table will be created subsequently.
     }
 
     /**
@@ -55,16 +45,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('tasks', function (Blueprint $table) {
-            $table->dropForeign(['workspace_id']);
-            $table->dropForeign(['workspace_column_id']);
-            $table->dropColumn('workspace_id');
-            $table->dropColumn('workspace_column_id');
-            $table->string('status')->default('ide_backlog');
-        });
-        
-        Schema::rename('tasks', 'marketing_projects');
-        
+
         Schema::dropIfExists('workspace_columns');
         Schema::dropIfExists('workspace_user');
         Schema::dropIfExists('workspaces');

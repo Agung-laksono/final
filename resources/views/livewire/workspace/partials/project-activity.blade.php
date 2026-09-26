@@ -12,8 +12,12 @@
                             <div class="space-y-5 pt-2 mb-8">
                                 @forelse($selectedProject['comments'] ?? [] as $comment)
                                     <div wire:key="comment-{{ $comment['id'] }}" id="comment-{{ $comment['id'] }}" class="flex gap-3 group transition-colors duration-700 rounded-xl -mx-2 p-2">
-                                        <div class="shrink-0 w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 border-2 border-white dark:border-zinc-900 shadow-sm flex items-center justify-center font-bold text-sm text-zinc-600 dark:text-zinc-400 mt-0.5">
-                                            {{ substr($comment['user']['name'] ?? 'U', 0, 1) }}
+                                        <div class="shrink-0 w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 border-2 border-white dark:border-zinc-900 shadow-sm flex items-center justify-center font-bold text-sm text-zinc-600 dark:text-zinc-400 mt-0.5 overflow-hidden">
+                                            @if(!empty($comment['user']['avatar']))
+                                                <img src="{{ \Illuminate\Support\Facades\Storage::url($comment['user']['avatar']) }}" class="w-full h-full object-cover">
+                                            @else
+                                                {{ substr($comment['user']['name'] ?? 'U', 0, 1) }}
+                                            @endif
                                         </div>
                                         <div class="flex-1 space-y-1"
                                              x-data="{ editing: false, editContent: {{ json_encode($comment['content']) }} }">
@@ -33,8 +37,30 @@
                                                         <div class="truncate italic">{!! Str::limit(strip_tags($this->formatCommentContent($comment['parent']['content'])), 60) !!}</div>
                                                     </div>
                                                 @endif
+                                                
+                                                @php
+                                                    $refType = null;
+                                                    $refId = null;
+                                                    $refTitle = null;
+                                                    $contentToDisplay = $comment['content'];
+                                                    
+                                                    if (preg_match('/^\[REF:([^:]+):([^|]+)\|([^\]]+)\]\s*/', $contentToDisplay, $matches)) {
+                                                        $refType = $matches[1];
+                                                        $refId = $matches[2];
+                                                        $refTitle = $matches[3];
+                                                        $contentToDisplay = preg_replace('/^\[REF:[^\]]+\]\s*/', '', $contentToDisplay);
+                                                    }
+                                                @endphp
+                                                
+                                                @if($refType)
+                                                    <div @click="let el = document.getElementById('{{ $refId }}'); if(el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('ring-4', 'ring-amber-500/50'); setTimeout(() => el.classList.remove('ring-4', 'ring-amber-500/50'), 2000); }" class="mb-2 pl-3 border-l-2 border-amber-300 dark:border-amber-500/50 text-xs text-zinc-500 dark:text-zinc-400 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 p-1.5 rounded-r-md transition-colors" title="Lihat referensi asli">
+                                                        <div class="font-semibold text-amber-600 dark:text-amber-400 mb-0.5"><flux:icon.link class="inline-block w-3 h-3 mr-1" /> Mereferensikan {{ ucfirst($refType) }}</div>
+                                                        <div class="truncate italic">{{ $refTitle }}</div>
+                                                    </div>
+                                                @endif
+                                                
                                                 <div class="bg-white dark:bg-zinc-800/80 p-3.5 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-700 inline-block max-w-full">
-                                                    <p class="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-line leading-relaxed">{!! $this->formatCommentContent($comment['content']) !!}</p>
+                                                    <p class="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-line leading-relaxed">{!! $this->formatCommentContent($contentToDisplay) !!}</p>
                                                 </div>
                                                 <div class="flex gap-3 mt-1.5 text-[11px] text-zinc-400 font-semibold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button wire:click="$set('replyToCommentId', {{ $comment['id'] }})" x-on:click="setTimeout(() => $refs.textarea.focus(), 100)" class="hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline underline-offset-2">Reply</button>
@@ -159,8 +185,12 @@
                                          this.showMentionPicker = false;
                                      }
                                  }'>
-                                <div class="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-500/20 dark:to-purple-500/20 border-2 border-white dark:border-zinc-900 shadow-sm flex items-center justify-center text-sm font-bold text-indigo-700 dark:text-indigo-300 mt-0.5">
-                                    {{ substr(auth()->user()->name, 0, 1) }}
+                                <div class="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-500/20 dark:to-purple-500/20 border-2 border-white dark:border-zinc-900 shadow-sm flex items-center justify-center text-sm font-bold text-indigo-700 dark:text-indigo-300 mt-0.5 overflow-hidden">
+                                    @if(auth()->user()->avatar)
+                                        <img src="{{ \Illuminate\Support\Facades\Storage::url(auth()->user()->avatar) }}" class="w-full h-full object-cover">
+                                    @else
+                                        {{ substr(auth()->user()->name, 0, 1) }}
+                                    @endif
                                 </div>
                                 <div class="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-sm focus-within:border-indigo-300 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all relative">
                                     @if($replyToCommentId)
@@ -176,6 +206,18 @@
                                         @endif
                                     @endif
 
+                                    @if($referenceItem)
+                                        <div class="px-4 py-2.5 bg-indigo-50/50 dark:bg-indigo-800/30 border-b border-indigo-100 dark:border-indigo-800 flex justify-between items-start rounded-t-xl text-sm">
+                                            <div class="flex-1 truncate pr-4">
+                                                <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 block mb-0.5">
+                                                    <flux:icon.link class="inline-block w-3 h-3 mr-1" /> Mereferensikan {{ ucfirst($referenceItem['type']) }}
+                                                </span>
+                                                <span class="text-zinc-600 dark:text-zinc-300 italic text-xs block truncate">{{ $referenceItem['title'] }}</span>
+                                            </div>
+                                            <button wire:click="cancelReference" class="shrink-0 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors rounded-lg"><flux:icon.x-mark class="w-4 h-4"/></button>
+                                        </div>
+                                    @endif
+
                                     @if($commentAttachmentFile)
                                         <div class="px-4 py-2 bg-indigo-50/50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-800/30 flex items-center justify-between text-sm">
                                             <div class="flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
@@ -188,7 +230,12 @@
                                         </div>
                                     @endif
 
-                                    <textarea x-ref="textarea" wire:model="newComment" placeholder="Write a comment... (Type @ to mention)" class="w-full border-none !border-transparent focus:!border-transparent focus:!ring-0 focus:outline-none text-sm bg-transparent p-4 min-h-[90px] resize-none text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 shadow-none"></textarea>
+                                    <textarea x-ref="textarea" 
+                                        @focus-comment-textarea.window="
+                                            $el.focus();
+                                            $el.scrollIntoView({behavior: 'smooth', block: 'center'});
+                                        "
+                                        wire:model="newComment" placeholder="Write a comment... (Type @ to mention)" class="w-full border-none !border-transparent focus:!border-transparent focus:!ring-0 focus:outline-none text-sm bg-transparent p-4 min-h-[90px] resize-none text-zinc-800 dark:text-zinc-200 placeholder:text-zinc-400 shadow-none"></textarea>
                                     
                                     {{-- Emoji Picker Dropdown --}}
                                     <div x-show="showEmojiPicker" @click.away="showEmojiPicker = false" x-transition class="absolute bottom-12 left-2 z-[99999] shadow-xl rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700">
@@ -216,6 +263,7 @@
                                             <button onclick="document.getElementById('comment-attachment').click()" type="button" class="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg transition-colors" title="Upload Attachment"><flux:icon.paper-clip class="w-4 h-4" /></button>
                                             <button @click="showMentionPicker = !showMentionPicker; showEmojiPicker = false" type="button" class="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg transition-colors" :class="showMentionPicker ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200' : ''"><flux:icon.at-symbol class="w-4 h-4" /></button>
                                             <button @click="showEmojiPicker = !showEmojiPicker; showMentionPicker = false" type="button" class="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg transition-colors" :class="showEmojiPicker ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200' : ''"><flux:icon.face-smile class="w-4 h-4" /></button>
+                                            <button @click="let ta = $refs.textarea; let start = ta.selectionStart; let end = ta.selectionEnd; let text = ta.value; let insertion = '[Judul Link](https://)'; ta.value = text.slice(0, start) + insertion + text.slice(end); ta.focus(); ta.dispatchEvent(new Event('input', {bubbles: true}))" type="button" class="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-lg transition-colors" title="Insert Link"><flux:icon.link class="w-4 h-4" /></button>
                                         </div>
                                         <flux:button wire:click="addComment" variant="primary" size="sm" class="rounded-lg shadow-sm font-semibold">Save</flux:button>
                                     </div>

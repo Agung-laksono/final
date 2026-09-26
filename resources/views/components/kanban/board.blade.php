@@ -1,5 +1,6 @@
 @props([
     'componentId',
+    'workspaceId' => null,
     'searchModel' => 'search',
     'searchPlaceholder' => 'Cari...',
     'viewMode' => 'kanban',
@@ -9,7 +10,7 @@
 
 <div {{ $attributes->merge(['class' => 'kanban-root relative flex flex-col w-full']) }}
      x-data="{ 
-        showHeader: $persist(true).as('kanban-{{ $componentId }}-header-user-{{ auth()->id() }}'),
+        showHeader: localStorage.getItem('kanban-{{ $componentId }}-header-user-{{ auth()->id() }}') !== 'false',
         transparent: true,
         activeId: null,
         processingId: null,
@@ -37,12 +38,113 @@
         }
      }" 
      x-init="
+        $watch('showHeader', value => localStorage.setItem('kanban-{{ $componentId }}-header-user-{{ auth()->id() }}', value));
         Livewire.hook('commit', ({ component, succeed }) => {
             succeed(() => {
                 processingId = null;
                 activeId = null;
             })
         });
+        
+        $nextTick(() => {
+            let mainContainer = $el.closest('[data-flux-main]');
+            if(mainContainer) {
+                mainContainer.style.setProperty('padding', '0', 'important');
+                mainContainer.style.setProperty('margin', '0', 'important');
+                mainContainer.style.setProperty('display', 'flex', 'important');
+                mainContainer.style.setProperty('flex-direction', 'column', 'important');
+                mainContainer.style.setProperty('height', '100dvh', 'important');
+                mainContainer.style.setProperty('max-height', '100dvh', 'important');
+                mainContainer.style.setProperty('min-height', '0', 'important');
+            }
+            document.body.style.setProperty('overflow', 'hidden', 'important');
+            document.body.style.setProperty('padding', '0', 'important');
+            document.body.style.setProperty('margin', '0', 'important');
+        });
+        
+        @if($workspaceId)
+        // Subscribe ke Pusher channel workspace untuk sinkronisasi realtime antar user
+        $nextTick(() => {
+            if (!window.Echo) return;
+            
+            // Debounce: cegah multiple rapid-fire reloads dalam 800ms
+            let reloadDebounceTimer = null;
+
+            window.Echo.channel('workspace.{{ $workspaceId }}')
+                .listen('.WorkspaceTaskUpdated', (event) => {
+                    // Smart delay berdasarkan prioritas aksi
+                    const lowPriorityActions = ['comment_added', 'attachment_uploaded', 'task_updated'];
+                    const delay = lowPriorityActions.includes(event.action) ? 1500 : 300;
+                    
+                    // Filter: Hanya tampilkan toast jika user saat ini adalah assignee di tugas tersebut
+                    const currentUserId = {{ auth()->id() }};
+                    const assigneeIds = event.data?.assignee_ids || [];
+                    const isAssignee = assigneeIds.includes(currentUserId);
+                    
+                    if (isAssignee) {
+                        const taskId = event.data?.task_id;
+                        let cardIsVisible = false;
+                        
+                        if (taskId) {
+                            const cardEl = document.querySelector(`[data-id='${taskId}']`);
+                            if (cardEl) {
+                                const rect = cardEl.getBoundingClientRect();
+                                cardIsVisible = (
+                                    rect.top >= 0 &&
+                                    rect.left >= 0 &&
+                                    rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                                    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+                                );
+                            }
+                        }
+
+                        if (cardIsVisible && taskId) {
+                            // Munculkan inline toast di dalam card (disembunyikan global toast)
+                            window.dispatchEvent(new CustomEvent(`task-inline-toast-${taskId}`, {
+                                detail: {
+                                    user: event.data.user,
+                                    avatar: event.data.user_avatar,
+                                    message: event.data.message
+                                }
+                            }));
+                        } else {
+                            // Munculkan toast notification global kustom (avatar + pesan) jika di luar layar
+                            if (event.data && event.data.user && event.data.message) {
+                                window.dispatchEvent(new CustomEvent('workspace-action-toast', {
+                                    detail: {
+                                        user: event.data.user,
+                                        avatar: event.data.user_avatar,
+                                        message: event.data.message,
+                                        action: event.action
+                                    }
+                                }));
+                            } else {
+                                // Fallback jika message spesifik tidak dikirim
+                                let actionMsg = 'Data diperbarui oleh rekan tim';
+                                if (event.action === 'task_moved') actionMsg = 'Tugas dipindahkan';
+                                else if (event.action === 'task_added') actionMsg = 'Tugas baru ditambahkan';
+                                else if (event.action === 'comment_added') actionMsg = 'Komentar baru ditambahkan';
+                                
+                                if (typeof Flux !== 'undefined' && Flux.toast) {
+                                    Flux.toast(actionMsg, { variant: 'success' });
+                                }
+                            }
+                        }
+                    }
+                    
+                    clearTimeout(reloadDebounceTimer);
+                    reloadDebounceTimer = setTimeout(() => {
+                        // 1. Reload board cards (kanban)
+                        $wire.loadProjects();
+
+                        // 2. Notify task-detail-modal jika sedang terbuka
+                        //    Kirim task_id dari payload agar modal bisa filter apakah perlu reload
+                        const taskId = event.data?.task_id ?? null;
+                        Livewire.dispatch('workspace-task-changed', { taskId: taskId });
+                    }, delay);
+                });
+        });
+        @endif
      "
      @status-updated.window="
         processingId = activeId;
@@ -52,30 +154,6 @@
      style="height: 100vh; overflow: hidden;">
     
     <style>
-        /* Paksa hilangkan padding bawaan layout KHUSUS untuk halaman Kanban ini
-           - HANYA ketika kanban VISIBLE (parent wrapper tidak punya class 'hidden') */
-        *:has(> :not(.hidden) > .kanban-root),
-        body:has(:not(.hidden) > .kanban-root) main,
-        body:has(:not(.hidden) > .kanban-root) *[data-flux-main],
-        body:has(:not(.hidden) > .kanban-root) div[style*="grid-area: main"],
-        body:has(:not(.hidden) > .kanban-root) .kanban-root-wrapper {
-            padding: 0 !important;
-            margin: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 0 !important;
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-            overflow: hidden !important;
-        }
-        
-        body:has(:not(.hidden) > .kanban-root) {
-            overflow: hidden !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
-
-        
         /* Menyembunyikan scrollbar tapi tetap bisa digulir */
         .hide-scroll::-webkit-scrollbar {
             display: none;
@@ -86,8 +164,8 @@
         }
         
         .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-            height: 8px; /* Slightly thicker for horizontal scroll */
+            width: 3px;
+            height: 3px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
             background: transparent;
@@ -120,7 +198,10 @@
             <div class="hidden lg:flex flex-col shrink-0 pl-1">
                 <div class="text-sm font-bold text-zinc-800 dark:text-zinc-100 leading-none">{{ $title }}</div>
                 @if($subtitle)
-                <div class="text-[10px] font-medium text-zinc-500 mt-1 leading-none">{{ $subtitle }}</div>
+                <div class="text-[10px] font-medium text-zinc-500 mt-1 leading-none flex items-center gap-1">
+                    <span>{{ $subtitle }}</span>
+                    {{ $subtitleSuffix ?? '' }}
+                </div>
                 @endif
             </div>
             @endif
@@ -136,8 +217,8 @@
             </div>
         </div>
 
-        <div class="flex items-center shrink-0 transition-all duration-500 ease-out origin-right overflow-hidden max-sm:[&_.flex.border]:h-8 max-sm:[&_.flex.border]:items-center max-sm:[&_button]:h-8 max-sm:[&_button]:!py-0 max-sm:[&_button]:!px-2 max-sm:[&_button]:!text-[9px] max-sm:[&_button_svg]:!w-3.5 max-sm:[&_button_svg]:!h-3.5 max-sm:[&_a]:!h-8 max-sm:[&_a]:!py-0 max-sm:[&_a]:!px-2 max-sm:[&_a]:!text-[9px] max-sm:[&_a_svg]:!w-3.5 max-sm:[&_a_svg]:!h-3.5 gap-1 sm:gap-2"
-             :class="searchFocused ? 'max-w-0 opacity-0 scale-95 !gap-0 !mx-0' : 'max-w-[500px] opacity-100 scale-100'">
+        <div class="flex items-center shrink-0 transition-all duration-500 ease-out origin-right max-sm:[&_.flex.border]:h-8 max-sm:[&_.flex.border]:items-center max-sm:[&_button]:h-8 max-sm:[&_button]:!py-0 max-sm:[&_button]:!px-2 max-sm:[&_button]:!text-[9px] max-sm:[&_button_svg]:!w-3.5 max-sm:[&_button_svg]:!h-3.5 max-sm:[&_a]:!h-8 max-sm:[&_a]:!py-0 max-sm:[&_a]:!px-2 max-sm:[&_a]:!text-[9px] max-sm:[&_a_svg]:!w-3.5 max-sm:[&_a_svg]:!h-3.5 gap-1 sm:gap-2"
+             :class="searchFocused ? 'max-w-0 opacity-0 scale-95 !gap-0 !mx-0 overflow-hidden' : 'max-w-[800px] opacity-100 scale-100 overflow-visible'">
 
 
             @if(isset($actions) || isset($header_actions))

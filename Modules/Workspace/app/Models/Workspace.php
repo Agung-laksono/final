@@ -13,7 +13,9 @@ class Workspace extends Model
     protected $fillable = [
         'name',
         'description',
-        'owner_id'
+        'owner_id',
+        'cover_image',
+        'is_active',
     ];
     
     public function owner()
@@ -34,5 +36,15 @@ class Workspace extends Model
     public function users()
     {
         return $this->belongsToMany(User::class)->withPivot('role')->withTimestamps();
+    }
+
+    public function objectives()
+    {
+        return $this->hasMany(Objective::class)->orderByDesc('year')->orderBy('period');
+    }
+
+    public function kpis()
+    {
+        return $this->hasMany(Kpi::class);
     }
 }

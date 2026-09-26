@@ -25,7 +25,7 @@ class TaskSubtask extends Model
     }
 
     public function children() {
-        return $this->hasMany(TaskSubtask::class, 'parent_id');
+        return $this->hasMany(TaskSubtask::class, 'parent_id')->orderBy('position', 'asc')->orderBy('created_at', 'asc');
     }
     // {
     //     // return TaskSubtaskFactory::new();

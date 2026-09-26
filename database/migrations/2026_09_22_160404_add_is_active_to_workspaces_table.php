@@ -11,20 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('marketing_labels', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('color');
-            
-            $table->timestamps();
+        Schema::table('workspaces', function (Blueprint $table) {
+            $table->boolean('is_active')->default(true)->after('cover_image');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('marketing_labels');
+        Schema::table('workspaces', function (Blueprint $table) {
+            $table->dropColumn('is_active');
+        });
     }
 };

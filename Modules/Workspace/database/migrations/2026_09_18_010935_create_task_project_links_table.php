@@ -11,10 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('marketing_project_label', function (Blueprint $table) {
+        Schema::create('task_links', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('task_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('marketing_label_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('from_project_id')->constrained('tasks')->cascadeOnDelete();
+            $table->foreignId('to_project_id')->constrained('tasks')->cascadeOnDelete();
+            $table->string('relation_type');
             
             $table->timestamps();
         });
@@ -25,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('marketing_project_label');
+        Schema::dropIfExists('task_links');
     }
 };

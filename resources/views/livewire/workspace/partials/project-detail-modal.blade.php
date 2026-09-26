@@ -93,8 +93,12 @@
                             <h3 class="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Assignees</h3>
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 @forelse($selectedProject['assignees'] ?? [] as $assignee)
-                                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-500/20 dark:to-purple-500/20 border-2 border-white dark:border-zinc-900 shadow-sm flex items-center justify-center text-sm font-bold text-indigo-700 dark:text-indigo-300 hover:-translate-y-1 hover:shadow-md transition-all duration-300 cursor-pointer" title="{{ $assignee['name'] }}">
-                                        {{ substr($assignee['name'], 0, 1) }}
+                                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-500/20 dark:to-purple-500/20 border-2 border-white dark:border-zinc-900 shadow-sm flex items-center justify-center text-sm font-bold text-indigo-700 dark:text-indigo-300 hover:-translate-y-1 hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden" title="{{ $assignee['name'] }}">
+                                        @if(!empty($assignee['avatar']))
+                                            <img src="{{ \Illuminate\Support\Facades\Storage::url($assignee['avatar']) }}" class="w-full h-full object-cover">
+                                        @else
+                                            {{ substr($assignee['name'], 0, 1) }}
+                                        @endif
                                     </div>
                                 @empty
                                     <span class="text-sm text-zinc-400 italic">Unassigned</span>
@@ -106,7 +110,7 @@
                                     <flux:menu class="max-h-64 overflow-y-auto w-64">
                                         <flux:menu.heading>Assign Members</flux:menu.heading>
                                         @foreach($workspace->users as $user)
-                                            <flux:menu.checkbox wire:click="toggleAssignee({{ $user->id }})" :checked="collect($selectedProject['assignees'] ?? [])->pluck('id')->contains($user->id)">
+                                            <flux:menu.checkbox wire:key="assignee-{{ $user->id }}" wire:click="toggleAssignee({{ $user->id }})" :checked="collect($selectedProject['assignees'] ?? [])->pluck('id')->contains($user->id)">
                                                 {{ $user->name }}
                                             </flux:menu.checkbox>
                                         @endforeach
@@ -142,6 +146,47 @@
                                                 </div>
                                             </flux:menu.checkbox>
                                         @endforeach
+                                    </flux:menu>
+                                </flux:dropdown>
+                            </div>
+                        </div>
+
+                        {{-- Priority --}}
+                        <div class="space-y-3">
+                            <h3 class="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Priority</h3>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                @php
+                                    $currentPriority = $selectedProject['priority'] ?? 'normal';
+                                    $pConfig = match($currentPriority) {
+                                        'critical' => ['label' => 'Critical', 'color' => '#ef4444'],
+                                        'high'     => ['label' => 'High', 'color' => '#f97316'],
+                                        'normal'   => ['label' => 'Normal', 'color' => '#64748b'],
+                                        'low'      => ['label' => 'Low', 'color' => '#94a3b8'],
+                                        default    => ['label' => 'Normal', 'color' => '#64748b'],
+                                    };
+                                @endphp
+                                
+                                <flux:dropdown>
+                                    <button class="flex items-center gap-2 bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 rounded-lg hover:bg-zinc-200/80 dark:hover:bg-zinc-700 hover:shadow-sm transition-all duration-300 cursor-pointer group shadow-sm">
+                                        <div class="w-3 h-3 rounded-full shadow-inner border border-white/20" style="background-color: {{ $pConfig['color'] }}"></div>
+                                        <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">{{ $pConfig['label'] }}</span>
+                                        <flux:icon.chevron-down class="w-3 h-3 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors ml-1" />
+                                    </button>
+                                    
+                                    <flux:menu>
+                                        <flux:menu.heading>Ubah Prioritas</flux:menu.heading>
+                                        <flux:menu.item wire:click="updateTaskField({{ $selectedProject['id'] }}, 'priority', 'critical')">
+                                            <div class="flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-red-500"></div> Critical</div>
+                                        </flux:menu.item>
+                                        <flux:menu.item wire:click="updateTaskField({{ $selectedProject['id'] }}, 'priority', 'high')">
+                                            <div class="flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-orange-500"></div> High</div>
+                                        </flux:menu.item>
+                                        <flux:menu.item wire:click="updateTaskField({{ $selectedProject['id'] }}, 'priority', 'normal')">
+                                            <div class="flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-slate-500"></div> Normal</div>
+                                        </flux:menu.item>
+                                        <flux:menu.item wire:click="updateTaskField({{ $selectedProject['id'] }}, 'priority', 'low')">
+                                            <div class="flex items-center gap-2"><div class="w-2.5 h-2.5 rounded-full bg-slate-400"></div> Low</div>
+                                        </flux:menu.item>
                                     </flux:menu>
                                 </flux:dropdown>
                             </div>
@@ -301,7 +346,7 @@
                                 <flux:menu class="max-h-64 overflow-y-auto w-64">
                                     <flux:menu.heading>Assign Members</flux:menu.heading>
                                     @foreach($workspace->users as $user)
-                                        <flux:menu.checkbox wire:click="toggleAssignee({{ $user->id }})" :checked="collect($selectedProject['assignees'] ?? [])->pluck('id')->contains($user->id)">
+                                        <flux:menu.checkbox wire:key="assignee-sidebar-{{ $user->id }}" wire:click="toggleAssignee({{ $user->id }})" :checked="collect($selectedProject['assignees'] ?? [])->pluck('id')->contains($user->id)">
                                             {{ $user->name }}
                                         </flux:menu.checkbox>
                                     @endforeach

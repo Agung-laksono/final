@@ -14,15 +14,26 @@
      wire:key="kanban-column-{{ $componentId }}-{{ $statusKey }}">
     
     {{-- Column Header --}}
-    <div class="px-4 py-1.5 lg:py-4 flex justify-between items-center rounded-t-xl transition-all duration-300"
+    <div class="px-4 py-1.5 lg:py-4 flex justify-between items-center rounded-t-xl transition-all duration-300 column-header-handle cursor-grab active:cursor-grabbing"
          :class="(collapsed ? 'flex-col gap-4 h-full pb-8' : '')">
         <div class="flex items-start gap-2 min-w-0" :class="collapsed ? 'flex-col items-center' : ''">
-            <div class="w-2.5 h-2.5 rounded-full bg-{{ $column['color'] }}-500 shadow-[0_0_8px_rgba(0,0,0,0.5)] shadow-{{ $column['color'] }}-500/50 shrink-0 mt-1.5"></div>
+            @php
+                $rawColor = $column['color'] ?? 'gray';
+                $colorMap = [
+                    'slate' => '#64748b', 'gray' => '#6b7280', 'zinc' => '#71717a',
+                    'red' => '#ef4444', 'orange' => '#f97316', 'amber' => '#f59e0b',
+                    'green' => '#22c55e', 'emerald' => '#10b981', 'teal' => '#14b8a6', 'cyan' => '#06b6d4',
+                    'blue' => '#3b82f6', 'indigo' => '#6366f1', 'violet' => '#8b5cf6',
+                    'purple' => '#a855f7', 'pink' => '#ec4899', 'rose' => '#f43f5e'
+                ];
+                $hexColor = $colorMap[$rawColor] ?? (str_starts_with($rawColor, '#') ? $rawColor : '#6b7280');
+            @endphp
+            <div class="w-2.5 h-2.5 rounded-full shrink-0 mt-1.5" style="background-color: {{ $hexColor }}; box-shadow: 0 0 8px {{ $hexColor }}80;"></div>
             <div class="flex flex-col">
                 <h3 class="font-semibold text-zinc-800 dark:text-zinc-200 transition-all duration-300 whitespace-nowrap"
                     :class="collapsed ? 'vertical-text tracking-widest mt-2' : ''">{{ $column['title'] }}</h3>
                 @if(isset($headerSubtitle))
-                    <div x-show="!collapsed" class="text-[10px] font-bold text-{{ $column['color'] }}-600 dark:text-{{ $column['color'] }}-400 mt-0.5">
+                    <div x-show="!collapsed" class="text-[10px] font-bold mt-0.5" style="color: {{ $hexColor }}; opacity: 0.8;">
                         {!! $headerSubtitle !!}
                     </div>
                 @endif

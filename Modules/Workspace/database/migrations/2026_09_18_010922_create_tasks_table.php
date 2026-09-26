@@ -11,11 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('marketing_projects', function (Blueprint $table) {
+        Schema::create('tasks', function (Blueprint $table) {
             $table->id();
             $table->string('title');
             $table->text('description')->nullable();
-            $table->string('status')->default('ide_backlog');
+            $table->foreignId('workspace_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('workspace_column_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('platform')->nullable();
             $table->string('budget')->nullable();
             $table->string('cover_image_path')->nullable();
@@ -33,6 +34,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('marketing_projects');
+        Schema::dropIfExists('tasks');
     }
 };

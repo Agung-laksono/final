@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('marketing_project_links', function (Blueprint $table) {
+        Schema::create('task_urls', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('from_project_id')->constrained('marketing_projects')->cascadeOnDelete();
-            $table->foreignId('to_project_id')->constrained('marketing_projects')->cascadeOnDelete();
-            $table->string('relation_type');
-            
+            $table->foreignId('task_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->string('title')->nullable();
+            $table->text('url');
             $table->timestamps();
         });
     }
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('marketing_project_links');
+        Schema::dropIfExists('task_urls');
     }
 };

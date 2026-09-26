@@ -229,7 +229,8 @@ with(fn () => [
 
 <style>
     .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
+        width: 3px;
+        height: 3px;
     }
     .custom-scrollbar::-webkit-scrollbar-track {
         background: transparent;

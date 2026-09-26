@@ -13,12 +13,25 @@ class WorkspaceColumn extends Model
         'workspace_id',
         'title',
         'color',
-        'position'
+        'position',
+        'parent_id',
+        'type',
+        'is_hidden'
     ];
 
     public function workspace()
     {
         return $this->belongsTo(Workspace::class);
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(WorkspaceColumn::class, 'parent_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(WorkspaceColumn::class, 'parent_id')->orderBy('position');
     }
 
     public function tasks()

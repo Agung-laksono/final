@@ -11,12 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('marketing_project_user', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('task_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            
-            $table->timestamps();
+        Schema::table('task_subtasks', function (Blueprint $table) {
+            $table->integer('position')->default(0)->after('parent_id');
         });
     }
 
@@ -25,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('marketing_project_user');
+        Schema::table('task_subtasks', function (Blueprint $table) {
+            $table->dropColumn('position');
+        });
     }
 };

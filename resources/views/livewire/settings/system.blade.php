@@ -22,6 +22,7 @@ new class extends Component {
     public $wipePurchase = false;
     public $wipeInventory = false;
     public $wipeProduction = false;
+    public $wipeWorkspace = false;
     // Wipe Master Data
     public $wipeMasterItems = false;
     public $wipeMasterCategories = false;
@@ -545,6 +546,22 @@ new class extends Component {
                 DB::table('production_order_histories')->delete();
             }
 
+            // 5.5 Workspace
+            if ($this->wipeWorkspace) {
+                DB::table('task_subtasks')->delete();
+                DB::table('task_comments')->delete();
+                DB::table('task_attachments')->delete();
+                DB::table('task_activities')->delete();
+                DB::table('task_time_logs')->delete();
+                DB::table('task_assignee')->delete();
+                DB::table('task_label')->delete();
+                DB::table('task_labels')->delete();
+                DB::table('tasks')->delete();
+                DB::table('workspace_columns')->delete();
+                DB::table('user_workspace')->delete();
+                DB::table('workspaces')->delete();
+            }
+
             // 6. Master Data
             if ($this->wipeMasterItems) {
                 DB::table('items')->delete();
@@ -606,7 +623,7 @@ new class extends Component {
             \Flux::toast('Operasi pembersihan data berhasil dieksekusi!', variant: 'success');
             
             $this->reset([
-                'wipeFinance', 'wipeSales', 'wipePurchase', 'wipeInventory', 'wipeProduction', 
+                'wipeFinance', 'wipeSales', 'wipePurchase', 'wipeInventory', 'wipeProduction', 'wipeWorkspace',
                 'wipeMasterItems', 'wipeMasterCategories', 'wipeMasterWarehouses', 'wipeMasterCustomers', 'wipeMasterSuppliers', 
                 'wipeImageItems', 'wipeImageSalesPayments', 'wipeImagePurchasePayments', 'wipeImageReceipts', 'wipeImageProfiles', 
                 'wipeUsers', 'confirmPassword'
@@ -634,6 +651,7 @@ new class extends Component {
             'inventory' => DB::table('stock_movements')->count() + DB::table('stock_adjustments')->count() + DB::table('stock_transfers')->count() + DB::table('inventory_requests')->count(),
             'production' => DB::table('production_orders')->count() + DB::table('production_order_histories')->count(),
             'finance' => DB::table('finance_transactions')->count() + DB::table('finance_transfers')->count(),
+            'workspace' => DB::table('workspaces')->count() + DB::table('tasks')->count(),
             
             // Master Data
             'master_items' => DB::table('items')->count() + DB::table('brands')->count() + DB::table('types')->count() + DB::table('units')->count(),
@@ -1143,10 +1161,26 @@ new class extends Component {
                                 <div class="flex items-center gap-2">Produksi (Work Orders) <flux:badge size="sm" variant="pill" :color="($counts['production'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['production'] ?? 0 }}</flux:badge></div>
                             </div>
                         </label>
+
                         <label class="flex items-start gap-3 cursor-pointer group">
                             <flux:checkbox wire:model="wipeFinance" />
                             <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
                                 <div class="flex items-center gap-2">Keuangan (Pembayaran, Setel saldo = 0) <flux:badge size="sm" variant="pill" :color="($counts['finance'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['finance'] ?? 0 }}</flux:badge></div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Workspace Data -->
+                <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                    <h4 class="text-sm font-semibold text-zinc-900 dark:text-white mb-3 flex items-center gap-2">
+                        <flux:icon.briefcase class="w-4 h-4 text-zinc-400" /> Data Workspace
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 ml-6">
+                        <label class="flex items-start gap-3 cursor-pointer group">
+                            <flux:checkbox wire:model="wipeWorkspace" />
+                            <div class="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-[-2px]">
+                                <div class="flex items-center gap-2">Workspace (Proyek & Tugas) <flux:badge size="sm" variant="pill" :color="($counts['workspace'] ?? 0) > 0 ? 'danger' : 'zinc'">{{ $counts['workspace'] ?? 0 }}</flux:badge></div>
                             </div>
                         </label>
                     </div>

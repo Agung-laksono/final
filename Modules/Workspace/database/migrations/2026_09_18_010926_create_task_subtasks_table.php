@@ -11,11 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('marketing_comments', function (Blueprint $table) {
+        Schema::create('task_subtasks', function (Blueprint $table) {
             $table->id();
             $table->foreignId('task_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->text('content');
+            $table->string('title');
+            $table->boolean('is_completed')->default(false);
+            $table->boolean('requires_input')->default(false);
+            $table->text('input_value')->nullable();
             
             $table->timestamps();
         });
@@ -26,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('marketing_comments');
+        Schema::dropIfExists('task_subtasks');
     }
 };
