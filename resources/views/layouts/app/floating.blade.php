@@ -86,7 +86,7 @@
                      x-transition:enter-end="opacity-100 translate-y-0 scale-100"
                      x-transition:leave="transition-none"
                      class="flex-col-reverse gap-3 items-start max-h-[calc(100vh-10rem)]  custom-scrollbar px-6 -mx-6 shrink-0"
-                     x-bind:class="activeMenu === 'main' || activeMenu === null || activeMenu === 'dashboard' ? 'flex' : 'hidden md:flex'">
+                     x-bind:class="['main', null, 'dashboard', 'workspaces'].includes(activeMenu) ? 'flex' : 'hidden md:flex'">
                     {{-- User Profile / Settings --}}
                     <div class="flex items-center gap-3 cursor-pointer group" @click="setActiveMenu('settings')" @mouseenter="setActiveMenu('settings')" x-bind:class="activeMenu !== null && activeMenu !== 'settings' ? 'opacity-40 scale-95 grayscale' : 'opacity-100 scale-100'">
                         <div class="flex items-center justify-center w-12 h-12 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full shadow-lg group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors" x-bind:class="activeMenu === 'dashboard' ? 'bg-indigo-200 dark:bg-indigo-800' : ''">

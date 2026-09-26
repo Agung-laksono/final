@@ -1,5 +1,5 @@
 <div class="p-6 h-full flex flex-col bg-gray-50/50">
-    <div class="flex items-center justify-between mb-8">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 mb-8">
         <div>
             <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                 <flux:icon.briefcase class="w-6 h-6 text-indigo-500" />
@@ -7,12 +7,12 @@
             </h1>
             <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Kelola project board dan tugas Anda</p>
         </div>
-        <div class="flex items-center gap-3">
-            <flux:button variant="subtle" icon="book-open" wire:click="$set('showGuideModal', true)">
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <flux:button variant="subtle" icon="book-open" wire:click="$set('showGuideModal', true)" class="flex-1 sm:flex-none">
                 Panduan
             </flux:button>
             @if(auth()->user()->hasRole(['Manager', 'Super Admin']))
-            <flux:button variant="primary" icon="plus" wire:click="$set('showCreateModal', true)">
+            <flux:button variant="primary" icon="plus" wire:click="$set('showCreateModal', true)" class="flex-1 sm:flex-none">
                 Workspace Baru
             </flux:button>
             @endif
@@ -129,11 +129,19 @@
                 </a>
             </div>
         @empty
-            <div class="col-span-full flex flex-col items-center justify-center py-24 text-center">
+            <div class="col-span-full flex flex-col items-center justify-center py-24 text-center px-4">
                 <flux:icon.briefcase class="w-14 h-14 text-zinc-300 dark:text-zinc-700 mb-4" />
                 <h3 class="text-lg font-semibold text-zinc-600 dark:text-zinc-400">Belum ada workspace</h3>
-                <p class="text-sm text-zinc-400 dark:text-zinc-600 mt-1 mb-5">Buat workspace pertama Anda untuk mulai bekerja.</p>
-                <flux:button variant="primary" icon="plus" @click="$flux.modal('create-workspace-modal').show()">Buat Workspace</flux:button>
+                <p class="text-sm text-zinc-400 dark:text-zinc-600 mt-1 mb-5">
+                    @if(auth()->user()->hasRole(['Manager', 'Super Admin']))
+                        Buat workspace pertama Anda untuk mulai bekerja.
+                    @else
+                        Belum ada workspace yang ditugaskan kepada Anda.
+                    @endif
+                </p>
+                @if(auth()->user()->hasRole(['Manager', 'Super Admin']))
+                    <flux:button variant="primary" icon="plus" wire:click="$set('showCreateModal', true)">Buat Workspace</flux:button>
+                @endif
             </div>
         @endforelse
     </div>
