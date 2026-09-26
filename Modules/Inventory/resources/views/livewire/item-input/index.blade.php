@@ -4,9 +4,9 @@ use function Livewire\Volt\layout;
 layout('layouts::app', ['title' => 'Master Data Inventory']);
 ?>
 
-<div class="p-0">
+<div class="p-0" x-data>
 
-    <div class="mx-auto">
+    <div class="mx-auto" :class="{'pb-28 md:pb-32': $store.catalog.selectionMode}">
         <livewire:item-input.item-list />
         <livewire:item-input.item-form />
         <livewire:item-input.item-detail />
