@@ -562,8 +562,8 @@ new #[Lazy] class extends Component {
 
 <div
     class="h-full flex flex-col flex-1 relative bg-slate-50 dark:bg-zinc-900 overflow-hidden"
-    x-data="{ bgOpacity: Number(localStorage.getItem('board_bgOpacity')) || 15, showWorkspaceEditor: false }"
-    x-init="$watch('bgOpacity', value => localStorage.setItem('board_bgOpacity', value))"
+    x-data="{ bgOpacity: localStorage.getItem('board_bgOpacity') !== null ? Number(localStorage.getItem('board_bgOpacity')) : 15, showWorkspaceEditor: false }"
+    @bg-opacity-changed.window="bgOpacity = Number($event.detail); localStorage.setItem('board_bgOpacity', bgOpacity)"
     x-on:open-edit-column-modal.window="$nextTick(() => $flux.modal('edit-column').show())"
 >
     <style>
@@ -598,7 +598,7 @@ new #[Lazy] class extends Component {
     </style>
 
     {{-- Background Layer --}}
-    <div class="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300" :style="{ opacity: bgOpacity / 100 }">
+    <div class="absolute inset-0 z-0 pointer-events-none transition-opacity duration-300" :style="`opacity: ${bgOpacity / 100}`">
         @if($workspace->cover_image)
             <img src="{{ \Illuminate\Support\Facades\Storage::url($workspace->cover_image) }}" class="w-full h-full object-cover" />
             <div class="absolute inset-0 bg-gradient-to-b from-transparent to-white/70 dark:to-zinc-900/70"></div>
@@ -683,7 +683,7 @@ new #[Lazy] class extends Component {
                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Opacity</span>
                         <span class="text-xs font-bold text-zinc-500" x-text="bgOpacity + '%'"></span>
                     </div>
-                    <input type="range" x-model.number="bgOpacity" min="0" max="100" class="w-full accent-indigo-600 cursor-pointer">
+                    <input type="range" :value="bgOpacity" @input="$dispatch('bg-opacity-changed', $event.target.value)" min="0" max="100" class="w-full accent-indigo-600 cursor-pointer">
                 </div>
             </div>
         </div>
@@ -701,7 +701,7 @@ new #[Lazy] class extends Component {
                         <span class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Background Opacity</span>
                         <span class="text-xs font-bold text-zinc-500" x-text="bgOpacity + '%'"></span>
                     </div>
-                    <input type="range" x-model.number="bgOpacity" min="0" max="100" class="w-full accent-indigo-600 cursor-pointer">
+                    <input type="range" :value="bgOpacity" @input="$dispatch('bg-opacity-changed', $event.target.value)" min="0" max="100" class="w-full accent-indigo-600 cursor-pointer">
                 </div>
             </div>
         </div>
