@@ -213,21 +213,18 @@
             </div>
 
             {{-- Tab Navigation --}}
-            <div class="flex flex-wrap gap-1.5 mb-5 border-b border-zinc-200 dark:border-zinc-700 pb-3">
-                @foreach([
-                    ['id' => 'roles',  'icon' => 'users',           'label' => 'Peran & Akses',  'color' => 'blue'],
-                    ['id' => 'kanban', 'icon' => 'rectangle-stack', 'label' => 'Kanban Board',   'color' => 'emerald'],
-                    ['id' => 'task',   'icon' => 'document-text',   'label' => 'Detail Tugas',   'color' => 'orange'],
-                    ['id' => 'okr',    'icon' => 'flag',             'label' => 'OKR',            'color' => 'red'],
-                    ['id' => 'kpi',    'icon' => 'chart-bar',        'label' => 'KPI',            'color' => 'violet'],
-                ] as $tab)
-                <button @click="activeTab = '{{ $tab['id'] }}'"
-                        :class="activeTab === '{{ $tab['id'] }}' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700' : 'text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800'"
-                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all whitespace-nowrap">
-                    <flux:icon.{{ $tab['icon'] }} class="w-4 h-4" />
-                    {{ $tab['label'] }}
-                </button>
-                @endforeach
+            <div class="mb-6 overflow-x-auto custom-scrollbar pb-2">
+                <flux:radio.group x-model="activeTab" variant="segmented" class="w-max">
+                    @foreach([
+                        ['id' => 'roles',  'icon' => 'users',           'label' => 'Peran dan Akses'],
+                        ['id' => 'kanban', 'icon' => 'rectangle-stack', 'label' => 'Kanban Board'],
+                        ['id' => 'task',   'icon' => 'document-text',   'label' => 'Detail Tugas'],
+                        ['id' => 'okr',    'icon' => 'flag',            'label' => 'OKR'],
+                        ['id' => 'kpi',    'icon' => 'chart-bar',       'label' => 'KPI'],
+                    ] as $tab)
+                        <flux:radio value="{{ $tab['id'] }}" icon="{{ $tab['icon'] }}" label="{{ $tab['label'] }}" />
+                    @endforeach
+                </flux:radio.group>
             </div>
 
             {{-- Tab Content --}}
