@@ -197,13 +197,13 @@ updated([
         {{-- Items --}}
         <div class="max-w-4xl mx-auto px-4 py-6 mb-28 space-y-4 print:space-y-0 print:p-0 print:mb-0 print:block">
             @foreach($items as $item)
-                <div class="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-sm border border-zinc-200 dark:border-zinc-800 {{ !$loop->last ? 'print:break-after-page' : '' }} print:border-none print:shadow-none print:rounded-none print:h-screen print:max-h-[297mm]">
+                <div class="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-sm border border-zinc-200 dark:border-zinc-800 {{ !$loop->last ? 'print:break-after-page' : '' }} print:break-inside-avoid print:border-none print:shadow-none print:rounded-none">
                     {{-- Image --}}
-                    <div class="bg-zinc-100 dark:bg-zinc-800 relative">
+                    <div class="bg-zinc-100 dark:bg-zinc-800 relative print:bg-transparent print:flex print:items-center print:justify-center">
                         @if($item->image)
-                            <img src="{{ asset('storage/' . $item->image) }}" class="w-full h-auto block">
+                            <img src="{{ asset('storage/' . $item->image) }}" class="w-full h-auto max-h-[60vh] print:h-[120mm] print:w-auto print:max-w-full object-contain block">
                         @else
-                            <div class="w-full aspect-[4/3] flex items-center justify-center">
+                            <div class="w-full aspect-[4/3] print:h-[120mm] flex items-center justify-center">
                                 <flux:icon.photo class="w-12 h-12 text-zinc-300 dark:text-zinc-700" />
                             </div>
                         @endif
