@@ -1430,6 +1430,7 @@ new class extends Component {
                             </div>
                         </div>
                     </div>
+                    <div></div>
 
                     {{-- 5. Attachments --}}
                     <div class="flex items-start gap-4">
