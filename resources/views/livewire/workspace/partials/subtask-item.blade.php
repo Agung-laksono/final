@@ -63,11 +63,45 @@
                         <input x-ref="editInput" type="text" x-model="editTitle" @keydown.enter="saveRename()" @keydown.escape="editing = false; editTitle = originalTitle" @blur="saveRename()" class="w-full text-[14px] bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-0.5 px-2 outline-none dark:text-white">
                     </div>
                     <div class="opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2 flex items-center">
-                        <flux:button variant="ghost" size="xs" wire:click="setReference('checklist', 'subtask-{{ $subtask['id'] }}', '{{ addslashes($subtask['title']) }}')" class="text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 h-6 px-2 rounded-lg transition-colors mr-1">Quote</flux:button>
-                        @if($isOwner ?? false)
-                            <flux:button variant="ghost" size="xs" wire:click="duplicateSubtask({{ $subtask['id'] }})" class="text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 h-6 px-2 rounded-lg transition-colors">Copy</flux:button>
-                            <flux:button variant="ghost" size="xs" wire:click="deleteSubtask({{ $subtask['id'] }})" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 h-6 px-2 rounded-lg transition-colors">Delete</flux:button>
-                        @endif
+                        {{-- Mobile (< sm): Dropdown Menu --}}
+                        <div class="sm:hidden flex items-center">
+                            <flux:dropdown position="bottom end">
+                                <flux:button variant="ghost" size="xs" class="text-zinc-500 h-6 w-6 !px-0 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                                    <flux:icon.ellipsis-vertical class="w-4 h-4" />
+                                </flux:button>
+                                <flux:menu class="w-32">
+                                    <flux:menu.item wire:click="setReference('checklist', 'subtask-{{ $subtask['id'] }}', '{{ addslashes($subtask['title']) }}')" class="!px-2 !py-1 text-xs">
+                                        <div class="flex items-center gap-1.5 text-zinc-500"><flux:icon.chat-bubble-bottom-center-text class="w-3.5 h-3.5" /> Quote</div>
+                                    </flux:menu.item>
+                                    @if($isOwner ?? false)
+                                        <flux:menu.item wire:click="duplicateSubtask({{ $subtask['id'] }})" class="!px-2 !py-1 text-xs">
+                                            <div class="flex items-center gap-1.5 text-indigo-500"><flux:icon.document-duplicate class="w-3.5 h-3.5" /> Copy</div>
+                                        </flux:menu.item>
+                                        <flux:menu.item wire:click="deleteSubtask({{ $subtask['id'] }})" class="!px-2 !py-1 text-xs">
+                                            <div class="flex items-center gap-1.5 text-red-500"><flux:icon.trash class="w-3.5 h-3.5" /> Delete</div>
+                                        </flux:menu.item>
+                                    @endif
+                                </flux:menu>
+                            </flux:dropdown>
+                        </div>
+
+                        {{-- Tablet & Desktop (>= sm): Inline Buttons --}}
+                        <div class="hidden sm:flex items-center">
+                            <flux:button variant="ghost" size="xs" wire:click="setReference('checklist', 'subtask-{{ $subtask['id'] }}', '{{ addslashes($subtask['title']) }}')" class="text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 h-6 px-1.5 lg:px-2 rounded-lg transition-colors mr-1">
+                                <flux:icon.chat-bubble-bottom-center-text class="w-3.5 h-3.5 lg:hidden" />
+                                <span class="hidden lg:inline">Quote</span>
+                            </flux:button>
+                            @if($isOwner ?? false)
+                                <flux:button variant="ghost" size="xs" wire:click="duplicateSubtask({{ $subtask['id'] }})" class="text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 h-6 px-1.5 lg:px-2 rounded-lg transition-colors">
+                                    <flux:icon.document-duplicate class="w-3.5 h-3.5 lg:hidden" />
+                                    <span class="hidden lg:inline">Copy</span>
+                                </flux:button>
+                                <flux:button variant="ghost" size="xs" wire:click="deleteSubtask({{ $subtask['id'] }})" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 h-6 px-1.5 lg:px-2 rounded-lg transition-colors">
+                                    <flux:icon.trash class="w-3.5 h-3.5 lg:hidden" />
+                                    <span class="hidden lg:inline">Delete</span>
+                                </flux:button>
+                            @endif
+                        </div>
                     </div>
                 </div>
                 
