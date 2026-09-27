@@ -6,7 +6,7 @@ use Livewire\Volt\Volt;
 
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect()->route('workspace');
+        return redirect()->route('workspaces.index');
     }
     return view('welcome');
 })->name('home');
