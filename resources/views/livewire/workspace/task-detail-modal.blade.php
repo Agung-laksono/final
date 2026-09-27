@@ -1655,6 +1655,7 @@ new class extends Component {
                                 </div>
                             </div>
                         </div>
+                    </div>
                     {{-- Actions --}}
                     <div class="mt-8">
                         <h4 class="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 mb-3 truncate uppercase tracking-widest" x-show="sidebarOpen">Actions</h4>
@@ -1713,6 +1714,7 @@ new class extends Component {
             @endif
         </div>
         <div x-data="{ openModal() { $dispatch('task-loaded'); } }">
+        </div>
         </div>
     </flux:modal>
 
