@@ -198,9 +198,11 @@ class UpdateService
                 $target = public_path();
             }
 
-            // Skip folder public/build agar CSS/JS hasil build tidak ditimpa versi lama dari repo
-            if ($target === public_path('build')) {
-                continue;
+            // Skip file CSS/JS lama di folder build, TAPI izinkan asset.zip untuk masuk
+            if (str_contains($target, 'public/build') || str_contains($target, 'public\build')) {
+                if (!$item->isDir() && $basename !== 'asset.zip') {
+                    continue;
+                }
             }
 
             if ($item->isDir()) {
