@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - fitur/keuangan # Menjalankan deploy jika ada push ke branch ini juga
+      - 'fitur/*' # Menjalankan deploy jika ada push ke semua branch fitur (contoh: fitur/keuangan, fitur/workspace)
 
 permissions:
   contents: write

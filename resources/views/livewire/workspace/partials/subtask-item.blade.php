@@ -50,7 +50,7 @@
                         <span class="relative select-none flex items-center group/title">
                             <span>{{ $subtask['title'] }}</span>
                             @if($isOwner ?? false)
-                            <button @click="editing = true; $nextTick(() => $refs.editInput.focus())" class="ml-1.5 opacity-0 group-hover/title:opacity-100 transition-opacity text-zinc-400 hover:text-indigo-500 focus:outline-none">
+                            <button @click="editing = true; $nextTick(() => $refs.editInput.focus())" class="ml-1.5 opacity-100 lg:opacity-0 group-hover/title:opacity-100 transition-opacity text-zinc-400 hover:text-indigo-500 focus:outline-none">
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                             </button>
                             @endif
@@ -62,7 +62,7 @@
                     <div x-show="editing" style="display: none;" class="flex-1 mr-2">
                         <input x-ref="editInput" type="text" x-model="editTitle" @keydown.enter="saveRename()" @keydown.escape="editing = false; editTitle = originalTitle" @blur="saveRename()" class="w-full text-[14px] bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-0.5 px-2 outline-none dark:text-white">
                     </div>
-                    <div class="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2 flex items-center">
+                    <div class="opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2 flex items-center">
                         <flux:button variant="ghost" size="xs" wire:click="setReference('checklist', 'subtask-{{ $subtask['id'] }}', '{{ addslashes($subtask['title']) }}')" class="text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 h-6 px-2 rounded-lg transition-colors mr-1">Quote</flux:button>
                         @if($isOwner ?? false)
                             <flux:button variant="ghost" size="xs" wire:click="duplicateSubtask({{ $subtask['id'] }})" class="text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 h-6 px-2 rounded-lg transition-colors">Copy</flux:button>
@@ -141,7 +141,7 @@
                             {{-- Curved Connector for Add button --}}
                             <div class="absolute left-[-23px] top-[-8px] w-[23px] h-[24px] border-l-[2px] border-b-[2px] border-zinc-200 dark:border-zinc-700/80 rounded-bl-[12px] z-0 pointer-events-none"></div>
                             
-                            <div x-show="!isAdding" class="opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
+                            <div x-show="!isAdding" class="opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity relative z-10">
                                 <button type="button" @click="isAdding = true; $nextTick(() => $refs.newSubtaskInput.focus())" class="text-xs font-semibold text-zinc-400 hover:text-indigo-500 dark:text-zinc-500 dark:hover:text-indigo-400 flex items-center gap-1.5 py-1 px-1.5 rounded-lg hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 transition-colors border border-transparent hover:border-indigo-100 dark:hover:border-indigo-500/20">
                                     <flux:icon.plus class="w-3.5 h-3.5" /> Add sub-task
                                 </button>
