@@ -55,7 +55,9 @@
                 $totalSub = isset($project['subtasks']) ? count($project['subtasks']) : 0;
                 $completedSub = isset($project['subtasks']) ? collect($project['subtasks'])->where('is_completed', true)->count() : 0;
                 $isAssignedToMe = !empty($project['assignees']) && collect($project['assignees'])->contains('id', auth()->id());
-                $canDrag = $isAdminOrLeader || $isAssignedToMe;
+                $colType = $columnData['type'] ?? 'normal';
+                $isRestrictedOut = in_array($colType, ['backlog', 'review', 'done']);
+                $canDrag = $isAdminOrLeader || ($isAssignedToMe && !$isRestrictedOut);
                 
                 $hasUnreadUpdate = false;
                 if (!empty($project['last_significant_update_at'])) {

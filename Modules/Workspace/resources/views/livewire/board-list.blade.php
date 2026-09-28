@@ -97,9 +97,7 @@
                             <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">{{ !empty($workspace->description) ? html_entity_decode(strip_tags($workspace->description)) : 'Tidak ada deskripsi.' }}</p>
                             
                             @php
-                                $leader = $workspace->users->firstWhere('id', $workspace->owner_id) 
-                                    ?? $workspace->users->firstWhere('pivot.role', 'admin') 
-                                    ?? $workspace->users->firstWhere('pivot.role', 'leader');
+                                $leader = $workspace->users->firstWhere('pivot.role', 'leader');
                             @endphp
                             @if($leader)
                             <div class="mt-2.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">

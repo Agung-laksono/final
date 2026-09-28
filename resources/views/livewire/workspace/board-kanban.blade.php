@@ -80,7 +80,7 @@ new #[Lazy] class extends Component {
         $isOwner = $workspace->owner_id === $user->id;
         $isSuperAdmin = $user->hasRole(['Manager', 'Super Admin']);
         
-        $this->isAdminOrLeader = $isOwner || $workspaceRole === 'admin' || $isSuperAdmin;
+        $this->isAdminOrLeader = $isOwner || in_array($workspaceRole, ['admin', 'leader']) || $isSuperAdmin;
         $this->isObserver = $workspaceRole === 'pengawas';
 
         // Block access if user has no role in this workspace (not member, not owner, not superadmin)
@@ -428,11 +428,7 @@ new #[Lazy] class extends Component {
     }
 
     public function addMember($userId) {
-        // Ensure user is admin
-        $currentUser = $this->workspace->users()->where('user_id', auth()->id())->first();
-        if (!$currentUser || $currentUser->pivot->role !== 'admin') {
-            return; // Only admins can add members
-        }
+        if (!$this->isAdminOrLeader) return;
 
         $this->workspace->users()->attach($userId, ['role' => 'member']);
         $this->searchUserQuery = '';
@@ -441,12 +437,9 @@ new #[Lazy] class extends Component {
     }
 
     public function removeMember($userId) {
-        $currentUser = $this->workspace->users()->where('user_id', auth()->id())->first();
-        if (!$currentUser || $currentUser->pivot->role !== 'admin') {
-            return;
-        }
+        if (!$this->isAdminOrLeader) return;
 
-        // Cannot remove the owner or yourself (if you are the only admin)
+        // Cannot remove the owner
         if ($this->workspace->owner_id == $userId) return;
 
         $this->workspace->users()->detach($userId);
@@ -454,10 +447,7 @@ new #[Lazy] class extends Component {
     }
 
     public function updateRole($userId, $newRole) {
-        $currentUser = $this->workspace->users()->where('user_id', auth()->id())->first();
-        if (!$currentUser || $currentUser->pivot->role !== 'admin') {
-            return;
-        }
+        if (!$this->isAdminOrLeader) return;
 
         if ($this->workspace->owner_id == $userId) return; // Owner is always admin
 
@@ -493,13 +483,41 @@ new #[Lazy] class extends Component {
         }
     }
 
+    private function canMoveTask($project, $newStatusId) {
+        if ($this->isAdminOrLeader) return true;
+        
+        $oldColumn = collect($this->columns)->firstWhere('id', $project->workspace_column_id);
+        $newColumn = collect($this->columns)->firstWhere('id', (int)$newStatusId);
+        
+        $oldType = $oldColumn['type'] ?? 'normal';
+        $newType = $newColumn['type'] ?? 'normal';
+        
+        // Members cannot move out of Backlog, Review, Done
+        if (in_array($oldType, ['backlog', 'review', 'done']) && $project->workspace_column_id !== (int)$newStatusId) {
+            return false;
+        }
+        
+        // Members cannot move INTO Done
+        if ($newType === 'done' && $project->workspace_column_id !== (int)$newStatusId) {
+            return false;
+        }
+        
+        return true;
+    }
+
     public function reorder($orderedIds, $newStatus) {
         $columnTitle = collect($this->columns)->firstWhere('id', (int)$newStatus)['title'] ?? $newStatus;
         foreach ($orderedIds as $index => $id) {
             $project = Task::find($id);
-            if ($project && $project->workspace_column_id !== (int)$newStatus) {
-                $this->recordActivity($id, 'Memindahkan tugas ke kolom ' . $columnTitle);
-                $this->handleKeyResultProgressUpdate($project, $project->workspace_column_id, $newStatus);
+            if ($project) {
+                if (!$this->canMoveTask($project, $newStatus)) {
+                    $this->dispatch('toast', ['message' => 'Anda tidak memiliki izin memindahkan task ini.', 'type' => 'error']);
+                    continue;
+                }
+                if ($project->workspace_column_id !== (int)$newStatus) {
+                    $this->recordActivity($id, 'Memindahkan tugas ke kolom ' . $columnTitle);
+                    $this->handleKeyResultProgressUpdate($project, $project->workspace_column_id, $newStatus);
+                }
             }
             
             if ($project) {
@@ -535,6 +553,12 @@ new #[Lazy] class extends Component {
         $columnTitle = collect($this->columns)->firstWhere('id', (int)$newStatus)['title'] ?? $newStatus;
         $project = Task::find($projectId);
         if ($project && $project->workspace_column_id !== (int)$newStatus) {
+            if (!$this->canMoveTask($project, $newStatus)) {
+                $this->dispatch('toast', ['message' => 'Anda tidak memiliki izin memindahkan task ini.', 'type' => 'error']);
+                $this->loadProjects();
+                $this->dispatch('kanban-reinit');
+                return;
+            }
             $this->recordActivity($projectId, 'Memindahkan tugas ke kolom ' . $columnTitle);
             $this->handleKeyResultProgressUpdate($project, $project->workspace_column_id, $newStatus);
             $project->update([

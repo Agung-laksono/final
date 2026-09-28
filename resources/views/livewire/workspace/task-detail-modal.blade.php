@@ -984,28 +984,44 @@ new class extends Component {
 </style>
 
                 @php
-                    $isOwner = false;
+                    $isWorkspaceOwner = false;
                     $isAdminOrLeader = false;
                     $isAssignee = false;
+                    $isTaskLocked = false;
 
                     if ($workspace) {
                         $workspaceOwnerId = is_array($workspace) ? ($workspace['owner_id'] ?? null) : $workspace->owner_id;
-                        $isOwner = $workspaceOwnerId == auth()->id();
+                        $isWorkspaceOwner = $workspaceOwnerId == auth()->id();
                         
                         $users = is_array($workspace) ? ($workspace['users'] ?? []) : (isset($workspace->users) ? $workspace->users : []);
                         $userRole = collect($users)->firstWhere('id', auth()->id())['pivot']['role'] ?? 'member';
-                        $isAdminOrLeader = in_array($userRole, ['admin', 'leader']) || $isOwner;
+                        $isAdminOrLeader = in_array($userRole, ['admin', 'leader']) || $isWorkspaceOwner;
                     }
 
                     if ($selectedProject) {
                         $isAssignee = collect($selectedProject['assignees'] ?? [])->contains('id', auth()->id());
+                        
+                        $colId = $selectedProject['workspace_column_id'] ?? null;
+                        if ($colId && isset($columns)) {
+                            $col = collect($columns)->firstWhere('id', $colId);
+                            if ($col && in_array($col['type'] ?? 'normal', ['review', 'done'])) {
+                                $isTaskLocked = true;
+                            }
+                        }
                     }
 
-                    $canEditTask = $isAdminOrLeader || $isAssignee;
+                    $canEditTask = $isAdminOrLeader || ($isAssignee && !$isTaskLocked);
                 @endphp
 
+                @if($isTaskLocked && !$isAdminOrLeader)
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded-r-lg p-3 mx-6 mt-4 -mb-2 flex items-center gap-3 text-amber-700 dark:text-amber-400 text-sm font-medium shadow-sm">
+                    <flux:icon.lock-closed class="w-5 h-5 shrink-0 text-amber-500" />
+                    <div>Task ini sedang dalam tahap evaluasi atau selesai. Hak edit untuk sementara dikunci.</div>
+                </div>
+                @endif
+
                 {{-- Left Column: Main Content --}}
-                <div class="flex-1 space-y-12 overflow-y-auto max-sm:max-h-none pr-6 custom-scrollbar" x-bind:class="isFullscreen ? 'max-h-[100dvh]' : 'max-h-[85vh]'">
+                <div class="flex-1 space-y-12 overflow-y-auto max-sm:max-h-none pr-6 mt-4 custom-scrollbar" x-bind:class="isFullscreen ? 'max-h-[100dvh]' : 'max-h-[85vh]'">
                     
                     {{-- 1. Header (Title & List) --}}
                     <div class="group relative">
@@ -1077,7 +1093,7 @@ new class extends Component {
                                 @empty
                                     <span class="text-sm text-zinc-400 italic">Unassigned</span>
                                 @endforelse
-                                @if($isOwner)
+                                @if($canEditTask)
                                 <flux:dropdown>
                                     <button class="w-9 h-9 rounded-full bg-zinc-100/80 hover:bg-zinc-200 dark:bg-zinc-800/80 dark:hover:bg-zinc-700 border-2 border-dashed border-zinc-300 dark:border-zinc-600 flex items-center justify-center text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:scale-105 hover:shadow-sm transition-all duration-300">
                                         <flux:icon.plus class="w-4 h-4" />
@@ -1110,7 +1126,7 @@ new class extends Component {
                                         None
                                     </span>
                                 @endforelse
-                                @if($isOwner)
+                                @if($canEditTask)
                                 <flux:dropdown>
                                     <button class="h-8 px-2.5 rounded-lg bg-zinc-100/80 hover:bg-zinc-200 dark:bg-zinc-800/80 dark:hover:bg-zinc-700 border-2 border-dashed border-zinc-300 dark:border-zinc-600 flex items-center justify-center text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:scale-105 hover:shadow-sm transition-all duration-300">
                                         <flux:icon.plus class="w-4 h-4" />
@@ -1159,15 +1175,15 @@ new class extends Component {
                                 @endphp
                                 
                                 <flux:dropdown>
-                                    <button class="flex items-center gap-2 bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 rounded-lg hover:bg-zinc-200/80 dark:hover:bg-zinc-700 hover:shadow-sm transition-all duration-300 @if($isOwner) cursor-pointer group @endif shadow-sm" @if(!$isOwner) disabled @endif>
+                                    <button class="flex items-center gap-2 bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 rounded-lg hover:bg-zinc-200/80 dark:hover:bg-zinc-700 hover:shadow-sm transition-all duration-300 @if($canEditTask) cursor-pointer group @endif shadow-sm" @if(!$canEditTask) disabled @endif>
                                         <div class="w-3 h-3 rounded-full shadow-inner border border-white/20" style="background-color: {{ $pConfig['color'] }}"></div>
                                         <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">{{ $pConfig['label'] }}</span>
-                                        @if($isOwner)
+                                        @if($canEditTask)
                                         <flux:icon.chevron-down class="w-3 h-3 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors ml-1" />
                                         @endif
                                     </button>
                                     
-                                    @if($isOwner)
+                                    @if($canEditTask)
                                     <flux:menu>
                                         <flux:menu.heading>Ubah Prioritas</flux:menu.heading>
                                         <flux:menu.item wire:click="updateProjectField('priority', 'critical')">
@@ -1191,7 +1207,7 @@ new class extends Component {
                         {{-- Due Date --}}
                         <div class="space-y-3">
                             <h3 class="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Due Date</h3>
-                            <div class="relative overflow-hidden flex items-center gap-2 bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 rounded-lg hover:bg-zinc-200/80 dark:hover:bg-zinc-700 hover:shadow-sm transition-all duration-300 @if($isOwner) cursor-pointer group @endif shadow-sm">
+                            <div class="relative overflow-hidden flex items-center gap-2 bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 rounded-lg hover:bg-zinc-200/80 dark:hover:bg-zinc-700 hover:shadow-sm transition-all duration-300 @if($canEditTask) cursor-pointer group @endif shadow-sm">
                                 <flux:checkbox class="transition-transform group-hover:scale-110" />
                                 <span class="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
                                     {{ $selectedProject['due_date'] ? \Carbon\Carbon::parse($selectedProject['due_date'])->format('M d, Y') : 'Set date' }}
@@ -1203,7 +1219,7 @@ new class extends Component {
                                         <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-500/20 dark:text-emerald-400 px-2 py-0.5 rounded-md uppercase tracking-wider">Due</span>
                                     @endif
                                 @endif
-                                @if($isOwner)
+                                @if($canEditTask)
                                 <flux:icon.chevron-down class="w-3 h-3 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors ml-1" />
                                 <input type="date" onclick="this.showPicker()" @change="$wire.updateProjectField('due_date', $event.target.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                 @endif
@@ -1225,7 +1241,7 @@ new class extends Component {
                             <div class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-lg text-xs font-medium text-indigo-700 dark:text-indigo-300 group">
                                 <flux:icon.flag class="w-3 h-3 shrink-0" />
                                 <span class="break-words font-medium" title="{{ $kr['title'] }}">{{ $kr['title'] }}</span>
-                                @if($isOwner)
+                                @if($canEditTask)
                                 <button wire:click="unlinkKeyResult({{ $kr['id'] }})"
                                         class="opacity-0 group-hover:opacity-100 ml-1 text-indigo-400 hover:text-red-500 transition-all"
                                         title="Lepas hubungan">
@@ -1236,7 +1252,7 @@ new class extends Component {
                             @endforeach
 
                             {{-- Dropdown to add more --}}
-                            @if($isOwner && $allKrs->isNotEmpty())
+                            @if($canEditTask && $allKrs->isNotEmpty())
                             <flux:dropdown>
                                 <button class="h-8 px-2.5 rounded-lg bg-zinc-100/80 hover:bg-indigo-50 dark:bg-zinc-800/80 dark:hover:bg-indigo-900/20 border-2 border-dashed border-zinc-300 dark:border-zinc-600 hover:border-indigo-400 dark:hover:border-indigo-600 flex items-center gap-1.5 text-xs text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all">
                                     <flux:icon.plus class="w-3.5 h-3.5" />
@@ -1277,11 +1293,11 @@ new class extends Component {
                         <div class="flex-1 space-y-3">
                             <div class="flex justify-between items-center">
                                 <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">Description</h3>
-                                @if($isOwner)
+                                @if($canEditTask)
                                 @endif
                             </div>
-                            <div class="bg-zinc-50/50 dark:bg-zinc-900/50 @if($isOwner) hover:bg-white dark:hover:bg-zinc-800/80 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-md cursor-pointer @endif p-5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 transition-all duration-300 min-h-[100px] group shadow-sm"
-                                 @if($isOwner) @click="$wire.set('showProjectModal', false); $wire.set('tempDescription', @js($selectedProject['description'] ?? '')); showEditor = true" @endif>
+                            <div class="bg-zinc-50/50 dark:bg-zinc-900/50 @if($canEditTask) hover:bg-white dark:hover:bg-zinc-800/80 hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-md cursor-pointer @endif p-5 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80 transition-all duration-300 min-h-[100px] group shadow-sm"
+                                 @if($canEditTask) @click="$wire.set('showProjectModal', false); $wire.set('tempDescription', @js($selectedProject['description'] ?? '')); showEditor = true" @endif>
                                 <div class="min-h-[80px]">
                                     <div class="rich-text-content text-base text-zinc-700 dark:text-zinc-200 leading-relaxed group-hover:text-zinc-900 dark:group-hover:text-white transition-colors max-w-none">
                                         <style>
@@ -1333,7 +1349,7 @@ new class extends Component {
                                                     ->get();
                                             }
                                         @endphp
-                                        @if(($isOwner ?? false) && $tasksWithChecklists->isNotEmpty())
+                                        @if(($canEditTask ?? false) && $tasksWithChecklists->isNotEmpty())
                                         <flux:dropdown>
                                             <flux:button variant="subtle" size="sm" class="bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border-none rounded-lg transition-all shadow-sm">
                                                 Copy dari...
@@ -1413,7 +1429,7 @@ new class extends Component {
                                     }
                                  }"
                             >
-                                @include('livewire.workspace.partials.subtask-item', ['subtasks' => $selectedProject['subtasks'] ?? [], 'level' => 1, 'isOwner' => $isOwner])
+                                @include('livewire.workspace.partials.subtask-item', ['subtasks' => $selectedProject['subtasks'] ?? [], 'level' => 1, 'isOwner' => $canEditTask])
                                 
                                 <div class="pt-2 pl-2" x-data="{ isAdding: false, title: '', isSaving: false }" @trigger-add-subtask.window="isAdding = true; $nextTick(() => { document.getElementById('checklist-section').scrollIntoView({behavior: 'smooth', block: 'center'}); $refs.rootSubtaskInput.focus(); })">
                                     <div x-show="!isAdding">
@@ -1526,7 +1542,7 @@ new class extends Component {
                                         </div>
                                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 shrink-0" x-show="!editingUrl">
                                             <flux:button variant="ghost" size="xs" wire:click="setReference('tautan', 'url-{{ $url['id'] }}', '{{ addslashes($url['title'] ?: $url['url']) }}')" class="text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 h-7 px-2 rounded-lg">Quote</flux:button>
-                                            @if($isOwner ?? false || $url['user_id'] == auth()->id())
+                                            @if($canEditTask ?? false || $url['user_id'] == auth()->id())
                                                 <flux:button variant="ghost" size="xs" @click="editingUrl = true" class="text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 h-7 px-2 rounded-lg">Edit</flux:button>
                                                 <flux:button variant="ghost" size="xs" wire:click="deleteUrl({{ $url['id'] }})" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 h-7 px-2 rounded-lg">Hapus</flux:button>
                                             @endif
@@ -1562,7 +1578,7 @@ new class extends Component {
                     <div>
                         <h4 class="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 mb-3 truncate uppercase tracking-widest" x-show="sidebarOpen">Add to card</h4>
                         <div class="flex flex-col gap-2.5">
-                            @if($isOwner)
+                            @if($canEditTask)
                             <flux:dropdown class="w-full">
                                 <flux:button variant="subtle" class="w-full justify-start text-zinc-600 dark:text-zinc-300 bg-zinc-100/80 dark:bg-zinc-800/50 hover:bg-white dark:hover:bg-zinc-700/80 hover:shadow-sm border border-transparent hover:border-zinc-200 dark:hover:border-zinc-600 font-semibold rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]" icon="user" x-bind:class="!sidebarOpen ? 'px-0 justify-center h-10 w-10' : ''">
                                     <span x-show="sidebarOpen">Members</span>
@@ -1687,7 +1703,7 @@ new class extends Component {
                                     <span x-show="sidebarOpen">Copy</span>
                                 </flux:button>
                             </div>
-                            @if($isOwner)
+                            @if($canEditTask)
                             <div class="w-full">
                                 <flux:button variant="subtle" class="w-full justify-start text-zinc-600 dark:text-zinc-300 bg-zinc-100/80 dark:bg-zinc-800/50 hover:bg-white dark:hover:bg-zinc-700/80 hover:shadow-sm border border-transparent hover:border-zinc-200 dark:hover:border-zinc-600 font-semibold rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]" icon="archive-box" x-bind:class="!sidebarOpen ? 'px-0 justify-center h-10 w-10' : ''">
                                     <span x-show="sidebarOpen">Archive</span>

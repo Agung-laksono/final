@@ -39,7 +39,7 @@
         {{-- ACTUAL CONTENT --}}
         <div wire:loading.remove wire:target="openModal" class="w-full">
             @if($selectedProject)
-            <div x-data="{ sidebarOpen: true, isFullscreen: false }" 
+            <div x-data="{ sidebarOpen: window.innerWidth > 768, isFullscreen: false }" 
                  x-init="$watch('isFullscreen', val => document.body.classList.toggle('kanban-fullscreen', val)); if(isFullscreen) document.body.classList.add('kanban-fullscreen');"
                  class="flex flex-col md:flex-row gap-0 transition-all duration-500 ease-out" 
                  x-bind:class="isFullscreen ? '' : 'max-sm:h-[100dvh]'">
