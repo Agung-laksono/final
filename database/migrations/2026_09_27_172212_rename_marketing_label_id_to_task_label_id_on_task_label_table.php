@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('task_label', function (Blueprint $table) {
-            $table->renameColumn('marketing_label_id', 'task_label_id');
-        });
+        if (Schema::hasColumn('task_label', 'marketing_label_id')) {
+            Schema::table('task_label', function (Blueprint $table) {
+                $table->renameColumn('marketing_label_id', 'task_label_id');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('task_label', function (Blueprint $table) {
-            $table->renameColumn('task_label_id', 'marketing_label_id');
-        });
+        if (Schema::hasColumn('task_label', 'task_label_id')) {
+            Schema::table('task_label', function (Blueprint $table) {
+                $table->renameColumn('task_label_id', 'marketing_label_id');
+            });
+        }
     }
 };
