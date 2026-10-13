@@ -234,6 +234,20 @@
         <div class="w-1/2">
             @php
                 $subtotal = collect($salesOrder->items)->sum('subtotal');
+                $shippingFee = (float) ($salesOrder->shipping_fee > 0 
+                    ? $salesOrder->shipping_fee 
+                    : ($salesOrder->actual_shipping_fee > 0 
+                        ? $salesOrder->actual_shipping_fee 
+                        : $salesOrder->items->sum('actual_shipping_fee')));
+                $packingFee = (float) ($salesOrder->packing_fee > 0 
+                    ? $salesOrder->packing_fee 
+                    : ($salesOrder->actual_packing_fee > 0 
+                        ? $salesOrder->actual_packing_fee 
+                        : $salesOrder->items->sum('actual_packing_fee')));
+                $discount = (float) ($salesOrder->discount ?? 0);
+                $tax = (float) ($salesOrder->tax ?? 0);
+                $calculatedTotal = $subtotal + $shippingFee + $packingFee + $tax - $discount;
+                $grandTotal = max((float) ($salesOrder->total_amount ?? 0), $calculatedTotal);
             @endphp
             <table class="totals-table text-sm">
                 <tr>
@@ -242,15 +256,23 @@
                 </tr>
                 <tr>
                     <td>Biaya pengiriman</td>
-                    <td>{{ number_format($salesOrder->shipping_fee + $salesOrder->packing_fee, 0, ',', '.') }}</td>
+                    <td>{{ number_format($shippingFee + $packingFee, 0, ',', '.') }}</td>
                 </tr>
+                @if($discount > 0)
                 <tr>
                     <td>Diskon</td>
-                    <td>{{ number_format($salesOrder->discount, 0, ',', '.') }}</td>
+                    <td>{{ number_format($discount, 0, ',', '.') }}</td>
                 </tr>
+                @endif
+                @if($tax > 0)
+                <tr>
+                    <td>Pajak</td>
+                    <td>{{ number_format($tax, 0, ',', '.') }}</td>
+                </tr>
+                @endif
                 <tr class="bg-gray font-bold text-lg">
                     <td>Total</td>
-                    <td>{{ number_format($salesOrder->total_amount, 0, ',', '.') }}</td>
+                    <td>{{ number_format($grandTotal, 0, ',', '.') }}</td>
                 </tr>
             </table>
         </div>

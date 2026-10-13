@@ -287,7 +287,7 @@ $saveCart = function ($cartData) {
     }
 
     $this->items = $cartData['items'] ?? [];
-    $this->shipping_fee = $cartData['shipping_fee'] ?? 0;
+    $this->shipping_fee = $cartData['shipping_fee'] ?? $cartData['ongkir'] ?? 0;
     $this->discount = $cartData['discount'] ?? 0;
     $this->tax_percent = $cartData['tax_percent'] ?? 0;
     $this->tax = $cartData['tax'] ?? 0;
@@ -1368,7 +1368,7 @@ class="text-zinc-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/3
             step: 0,
             customer: config.customer,
             items: @json($items),
-            ongkir: {{ (float) ($ongkir ?? 0) }},
+            ongkir: {{ (float) ($shipping_fee ?? 0) }},
             discount: {{ (float) ($discount ?? 0) }},
             tax_percent: {{ (float) ($tax_percent ?? 0) }},
             tax: {{ (float) ($tax ?? 0) }},
@@ -1534,6 +1534,7 @@ class="text-zinc-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/3
                 
                 let success = await this.$wire.saveCart({
                     items: this.items,
+                    shipping_fee: this.ongkir,
                     ongkir: this.ongkir,
                     discount: this.discount,
                     tax_percent: this.tax_percent,

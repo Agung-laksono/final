@@ -13,6 +13,7 @@ class ShippingLabelPrintController extends Controller
             'customer', 
             'items.item.unit', 
             'creator.brand',
+            'payments',
         ])->findOrFail($id);
         
         $isOwn = $salesOrder->created_by === auth()->id();

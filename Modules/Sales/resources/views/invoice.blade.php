@@ -257,8 +257,22 @@
         <div class="w-1/2">
             @php
                 $subtotal = collect($order->items)->sum('subtotal');
+                $shippingFee = (float) ($order->shipping_fee > 0 
+                    ? $order->shipping_fee 
+                    : ($order->actual_shipping_fee > 0 
+                        ? $order->actual_shipping_fee 
+                        : $order->items->sum('actual_shipping_fee')));
+                $packingFee = (float) ($order->packing_fee > 0 
+                    ? $order->packing_fee 
+                    : ($order->actual_packing_fee > 0 
+                        ? $order->actual_packing_fee 
+                        : $order->items->sum('actual_packing_fee')));
+                $discount = (float) ($order->discount ?? 0);
+                $tax = (float) ($order->tax ?? 0);
+                $calculatedTotal = $subtotal + $shippingFee + $packingFee + $tax - $discount;
+                $grandTotal = max((float) ($order->total_amount ?? 0), $calculatedTotal);
                 $terbayar = collect($order->payments)->where('status', 'verified')->sum('amount');
-                $sisa = max(0, $order->total_amount - $terbayar);
+                $sisa = max(0, $grandTotal - $terbayar);
             @endphp
             <table class="totals-table text-sm">
                 <tr>
@@ -267,12 +281,20 @@
                 </tr>
                 <tr>
                     <td>Biaya pengiriman</td>
-                    <td>{{ number_format($order->shipping_fee + $order->packing_fee, 0, ',', '.') }}</td>
+                    <td>{{ number_format($shippingFee + $packingFee, 0, ',', '.') }}</td>
                 </tr>
+                @if($discount > 0)
                 <tr>
                     <td>Diskon</td>
-                    <td>{{ number_format($order->discount, 0, ',', '.') }}</td>
+                    <td>{{ number_format($discount, 0, ',', '.') }}</td>
                 </tr>
+                @endif
+                @if($tax > 0)
+                <tr>
+                    <td>Pajak</td>
+                    <td>{{ number_format($tax, 0, ',', '.') }}</td>
+                </tr>
+                @endif
                 @php
                     $verifiedPayments = collect($order->payments)->where('status', 'verified')->values();
                 @endphp

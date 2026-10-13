@@ -180,12 +180,34 @@
                         </div>
                     </div>
 
+                    @php
+                        $terbayar = collect($salesOrder->payments)->where('status', 'verified')->sum('amount');
+                        $sisaTagihan = max(0, (float)$salesOrder->total_amount - $terbayar);
+                    @endphp
+
+                    <!-- DI ANTARA PENGIRIM & KOLI: BOX TAGIHAN (HITAM PEKAT, TEKS PUTIH NORMAL) -->
+                    @if($sisaTagihan > 0)
+                        <div class="bg-black text-white px-3.5 py-1 rounded text-center min-w-[120px]">
+                            <span class="text-[9px] font-black tracking-widest uppercase block text-slate-300 leading-none">TAGIHAN</span>
+                            <span class="text-sm font-black font-mono leading-none tracking-tight text-white mt-1 block">
+                                Rp {{ number_format($sisaTagihan, 0, ',', '.') }}
+                            </span>
+                        </div>
+                    @else
+                        <div class="bg-black text-white px-3 py-1 rounded text-center min-w-[90px]">
+                            <span class="text-[9px] font-black tracking-widest uppercase block text-slate-300 leading-none">STATUS</span>
+                            <span class="text-xs font-black uppercase text-white mt-1 block leading-none">
+                                LUNAS
+                            </span>
+                        </div>
+                    @endif
+
                     <!-- KANAN: KOLI & NO SO (DIPERBESAR SANGAT JELAS) -->
                     <div class="flex items-center gap-4">
-                        <!-- BOX KETERANGAN KOLI MINIMALIS & WIDE -->
-                        <div class="border-2 border-slate-900 text-slate-950 px-4 py-1 rounded text-center min-w-[95px]">
-                            <span class="text-[8.5px] font-black tracking-widest uppercase block text-slate-800 leading-none">KOLI KE</span>
-                            <span class="text-lg font-black font-mono leading-none tracking-widest mt-1 block">
+                        <!-- BOX KETERANGAN KOLI MINIMALIS & HORIZONTAL -->
+                        <div class="border-2 border-slate-900 text-slate-950 px-3 py-1 rounded flex items-center gap-2">
+                            <span class="text-[9px] font-black tracking-wider uppercase text-slate-800 whitespace-nowrap">KOLI KE:</span>
+                            <span class="text-base font-black font-mono tracking-wider min-w-[55px] text-center">
                                 &nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;
                             </span>
                         </div>

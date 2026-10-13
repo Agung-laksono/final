@@ -255,6 +255,12 @@
         <div class="w-1/2">
             @php
                 $subtotal = collect($quotation->items)->sum('subtotal');
+                $shippingFee = (float) ($quotation->shipping_fee ?? 0);
+                $packingFee = (float) ($quotation->packing_fee ?? 0);
+                $discount = (float) ($quotation->discount ?? 0);
+                $tax = (float) ($quotation->tax ?? 0);
+                $calculatedTotal = $subtotal + $shippingFee + $packingFee + $tax - $discount;
+                $grandTotal = max((float) ($quotation->total_amount ?? 0), $calculatedTotal);
             @endphp
             <table class="totals-table text-sm">
                 <tr>
@@ -263,15 +269,23 @@
                 </tr>
                 <tr>
                     <td>Biaya pengiriman</td>
-                    <td>{{ number_format($quotation->shipping_fee + $quotation->packing_fee, 0, ',', '.') }}</td>
+                    <td>{{ number_format($shippingFee + $packingFee, 0, ',', '.') }}</td>
                 </tr>
+                @if($discount > 0)
                 <tr>
                     <td>Diskon</td>
-                    <td>{{ number_format($quotation->discount, 0, ',', '.') }}</td>
+                    <td>{{ number_format($discount, 0, ',', '.') }}</td>
                 </tr>
+                @endif
+                @if($tax > 0)
+                <tr>
+                    <td>Pajak</td>
+                    <td>{{ number_format($tax, 0, ',', '.') }}</td>
+                </tr>
+                @endif
                 <tr class="bg-gray font-bold text-lg">
                     <td>Total</td>
-                    <td>{{ number_format($quotation->total_amount, 0, ',', '.') }}</td>
+                    <td>{{ number_format($grandTotal, 0, ',', '.') }}</td>
                 </tr>
             </table>
         </div>
