@@ -188,8 +188,15 @@
                 <td>
                     <div class="flex gap-3">
                         <div class="w-12 h-12 bg-zinc-200 border border-zinc-300 rounded overflow-hidden shrink-0">
-                            @if(!empty($item->custom_attachments))
-                                <img src="{{ Storage::url($item->custom_attachments[0]) }}" class="w-full h-full object-cover">
+                            @php
+                                $customImg = null;
+                                if (!empty($item->custom_attachments) && is_array($item->custom_attachments) && count($item->custom_attachments) > 0) {
+                                    $first = $item->custom_attachments[0];
+                                    $customImg = is_array($first) ? ($first['path'] ?? null) : $first;
+                                }
+                            @endphp
+                            @if($customImg)
+                                <img src="{{ Storage::url($customImg) }}" class="w-full h-full object-cover">
                             @elseif(isset($item->item->image) && $item->item->image)
                                 <img src="{{ Storage::url($item->item->image) }}" class="w-full h-full object-cover">
                             @else
@@ -321,8 +328,15 @@
     <!-- Image -->
     <div class="w-full flex justify-center mb-12">
         <div class="w-[500px] h-[500px] border border-zinc-200 bg-zinc-100 rounded flex items-center justify-center overflow-hidden shadow-sm relative">
-            @if(!empty($item->custom_attachments))
-                <img src="{{ Storage::url($item->custom_attachments[0]) }}" class="w-full h-full object-cover">
+            @php
+                $customImg = null;
+                if (!empty($item->custom_attachments) && is_array($item->custom_attachments) && count($item->custom_attachments) > 0) {
+                    $first = $item->custom_attachments[0];
+                    $customImg = is_array($first) ? ($first['path'] ?? null) : $first;
+                }
+            @endphp
+            @if($customImg)
+                <img src="{{ Storage::url($customImg) }}" class="w-full h-full object-cover">
             @elseif(isset($item->item->image) && $item->item->image)
                 <img src="{{ Storage::url($item->item->image) }}" class="w-full h-full object-cover">
             @else

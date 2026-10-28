@@ -305,6 +305,33 @@
                                     $code = $item?->code;
                                     $unitName = $item?->unit?->name ?? 'pcs';
                                     $alias = $item?->alias;
+
+                                    // Ambil gambar custom terlebih dahulu jika ada, fallback ke gambar master item
+                                    $customImg = null;
+                                    $attachments = $soItem->custom_attachments;
+                                    if (is_string($attachments)) {
+                                        $attachments = json_decode($attachments, true);
+                                    }
+                                    if (!empty($attachments) && is_array($attachments) && count($attachments) > 0) {
+                                        $firstAttachment = $attachments[0];
+                                        $customImg = is_array($firstAttachment) ? ($firstAttachment['path'] ?? null) : $firstAttachment;
+                                    }
+
+                                    $targetImage = $customImg ?: ($item?->image ?? null);
+                                    $imageSrc = null;
+                                    if ($targetImage && is_string($targetImage)) {
+                                        if (str_starts_with($targetImage, 'http://') || str_starts_with($targetImage, 'https://') || str_starts_with($targetImage, 'data:')) {
+                                            $imageSrc = $targetImage;
+                                        } elseif (str_starts_with($targetImage, 'storage/')) {
+                                            $imageSrc = asset($targetImage);
+                                        } elseif (str_starts_with($targetImage, '/storage/')) {
+                                            $imageSrc = $targetImage;
+                                        } else {
+                                            $imageSrc = Storage::url($targetImage);
+                                        }
+                                    }
+
+                                    $isCustom = !empty($customImg) || !empty($soItem->custom_attributes) || str_contains(strtoupper($soItem->notes ?? ''), '[CUSTOM]');
                                 @endphp
                                 <tr>
                                     <!-- NO -->
@@ -314,8 +341,13 @@
 
                                     <!-- GAMBAR -->
                                     <td class="text-center p-1">
-                                        @if($item?->image)
-                                            <img src="{{ Storage::url($item->image) }}" alt="Img" class="w-9 h-9 object-cover rounded border border-slate-300 mx-auto">
+                                        @if($imageSrc)
+                                            <div class="relative w-9 h-9 mx-auto">
+                                                <img src="{{ $imageSrc }}" alt="Img" class="w-9 h-9 object-cover rounded border border-slate-300 mx-auto">
+                                                @if(!empty($customImg))
+                                                    <span class="absolute -bottom-1 -right-1 bg-amber-500 text-white text-[7px] font-black px-0.5 rounded uppercase leading-none shadow-xs">CST</span>
+                                                @endif
+                                            </div>
                                         @else
                                             <div class="w-9 h-9 rounded border border-slate-300 font-bold text-slate-500 text-[9.5px] flex items-center justify-center mx-auto">
                                                 {{ substr($item?->name ?? '?', 0, 2) }}
@@ -339,7 +371,26 @@
                                             <span class="font-bold text-slate-950 text-xs">
                                                 {{ $item?->name ?? 'Produk' }}
                                             </span>
+                                            @if($isCustom)
+                                                <span class="border border-amber-600 bg-amber-100 text-amber-900 text-[8px] font-black px-1 py-0.2 rounded uppercase">
+                                                    CUSTOM
+                                                </span>
+                                            @endif
                                         </div>
+                                        @if(!empty($soItem->custom_attributes) && is_array($soItem->custom_attributes))
+                                            <div class="mt-0.5 flex flex-wrap gap-1">
+                                                @foreach($soItem->custom_attributes as $attr)
+                                                    <span class="text-[8px] text-slate-700 bg-slate-100 border border-slate-200 px-1 py-0.2 rounded font-medium">
+                                                        {{ $attr['key'] ?? '-' }}: <strong>{{ $attr['value'] ?? '-' }}</strong>
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                        @if($soItem->notes)
+                                            <div class="text-[8.5px] text-slate-600 mt-0.5 italic leading-tight">
+                                                {!! nl2br(e($soItem->notes)) !!}
+                                            </div>
+                                        @endif
                                     </td>
 
                                     <!-- JUMLAH & SATUAN -->
