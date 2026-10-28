@@ -341,7 +341,7 @@
         </flux:sidebar>
 
         {{-- HEADER: SUB-MENUS & TOP UTILITIES --}}
-        <flux:header sticky class="border-b border-zinc-200/80 dark:border-zinc-700/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md !z-[900] px-3 sm:px-6 h-14">
+        <flux:header sticky class="border-b border-zinc-200/80 dark:border-zinc-700/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md !z-[999] px-3 sm:px-6 h-14">
             {{-- Mobile Sidebar Toggle --}}
             <flux:sidebar.toggle class="md:hidden" icon="bars-2" inset="left" />
 
