@@ -332,9 +332,9 @@ class ChatWidget extends Component
             $senderName = auth()->user()->name;
             $authId = auth()->id();
 
-            $body = strlen($message->body) > 60
-                ? substr($message->body, 0, 57) . '...'
-                : $message->body;
+            $body = !empty($message->body)
+                ? (strlen($message->body) > 60 ? substr($message->body, 0, 57) . '...' : $message->body)
+                : '📷 [Lampiran Foto]';
 
             // Kirim ke setiap anggota selain sender
             $conv->members->where('id', '!=', $authId)->each(function ($u) use ($beams, $senderName, $body, $conv) {

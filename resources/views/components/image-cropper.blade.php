@@ -30,9 +30,10 @@
         updatePreviewSize(){}, applyCrop(){}, cancelCrop(){}, applyOriginal(){},
         removeImage(){}, resetCropper(){}, resetCropperState(){}, formatSize(){ return '0 KB'; }
     }, (typeof window.imageCropperData === 'function' ? window.imageCropperData('{{ $wireModel }}', {{ $nameModelValue }}, '{{ $id }}') : {}))" 
-     x-init="$watch('isCropping', val => val ? Flux.modal('{{ $modalName }}').show() : Flux.modal('{{ $modalName }}').close())"
+     x-init="$watch('isCropping', val => val ? Flux.modal('{{ $modalName }}').show() : (Flux.modal('{{ $modalName }}').close(), '{{ $mode }}' === 'icon' && resetCropper()))"
      @item-saved.window="resetCropper()"
      @reset-cropper.window="resetCropper()"
+     @chat-message-sent.window="resetCropper()"
      class="relative w-full">
 
 
@@ -167,20 +168,23 @@
         </div>
     </flux:modal>
 
-    {{-- Tampilan saat KOSONG (Belum Ada File) --}}
-    @if (!$image)
+    {{-- Tampilan saat KOSONG (Belum Ada File) atau Mode Icon --}}
+    @if ($mode === 'icon')
+        <div class="inline-flex items-center justify-center">
+            <button type="button" @click="pickFile('gallery')" class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-violet-500 hover:bg-violet-50 dark:hover:bg-zinc-800 transition-colors" title="Lampirkan Foto">
+                {{-- Icon Photo / Gambar --}}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="hidden" />
+            </button>
+        </div>
+    @elseif (!$image)
     <div x-show="!originalFile && !isCropping" style="display: none;" class="w-full">
         @if ($mode === 'button')
             <button type="button" @click="pickFile('gallery')" class="cursor-pointer flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors w-fit shadow-sm">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 {{ $label }}
-                <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="hidden" />
-            </button>
-        @elseif ($mode === 'icon')
-            <button type="button" @click="pickFile('gallery')" class="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-violet-500 hover:bg-violet-50 transition-colors" title="Lampirkan Gambar">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
                 <input type="file" x-ref="fileInputMain" @change="handleFile" accept="{{ $accept }}" class="hidden" />
             </button>
         @else
