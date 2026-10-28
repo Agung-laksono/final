@@ -123,14 +123,14 @@
             <div class="space-y-3">
                 <div>
                     <div class="flex justify-between text-xs mb-1">
-                        <span class="text-zinc-500">Maks Resolusi <span x-show="imgNatW" class="text-[10px] text-zinc-400 ml-1" x-text="`(Asli: ${imgNatW}x${imgNatH}px)`"></span></span>
+                        <span class="text-zinc-500 dark:text-zinc-400">Maks Resolusi <span x-show="imgNatW" class="text-[10px] text-zinc-400 ml-1" x-text="`(Asli: ${imgNatW}x${imgNatH}px)`"></span></span>
                         <span class="font-medium text-zinc-700 dark:text-zinc-300" x-text="maxSize + ' px'"></span>
                     </div>
                     <input type="range" x-model.number="maxSize" @input.debounce.300ms="updatePreviewSize()" min="400" max="2000" step="100" class="w-full accent-blue-500">
                 </div>
                 <div>
                     <div class="flex justify-between text-xs mb-1">
-                        <span class="text-zinc-500">Tingkat Kompresi WEBP</span>
+                        <span class="text-zinc-500 dark:text-zinc-400">Tingkat Kompresi WEBP</span>
                         <span class="font-medium text-zinc-700 dark:text-zinc-300" x-text="(quality * 100) + '%'"></span>
                     </div>
                     <input type="range" x-model.number="quality" @input.debounce.300ms="updatePreviewSize()" min="0.1" max="1" step="0.1" class="w-full accent-blue-500">
@@ -141,20 +141,20 @@
         {{-- Nama File Kustom --}}
         <div class="mt-4">
             <div class="flex justify-between text-xs mb-1">
-                <span class="text-zinc-500 font-medium">Nama Gambar <span class="text-zinc-400 font-normal">(untuk mempermudah pencarian)</span></span>
+                <span class="text-zinc-500 dark:text-zinc-400 font-medium">Nama Gambar <span class="text-zinc-400 font-normal">(untuk mempermudah pencarian)</span></span>
             </div>
-            <input type="text" x-model="customFileName" placeholder="Ketik nama gambar..." class="w-full text-sm border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all" maxlength="80">
+            <input type="text" x-model="customFileName" placeholder="Ketik nama gambar..." class="w-full text-sm border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all" maxlength="80">
         </div>
 
         <div class="flex flex-col-reverse md:flex-row justify-between items-center gap-4 mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
             {{-- Info Asli -> Hasil Estimasi --}}
             <div class="flex items-center gap-3 text-xs w-full md:w-auto bg-zinc-100 dark:bg-zinc-800/50 p-2 rounded-lg px-3 border border-zinc-200 dark:border-zinc-800">
-                <div class="text-zinc-500 flex flex-col md:flex-row md:gap-1">
+                <div class="text-zinc-500 dark:text-zinc-400 flex flex-col md:flex-row md:gap-1">
                     <span class="font-medium text-zinc-600 dark:text-zinc-400">Asli:</span>
                     <span x-text="originalSize === 0 ? '0 KB' : (originalSize / 1024).toFixed(1) + ' KB'"></span>
                 </div>
-                <flux:icon.arrow-right class="w-3 h-3 text-zinc-300" />
-                <div class="text-emerald-600 font-medium flex flex-col md:flex-row md:gap-1">
+                <flux:icon.arrow-right class="w-3 h-3 text-zinc-300 dark:text-zinc-600" />
+                <div class="text-emerald-600 dark:text-emerald-400 font-medium flex flex-col md:flex-row md:gap-1">
                     <span>Hasil (Estimasi):</span>
                     <span x-text="previewSize === 0 ? '0 KB' : (previewSize / 1024).toFixed(1) + ' KB'"></span>
                 </div>
@@ -236,14 +236,14 @@
 
             {{-- Ganti Foto Buttons (Permanent) --}}
             <div class="flex gap-2 w-full justify-center bg-zinc-50 dark:bg-zinc-800 border-t border-zinc-200 dark:border-zinc-700 p-2">
-                <button type="button" @click="removeImage()" class="flex items-center justify-center gap-1 hover:bg-red-50 hover:text-red-600 text-zinc-500 transition px-2 py-1.5 rounded-lg border border-transparent hover:border-red-200 shadow-sm" title="Hapus Foto">
+                <button type="button" @click="removeImage()" class="flex items-center justify-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 text-zinc-500 dark:text-zinc-400 transition px-2 py-1.5 rounded-lg border border-transparent hover:border-red-200 dark:hover:border-red-800/60 shadow-sm" title="Hapus Foto">
                     <flux:icon.trash class="w-4 h-4" />
                 </button>
-                <div @click="pickFile('camera')" class="relative cursor-pointer flex items-center justify-center hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1" title="Kamera">
+                <div @click="pickFile('camera')" class="relative cursor-pointer flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 transition bg-white dark:bg-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-600 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1" title="Kamera">
                     <flux:icon.camera class="w-5 h-5" />
                     <input type="file" x-ref="fileInputAltCamera" @change="handleFile" accept="image/*" capture="environment" class="hidden">
                 </div>
-                <div @click="pickFile('gallery')" class="relative cursor-pointer flex items-center justify-center hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1" title="Galeri">
+                <div @click="pickFile('gallery')" class="relative cursor-pointer flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 transition bg-white dark:bg-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-600 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1" title="Galeri">
                     <flux:icon.photo class="w-5 h-5" />
                     <input type="file" x-ref="fileInputAlt" @change="handleFile" accept="{{ $accept }}" class="hidden">
                 </div>
@@ -252,7 +252,7 @@
         
         {{-- Info Ukuran Kompresi (Mini Text di bawah gambar) --}}
         <div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400 text-center truncate w-full" title="Ukuran Asli -> Kompresi">
-            <span x-text="originalSize === 0 ? '0 KB' : (originalSize / 1024).toFixed(1) + ' KB'"></span> <flux:icon.arrow-right class="w-3 h-3 inline text-zinc-300 mx-1" /> <span x-text="newSize === 0 ? '0 KB' : (newSize / 1024).toFixed(1) + ' KB'" class="font-semibold text-green-600 dark:text-green-400"></span>
+            <span x-text="originalSize === 0 ? '0 KB' : (originalSize / 1024).toFixed(1) + ' KB'"></span> <flux:icon.arrow-right class="w-3 h-3 inline text-zinc-300 dark:text-zinc-600 mx-1" /> <span x-text="newSize === 0 ? '0 KB' : (newSize / 1024).toFixed(1) + ' KB'" class="font-semibold text-green-600 dark:text-green-400"></span>
         </div>
     </div>
     @endif
@@ -283,10 +283,10 @@
 
             {{-- Ganti Foto Buttons (Permanent) --}}
             <div class="flex gap-2 w-full justify-center bg-zinc-50 dark:bg-zinc-800 border-t border-zinc-200 dark:border-zinc-700 p-2">
-                <button type="button" @click="removeImage()" class="flex items-center justify-center gap-1 hover:bg-red-50 hover:text-red-600 text-zinc-500 transition px-2 py-1.5 rounded-lg border border-transparent hover:border-red-200 shadow-sm" title="Hapus Foto">
+                <button type="button" @click="removeImage()" class="flex items-center justify-center gap-1 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 text-zinc-500 dark:text-zinc-400 transition px-2 py-1.5 rounded-lg border border-transparent hover:border-red-200 dark:hover:border-red-800/60 shadow-sm" title="Hapus Foto">
                     <flux:icon.trash class="w-4 h-4" />
                 </button>
-                <div @click="pickFile('camera')" class="relative cursor-pointer flex items-center justify-center hover:text-blue-600 text-zinc-600 dark:text-zinc-300 transition bg-white dark:bg-zinc-700 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1" title="Kamera">
+                <div @click="pickFile('camera')" class="relative cursor-pointer flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 transition bg-white dark:bg-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-600 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-600 shadow-sm flex-1" title="Kamera">
                     <input type="file" x-ref="fileInputServer" @change="handleFile" accept="{{ $accept }}" class="hidden">
                 </div>
             </div>

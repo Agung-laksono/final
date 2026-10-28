@@ -816,7 +816,7 @@ new #[Lazy] class extends Component {
                                 <flux:menu>
                                     <flux:menu.item wire:click="editColumn('{{ $parentColumn['id'] }}')" icon="pencil">Edit Nama Grup</flux:menu.item>
                                     <flux:menu.item wire:click="showAddSubColumnForm('{{ $parentColumn['id'] }}')" icon="plus">Tambah Sub Kolom</flux:menu.item>
-                                    <flux:menu.item wire:click="deleteColumn('{{ $parentColumn['id'] }}')" wire:confirm="Hapus grup kolom ini dan semua sub-kolom di dalamnya?" icon="trash" class="text-red-600 hover:bg-red-50">Hapus Grup Kolom</flux:menu.item>
+                                    <flux:menu.item wire:click="deleteColumn('{{ $parentColumn['id'] }}')" wire:confirm="Hapus grup kolom ini dan semua sub-kolom di dalamnya?" icon="trash" class="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40">Hapus Grup Kolom</flux:menu.item>
                                 </flux:menu>
                             </flux:dropdown>
                         </div>
@@ -886,7 +886,7 @@ new #[Lazy] class extends Component {
                                                     <flux:menu>
                                                         <flux:menu.item wire:click="editColumn('{{ $childColumn['id'] }}')" icon="pencil">Edit Nama Grup</flux:menu.item>
                                                         <flux:menu.item wire:click="showAddSubColumnForm('{{ $childColumn['id'] }}')" icon="plus">Tambah Sub Kolom</flux:menu.item>
-                                                        <flux:menu.item wire:click="deleteColumn('{{ $childColumn['id'] }}')" wire:confirm="Hapus grup ini dan semua sub-kolom di dalamnya?" icon="trash" class="text-red-600 hover:bg-red-50">Hapus Grup Kolom</flux:menu.item>
+                                                        <flux:menu.item wire:click="deleteColumn('{{ $childColumn['id'] }}')" wire:confirm="Hapus grup ini dan semua sub-kolom di dalamnya?" icon="trash" class="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40">Hapus Grup Kolom</flux:menu.item>
                                                     </flux:menu>
                                                 </flux:dropdown>
                                             </div>
@@ -1189,13 +1189,13 @@ new #[Lazy] class extends Component {
                                             </div>
                                             <div>
                                                 <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $user['name'] }}</p>
-                                                <p class="text-xs text-zinc-500">{{ $user['email'] }}</p>
+                                                <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $user['email'] }}</p>
                                             </div>
                                         </div>
                                         <flux:button size="sm" variant="ghost" class="text-indigo-600 hover:text-indigo-700">Tambah</flux:button>
                                     </div>
                                 @empty
-                                    <div class="p-4 text-center text-sm text-zinc-500">
+                                    <div class="p-4 text-center text-sm text-zinc-500 dark:text-zinc-400">
                                         Tidak ada pengguna ditemukan.
                                     </div>
                                 @endforelse
@@ -1222,7 +1222,7 @@ new #[Lazy] class extends Component {
                                             <span class="inline-flex items-center rounded-md bg-yellow-50 dark:bg-yellow-900/20 px-1.5 py-0.5 text-[10px] font-medium text-yellow-800 dark:text-yellow-500 ring-1 ring-inset ring-yellow-600/20">Owner</span>
                                         @endif
                                     </div>
-                                    <p class="text-xs text-zinc-500">{{ $member->email }}</p>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $member->email }}</p>
                                 </div>
                             </div>
                             
@@ -1313,7 +1313,7 @@ new #[Lazy] class extends Component {
                         <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400" x-text="message"></p>
                     </div>
                     <div class="ml-4 flex flex-shrink-0">
-                        <button @click="show = false" type="button" class="inline-flex rounded-md bg-white dark:bg-zinc-800 text-zinc-400 hover:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                        <button @click="show = false" type="button" class="inline-flex rounded-md bg-white dark:bg-zinc-800 text-zinc-400 hover:text-zinc-500 dark:hover:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                             <span class="sr-only">Close</span>
                             <flux:icon.x-mark class="h-4 w-4" />
                         </button>

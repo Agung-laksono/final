@@ -102,6 +102,7 @@
                     </flux:sidebar.item>
                 </flux:navlist.group>
             </flux:sidebar.nav>
+            @endif
 
             {{-- LAINNYA (Utama, Artikel, Pengaturan) --}}
             @if(isset($navGroups['LAINNYA']))

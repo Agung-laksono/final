@@ -401,7 +401,7 @@ new class extends Component {
 
             <div class="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                 @if(empty($kpiHistoryLogs))
-                <div class="text-center py-6 text-zinc-500 text-sm">Belum ada histori perubahan untuk KPI ini.</div>
+                <div class="text-center py-6 text-zinc-500 dark:text-zinc-400 text-sm">Belum ada histori perubahan untuk KPI ini.</div>
                 @else
                     @foreach($kpiHistoryLogs as $log)
                     <div class="relative pl-6 pb-4 border-l border-zinc-200 dark:border-zinc-700 last:border-l-0 last:pb-0">
@@ -410,7 +410,7 @@ new class extends Component {
                             <span class="text-xs font-semibold text-zinc-900 dark:text-white">
                                 {{ $log->user ? $log->user->name : 'Sistem' }}
                             </span>
-                            <span class="text-[10px] text-zinc-500">{{ $log->created_at->diffForHumans() }}</span>
+                            <span class="text-[10px] text-zinc-500 dark:text-zinc-400">{{ $log->created_at->diffForHumans() }}</span>
                         </div>
                         <div class="text-sm text-zinc-700 dark:text-zinc-300">
                             @if($log->old_value !== null)
@@ -421,7 +421,7 @@ new class extends Component {
                             @endif
                         </div>
                         @if($log->notes)
-                        <div class="mt-1 text-xs text-zinc-500 italic">{{ $log->notes }}</div>
+                        <div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400 italic">{{ $log->notes }}</div>
                         @endif
                     </div>
                     @endforeach

@@ -75,7 +75,7 @@
             @if(!$sectionPerm || auth()->user()->can($sectionPerm))
 
             <div>
-                <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">{{ __($section) }}</h3>
+                <h3 class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-4">{{ __($section) }}</h3>
                 <div class="grid grid-cols-4 md:grid-cols-6 xl:grid-cols-8 gap-y-6 gap-x-2">
                     @foreach($items as $item)
                         @php
@@ -120,7 +120,7 @@
     <!-- WORKSPACES MOCKUP -->
     @if(config('modules_statuses.Workspace', true))
     <div>
-        <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">WORKSPACES</h3>
+        <h3 class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-4">WORKSPACES</h3>
         <div class="grid grid-cols-4 gap-4">
             <a href="{{ route('workspaces.index') }}" data-drawer-url="{{ route('workspaces.index', [], false) }}" wire:navigate class="flex flex-col items-center gap-2 group">
                 <div class="w-12 h-12 bg-pink-100 dark:bg-pink-900/40 border border-pink-200 dark:border-pink-800 rounded-2xl flex items-center justify-center text-pink-600 dark:text-pink-400 group-hover:bg-pink-200 dark:group-hover:bg-pink-900/60 transition-colors shadow-sm group-hover:scale-105 duration-200">
@@ -135,7 +135,7 @@
     <!-- LAINNYA & Pengaturan -->
     @if(isset($navGroups['LAINNYA']))
     <div>
-        <h3 class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">{{ __('LAINNYA') }}</h3>
+        <h3 class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-4">{{ __('LAINNYA') }}</h3>
         <div class="grid grid-cols-4 gap-y-6 gap-x-2">
             @foreach($navGroups['LAINNYA'] as $item)
                 @php $routeExists = \Illuminate\Support\Facades\Route::has($item['route_name']); @endphp

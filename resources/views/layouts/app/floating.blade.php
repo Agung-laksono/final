@@ -313,7 +313,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.building-storefront class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Data Vendor/Supplier</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Data Vendor/Supplier</span>
                     </a>
                     @endcan
                     
@@ -329,7 +329,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors border border-sky-100 dark:border-sky-900/50">
                             <flux:icon.plus class="w-5 h-5" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left text-sky-600 dark:text-sky-400">Buat PO Baru</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left text-sky-600 dark:text-sky-400">Buat PO Baru</span>
                     </a>
                     @endcan
 
@@ -339,7 +339,7 @@
                             <flux:icon.clipboard-document-check class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="purchase_order" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Purchase Order</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Purchase Order</span>
                     </a>
                     @endcan
 
@@ -349,7 +349,7 @@
                             <flux:icon.queue-list class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="purchase_queue" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Request/Permintaan Purchase Order</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Request/Permintaan Purchase Order</span>
                     </a>
                     @endcan
 
@@ -365,7 +365,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-sky-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.arrow-uturn-left class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Retur Pembelian</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Retur Pembelian</span>
                     </a>
                     @endcan
 
@@ -389,7 +389,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-purple-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.document-text class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Resep Produksi</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Resep Produksi</span>
                     </a>
                     @endcan
                     
@@ -406,7 +406,7 @@
                             <flux:icon.wrench-screwdriver class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="production_order" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Produksi</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Produksi</span>
                     </a>
                     @endcan
 
@@ -435,7 +435,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-emerald-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.user-group class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Data Pelanggan</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Data Pelanggan</span>
                     </a>
                     @endcan
                     @canany(['sales.customer.view'])
@@ -449,7 +449,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-emerald-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.document-text class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Penawaran</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Penawaran</span>
                     </a>
 @endcan
 @can('sales.order.create')
@@ -457,7 +457,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-emerald-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors border border-emerald-100 dark:border-emerald-900/50">
                             <flux:icon.plus class="w-5 h-5" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left text-emerald-600 dark:text-emerald-400">Buat SO Baru</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left text-emerald-600 dark:text-emerald-400">Buat SO Baru</span>
                     </a>
                     @endcan
 @can('sales.order.view')
@@ -466,7 +466,7 @@
                             <flux:icon.clipboard-document-list class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="sales_order" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Sales Order</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Daftar Sales Order</span>
                     </a>
                     @endcan
                     @canany(['sales.order.view', 'sales.order.create'])
@@ -481,7 +481,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-emerald-500 relative group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.arrow-uturn-left class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Retur Penjualan</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Retur Penjualan</span>
                     </a>
                     @endcan
 
@@ -505,7 +505,7 @@
                             <flux:icon.inbox-arrow-down class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="finance_inbox" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Validasi Transaksi</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Validasi Transaksi</span>
                     </a>
                     @endcan
                     
@@ -515,7 +515,7 @@
                             <flux:icon.credit-card class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="finance_payables" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Hutang Pembelian</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Hutang Pembelian</span>
                     </a>
                     
                     <a href="{{ route('finance.receivables') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
@@ -523,7 +523,7 @@
                             <flux:icon.currency-dollar class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="finance_receivables" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Piutang Penjualan</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Piutang Penjualan</span>
                     </a>
                     @endcan
                     
@@ -533,7 +533,7 @@
                             <flux:icon.arrows-right-left class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="finance_transfer" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Mutasi Internal</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Mutasi Internal</span>
                     </a>
                     @endcan
 
@@ -549,7 +549,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-zinc-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.banknotes class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Dashboard Keuangan</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Dashboard Keuangan</span>
                     </a>
                     @endcan
                     
@@ -580,7 +580,7 @@
                             <div class="flex items-center justify-center w-10 h-10 bg-red-100 dark:bg-red-900/40 border border-red-200 dark:border-red-800 rounded-full shadow-lg text-red-600 group-hover:bg-red-200 dark:group-hover:bg-red-900/60 transition-colors">
                                 <flux:icon.arrow-right-start-on-rectangle class="w-4 h-4" />
                             </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium text-red-600">Logout</span>
+                            <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium text-red-600">Logout</span>
                         </button>
                     </form>
                     <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
@@ -592,7 +592,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-zinc-600 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.cog-6-tooth class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Pengaturan Aplikasi</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Pengaturan Aplikasi</span>
                     </a>
                     
                     <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
@@ -791,7 +791,7 @@
                             <flux:icon.inbox-arrow-down class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="finance_inbox" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Validasi Transaksi</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Validasi Transaksi</span>
                     </a>
                     @endcan
                     
@@ -801,7 +801,7 @@
                             <flux:icon.credit-card class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="finance_payables" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Hutang Pembelian</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Hutang Pembelian</span>
                     </a>
 
                     <a href="{{ route('finance.receivables') }}" wire:navigate class="flex items-center gap-3 group transition-transform duration-300 hover:translate-x-2">
@@ -809,7 +809,7 @@
                             <flux:icon.currency-dollar class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="finance_receivables" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Piutang Penjualan</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Piutang Penjualan</span>
                     </a>
                     @endcan
                     
@@ -819,7 +819,7 @@
                             <flux:icon.arrows-right-left class="w-4 h-4" />
                             <livewire:layout.sidebar-badge type="finance_transfer" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Mutasi Internal</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Mutasi Internal</span>
                     </a>
                     @endcan
 
@@ -835,7 +835,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-zinc-500 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.banknotes class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Dashboard Keuangan</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Dashboard Keuangan</span>
                     </a>
                     @endcan
                     
@@ -866,7 +866,7 @@
                             <div class="flex items-center justify-center w-10 h-10 bg-red-100 dark:bg-red-900/40 border border-red-200 dark:border-red-800 rounded-full shadow-lg text-red-600 group-hover:bg-red-200 dark:group-hover:bg-red-900/60 transition-colors">
                                 <flux:icon.arrow-right-start-on-rectangle class="w-4 h-4" />
                             </div>
-                            <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium text-red-600">Logout</span>
+                            <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium text-red-600">Logout</span>
                         </button>
                     </form>
                     <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">
@@ -878,7 +878,7 @@
                         <div class="flex items-center justify-center w-10 h-10 bg-white dark:bg-zinc-800 rounded-full shadow-lg text-zinc-600 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-700 transition-colors">
                             <flux:icon.cog-6-tooth class="w-4 h-4" />
                         </div>
-                        <span class="bg-white/95 dark:bg-zinc-800/95 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Pengaturan Aplikasi</span>
+                        <span class="bg-white/95 dark:bg-zinc-800/95 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-200 px-3 py-1.5 rounded-lg shadow-md text-sm font-medium group-hover:scale-105 transition-transform origin-left">Pengaturan Aplikasi</span>
                     </a>
                     
                     <div class="flex items-center gap-3 w-full opacity-70 mb-1 mt-2 pointer-events-none">

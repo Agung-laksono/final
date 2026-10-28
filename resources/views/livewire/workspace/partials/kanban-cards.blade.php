@@ -86,7 +86,7 @@
 
         @if($totalSub > 0)
         <div class="mb-3">
-            <div class="flex items-center justify-between text-[10px] font-bold text-zinc-500 mb-1">
+            <div class="flex items-center justify-between text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-1">
                 <span class="flex items-center gap-1"><flux:icon.check-circle class="w-3 h-3 text-zinc-400"/> Progress</span>
                 <span class="{{ $completedSub == $totalSub ? 'text-green-600 dark:text-green-500' : 'text-indigo-600 dark:text-indigo-400' }}">{{ $completedSub }}/{{ $totalSub }}</span>
             </div>

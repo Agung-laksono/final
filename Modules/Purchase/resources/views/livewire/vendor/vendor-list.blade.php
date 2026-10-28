@@ -233,19 +233,19 @@ $delete = function ($id) {
                     
                     <div class="flex items-center gap-1 w-full justify-end">
                         @can('purchase.vendor.update')
-                            <flux:button variant="ghost" size="sm" icon="pencil-square" class="text-zinc-500 hover:text-zinc-900" wire:click="$dispatch('open-vendor-modal', { id: {{ $vendor->id }} })" title="Edit Vendor" />
+                            <flux:button variant="ghost" size="sm" icon="pencil-square" class="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" wire:click="$dispatch('open-vendor-modal', { id: {{ $vendor->id }} })" title="Edit Vendor" />
                         @endcan
                         @can('purchase.vendor.delete')
-                            <flux:button variant="ghost" size="sm" icon="trash" class="text-red-500 hover:bg-red-50" wire:click="delete({{ $vendor->id }})" wire:confirm="Yakin ingin menghapus vendor ini?" title="Hapus Vendor" />
+                            <flux:button variant="ghost" size="sm" icon="trash" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40" wire:click="delete({{ $vendor->id }})" wire:confirm="Yakin ingin menghapus vendor ini?" title="Hapus Vendor" />
                         @endcan
                     </div>
                 </div>
             </div>
         @empty
             <div class="col-span-full py-12 flex flex-col items-center justify-center text-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl border-dashed">
-                <flux:icon.inbox class="w-12 h-12 text-zinc-300 mb-3" />
+                <flux:icon.inbox class="w-12 h-12 text-zinc-300 dark:text-zinc-600 mb-3" />
                 <h3 class="text-lg font-medium text-zinc-900 dark:text-zinc-100">Belum Ada Vendor</h3>
-                <p class="text-zinc-500 max-w-sm mt-1">Anda belum memiliki data vendor. Silakan tambah vendor baru untuk mulai bertransaksi.</p>
+                <p class="text-zinc-500 dark:text-zinc-400 max-w-sm mt-1">Anda belum memiliki data vendor. Silakan tambah vendor baru untuk mulai bertransaksi.</p>
                 @can('purchase.vendor.create')
                     <flux:button variant="primary" icon="plus" wire:click="$dispatch('open-vendor-modal')" class="mt-4">
                         Tambah Vendor Baru

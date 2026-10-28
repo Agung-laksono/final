@@ -201,18 +201,18 @@ $delete = function ($id) {
                 {{-- Action Buttons --}}
                 <div class="flex items-center gap-1 w-full justify-end mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
                     @can('sales.customer.update')
-                        <flux:button variant="ghost" size="sm" icon="pencil-square" class="text-zinc-500 hover:text-zinc-900" wire:click="$dispatch('open-customer-modal', { id: {{ $customer->id }} })" title="Edit Pelanggan" />
+                        <flux:button variant="ghost" size="sm" icon="pencil-square" class="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100" wire:click="$dispatch('open-customer-modal', { id: {{ $customer->id }} })" title="Edit Pelanggan" />
                     @endcan
                     @can('sales.customer.delete')
-                        <flux:button variant="ghost" size="sm" icon="trash" class="text-red-500 hover:bg-red-50" wire:click="delete({{ $customer->id }})" wire:confirm="Yakin ingin menghapus pelanggan ini?" title="Hapus Pelanggan" />
+                        <flux:button variant="ghost" size="sm" icon="trash" class="text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40" wire:click="delete({{ $customer->id }})" wire:confirm="Yakin ingin menghapus pelanggan ini?" title="Hapus Pelanggan" />
                     @endcan
                 </div>
             </div>
         @empty
             <div class="col-span-full py-12 flex flex-col items-center justify-center text-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl border-dashed">
-                <flux:icon.users class="w-12 h-12 text-zinc-300 mb-3" />
+                <flux:icon.users class="w-12 h-12 text-zinc-300 dark:text-zinc-600 mb-3" />
                 <h3 class="text-lg font-medium text-zinc-900 dark:text-zinc-100">Belum Ada Pelanggan</h3>
-                <p class="text-zinc-500 max-w-sm mt-1">Anda belum memiliki data pelanggan. Silakan tambah pelanggan baru untuk mulai berjualan.</p>
+                <p class="text-zinc-500 dark:text-zinc-400 max-w-sm mt-1">Anda belum memiliki data pelanggan. Silakan tambah pelanggan baru untuk mulai berjualan.</p>
                 @can('sales.customer.create')
                     <flux:button variant="primary" icon="users" wire:click="$dispatch('open-customer-modal')" class="mt-4">
                         Tambah Pelanggan Baru

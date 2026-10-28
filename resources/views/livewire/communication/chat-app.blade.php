@@ -37,7 +37,7 @@
         </div>
 
         {{-- Conversation List --}}
-        <div class="flex-1 overflow-y-auto" style="scrollbar-width: thin; scrollbar-color: #ccc transparent;">
+        <div class="flex-1 overflow-y-auto chat-scroll">
             @forelse($conversations as $conversation)
                 @php
                     $lastMsg = $conversation->latestMessage;
@@ -161,9 +161,8 @@
                 </div>
 
                 {{-- Messages Scrolling Area --}}
-                <div class="flex-1 overflow-y-auto px-4 py-4 relative z-10"
+                <div class="flex-1 overflow-y-auto px-4 py-4 relative z-10 chat-scroll"
                      id="chat-messages-container"
-                     style="scrollbar-width: thin; scrollbar-color: #ccc transparent;"
                      x-data
                      x-init="
                         $wire.on('chat-scrolled-to-bottom', () => {
@@ -181,14 +180,14 @@
                             {{-- Message Bubble --}}
                             <div class="relative px-3 pt-2 pb-1 rounded-lg shadow-sm
                                 {{ $isOut 
-                                    ? 'bg-[#d9fdd3] text-zinc-800' 
+                                    ? 'bg-[#d9fdd3] dark:bg-[#005c4b] text-zinc-800 dark:text-[#e9edef]' 
                                     : 'bg-white dark:bg-[#202c33] text-zinc-800 dark:text-[#e9edef]' }}">
                                 
                                 {{-- Bubble tail --}}
                                 @if($isOut)
-                                    <div class="absolute -right-[7px] top-0 w-0 h-0" style="border-left: 8px solid #d9fdd3; border-bottom: 8px solid transparent;"></div>
+                                    <div class="absolute -right-[7px] top-0 w-0 h-0 border-b-[8px] border-b-transparent border-l-[8px] border-l-[#d9fdd3] dark:border-l-[#005c4b]"></div>
                                 @else
-                                    <div class="absolute -left-[7px] top-0 w-0 h-0" style="border-right: 8px solid white; border-bottom: 8px solid transparent;"></div>
+                                    <div class="absolute -left-[7px] top-0 w-0 h-0 border-b-[8px] border-b-transparent border-r-[8px] border-r-white dark:border-r-[#202c33]"></div>
                                 @endif
 
                                 {{-- Media --}}
@@ -201,21 +200,21 @@
 
                                 {{-- Time + Status (bottom right, inside bubble) --}}
                                 <div class="flex items-center justify-end gap-1 mt-0.5 -mb-0.5 float-right clear-both ml-3">
-                                    <span class="text-[11px] text-[#667781] {{ $isOut ? '' : 'dark:text-[#8696a0]' }} whitespace-nowrap">
+                                    <span class="text-[11px] text-[#667781] {{ $isOut ? 'dark:text-[#aebac1]' : 'dark:text-[#8696a0]' }} whitespace-nowrap">
                                         {{ $msg->created_at->format('H:i') }}
                                     </span>
                                     @if($isOut)
                                         @if($msg->status === 'pending')
                                             {{-- Clock: pending/sedang dikirim --}}
-                                            <svg class="w-3.5 h-3.5 text-[#667781] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 1.5"/></svg>
+                                            <svg class="w-3.5 h-3.5 text-[#667781] dark:text-[#aebac1] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 1.5"/></svg>
                                         @elseif($msg->status === 'sent')
                                             {{-- Centang 1 abu: terkirim ke server --}}
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" class="w-[18px] h-[18px] text-[#667781] shrink-0" fill="currentColor">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" class="w-[18px] h-[18px] text-[#667781] dark:text-[#aebac1] shrink-0" fill="currentColor">
                                                 <path d="M17.394 5.035l-.57-.444a.434.434 0 0 0-.609.076L8.397 14.019l-3.853-3.461a.434.434 0 0 0-.608.015l-.494.509a.434.434 0 0 0 .014.609l4.561 4.095a.434.434 0 0 0 .606-.039l8.785-10.127a.434.434 0 0 0-.014-.585z"/>
                                             </svg>
                                         @elseif($msg->status === 'delivered')
                                             {{-- Centang 2 abu: sudah diterima di HP --}}
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" class="w-[18px] h-[18px] text-[#667781] shrink-0" fill="currentColor">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" class="w-[18px] h-[18px] text-[#667781] dark:text-[#aebac1] shrink-0" fill="currentColor">
                                                 <path d="M17.394 5.035l-.57-.444a.434.434 0 0 0-.609.076L8.397 14.019l-3.853-3.461a.434.434 0 0 0-.608.015l-.494.509a.434.434 0 0 0 .014.609l4.561 4.095a.434.434 0 0 0 .606-.039l8.785-10.127a.434.434 0 0 0-.014-.585z"/>
                                                 <path d="M13.394 5.035l-.57-.444a.434.434 0 0 0-.609.076l-5.752 7.026-.853-.766-.608.015-.494.509a.434.434 0 0 0 .014.609l1.561 1.402a.434.434 0 0 0 .606-.039l6.72-7.804a.434.434 0 0 0-.015-.584z" opacity=".65"/>
                                             </svg>
@@ -237,7 +236,7 @@
                     </div>
                 @empty
                     <div class="flex flex-col items-center justify-center h-full opacity-60">
-                        <p class="text-sm text-[#667781] bg-[#ffffffcc] px-4 py-2 rounded-lg shadow-sm">
+                        <p class="text-sm text-[#667781] dark:text-[#aebac1] bg-[#ffffffcc] dark:bg-[#202c33cc] px-4 py-2 rounded-lg shadow-sm">
                             Belum ada pesan. Kirim pesan pertama! 👋
                         </p>
                     </div>
@@ -367,7 +366,7 @@
 
                     {{-- Send Button (WhatsApp Green Circle, Floating) --}}
                     <button type="submit" 
-                            class="w-[44px] h-[44px] rounded-full bg-[#00a884] hover:bg-[#017561] flex items-center justify-center text-zinc-900 transition-all duration-200 active:scale-75 active:rotate-12 shadow-md shrink-0 mb-[1px]">
+                            class="w-[44px] h-[44px] rounded-full bg-[#00a884] hover:bg-[#017561] flex items-center justify-center text-white transition-all duration-200 active:scale-75 active:rotate-12 shadow-md shrink-0 mb-[1px]">
                         <svg viewBox="0 0 24 24" class="w-[20px] h-[20px] translate-x-0.5" fill="currentColor">
                             <path d="M1.101 21.757 23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"/>
                         </svg>

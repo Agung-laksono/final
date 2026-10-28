@@ -105,18 +105,18 @@
                                                 </button>
                                                 
                                                 <div x-show="aiMenu" x-transition x-cloak style="display: none;" class="absolute left-0 top-full mt-2 w-64 bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 p-3 z-50">
-                                                    <p class="text-[11px] font-bold text-zinc-500 mb-2 uppercase tracking-wider">Model AI</p>
+                                                    <p class="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">Model AI</p>
                                                     <div class="space-y-1 mb-3">
                                                         @foreach($aiProviders as $p)
                                                             <label class="flex items-center gap-2 text-[13px] text-zinc-700 dark:text-zinc-200 cursor-pointer p-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-lg">
-                                                                <input type="radio" wire:model.live="aiSelectedProvider" value="{{ $p['name'] }}" class="text-violet-500 focus:ring-violet-500 border-zinc-300 w-3.5 h-3.5">
+                                                                <input type="radio" wire:model.live="aiSelectedProvider" value="{{ $p['name'] }}" class="text-violet-500 focus:ring-violet-500 border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 w-3.5 h-3.5">
                                                                 <span>{{ $p['name'] }}</span>
                                                             </label>
                                                         @endforeach
                                                     </div>
                                                     <div class="h-px bg-zinc-100 dark:bg-zinc-700 -mx-3 mb-3"></div>
                                                     <label class="flex items-center gap-2 text-[13px] text-zinc-700 dark:text-zinc-200 cursor-pointer p-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 rounded-lg">
-                                                        <input type="checkbox" wire:model.live="aiUseRag" class="text-violet-500 focus:ring-violet-500 rounded border-zinc-300 w-3.5 h-3.5">
+                                                        <input type="checkbox" wire:model.live="aiUseRag" class="text-violet-500 focus:ring-violet-500 rounded border-zinc-300 dark:border-zinc-600 dark:bg-zinc-700 w-3.5 h-3.5">
                                                         <span class="leading-relaxed">Gunakan Data Internal (RAG)</span>
                                                     </label>
                                                 </div>
@@ -220,7 +220,7 @@
                 </div>
 
                 {{-- Conversation List --}}
-                <div class="flex-1 overflow-y-auto" style="scrollbar-width: thin; scrollbar-color: #d4d4d8 transparent;">
+                <div class="flex-1 overflow-y-auto chat-scroll">
                     @forelse($this->conversations as $conv)
                         @continue($conv->type === 'ai')
                         <button type="button"
@@ -272,7 +272,7 @@
                             <div class="flex-1 min-w-0">
                                 <div class="flex justify-between items-baseline mb-0.5">
                                     <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{{ $conv->display }}</p>
-                                    <span class="text-[11px] {{ $conv->unread > 0 ? 'text-violet-500 font-semibold' : 'text-zinc-400' }} shrink-0 ml-1">
+                                    <span class="text-[11px] {{ $conv->unread > 0 ? 'text-violet-500 font-semibold' : 'text-zinc-400 dark:text-zinc-500' }} shrink-0 ml-1">
                                         {{ $conv->last_message_at ? $conv->last_message_at->format('H:i') : '' }}
                                     </span>
                                 </div>
@@ -280,13 +280,13 @@
                                     <p class="text-[12.5px] text-zinc-500 dark:text-zinc-400 truncate flex-1 pr-2">
                                         @if($conv->latestMessage)
                                             @if($conv->latestMessage->sender_id === auth()->id())
-                                                <span class="text-zinc-400">Anda: </span>
+                                                <span class="text-zinc-400 dark:text-zinc-500">Anda: </span>
                                             @elseif($conv->type === 'group')
-                                                <span class="text-zinc-400">{{ $conv->latestMessage->sender?->name }}: </span>
+                                                <span class="text-zinc-400 dark:text-zinc-500">{{ $conv->latestMessage->sender?->name }}: </span>
                                             @endif
                                             {{ Str::limit($conv->latestMessage->body, 35) }}
                                         @else
-                                            <span class="italic text-zinc-400">Belum ada pesan</span>
+                                            <span class="italic text-zinc-400 dark:text-zinc-500">Belum ada pesan</span>
                                         @endif
                                     </p>
                                     @if($conv->unread > 0)
@@ -298,12 +298,12 @@
                             </div>
                         </button>
                     @empty
-                        <div class="flex flex-col items-center justify-center h-full py-12 text-zinc-400">
+                        <div class="flex flex-col items-center justify-center h-full py-12 text-zinc-400 dark:text-zinc-500">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                             </svg>
                             <p class="text-sm font-medium">Belum ada percakapan</p>
-                            <p class="text-xs mt-1">Cari rekan kerja di atas untuk memulai</p>
+                            <p class="text-xs mt-1 text-zinc-400 dark:text-zinc-500">Cari rekan kerja di atas untuk memulai</p>
                         </div>
                     @endforelse
                 </div>
@@ -324,8 +324,7 @@
                 {{-- Messages area --}}
                 <div
                     id="chat-widget-messages"
-                    class="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 bg-zinc-50 dark:bg-zinc-900/50 relative"
-                    style="scrollbar-width: thin; scrollbar-color: #d4d4d8 transparent;"
+                    class="flex-1 overflow-y-auto px-3 py-3 space-y-1.5 bg-zinc-50 dark:bg-zinc-900/50 relative chat-scroll"
                     @scroll.debounce.150ms="
                         if ($el.scrollTop < 50) {
                             $wire.loadMore();
@@ -436,7 +435,7 @@
                             </div>
                         </div>
                     @empty
-                        <div class="flex flex-col items-center justify-center h-full text-zinc-400 py-8">
+                        <div class="flex flex-col items-center justify-center h-full text-zinc-400 dark:text-zinc-500 py-8">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
                             </svg>
@@ -455,11 +454,11 @@
                         
                         <div class="max-w-[75%]">
                             <div class="relative px-3 py-2 rounded-2xl shadow-sm text-sm leading-relaxed bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-bl-sm border border-zinc-100 dark:border-zinc-700 flex items-center gap-2">
-                                <span class="text-[11px] text-zinc-500 italic">sedang mengetik</span>
+                                <span class="text-[11px] text-zinc-500 dark:text-zinc-400 italic">sedang mengetik</span>
                                 <span class="flex gap-0.5 mt-1">
-                                    <span class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce"></span>
-                                    <span class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
-                                    <span class="w-1 h-1 bg-zinc-400 rounded-full animate-bounce" style="animation-delay: 300ms;"></span>
+                                    <span class="w-1 h-1 bg-zinc-400 dark:bg-zinc-500 rounded-full animate-bounce"></span>
+                                    <span class="w-1 h-1 bg-zinc-400 dark:bg-zinc-500 rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
+                                    <span class="w-1 h-1 bg-zinc-400 dark:bg-zinc-500 rounded-full animate-bounce" style="animation-delay: 300ms;"></span>
                                 </span>
                             </div>
                         </div>
@@ -592,7 +591,7 @@
                             </svg>
                         </button>
                     </form>
-                    <p class="text-[10px] text-zinc-400 mt-1 px-1">Enter kirim · Shift+Enter baris baru</p>
+                    <p class="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 px-1">Enter kirim · Shift+Enter baris baru</p>
                 </div>
             </div>
         </div>
@@ -659,14 +658,14 @@
         <div class="space-y-5">
             <div>
                 <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Buat Group Chat</h2>
-                <p class="text-sm text-zinc-500 mt-0.5">Pilih anggota dan berikan nama untuk group.</p>
+                <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">Pilih anggota dan berikan nama untuk group.</p>
             </div>
 
             <flux:input wire:model="groupName" label="Nama Group" placeholder="Contoh: Tim Sales, Gudang Jakarta..." />
 
             <div>
                 <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Pilih Anggota</label>
-                <div class="space-y-1 max-h-52 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-700 p-1.5 bg-zinc-50 dark:bg-zinc-800/50" style="scrollbar-width: thin;">
+                <div class="space-y-1 max-h-52 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-700 p-1.5 bg-zinc-50 dark:bg-zinc-800/50 chat-scroll">
                     @foreach($this->allUsers as $user)
                         <button type="button"
                                 wire:click="toggleGroupMember({{ $user->id }})"
@@ -677,7 +676,7 @@
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">{{ $user->name }}</p>
-                                <p class="text-xs text-zinc-500 truncate">{{ $user->email }}</p>
+                                <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate">{{ $user->email }}</p>
                             </div>
                             @if(in_array($user->id, $selectedGroupMembers))
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-violet-500 shrink-0" viewBox="0 0 20 20" fill="currentColor">

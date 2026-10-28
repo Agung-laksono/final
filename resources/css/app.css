@@ -50,6 +50,14 @@
         border-color: var(--color-gray-200, currentColor);
     }
 
+    .dark *,
+    .dark ::after,
+    .dark ::before,
+    .dark ::backdrop,
+    .dark ::file-selector-button {
+        border-color: var(--color-zinc-800, currentColor);
+    }
+
     /* Memastikan semua elemen yang bisa diklik memiliki kursor telunjuk (pointer) */
     button,
     [role="button"],
@@ -145,6 +153,35 @@ select:focus[data-flux-control] {
     display: none !important;
 }
 
+/* Global Custom Scrollbars with Dark Mode Support */
+.custom-scrollbar::-webkit-scrollbar,
+.chat-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track,
+.chat-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.chat-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--color-zinc-300);
+    border-radius: 9999px;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb,
+.dark .chat-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--color-zinc-700);
+}
+.custom-scrollbar,
+.chat-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-zinc-300) transparent;
+}
+.dark .custom-scrollbar,
+.dark .chat-scroll {
+    scrollbar-color: var(--color-zinc-700) transparent;
+}
+
 /* Responsive Mobile Cards for specific item tables */
 @media (max-width: 767px) {
     table.table-mobile-cards {
@@ -195,6 +232,9 @@ select:focus[data-flux-control] {
         line-height: 1.25;
         padding-right: 4.5rem;
         padding-left: 5rem; /* Make room for the top-left status badge overlay */
+    }
+    .dark table.table-mobile-cards > tbody > tr {
+        border-color: var(--color-zinc-800);
     }
     .dark table.table-mobile-cards > tbody > tr > td:first-child {
         color: var(--color-zinc-100);
@@ -307,6 +347,9 @@ select:focus[data-flux-control] {
         padding-bottom: 0.375rem;
         border-bottom: 1px dashed var(--color-zinc-200);
         margin-bottom: 0.125rem;
+    }
+    .dark table.table-mobile-items > tbody > tr {
+        border-color: var(--color-zinc-800);
     }
     .dark table.table-mobile-items > tbody > tr > td:first-child {
         color: var(--color-zinc-100);

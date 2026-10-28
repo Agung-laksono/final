@@ -16,7 +16,7 @@
                     <flux:menu.item wire:click="makeColumnGroup('{{ $statusKey }}')" icon="squares-plus">Jadikan Grup Kolom</flux:menu.item>
                 @endif
                 <flux:menu.separator />
-                <flux:menu.item wire:click="deleteColumn('{{ $statusKey }}')" wire:confirm="Hapus kolom '{{ $columnData['title'] }}' dan semua task di dalamnya?" icon="trash" class="text-red-600 hover:bg-red-50">Hapus Kolom</flux:menu.item>
+                <flux:menu.item wire:click="deleteColumn('{{ $statusKey }}')" wire:confirm="Hapus kolom '{{ $columnData['title'] }}' dan semua task di dalamnya?" icon="trash" class="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40">Hapus Kolom</flux:menu.item>
             </flux:menu>
         </flux:dropdown>
     </x-slot:headerActions>
@@ -228,7 +228,7 @@
                 {{-- Subtask progress bar --}}
                 @if($totalSub > 0)
                 <div class="mb-2 space-y-1.5 mt-2">
-                    <div class="flex items-center justify-between text-[10px] font-bold text-zinc-500 mb-0.5">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-zinc-500 dark:text-zinc-400 mb-0.5">
                         <span class="flex items-center gap-1"><flux:icon.check-circle class="w-3 h-3 text-zinc-400"/> Progress</span>
                         <span class="{{ $completedSub == $totalSub ? 'text-green-600 dark:text-green-500' : 'text-indigo-600 dark:text-indigo-400' }}">{{ $completedSub }}/{{ $totalSub }}</span>
                     </div>

@@ -1,4 +1,4 @@
-<div class="p-6 h-full flex flex-col bg-gray-50/50">
+<div class="p-6 h-full flex flex-col bg-gray-50/50 dark:bg-transparent">
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 mb-8">
         <div>
             <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
@@ -372,7 +372,7 @@
                                     <span class="text-2xl">🏔️</span>
                                     <div>
                                         <p class="font-bold text-zinc-800 dark:text-zinc-200 text-sm">Objective (Tujuan)</p>
-                                        <p class="text-xs text-zinc-500 mt-0.5">Pernyataan kualitatif tentang apa yang ingin dicapai. Bersifat ambisius dan inspiratif.</p>
+                                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Pernyataan kualitatif tentang apa yang ingin dicapai. Bersifat ambisius dan inspiratif.</p>
                                         <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">Contoh: <em>"Tingkatkan performa konten di semua platform Q4 2025"</em></p>
                                     </div>
                                 </div>
@@ -380,7 +380,7 @@
                                     <span class="text-2xl">🔑</span>
                                     <div>
                                         <p class="font-bold text-zinc-800 dark:text-zinc-200 text-sm">Key Result (Hasil Kunci)</p>
-                                        <p class="text-xs text-zinc-500 mt-0.5">Ukuran spesifik & terukur yang membuktikan Objective tercapai. Setiap Objective bisa punya beberapa Key Result.</p>
+                                        <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Ukuran spesifik & terukur yang membuktikan Objective tercapai. Setiap Objective bisa punya beberapa Key Result.</p>
                                         <p class="text-xs text-indigo-600 dark:text-indigo-400 mt-1">Contoh: <em>"Selesaikan 40 video dalam Q4"</em> → Target: 40, Saat ini: 0</p>
                                     </div>
                                 </div>
@@ -410,7 +410,7 @@
                                 ] as $s)
                                 <div class="rounded-lg border p-2 text-center border-zinc-200 dark:border-zinc-700">
                                     <p class="font-bold text-zinc-800 dark:text-zinc-200">{{ $s[0] }}</p>
-                                    <p class="text-zinc-500 mt-0.5">{{ $s[1] }}</p>
+                                    <p class="text-zinc-500 dark:text-zinc-400 mt-0.5">{{ $s[1] }}</p>
                                 </div>
                                 @endforeach
                             </div>
@@ -452,8 +452,8 @@
                                         <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                                             <td class="p-2 text-zinc-700 dark:text-zinc-300">{{ $row[0] }}</td>
                                             <td class="p-2 text-center font-semibold text-zinc-800 dark:text-zinc-200">{{ $row[1] }}</td>
-                                            <td class="p-2 text-center text-zinc-500">{{ $row[2] }}</td>
-                                            <td class="p-2 text-zinc-500">{{ $row[3] }}</td>
+                                            <td class="p-2 text-center text-zinc-500 dark:text-zinc-400">{{ $row[2] }}</td>
+                                            <td class="p-2 text-zinc-500 dark:text-zinc-400">{{ $row[3] }}</td>
                                         </tr>
                                         @endforeach
                                     </tbody>

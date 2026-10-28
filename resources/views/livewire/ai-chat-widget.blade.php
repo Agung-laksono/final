@@ -662,7 +662,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
             {{-- MESSAGES --}}
             <div
                 id="ai-chat-container"
-                class="overflow-y-auto px-3 py-3 space-y-2.5 bg-white dark:bg-zinc-900"
+                class="overflow-y-auto chat-scroll px-3 py-3 space-y-2.5 bg-white dark:bg-zinc-900"
                 style="height: 320px;"
             >
                 @if(count($messages) === 0)
@@ -894,7 +894,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         type="button"
                         @click="toggleVoiceInput()"
                         class="w-9 h-9 shrink-0 rounded-full flex items-center justify-center transition-all border border-zinc-200 dark:border-zinc-700"
-                        :class="speechListening ? 'bg-rose-500 text-white animate-pulse border-rose-600' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-indigo-600'"
+                        :class="speechListening ? 'bg-rose-500 text-white animate-pulse border-rose-600' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400'"
                         :title="speechListening ? 'Sedang Mendengarkan Suara...' : 'Ketik Menggunakan Suara'"
                     >
                         <flux:icon.microphone class="w-4 h-4" />
@@ -908,7 +908,7 @@ Gaya Penulisan yang WAJIB dipatuhi:
                         <textarea
                             wire:model.live="newMessage"
                             :disabled="$wire.isTyping"
-                            class="w-full bg-transparent !border-none !border-0 !ring-0 !outline-none !shadow-none !p-0 text-[12px] focus:ring-0 focus:border-none focus:outline-none resize-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-500 max-h-[80px] leading-snug disabled:cursor-not-allowed disabled:opacity-60"
+                            class="w-full bg-transparent !border-none !border-0 !ring-0 !outline-none !shadow-none !p-0 text-[12px] focus:ring-0 focus:border-none focus:outline-none resize-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 dark:placeholder-zinc-500 max-h-[80px] leading-snug disabled:cursor-not-allowed disabled:opacity-60"
                             style="box-shadow: none;"
                             :placeholder="$wire.isTyping ? 'AI sedang memproses jawaban...' : 'Ketik pesan...'"
                             rows="1"
