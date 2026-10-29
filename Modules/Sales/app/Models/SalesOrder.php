@@ -46,6 +46,36 @@ class SalesOrder extends Model
         return $this->belongsTo(\Modules\Purchase\Models\Vendor::class, 'courier_vendor_id');
     }
 
+    public function mergedInto()
+    {
+        return $this->belongsTo(SalesOrder::class, 'merged_into_so_id');
+    }
+
+    public function mergedOrders()
+    {
+        return $this->hasMany(SalesOrder::class, 'merged_into_so_id');
+    }
+
+    public function recalculateTotal(): void
+    {
+        $itemsTotal = $this->items()->sum(\DB::raw('unit_price * qty'));
+        $this->total_amount = $itemsTotal + $this->shipping_fee + $this->packing_fee + $this->tax - $this->discount;
+        $this->save();
+    }
+
+    public function recalculatePaymentStatus(): void
+    {
+        $totalPaid = $this->payments()->sum('amount');
+        if ($totalPaid <= 0) {
+            $this->payment_status = 'unpaid';
+        } elseif ($totalPaid >= $this->total_amount) {
+            $this->payment_status = 'paid';
+        } else {
+            $this->payment_status = 'partial';
+        }
+        $this->save();
+    }
+
     public function getShippingRecipientNameAttribute()
     {
         return !empty($this->recipient_name) ? $this->recipient_name : ($this->customer?->name ?? 'Pelanggan');

@@ -28,6 +28,7 @@ state([
             'completed' => ['title' => 'Selesai', 'color' => 'emerald'],
             'void' => ['title' => 'Dibatalkan (Void)', 'color' => 'red'],
             'archived' => ['title' => 'Arsip', 'color' => 'zinc'],
+            'merged' => ['title' => 'Digabungkan', 'color' => 'zinc'],
         ];
     },
     'viewMode' => session('sales_view_mode', 'kanban'), // Default view
@@ -37,6 +38,11 @@ state([
     'perPage' => 10,
     'setting_version' => 0, // bumped saat setting berubah → paksa re-render
     'columnLimits' => [], // State for per-column limits
+    'showMergeModal' => false,
+    'selectedForMerge' => [],   // array of SO IDs yang dicentang
+    'mergeParentId' => null,    // ID SO yang jadi induk
+    'showUnmergeConfirm' => false,
+    'unmergeTargetId' => null,
 ]);
 
 mount(function () {
@@ -157,6 +163,12 @@ $getBaseQuery = function () {
     return $query;
 };
 
+$activeMergeCustomer = computed(function () {
+    if (empty($this->selectedForMerge)) return null;
+    $firstOrder = SalesOrder::with('customer')->find($this->selectedForMerge[0]);
+    return $firstOrder?->customer;
+});
+
 $kanbanOrders = computed(function () {
     if ($this->viewMode !== 'kanban') return collect();
     
@@ -183,7 +195,7 @@ $kanbanOrders = computed(function () {
     if (empty($ids)) return collect();
     
     // Tarik data dengan eager loading hanya untuk ID yang dibutuhkan
-    $orders = SalesOrder::with(['customer', 'creator', 'items', 'fulfillments', 'payments', 'brand'])
+    $orders = SalesOrder::with(['customer', 'creator', 'items', 'fulfillments', 'payments', 'brand', 'mergedInto'])
         ->whereIn('id', $ids)
         ->get()
         ->sortBy(function($order) use ($ids) {
@@ -264,6 +276,145 @@ $markAsArchived = function ($orderId) {
     }
 };
 
+$toggleSelectForMerge = function ($soId) {
+    $soId = (int) $soId;
+    $selected = array_map('intval', $this->selectedForMerge);
+    if (in_array($soId, $selected, true)) {
+        $selected = array_values(array_filter($selected, fn($id) => $id !== $soId));
+    } else {
+        $selected[] = $soId;
+    }
+    $this->selectedForMerge = $selected;
+
+    // Auto set parent = SO dengan ID terkecil
+    if (count($selected) >= 2) {
+        $this->mergeParentId = min($selected);
+    } else {
+        $this->mergeParentId = null;
+    }
+};
+
+$openMergeModal = function () {
+    abort_unless(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']), 403);
+
+    if (count($this->selectedForMerge) < 2) {
+        Flux::toast('Pilih minimal 2 SO untuk digabungkan.', variant: 'danger');
+        return;
+    }
+
+    $orders = SalesOrder::whereIn('id', $this->selectedForMerge)->get();
+
+    // Validasi: harus customer sama
+    $customerIds = $orders->pluck('customer_id')->unique();
+    if ($customerIds->count() > 1) {
+        \Flux::toast('SO yang dipilih harus dari customer yang sama.', variant: 'danger');
+        return;
+    }
+
+    // Validasi: tidak boleh ada yang sudah merged/completed/void
+    $invalid = $orders->whereIn('status', ['merged', 'completed', 'void']);
+    if ($invalid->count() > 0) {
+        $nums = $invalid->pluck('so_number')->join(', ');
+        \Flux::toast("SO berikut tidak bisa digabung: {$nums}", variant: 'danger');
+        return;
+    }
+
+    $this->mergeParentId = $orders->sortBy('id')->first()->id;
+    $this->showMergeModal = true;
+};
+
+$executeMerge = function () {
+    abort_unless(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']), 403);
+    abort_unless(count($this->selectedForMerge) >= 2, 422);
+
+    $parent = SalesOrder::with(['items', 'payments'])->findOrFail($this->mergeParentId);
+    $childIds = array_values(array_filter($this->selectedForMerge, fn($id) => $id != $this->mergeParentId));
+
+    \Illuminate\Support\Facades\DB::transaction(function () use ($parent, $childIds) {
+        foreach ($childIds as $childId) {
+            $child = SalesOrder::with(['items', 'payments'])->findOrFail($childId);
+
+            // Pindahkan items
+            $child->items()->update([
+                'sales_order_id' => $parent->id,
+                'original_so_id' => $childId,
+            ]);
+
+            // Pindahkan payments
+            $child->payments()->update([
+                'sales_order_id' => $parent->id,
+                'original_so_id' => $childId,
+            ]);
+
+            // Archive SO anak
+            $child->status_before_merge = $child->status;
+            $child->merged_into_so_id = $parent->id;
+            $child->status = 'merged';
+            $child->save();
+        }
+
+        // Recalculate SO induk
+        $parent->load('items', 'payments');
+        $parent->recalculateTotal();
+        $parent->recalculatePaymentStatus();
+    });
+
+    $this->selectedForMerge = [];
+    $this->mergeParentId = null;
+    $this->showMergeModal = false;
+    $this->dispatch('status-updated');
+    \Flux::toast('SO berhasil digabungkan!', variant: 'success');
+    \App\Events\KanbanUpdated::safeDispatch('sales_order');
+};
+
+$openUnmerge = function ($soId) {
+    abort_unless(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']), 403);
+    $this->unmergeTargetId = $soId;
+    $this->showUnmergeConfirm = true;
+};
+
+$executeUnmerge = function () {
+    abort_unless(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']), 403);
+
+    $child = SalesOrder::findOrFail($this->unmergeTargetId);
+    abort_unless($child->status === 'merged', 422);
+
+    $parent = SalesOrder::findOrFail($child->merged_into_so_id);
+
+    \Illuminate\Support\Facades\DB::transaction(function () use ($child, $parent) {
+        // Kembalikan items ke SO anak
+        \Modules\Sales\Models\SalesOrderItem::where('sales_order_id', $parent->id)
+            ->where('original_so_id', $child->id)
+            ->update(['sales_order_id' => $child->id, 'original_so_id' => null]);
+
+        // Kembalikan payments ke SO anak
+        \Modules\Sales\Models\SalesPayment::where('sales_order_id', $parent->id)
+            ->where('original_so_id', $child->id)
+            ->update(['sales_order_id' => $child->id, 'original_so_id' => null]);
+
+        // Pulihkan SO anak
+        $child->status = $child->status_before_merge ?? 'pending_approval';
+        $child->status_before_merge = null;
+        $child->merged_into_so_id = null;
+        $child->save();
+
+        // Recalculate kedua SO
+        $child->load('items', 'payments');
+        $child->recalculateTotal();
+        $child->recalculatePaymentStatus();
+
+        $parent->load('items', 'payments');
+        $parent->recalculateTotal();
+        $parent->recalculatePaymentStatus();
+    });
+
+    $this->showUnmergeConfirm = false;
+    $this->unmergeTargetId = null;
+    $this->dispatch('status-updated');
+    \Flux::toast('SO berhasil dipisahkan kembali!', variant: 'success');
+    \App\Events\KanbanUpdated::safeDispatch('sales_order');
+};
+
 // markAsCompleted closure has been moved to completed-modal.blade.php
 
 on([
@@ -279,7 +430,42 @@ on([
 
 ?>
 
-<div class="w-full bg-transparent relative">
+<div class="w-full bg-transparent relative"
+     x-data="{
+        selectedIds: @entangle('selectedForMerge').live,
+        selectedCards: {},
+        activeCustomerId: null,
+        toggle(orderId, customerId, statusKey) {
+            orderId = parseInt(orderId);
+            customerId = parseInt(customerId);
+            let arr = Array.from(this.selectedIds || []);
+            let idx = arr.indexOf(orderId);
+            if (idx > -1) {
+                arr.splice(idx, 1);
+                delete this.selectedCards[orderId];
+                if (arr.length === 0) {
+                    this.activeCustomerId = null;
+                    this.selectedCards = {};
+                }
+            } else {
+                arr.push(orderId);
+                this.selectedCards[orderId] = { customerId, statusKey };
+                if (!this.activeCustomerId) {
+                    this.activeCustomerId = customerId;
+                }
+            }
+            this.selectedIds = arr;
+        },
+        hasSelectionIn(statusKey) {
+            return Object.values(this.selectedCards || {}).some(c => c.statusKey === statusKey);
+        },
+        reset() {
+            this.selectedIds = [];
+            this.selectedCards = {};
+            this.activeCustomerId = null;
+        }
+     }"
+     x-init="$watch('selectedIds', (val) => { if (!val || val.length === 0) { activeCustomerId = null; selectedCards = {}; } })">
     <div wire:key="view-kanban-wrapper" class="w-full h-full relative {{ $this->viewMode === 'kanban' ? 'flex flex-col' : 'hidden' }}">
         <x-kanban.board class="bg-pattern-sales" title="Pesanan Penjualan (SO)" 
                 componentId="sales-order"
@@ -310,14 +496,35 @@ on([
         @foreach($columns as $statusKey => $column)
             @php
                 $defaultCollapsed = in_array($statusKey, ['completed', 'archived']);
+                $colOrders = $this->kanbanOrders->get($statusKey, collect());
+                $selectedInCol = $colOrders->whereIn('id', array_map('intval', $selectedForMerge))->count();
             @endphp
             <x-kanban.column 
                 :statusKey="$statusKey" 
                 :column="$column" 
                 :componentId="'sales'" 
-                :count="count($this->kanbanOrders->get($statusKey, []))"
+                :count="count($colOrders)"
                 :defaultCollapsed="$defaultCollapsed"
             >
+                @if(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']))
+                <x-slot:headerActions>
+                    <div class="flex items-center gap-1" x-show="selectedIds && selectedIds.length > 1 && hasSelectionIn('{{ $statusKey }}')" x-cloak x-transition @click.stop>
+                        <button type="button" 
+                                wire:click="openMergeModal" 
+                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-indigo-500/20 transition active:scale-95 animate-pulse"
+                                title="Gabungkan pesanan yang dicentang">
+                            <flux:icon.arrow-path-rounded-square class="w-3.5 h-3.5" />
+                            <span>Gabung (<span x-text="selectedIds.length"></span>)</span>
+                        </button>
+                        <button type="button"
+                                @click="reset()"
+                                class="p-1 rounded-md text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                title="Batal Pilih">
+                            <flux:icon.x-mark class="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                </x-slot:headerActions>
+                @endif
                     
                     {{-- Deskripsi Aktor --}}
                     <p class="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold mb-2">
@@ -338,6 +545,8 @@ on([
                         @endphp
                         <div wire:key="order-{{ $order->id }}"
                              x-data="{ showFooter: false }"
+                             x-show="!activeCustomerId || activeCustomerId == {{ (int)($order->customer_id ?? 0) }}"
+                             x-transition.opacity.duration.150ms
                              @if($canInteract) 
                                  @click="
                                      if (window.matchMedia('(hover: hover)').matches) {
@@ -361,8 +570,16 @@ on([
                              x-transition:leave-end="opacity-0 scale-90">
                             
                             {{-- Header Card --}}
-                            <div class="flex justify-between items-center relative z-10">
+                            <div class="flex justify-between items-center relative z-10 mb-1">
                                 <div class="flex items-center gap-1.5 flex-wrap">
+                                    @if(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']) && $order->status !== 'merged')
+                                    <div @click.stop class="inline-flex items-center mr-0.5">
+                                        <input type="checkbox"
+                                               @click.stop="toggle({{ (int)$order->id }}, {{ (int)($order->customer_id ?? 0) }}, '{{ $statusKey }}')"
+                                               :checked="selectedIds && selectedIds.includes({{ (int)$order->id }})"
+                                               class="w-4 h-4 accent-indigo-600 cursor-pointer rounded border border-zinc-300 dark:border-zinc-600 focus:ring-0 shadow-sm" />
+                                    </div>
+                                    @endif
                                     <span class="font-mono text-[9px] font-bold text-zinc-600 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 px-1 py-px rounded w-max">
                                         {{ $order->so_number }}
                                     </span>
@@ -398,6 +615,18 @@ on([
                                             @endif
                                             <span class="truncate max-w-[80px]">{{ $order->courierVendor->name }}</span>
                                         </a>
+                                    @endif
+                                    @if($order->status === 'merged')
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                                            <flux:icon.arrow-path-rounded-square class="w-3 h-3" />
+                                            Digabung → {{ $order->mergedInto?->so_number }}
+                                        </span>
+                                        @if(auth()->user()->hasAnyRole(['Manager', 'Super Admin']))
+                                        <button wire:click.stop="openUnmerge({{ $order->id }})"
+                                                class="text-[10px] text-amber-600 hover:text-amber-800 dark:text-amber-400 underline ml-1">
+                                            Pisahkan
+                                        </button>
+                                        @endif
                                     @endif
                                 </div>
                                 <div class="flex items-center gap-1.5">
@@ -628,6 +857,15 @@ on([
                 @can('sales.order.create')
                     <flux:button variant="primary" icon="plus" href="{{ route('sales.orders.create') }}" wire:navigate class="shrink-0">Buat</flux:button>
                 @endcan
+
+                @if(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']) && count($selectedForMerge) > 1)
+                    <flux:button wire:click="openMergeModal" variant="primary" size="sm" icon="arrow-path-rounded-square" class="animate-pulse shadow-md">
+                        Gabungkan {{ count($selectedForMerge) }} SO
+                    </flux:button>
+                    <flux:button wire:click="$set('selectedForMerge', [])" variant="subtle" size="sm" icon="x-mark">
+                        Batal
+                    </flux:button>
+                @endif
         </x-table.header>
             
         <x-table.wrapper>
@@ -650,10 +888,20 @@ on([
                                 $canInteract = $isOwn || $isManagerial;
                             @endphp
                             <flux:table.row wire:key="table-order-{{ $order->id }}" 
+                                            x-show="!activeCustomerId || activeCustomerId == {{ (int)($order->customer_id ?? 0) }}"
+                                            x-transition.opacity.duration.150ms
                                             class="{{ $canInteract ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer' : 'opacity-65 cursor-not-allowed select-none bg-zinc-50/20 dark:bg-zinc-900/10' }} transition-colors" 
                                             @click="{{ $canInteract ? '$dispatch(\'open-detail-modal\', { orderId: '.$order->id.' })' : 'null' }}">
                                 <flux:table.cell>
                                     <div class="pl-2 sm:pl-4 flex items-center gap-2">
+                                        @if(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']) && $order->status !== 'merged')
+                                        <div @click.stop class="inline-flex items-center">
+                                            <input type="checkbox"
+                                                   @click.stop="toggle({{ (int)$order->id }}, {{ (int)($order->customer_id ?? 0) }}, '{{ $order->status }}')"
+                                                   :checked="selectedIds && selectedIds.includes({{ (int)$order->id }})"
+                                                   class="w-4 h-4 accent-indigo-600 cursor-pointer rounded border border-zinc-300 dark:border-zinc-600 focus:ring-0 shadow-sm" />
+                                        </div>
+                                        @endif
                                         <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap">{{ $order->so_number }}</div>
                                         <div class="text-xs text-zinc-500 whitespace-nowrap">{{ \Carbon\Carbon::parse($order->order_date)->format('d M Y') }}</div>
                                     </div>
@@ -729,6 +977,71 @@ on([
     <livewire:sales-order.completed-modal />
     <livewire:global.vendor-gallery-modal />
     <livewire:global.vendor-form-modal />
+
+    {{-- Modal Konfirmasi Merge --}}
+    <flux:modal wire:model="showMergeModal" class="w-full max-w-md">
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
+                    <flux:icon.arrow-path-rounded-square class="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                    <h3 class="font-bold text-zinc-900 dark:text-white">Gabungkan Sales Order</h3>
+                    <p class="text-xs text-zinc-500">{{ count($selectedForMerge) }} SO akan digabungkan</p>
+                </div>
+            </div>
+
+            @php
+                $selectedOrders = \Modules\Sales\Models\SalesOrder::with('customer')->whereIn('id', $selectedForMerge)->get();
+            @endphp
+
+            <div class="space-y-2 mb-4">
+                @foreach($selectedOrders as $so)
+                <div class="flex items-center justify-between p-2.5 rounded-lg border {{ $so->id == $mergeParentId ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 dark:border-indigo-700' : 'border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50' }}">
+                    <div>
+                        <span class="font-mono text-sm font-bold text-zinc-800 dark:text-zinc-200">{{ $so->so_number }}</span>
+                        <span class="text-xs text-zinc-500 ml-2">Rp {{ number_format($so->total_amount, 0, ',', '.') }}</span>
+                    </div>
+                    @if($so->id == $mergeParentId)
+                        <span class="text-[10px] font-bold px-2 py-0.5 bg-indigo-600 text-white rounded-full">INDUK</span>
+                    @else
+                        <button wire:click="$set('mergeParentId', {{ $so->id }})"
+                                class="text-[10px] font-semibold text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 px-2 py-0.5 border border-zinc-300 dark:border-zinc-600 rounded-full hover:border-indigo-400 transition">
+                            Jadikan Induk
+                        </button>
+                    @endif
+                </div>
+                @endforeach
+            </div>
+
+            <div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-5 text-xs text-amber-800 dark:text-amber-300">
+                <strong>Perhatian:</strong> Semua item dan pembayaran dari SO anak akan dipindahkan ke SO induk. SO anak akan berstatus "Merged" dan bisa dipulihkan jika diperlukan.
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <flux:button wire:click="$set('showMergeModal', false)" variant="subtle">Batal</flux:button>
+                <flux:button wire:click="executeMerge" variant="primary" icon="arrow-path-rounded-square">
+                    Gabungkan Sekarang
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    {{-- Modal Konfirmasi Unmerge --}}
+    <flux:modal wire:model="showUnmergeConfirm" class="w-full max-w-sm">
+        <div class="p-6">
+            <h3 class="font-bold text-zinc-900 dark:text-white mb-2">Pisahkan SO?</h3>
+            <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-5">
+                SO ini akan dipisahkan kembali. Item dan pembayaran yang sebelumnya dipindahkan akan dikembalikan ke SO asalnya.
+            </p>
+            <div class="flex justify-end gap-2">
+                <flux:button wire:click="$set('showUnmergeConfirm', false)" variant="subtle">Batal</flux:button>
+                <flux:button wire:click="executeUnmerge" variant="danger" icon="scissors">
+                    Pisahkan
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
 
     @if(session()->has('new_so_number'))
         @php 
