@@ -13,6 +13,9 @@ state([
     'recipient_name' => '',
     'recipient_phone' => '',
     'shipping_address' => '',
+    'showMergeModal' => false,
+    'mergeCandidateIds' => [],
+    'showUnmergeCurrentConfirm' => false,
 ]);
 
 $openCustomAddressModal = function () {
@@ -33,6 +36,186 @@ $saveCustomAddress = function () {
     \Flux::toast('Alamat pengiriman custom berhasil diperbarui.', variant: 'success');
 };
 
+$getMergeCandidates = function () {
+    if (!$this->order || !$this->order->customer_id) return collect();
+    if (in_array($this->order->status, ['merged', 'void', 'completed', 'cancelled'])) return collect();
+
+    return SalesOrder::with(['items', 'mergedOrders'])
+        ->where('customer_id', $this->order->customer_id)
+        ->where('id', '!=', $this->order->id)
+        ->whereNotIn('status', ['merged', 'void', 'completed', 'cancelled'])
+        ->orderBy('id', 'desc')
+        ->get();
+};
+
+$openMergeModal = function () {
+    abort_unless(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']), 403);
+    $candidates = $this->getMergeCandidates();
+    if ($candidates->isEmpty()) {
+        \Flux::toast('Tidak ada pesanan aktif lain dari pelanggan ini yang bisa digabungkan.', variant: 'warning');
+        return;
+    }
+    $this->mergeCandidateIds = $candidates->pluck('id')->toArray();
+    $this->showMergeModal = true;
+};
+
+$toggleMergeCandidate = function ($id) {
+    $id = (int) $id;
+    if (in_array($id, $this->mergeCandidateIds)) {
+        $this->mergeCandidateIds = array_values(array_filter($this->mergeCandidateIds, fn($item) => $item !== $id));
+    } else {
+        $this->mergeCandidateIds[] = $id;
+    }
+};
+
+$executeMergeIntoCurrent = function () {
+    abort_unless(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']), 403);
+    if (empty($this->mergeCandidateIds)) {
+        \Flux::toast('Pilih minimal satu pesanan untuk digabungkan.', variant: 'danger');
+        return;
+    }
+
+    $parent = SalesOrder::with(['items', 'payments'])->findOrFail($this->order->id);
+
+    \Illuminate\Support\Facades\DB::transaction(function () use ($parent) {
+        foreach ($this->mergeCandidateIds as $childId) {
+            $child = SalesOrder::with(['items', 'payments', 'mergedOrders'])->findOrFail($childId);
+
+            // 1. Pindahkan items asli milik $child (original_so_id masih null)
+            \Modules\Sales\Models\SalesOrderItem::where('sales_order_id', $child->id)
+                ->whereNull('original_so_id')
+                ->update([
+                    'sales_order_id' => $parent->id,
+                    'original_so_id' => $child->id,
+                ]);
+
+            // 2. Pindahkan items yang sebelumnya berasal dari anak-anaknya $child (pertahankan original_so_id aslinya)
+            \Modules\Sales\Models\SalesOrderItem::where('sales_order_id', $child->id)
+                ->whereNotNull('original_so_id')
+                ->update([
+                    'sales_order_id' => $parent->id,
+                ]);
+
+            // 3. Pindahkan payments asli milik $child (original_so_id masih null)
+            \Modules\Sales\Models\SalesPayment::where('sales_order_id', $child->id)
+                ->whereNull('original_so_id')
+                ->update([
+                    'sales_order_id' => $parent->id,
+                    'original_so_id' => $child->id,
+                ]);
+
+            // 4. Pindahkan payments dari anak-anaknya $child (pertahankan original_so_id aslinya)
+            \Modules\Sales\Models\SalesPayment::where('sales_order_id', $child->id)
+                ->whereNotNull('original_so_id')
+                ->update([
+                    'sales_order_id' => $parent->id,
+                ]);
+
+            // 5. FLATTENING: Jika $child sebelumnya punya anak, alihkan semua anaknya langsung menginduk ke $parent
+            \Modules\Sales\Models\SalesOrder::where('merged_into_so_id', $child->id)
+                ->update([
+                    'merged_into_so_id' => $parent->id,
+                ]);
+
+            // 6. Set status SO anak $child menjadi merged
+            $child->status_before_merge = $child->status;
+            $child->merged_into_so_id = $parent->id;
+            $child->status = 'merged';
+            $child->save();
+
+            // Recalculate SO anak agar total dan pembayarannya menjadi 0
+            $child->load('items', 'payments');
+            $child->recalculateTotal();
+            $child->recalculatePaymentStatus();
+        }
+
+        // Recalculate SO induk
+        $parent->load('items', 'payments');
+        $parent->recalculateTotal();
+        $parent->recalculatePaymentStatus();
+    });
+
+    $this->showMergeModal = false;
+    $this->mergeCandidateIds = [];
+    $this->order = SalesOrder::with(['customer', 'items.item', 'creator', 'payments', 'fulfillments', 'mergedInto', 'mergedOrders.items', 'mergedOrders.payments'])->find($parent->id);
+    $this->dispatch('status-updated');
+    \Flux::toast("Pesanan berhasil digabungkan ke {$parent->so_number}!", variant: 'success');
+    \App\Events\KanbanUpdated::safeDispatch('sales_order');
+};
+
+$executeUnmergeChild = function ($childId) {
+    abort_unless(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']), 403);
+    $child = SalesOrder::findOrFail($childId);
+    abort_unless($child->status === 'merged' && $child->merged_into_so_id == $this->order->id, 422);
+
+    $parent = SalesOrder::findOrFail($this->order->id);
+
+    \Illuminate\Support\Facades\DB::transaction(function () use ($child, $parent) {
+        \Modules\Sales\Models\SalesOrderItem::where('sales_order_id', $parent->id)
+            ->where('original_so_id', $child->id)
+            ->update(['sales_order_id' => $child->id, 'original_so_id' => null]);
+
+        \Modules\Sales\Models\SalesPayment::where('sales_order_id', $parent->id)
+            ->where('original_so_id', $child->id)
+            ->update(['sales_order_id' => $child->id, 'original_so_id' => null]);
+
+        $child->status = $child->status_before_merge ?? 'pending_approval';
+        $child->status_before_merge = null;
+        $child->merged_into_so_id = null;
+        $child->save();
+
+        $child->load('items', 'payments');
+        $child->recalculateTotal();
+        $child->recalculatePaymentStatus();
+
+        $parent->load('items', 'payments');
+        $parent->recalculateTotal();
+        $parent->recalculatePaymentStatus();
+    });
+
+    $this->order = SalesOrder::with(['customer', 'items.item', 'creator', 'payments', 'fulfillments', 'mergedInto', 'mergedOrders.items', 'mergedOrders.payments'])->find($parent->id);
+    $this->dispatch('status-updated');
+    \Flux::toast("Pesanan {$child->so_number} berhasil dipisahkan!", variant: 'success');
+    \App\Events\KanbanUpdated::safeDispatch('sales_order');
+};
+
+$executeUnmergeCurrent = function () {
+    abort_unless(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']), 403);
+    $child = SalesOrder::findOrFail($this->order->id);
+    abort_unless($child->status === 'merged' && $child->merged_into_so_id, 422);
+
+    $parent = SalesOrder::findOrFail($child->merged_into_so_id);
+
+    \Illuminate\Support\Facades\DB::transaction(function () use ($child, $parent) {
+        \Modules\Sales\Models\SalesOrderItem::where('sales_order_id', $parent->id)
+            ->where('original_so_id', $child->id)
+            ->update(['sales_order_id' => $child->id, 'original_so_id' => null]);
+
+        \Modules\Sales\Models\SalesPayment::where('sales_order_id', $parent->id)
+            ->where('original_so_id', $child->id)
+            ->update(['sales_order_id' => $child->id, 'original_so_id' => null]);
+
+        $child->status = $child->status_before_merge ?? 'pending_approval';
+        $child->status_before_merge = null;
+        $child->merged_into_so_id = null;
+        $child->save();
+
+        $child->load('items', 'payments');
+        $child->recalculateTotal();
+        $child->recalculatePaymentStatus();
+
+        $parent->load('items', 'payments');
+        $parent->recalculateTotal();
+        $parent->recalculatePaymentStatus();
+    });
+
+    $this->showUnmergeCurrentConfirm = false;
+    $this->order = SalesOrder::with(['customer', 'items.item', 'creator', 'payments', 'fulfillments', 'mergedInto', 'mergedOrders.items', 'mergedOrders.payments'])->find($child->id);
+    $this->dispatch('status-updated');
+    \Flux::toast("Pesanan {$child->so_number} berhasil dipulihkan!", variant: 'success');
+    \App\Events\KanbanUpdated::safeDispatch('sales_order');
+};
+
 on(['open-detail-modal' => function ($orderId) {
     $order = SalesOrder::find($orderId);
     if (!$order) return;
@@ -45,15 +228,19 @@ on(['open-detail-modal' => function ($orderId) {
     }
 
     $this->orderId = $orderId;
-    $this->order = SalesOrder::with(['customer', 'items.item', 'creator', 'payments', 'fulfillments'])->find($orderId);
+    $this->order = SalesOrder::with(['customer', 'items.item', 'creator', 'payments', 'fulfillments', 'mergedInto', 'mergedOrders.items', 'mergedOrders.payments'])->find($orderId);
     $this->show = true;
     $this->showVoidModal = false;
     $this->showCustomAddressModal = false;
+    $this->showMergeModal = false;
+    $this->showUnmergeCurrentConfirm = false;
+    $this->mergeCandidateIds = [];
     $this->voidRefundType = 'store_credit';
     $this->voidSpkAction = 'continue';
 }]);
 
 $voidOrder = function (\App\Services\VoidService $voidService) {
+    abort_unless(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']), 403);
     $voidService->voidSalesOrder($this->order, $this->voidRefundType, $this->voidSpkAction);
     $this->showVoidModal = false;
     $this->show = false;
@@ -70,6 +257,8 @@ $getStatusBadge = function ($status) {
         'shipping' => ['label' => 'Dikirim', 'color' => 'orange'],
         'completed' => ['label' => 'Selesai', 'color' => 'emerald'],
         'cancelled' => ['label' => 'Dibatalkan', 'color' => 'red'],
+        'void' => ['label' => 'Void', 'color' => 'red'],
+        'merged' => ['label' => 'Digabung', 'color' => 'zinc'],
     ];
     
     $mapped = $map[$status] ?? ['label' => strtoupper($status), 'color' => 'zinc'];
@@ -93,6 +282,12 @@ $getStatusBadge = function ($status) {
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-mono text-base font-black text-zinc-800 dark:text-zinc-100">{{ $order->so_number }}</span>
                     {!! $this->getStatusBadge($order->status) !!}
+                    @if($order->mergedOrders && $order->mergedOrders->count() > 0)
+                        <span class="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 ring-1 ring-inset ring-indigo-600/30 shadow-sm" title="SO Induk: Menggabungkan {{ $order->mergedOrders->count() }} pesanan">
+                            <flux:icon.arrow-path-rounded-square class="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                            SO INDUK (+{{ $order->mergedOrders->count() }} Gabungan)
+                        </span>
+                    @endif
                     @if($order->pajak)
                         <span class="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">PPN</span>
                     @endif
@@ -173,6 +368,51 @@ $getStatusBadge = function ($status) {
                     </div>
                 @endif
             </div>
+
+            {{-- Merge / Digabungkan Alert & Status --}}
+            @if($order->status === 'merged')
+                <div class="mt-3 p-3 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
+                        <flux:icon.arrow-path-rounded-square class="w-4 h-4 text-indigo-500 shrink-0" />
+                        <div>
+                            <span>Pesanan ini berstatus <strong>Digabungkan</strong> ke SO Induk: </span>
+                            <strong class="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{{ $order->mergedInto?->so_number }}</strong>
+                        </div>
+                    </div>
+                    @if(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']))
+                        <flux:button size="xs" variant="subtle" icon="scissors" wire:click="$set('showUnmergeCurrentConfirm', true)" class="text-amber-600 hover:text-amber-700 shrink-0">
+                            Pisahkan SO Ini
+                        </flux:button>
+                    @endif
+                </div>
+            @endif
+
+            @if($order->mergedOrders && $order->mergedOrders->count() > 0)
+                <div class="mt-3 p-3 bg-indigo-50/70 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
+                    <div class="text-xs font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5 mb-2">
+                        <flux:icon.arrow-path-rounded-square class="w-4 h-4 text-indigo-600 shrink-0" />
+                        Pesanan Lain Yang Digabung ke Sini ({{ $order->mergedOrders->count() }}):
+                    </div>
+                    <div class="space-y-1.5">
+                        @foreach($order->mergedOrders as $childOrder)
+                            <div class="flex items-center justify-between bg-white dark:bg-zinc-800 px-3 py-1.5 rounded border border-indigo-100 dark:border-zinc-700 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-mono font-bold text-zinc-800 dark:text-zinc-200">{{ $childOrder->so_number }}</span>
+                                    <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                                    <span class="text-zinc-500">{{ \Carbon\Carbon::parse($childOrder->order_date)->format('d M Y') }}</span>
+                                    <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
+                                    <span class="text-zinc-500">{{ $childOrder->items->count() }} item</span>
+                                </div>
+                                @if(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']))
+                                    <flux:button size="xs" variant="ghost" icon="scissors" wire:click="executeUnmergeChild({{ $childOrder->id }})" wire:confirm="Pisahkan pesanan {{ $childOrder->so_number }} dari SO ini?" class="text-amber-600 hover:text-amber-700">
+                                        Pisahkan
+                                    </flux:button>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {{-- Customer & Shipping Address Info --}}
@@ -380,13 +620,55 @@ $getStatusBadge = function ($status) {
             </div>
 
             {{-- Footer actions --}}
-            <div class="flex justify-end gap-2 pt-1">
-                @if(in_array($order->status, ['draft', 'pending_approval', 'processing', 'packing']))
-                    @can('sales.order.update')
-                        <flux:button size="sm" variant="danger" icon="x-mark" wire:click="$set('showVoidModal', true)">Batalkan (Void)</flux:button>
-                    @endcan
-                @endif
-                <flux:button size="sm" variant="ghost" wire:click="$set('show', false)">Tutup Modal</flux:button>
+            <div x-data="{
+                clicks: 0,
+                timer: null,
+                showAdvanced: false,
+                registerClick() {
+                    this.clicks++;
+                    clearTimeout(this.timer);
+                    if (this.clicks >= 3) {
+                        this.showAdvanced = !this.showAdvanced;
+                        this.clicks = 0;
+                    } else {
+                        this.timer = setTimeout(() => { this.clicks = 0; }, 700);
+                    }
+                }
+            }" class="flex justify-between items-center gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                {{-- Sisi Kiri: Trigger Titik Tiga & Tombol Batalkan (Void) --}}
+                <div class="flex items-center gap-2">
+                    @if(auth()->user()->hasAnyRole(['Super Admin', 'Kepala Sales', 'Manager']))
+                        <button type="button" 
+                                @click="registerClick()" 
+                                class="p-1.5 text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 rounded-md transition select-none opacity-40 hover:opacity-100" 
+                                title="Menu Lanjutan">
+                            <flux:icon.ellipsis-horizontal class="w-4 h-4" />
+                        </button>
+
+                        @if(in_array($order->status, ['draft', 'pending_approval', 'processing', 'packing']))
+                            <div x-show="showAdvanced" x-cloak x-transition.opacity.duration.200ms>
+                                <flux:button size="sm" variant="danger" icon="x-mark" wire:click="$set('showVoidModal', true)">
+                                    Batalkan (Void)
+                                </flux:button>
+                            </div>
+                        @endif
+                    @endif
+                </div>
+
+                {{-- Sisi Kanan: Tombol Gabungkan (Muncul saat 3x klik) & Tutup Modal --}}
+                <div class="flex items-center gap-2 flex-wrap justify-end">
+                    @if(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']) && $order->status !== 'merged')
+                        @php $mergeCandidates = $this->getMergeCandidates(); @endphp
+                        @if($mergeCandidates->isNotEmpty())
+                            <div x-show="showAdvanced" x-cloak x-transition.opacity.duration.200ms>
+                                <flux:button size="sm" variant="subtle" icon="arrow-path-rounded-square" wire:click="openMergeModal" class="border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/40">
+                                    Gabungkan Pesanan ({{ $mergeCandidates->count() }} lainnya)
+                                </flux:button>
+                            </div>
+                        @endif
+                    @endif
+                    <flux:button size="sm" variant="ghost" wire:click="$set('show', false)">Tutup Modal</flux:button>
+                </div>
             </div>
         @else
             <div class="p-8 text-center text-zinc-500">Memuat data...</div>
@@ -492,5 +774,87 @@ $getStatusBadge = function ($status) {
                 <flux:button variant="primary" icon="check" wire:click="saveCustomAddress">Simpan Alamat</flux:button>
             </div>
         </div>
+    </x-modal>
+
+    <!-- Modal Pilih Pesanan untuk Digabungkan -->
+    <x-modal wire:model="showMergeModal" maxWidth="md">
+        @if($order)
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                        <flux:icon.arrow-path-rounded-square class="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">Gabungkan ke {{ $order->so_number }}</h3>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400">Pilih pesanan pelanggan {{ $order->customer?->name }} untuk digabungkan ke SO ini.</p>
+                    </div>
+                </div>
+
+                @php $candidates = $this->getMergeCandidates(); @endphp
+                <div class="space-y-2 mb-4 max-h-64 overflow-y-auto pr-1">
+                    @forelse($candidates as $cand)
+                        <label class="flex items-center justify-between p-3 rounded-lg border cursor-pointer transition {{ in_array($cand->id, $mergeCandidateIds) ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 dark:border-indigo-600' : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}">
+                            <div class="flex items-center gap-3">
+                                <input type="checkbox"
+                                       wire:click="toggleMergeCandidate({{ $cand->id }})"
+                                       @checked(in_array($cand->id, $mergeCandidateIds))
+                                       class="w-4 h-4 rounded text-indigo-600 accent-indigo-600 border-zinc-300 dark:border-zinc-600 focus:ring-indigo-500 cursor-pointer" />
+                                <div>
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <span class="font-mono text-sm font-bold text-zinc-800 dark:text-zinc-200">{{ $cand->so_number }}</span>
+                                        @if($cand->mergedOrders->count() > 0)
+                                            <span class="text-[9px] font-black text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-300 dark:border-indigo-800 px-1.5 py-0.5 rounded">
+                                                INDUK (+{{ $cand->mergedOrders->count() }} SO)
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div class="text-[11px] text-zinc-500">
+                                        {{ \Carbon\Carbon::parse($cand->order_date)->format('d M Y') }} &bull; {{ $cand->items->count() }} item
+                                        @if($cand->mergedOrders->count() > 0)
+                                            <span class="text-indigo-600 dark:text-indigo-400 font-medium">(membawa {{ $cand->mergedOrders->pluck('so_number')->join(', ') }})</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs font-bold text-zinc-800 dark:text-zinc-200">Rp {{ number_format($cand->total_amount, 0, ',', '.') }}</div>
+                                <span class="text-[10px] uppercase font-semibold text-zinc-400">{{ $cand->status }}</span>
+                            </div>
+                        </label>
+                    @empty
+                        <div class="p-4 text-center text-xs text-zinc-500">Tidak ada pesanan lain yang tersedia.</div>
+                    @endforelse
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-5 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                    <strong>Perhatian:</strong> Semua item dan pembayaran dari pesanan yang dipilih akan dipindahkan ke <strong>{{ $order->so_number }}</strong>. Jika pesanan yang dipilih sudah memiliki pesanan gabungan, seluruhnya akan <strong>otomatis diratakan (flat)</strong> menjadi anak langsung di bawah <strong>{{ $order->so_number }}</strong>.
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <flux:button variant="ghost" wire:click="$set('showMergeModal', false)">Batal</flux:button>
+                    <flux:button variant="primary" icon="arrow-path-rounded-square" wire:click="executeMergeIntoCurrent" :disabled="empty($mergeCandidateIds)">
+                        Gabungkan Sekarang
+                    </flux:button>
+                </div>
+            </div>
+        @endif
+    </x-modal>
+
+    <!-- Modal Konfirmasi Pisahkan Current Order -->
+    <x-modal wire:model="showUnmergeCurrentConfirm" maxWidth="sm">
+        @if($order)
+            <div class="p-6">
+                <h3 class="font-bold text-zinc-900 dark:text-white mb-2">Pisahkan SO Ini?</h3>
+                <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-5">
+                    Pesanan ini akan dipulihkan dari SO Induk ({{ $order->mergedInto?->so_number }}). Item dan pembayaran aslinya akan dikembalikan ke pesanan ini.
+                </p>
+                <div class="flex justify-end gap-2">
+                    <flux:button variant="ghost" wire:click="$set('showUnmergeCurrentConfirm', false)">Batal</flux:button>
+                    <flux:button variant="danger" icon="scissors" wire:click="executeUnmergeCurrent">
+                        Pisahkan
+                    </flux:button>
+                </div>
+            </div>
+        @endif
     </x-modal>
 </div>
