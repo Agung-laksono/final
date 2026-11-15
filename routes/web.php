@@ -58,6 +58,27 @@ Route::get('/manifest.json', function () {
     return response()->json($manifest)->header('Content-Type', 'application/manifest+json');
 })->name('pwa.manifest');
 
+// Dynamic / fallback robots.txt handler
+Route::get('/robots.txt', function () {
+    $robotsFile = public_path('robots.txt');
+    if (file_exists($robotsFile)) {
+        return response(file_get_contents($robotsFile), 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+    }
+
+    $allowIndexing = (bool) (\App\Models\Setting::where('key', 'seo_allow_indexing')->value('value') ?? false);
+    $blockAi       = (bool) (\App\Models\Setting::where('key', 'seo_block_ai_crawlers')->value('value') ?? true);
+
+    if (!$allowIndexing) {
+        $content = "# Robots.txt - Dibuat otomatis oleh Sistem\nUser-agent: *\nDisallow: /\n";
+    } elseif ($blockAi) {
+        $content = "# Robots.txt - Dibuat otomatis oleh Sistem\nUser-agent: Googlebot\nAllow: /\n\nUser-agent: Bingbot\nAllow: /\n\nUser-agent: GPTBot\nDisallow: /\n\nUser-agent: ClaudeBot\nDisallow: /\n\nUser-agent: PerplexityBot\nDisallow: /\n\nUser-agent: *\nAllow: /\n";
+    } else {
+        $content = "# Robots.txt - Dibuat otomatis oleh Sistem\nUser-agent: *\nDisallow:\n";
+    }
+
+    return response($content, 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+});
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
     Volt::route('notifications', 'notifications.index')->name('notifications.index');

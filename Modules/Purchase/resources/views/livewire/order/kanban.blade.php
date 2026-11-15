@@ -18,6 +18,7 @@ state([
         'void' => ['title' => 'Dibatalkan (Void)', 'color' => 'red'],
         'rejected' => ['title' => 'Ditolak Finance', 'color' => 'rose'],
         'archived' => ['title' => 'Arsip', 'color' => 'slate'],
+        'merged' => ['title' => 'Digabungkan', 'color' => 'zinc'],
     ],
     'transparent_columns' => false,
     'search' => '',
@@ -68,7 +69,7 @@ $sort = function ($field) {
 };
 
 $getBaseQuery = function () {
-    $query = PurchaseOrder::with(['vendor', 'creator', 'items', 'payments'])
+    $query = PurchaseOrder::with(['vendor', 'creator', 'items', 'payments', 'mergedInto', 'mergedOrders'])
         ->where('po_number', 'not like', 'GUNJAS-%')
         ->latest('updated_at');
     if ($this->search) {
@@ -104,7 +105,7 @@ $orders = computed(function () {
     
     if (empty($ids)) return collect();
     
-    $result = PurchaseOrder::with(['vendor', 'creator', 'items', 'payments'])
+    $result = PurchaseOrder::with(['vendor', 'creator', 'items', 'payments', 'mergedInto', 'mergedOrders'])
         ->whereIn('id', $ids)
         ->get()
         ->sortBy(function($order) use ($ids) {
@@ -120,7 +121,7 @@ $orders = computed(function () {
 });
 
 $tableOrders = computed(function () {
-    $query = PurchaseOrder::with(['vendor', 'creator', 'items'])
+    $query = PurchaseOrder::with(['vendor', 'creator', 'items', 'mergedInto', 'mergedOrders'])
         ->where('po_number', 'not like', 'GUNJAS-%')
         ->select('purchase_orders.*');
         
@@ -299,6 +300,17 @@ on([
                                         <span class="font-mono text-[9px] font-bold text-zinc-600 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 px-1 py-px rounded w-max">
                                             {{ $po->po_number }}
                                         </span>
+                                        @if($po->mergedOrders && $po->mergedOrders->isNotEmpty())
+                                            <span class="text-[8px] font-black text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 px-1 py-px rounded shadow-sm flex items-center gap-0.5 w-max" title="PO Induk: Menggabungkan {{ $po->mergedOrders->count() }} pesanan">
+                                                <flux:icon.arrow-path-rounded-square class="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-400" /> INDUK (+{{ $po->mergedOrders->count() }})
+                                            </span>
+                                        @endif
+                                        @if($po->status === 'merged')
+                                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                                                <flux:icon.arrow-path-rounded-square class="w-2.5 h-2.5" />
+                                                Digabung → {{ $po->mergedInto?->po_number }}
+                                            </span>
+                                        @endif
                                         @if($isCustom)
                                             <span class="text-[8px] font-black text-amber-600 bg-amber-100 border border-amber-200 px-1 py-px rounded shadow-sm flex items-center gap-0.5 w-max">
                                                 <flux:icon.sparkles class="w-2 h-2" /> CUSTOM
@@ -444,7 +456,19 @@ on([
                                 <flux:table.row :key="$order->id" class="cursor-pointer hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors" x-on:click="$dispatch('open-detail-modal', { orderId: {{ $order->id }} })">
                                     <flux:table.cell>
                                         <div class="pl-2 sm:pl-4 flex items-center gap-2">
-                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap">{{ $order->po_number }}</div>
+                                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap flex items-center gap-1.5">
+                                                <span>{{ $order->po_number }}</span>
+                                                @if($order->mergedOrders && $order->mergedOrders->isNotEmpty())
+                                                    <span class="text-[9px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/60 px-1.5 py-0.5 rounded flex items-center gap-0.5" title="PO Induk: Menggabungkan {{ $order->mergedOrders->count() }} pesanan">
+                                                        <flux:icon.arrow-path-rounded-square class="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-400" /> INDUK (+{{ $order->mergedOrders->count() }})
+                                                    </span>
+                                                @endif
+                                                @if($order->status === 'merged')
+                                                    <span class="text-[9px] font-bold text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                        <flux:icon.arrow-path-rounded-square class="w-2.5 h-2.5" /> Digabung → {{ $order->mergedInto?->po_number }}
+                                                    </span>
+                                                @endif
+                                            </div>
                                             <div class="text-xs text-zinc-500 whitespace-nowrap">{{ \Carbon\Carbon::parse($order->order_date)->format('d M Y') }}</div>
                                         </div>
                                     </flux:table.cell>

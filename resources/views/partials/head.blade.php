@@ -2,6 +2,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
 @php
+    $allowIndexing = \Illuminate\Support\Facades\Cache::rememberForever('setting_seo_allow_indexing', function () {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return false;
+        $val = \App\Models\Setting::where('key', 'seo_allow_indexing')->value('value');
+        return $val === null ? false : (bool) $val;
+    });
+@endphp
+@if($allowIndexing)
+    <meta name="robots" content="index, follow">
+@else
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+@endif
+
+@php
     $appName = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_name', function () {
         if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return config('app.name', 'Laravel');
         return \App\Models\Setting::where('key', 'pwa_name')->value('value') ?? config('app.name', 'Laravel');

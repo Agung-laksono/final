@@ -22,7 +22,8 @@ class PurchasePayment extends Model
         'status',
         'verified_by',
         'verified_at',
-        'rejection_reason'
+        'rejection_reason',
+        'original_po_id'
     ];
 
     protected $casts = [

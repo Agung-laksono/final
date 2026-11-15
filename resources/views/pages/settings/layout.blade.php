@@ -27,7 +27,7 @@
                     <flux:navlist.item :href="route('settings.integrations')" wire:navigate>{{ __('Integrasi') }}</flux:navlist.item>
                     <flux:navlist.item :href="route('settings.workflow')" :current="request()->routeIs('settings.workflow')" wire:navigate>Workflow</flux:navlist.item>
                     <flux:navlist.item :href="route('settings.brands')" wire:navigate>{{ __('Brands') }}</flux:navlist.item>
-                    <flux:navlist.item :href="route('settings.pwa')" wire:navigate>PWA</flux:navlist.item>
+                    <flux:navlist.item :href="route('settings.pwa')" wire:navigate>{{ __('PWA & SEO') }}</flux:navlist.item>
                     <flux:navlist.item :href="route('settings.system')" wire:navigate class="text-red-500 hover:text-red-600 dark:text-red-400">System & Reset</flux:navlist.item>
                 @endrole
             </flux:navlist>
@@ -84,7 +84,7 @@
                 <a href="{{ route('settings.pwa') }}" wire:navigate
                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all {{ request()->routeIs('settings.pwa') ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400' }}">
                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 0 0 6 3.75v16.5a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 18 20.25V3.75a2.25 2.25 0 0 0-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"/></svg>
-                    PWA
+                    PWA & SEO
                 </a>
                 <a href="{{ route('settings.system') }}" wire:navigate
                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all {{ request()->routeIs('settings.system') ? 'bg-red-600 text-white' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400' }}">

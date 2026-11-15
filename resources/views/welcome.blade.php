@@ -6,6 +6,19 @@
     <title>Beranda - {{ config('app.name', 'Romlah ERP') }}</title>
 
     @php
+        $allowIndexing = \Illuminate\Support\Facades\Cache::rememberForever('setting_seo_allow_indexing', function () {
+            if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return false;
+            $val = \App\Models\Setting::where('key', 'seo_allow_indexing')->value('value');
+            return $val === null ? false : (bool) $val;
+        });
+    @endphp
+    @if($allowIndexing)
+        <meta name="robots" content="index, follow">
+    @else
+        <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+    @endif
+
+    @php
         $pwaIconPath = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_icon', function () {
             if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return null;
             return \App\Models\Setting::where('key', 'pwa_icon')->value('value');

@@ -150,6 +150,21 @@ $executeUnmergeChild = function ($childId) {
 
     $parent = SalesOrder::findOrFail($this->order->id);
 
+    // Strict Lock (Alternatif 6): Proteksi keuangan jika ada pembayaran baru setelah penggabungan
+    $postMergePayments = \Modules\Sales\Models\SalesPayment::where('sales_order_id', $parent->id)
+        ->whereNull('original_so_id')
+        ->where('created_at', '>=', $child->updated_at)
+        ->where(function ($q) {
+            $q->whereNull('status')->orWhere('status', '!=', 'rejected');
+        })
+        ->get();
+
+    if ($postMergePayments->isNotEmpty()) {
+        $totalPost = number_format($postMergePayments->sum('amount'), 0, ',', '.');
+        \Flux::toast("Tidak dapat memisahkan pesanan: Terdapat pembayaran gabungan sebesar Rp {$totalPost} yang dicatat pada SO Induk setelah penggabungan. Harap sesuaikan/batalkan pembayaran tersebut di menu Pembayaran terlebih dahulu sebelum memisahkan pesanan.", variant: 'danger');
+        return;
+    }
+
     \Illuminate\Support\Facades\DB::transaction(function () use ($child, $parent) {
         \Modules\Sales\Models\SalesOrderItem::where('sales_order_id', $parent->id)
             ->where('original_so_id', $child->id)
@@ -185,6 +200,22 @@ $executeUnmergeCurrent = function () {
     abort_unless($child->status === 'merged' && $child->merged_into_so_id, 422);
 
     $parent = SalesOrder::findOrFail($child->merged_into_so_id);
+
+    // Strict Lock (Alternatif 6): Proteksi keuangan jika ada pembayaran baru setelah penggabungan
+    $postMergePayments = \Modules\Sales\Models\SalesPayment::where('sales_order_id', $parent->id)
+        ->whereNull('original_so_id')
+        ->where('created_at', '>=', $child->updated_at)
+        ->where(function ($q) {
+            $q->whereNull('status')->orWhere('status', '!=', 'rejected');
+        })
+        ->get();
+
+    if ($postMergePayments->isNotEmpty()) {
+        $this->showUnmergeCurrentConfirm = false;
+        $totalPost = number_format($postMergePayments->sum('amount'), 0, ',', '.');
+        \Flux::toast("Tidak dapat memisahkan pesanan: Terdapat pembayaran gabungan sebesar Rp {$totalPost} yang dicatat pada SO Induk setelah penggabungan. Harap sesuaikan/batalkan pembayaran tersebut di menu Pembayaran terlebih dahulu sebelum memisahkan pesanan.", variant: 'danger');
+        return;
+    }
 
     \Illuminate\Support\Facades\DB::transaction(function () use ($child, $parent) {
         \Modules\Sales\Models\SalesOrderItem::where('sales_order_id', $parent->id)
@@ -371,17 +402,34 @@ $getStatusBadge = function ($status) {
 
             {{-- Merge / Digabungkan Alert & Status --}}
             @if($order->status === 'merged')
+                @php
+                    $parentSo = $order->mergedInto;
+                    $childPostPayments = $parentSo ? \Modules\Sales\Models\SalesPayment::where('sales_order_id', $parentSo->id)
+                        ->whereNull('original_so_id')
+                        ->where('created_at', '>=', $order->updated_at)
+                        ->where(function ($q) {
+                            $q->whereNull('status')->orWhere('status', '!=', 'rejected');
+                        })->get() : collect();
+                    $isLocked = $childPostPayments->isNotEmpty();
+                    $lockTotal = $isLocked ? number_format($childPostPayments->sum('amount'), 0, ',', '.') : 0;
+                @endphp
                 <div class="mt-3 p-3 bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 rounded-lg flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300">
                         <flux:icon.arrow-path-rounded-square class="w-4 h-4 text-indigo-500 shrink-0" />
                         <div>
                             <span>Pesanan ini berstatus <strong>Digabungkan</strong> ke SO Induk: </span>
                             <strong class="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{{ $order->mergedInto?->so_number }}</strong>
+                            @if($isLocked)
+                                <div class="text-[11px] text-red-600 dark:text-red-400 font-medium flex items-center gap-1 mt-0.5">
+                                    <flux:icon.lock-closed class="w-3 h-3 shrink-0 text-red-500" />
+                                    Pemisahan terkunci: terdapat pembayaran baru Rp {{ $lockTotal }} di SO Induk.
+                                </div>
+                            @endif
                         </div>
                     </div>
                     @if(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']))
-                        <flux:button size="xs" variant="subtle" icon="scissors" wire:click="$set('showUnmergeCurrentConfirm', true)" class="text-amber-600 hover:text-amber-700 shrink-0">
-                            Pisahkan SO Ini
+                        <flux:button size="xs" variant="subtle" icon="{{ $isLocked ? 'lock-closed' : 'scissors' }}" wire:click="$set('showUnmergeCurrentConfirm', true)" class="{{ $isLocked ? 'text-red-600 hover:text-red-700' : 'text-amber-600 hover:text-amber-700' }} shrink-0">
+                            {{ $isLocked ? 'Pemisahan Terkunci' : 'Pisahkan SO Ini' }}
                         </flux:button>
                     @endif
                 </div>
@@ -395,6 +443,15 @@ $getStatusBadge = function ($status) {
                     </div>
                     <div class="space-y-1.5">
                         @foreach($order->mergedOrders as $childOrder)
+                            @php
+                                $childPostPayments = ($order->payments ?? collect())->filter(function ($payment) use ($childOrder) {
+                                    return is_null($payment->original_so_id)
+                                        && $payment->created_at >= $childOrder->updated_at
+                                        && $payment->status !== 'rejected';
+                                });
+                                $isChildLocked = $childPostPayments->isNotEmpty();
+                                $childPostTotal = $isChildLocked ? number_format($childPostPayments->sum('amount'), 0, ',', '.') : 0;
+                            @endphp
                             <div class="flex items-center justify-between bg-white dark:bg-zinc-800 px-3 py-1.5 rounded border border-indigo-100 dark:border-zinc-700 text-xs">
                                 <div class="flex items-center gap-2">
                                     <span class="font-mono font-bold text-zinc-800 dark:text-zinc-200">{{ $childOrder->so_number }}</span>
@@ -402,11 +459,23 @@ $getStatusBadge = function ($status) {
                                     <span class="text-zinc-500">{{ \Carbon\Carbon::parse($childOrder->order_date)->format('d M Y') }}</span>
                                     <span class="text-zinc-300 dark:text-zinc-600">&bull;</span>
                                     <span class="text-zinc-500">{{ $childOrder->items->count() }} item</span>
+                                    @if($isChildLocked)
+                                        <span class="text-[10px] font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 px-1.5 py-0.5 rounded flex items-center gap-1" title="Terkunci: Ada pembayaran Rp {{ $childPostTotal }} setelah merger">
+                                            <flux:icon.lock-closed class="w-3 h-3 text-red-500" />
+                                            Terkunci (Ada Bayar Rp {{ $childPostTotal }})
+                                        </span>
+                                    @endif
                                 </div>
                                 @if(auth()->user()->hasAnyRole(['Manager', 'Super Admin', 'Kepala Sales']))
-                                    <flux:button size="xs" variant="ghost" icon="scissors" wire:click="executeUnmergeChild({{ $childOrder->id }})" wire:confirm="Pisahkan pesanan {{ $childOrder->so_number }} dari SO ini?" class="text-amber-600 hover:text-amber-700">
-                                        Pisahkan
-                                    </flux:button>
+                                    @if($isChildLocked)
+                                        <flux:button size="xs" variant="ghost" icon="lock-closed" wire:click="executeUnmergeChild({{ $childOrder->id }})" class="text-zinc-400 hover:text-red-600" title="Klik untuk info proteksi">
+                                            Terkunci
+                                        </flux:button>
+                                    @else
+                                        <flux:button size="xs" variant="ghost" icon="scissors" wire:click="executeUnmergeChild({{ $childOrder->id }})" wire:confirm="Pisahkan pesanan {{ $childOrder->so_number }} dari SO ini?" class="text-amber-600 hover:text-amber-700">
+                                            Pisahkan
+                                        </flux:button>
+                                    @endif
                                 @endif
                             </div>
                         @endforeach
@@ -843,16 +912,39 @@ $getStatusBadge = function ($status) {
     <!-- Modal Konfirmasi Pisahkan Current Order -->
     <x-modal wire:model="showUnmergeCurrentConfirm" maxWidth="sm">
         @if($order)
+            @php
+                $parentSo = $order->mergedInto;
+                $childPostPayments = $parentSo ? \Modules\Sales\Models\SalesPayment::where('sales_order_id', $parentSo->id)
+                    ->whereNull('original_so_id')
+                    ->where('created_at', '>=', $order->updated_at)
+                    ->where(function ($q) {
+                        $q->whereNull('status')->orWhere('status', '!=', 'rejected');
+                    })->get() : collect();
+                $isLocked = $childPostPayments->isNotEmpty();
+                $lockTotal = $isLocked ? number_format($childPostPayments->sum('amount'), 0, ',', '.') : 0;
+            @endphp
             <div class="p-6">
                 <h3 class="font-bold text-zinc-900 dark:text-white mb-2">Pisahkan SO Ini?</h3>
-                <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-5">
-                    Pesanan ini akan dipulihkan dari SO Induk ({{ $order->mergedInto?->so_number }}). Item dan pembayaran aslinya akan dikembalikan ke pesanan ini.
-                </p>
+                @if($isLocked)
+                    <div class="p-3 mb-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-700 dark:text-red-400 leading-relaxed">
+                        <div class="font-bold flex items-center gap-1.5 mb-1 text-red-800 dark:text-red-300">
+                            <flux:icon.exclamation-triangle class="w-4 h-4 text-red-600 shrink-0" />
+                            Pemisahan Terkunci (Proteksi Keuangan)
+                        </div>
+                        Pesanan ini memiliki pembayaran gabungan sebesar <strong>Rp {{ $lockTotal }}</strong> yang dicatat pada SO Induk setelah penggabungan. Harap sesuaikan atau batalkan pembayaran tersebut di menu Pembayaran terlebih dahulu sebelum memisahkan pesanan.
+                    </div>
+                @else
+                    <p class="text-sm text-zinc-600 dark:text-zinc-400 mb-5">
+                        Pesanan ini akan dipulihkan dari SO Induk ({{ $order->mergedInto?->so_number }}). Item dan pembayaran aslinya akan dikembalikan ke pesanan ini.
+                    </p>
+                @endif
                 <div class="flex justify-end gap-2">
-                    <flux:button variant="ghost" wire:click="$set('showUnmergeCurrentConfirm', false)">Batal</flux:button>
-                    <flux:button variant="danger" icon="scissors" wire:click="executeUnmergeCurrent">
-                        Pisahkan
-                    </flux:button>
+                    <flux:button variant="ghost" wire:click="$set('showUnmergeCurrentConfirm', false)">{{ $isLocked ? 'Tutup' : 'Batal' }}</flux:button>
+                    @if(!$isLocked)
+                        <flux:button variant="danger" icon="scissors" wire:click="executeUnmergeCurrent">
+                            Pisahkan
+                        </flux:button>
+                    @endif
                 </div>
             </div>
         @endif
