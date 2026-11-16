@@ -22,7 +22,7 @@ Route::any('/api/fonnte/webhook', [\Modules\Communication\Http\Controllers\Fonnt
 
 // Dynamic PWA Manifest — reads name, icon, colors from settings table
 Route::get('/manifest.json', function () {
-    $get = fn($key, $default) => \App\Models\Setting::where('key', $key)->value('value') ?? $default;
+    $get = fn($key, $default) => \App\Models\Setting::get($key, $default);
 
     $iconPath = $get('pwa_icon', null);
     $iconUrl  = $iconPath ? asset('storage/' . $iconPath) : asset('apple-touch-icon.png');
@@ -65,8 +65,8 @@ Route::get('/robots.txt', function () {
         return response(file_get_contents($robotsFile), 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
     }
 
-    $allowIndexing = (bool) (\App\Models\Setting::where('key', 'seo_allow_indexing')->value('value') ?? false);
-    $blockAi       = (bool) (\App\Models\Setting::where('key', 'seo_block_ai_crawlers')->value('value') ?? true);
+    $allowIndexing = (bool) (\App\Models\Setting::get('seo_allow_indexing', false));
+    $blockAi       = (bool) (\App\Models\Setting::get('seo_block_ai_crawlers', true));
 
     if (!$allowIndexing) {
         $content = "# Robots.txt - Dibuat otomatis oleh Sistem\nUser-agent: *\nDisallow: /\n";

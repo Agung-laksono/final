@@ -619,10 +619,14 @@
             <div class="flex items-center gap-4 transition-all duration-500 transform origin-left" x-bind:class="isNotifOpen ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'">
                 @php
                     $fabIconPath = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_icon', function () {
+                        if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return null;
                         return \App\Models\Setting::where('key', 'pwa_icon')->value('value');
                     });
                     $fabIconUrl = $fabIconPath ? \Illuminate\Support\Facades\Storage::url($fabIconPath) : null;
-                    $fabAppName = \App\Models\Setting::where('key', 'pwa_name')->value('value') ?? 'Menu';
+                    $fabAppName = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_name', function () {
+                        if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return config('app.name', 'Menu');
+                        return \App\Models\Setting::where('key', 'pwa_name')->value('value') ?? 'Menu';
+                    });
                 @endphp
                 <button @click="open = !open; if(!open) setTimeout(() => activeMenu = null, 300); else activeMenu = null; clearIdle(); startIdleTimer();" 
                         class="relative bg-indigo-600 text-white shadow-xl hover:shadow-indigo-500/50 flex items-center justify-center transition-all duration-500 focus:outline-none z-20 group/fab hover:opacity-100"

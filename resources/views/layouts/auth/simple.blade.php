@@ -8,7 +8,12 @@
             <div class="flex w-full max-w-sm flex-col gap-2">
                 <a href="{{ route('home') }}" class="flex flex-col items-center gap-2 font-medium" wire:navigate>
                     <span class="flex h-12 w-12 mb-1 items-center justify-center rounded-xl overflow-hidden shadow-sm">
-                        @php $pwaIcon = \App\Models\Setting::where('key', 'pwa_icon')->value('value'); @endphp
+                        @php
+                            $pwaIcon = \Illuminate\Support\Facades\Cache::rememberForever('setting_pwa_icon', function () {
+                                if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) return null;
+                                return \App\Models\Setting::where('key', 'pwa_icon')->value('value');
+                            });
+                        @endphp
                         @if($pwaIcon)
                             <img src="{{ asset('storage/' . $pwaIcon) }}" alt="{{ config('app.name') }}" class="w-full h-full object-cover">
                         @else
